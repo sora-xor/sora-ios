@@ -365,9 +365,11 @@ final class PortfolioSkyView: UIView {
         CATransaction.commit()
     }
 
+    /// The comet, twinkles and halo breath repeat forever, so they follow the
+    /// pulse rule: off with Reduce Motion, and off in Low Power Mode or on a
+    /// hot device (the reduced tier keeps static glows only).
     private var loopsAllowed: Bool {
-        let fx = FxPolicy.current
-        return !fx.reduceMotion && fx.tier != .minimal
+        FxPolicy.current.pulses
     }
 
     private func updateLoops() {
