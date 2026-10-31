@@ -43,4 +43,9 @@ extension EnterPasswordWireframe: EnterPasswordWireframeProtocol {
         )?.controller else { return }
         currentController?.controller.navigationController?.setViewControllers([successView], animated: true)
     }
+
+    func presentShortPhraseWarning(name: String?, address: String, acknowledged: @escaping () -> Void) {
+        WalletShortPhraseWarning.present(from: currentController?.controller, name: name, address: address,
+                                         acknowledged: acknowledged)
+    }
 }

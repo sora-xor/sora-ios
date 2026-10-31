@@ -24,6 +24,10 @@ final class WalletCredentialRepairViewController: UIViewController {
     private var busy = false
     private var observers: [NSObjectProtocol] = []
     private var secretShield: WalletSensitiveScreenShield?
+    /// The confirmed phrase has 3, 6 or 9 words: a successful repair shows the warning first.
+    private var repairsShortPhrase = false
+    /// Continues to `onSuccess` once that warning is closed.
+    private var afterShortPhraseWarning: (() -> Void)?
 
     init(account: AccountItem, service: WalletCredentialRepair,
          currentAccounts: @escaping () throws -> [AccountItem], onSuccess: @escaping (AccountItem) -> Void,
@@ -161,6 +165,13 @@ final class WalletCredentialRepairViewController: UIViewController {
         pin.text = ""
         path.text = ""
         if presentedViewController is UIAlertController { dismiss(animated: false) }
+        continueAfterShortPhraseWarning()
+    }
+
+    private func continueAfterShortPhraseWarning() {
+        let next = afterShortPhraseWarning
+        afterShortPhraseWarning = nil
+        next?()
     }
 
     @objc private func reviewRepair() {
@@ -186,6 +197,7 @@ final class WalletCredentialRepairViewController: UIViewController {
         if source.selectedSegmentIndex == 3 {
             // Choosing a source alone never opens Google sign-in or reads Drive.
             // Only this explicitly confirmed action starts the requested read.
+            repairsShortPhrase = false
             setBusy(true)
             let cloud = WalletCloudBackupRecoveryService(viewController: self)
             Task { @MainActor [self] in
@@ -203,6 +215,8 @@ final class WalletCredentialRepairViewController: UIViewController {
             return
         }
         guard let format = WalletCredentialRepair.Source(rawValue: source.selectedSegmentIndex) else { return }
+        repairsShortPhrase = format == .phrase && WalletMnemonicWordPolicy.retainedShortWordCounts.contains(
+            text.split(whereSeparator: { $0.isWhitespace }).count)
         perform {
             let prepared = try self.service.prepare(account: self.account, source: format, text: text,
                 derivationPath: derivation, backupPassword: backupPassword)
@@ -269,7 +283,19 @@ final class WalletCredentialRepairViewController: UIViewController {
                     self.clearSensitiveInputs()
                     self.status.text = WalletUX.text("Wallet credentials repaired.")
                     self.retry.isHidden = true
-                    self.onSuccess(self.account)
+                    if self.repairsShortPhrase {
+                        self.repairsShortPhrase = false
+                        self.afterShortPhraseWarning = { [weak self] in
+                            guard let self else { return }
+                            self.onSuccess(self.account)
+                        }
+                        WalletShortPhraseWarning.present(from: self, name: self.account.username,
+                                                         address: self.account.address) { [weak self] in
+                            self?.continueAfterShortPhraseWarning()
+                        }
+                    } else {
+                        self.onSuccess(self.account)
+                    }
                 case let .failure(error):
                     self.retry.isHidden = (try? self.service.hasPendingRepair()) != true
                     if error is WalletOwnerPIN.Failure || error is WalletRetainedPinGate.Failure || error is WalletCredentialRepair.Failure {

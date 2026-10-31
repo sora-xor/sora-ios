@@ -111,6 +111,36 @@ import XCTest
     f.model.didCompleteAccountImport()
     XCTAssertEqual(f.routes.addresses, ["public-one"])
   }
+  func testShortPhraseRestoreWarnsBeforeRoutingToSuccess() throws {
+    let f = make()
+    try row(f).continueButtonHandler?("password")
+    f.model.didRestoreShortPhraseWallet()
+    f.model.didCompleteAccountImport()
+    XCTAssertFalse(f.view.loading)
+    XCTAssertEqual(f.routes.warnings.count, 1)
+    XCTAssertEqual(f.routes.warnedWallets, ["public-one"])
+    XCTAssertTrue(f.routes.addresses.isEmpty)
+    f.routes.warnings.first?()
+    XCTAssertEqual(f.routes.addresses, ["public-one"])
+  }
+  func testOrdinaryRestoreRoutesWithoutTheShortPhraseWarning() throws {
+    let f = make()
+    try row(f).continueButtonHandler?("password")
+    f.model.didCompleteAccountImport()
+    XCTAssertTrue(f.routes.warnings.isEmpty)
+    XCTAssertEqual(f.routes.addresses, ["public-one"])
+  }
+  func testFailedImportForgetsItsShortPhraseNotice() throws {
+    let f = make()
+    try row(f).continueButtonHandler?("password")
+    f.model.didRestoreShortPhraseWallet()
+    f.model.didReceiveAccountImport(error: BackupPasswordModelFailure.denied)
+    f.model.didRestoreShortPhraseWallet()
+    try row(f).continueButtonHandler?("password")
+    f.model.didCompleteAccountImport()
+    XCTAssertTrue(f.routes.warnings.isEmpty)
+    XCTAssertEqual(f.routes.addresses, ["public-one"])
+  }
   func testLocalizationReloadKeepsSelectedAccountMetadata() throws {
     let f = make(selected: "public-two")
     f.model.applyLocalization()
@@ -159,10 +189,14 @@ private final class BackupPasswordView: EnterPasswordViewProtocol {
 }
 private final class BackupPasswordRoutes: EnterPasswordWireframeProtocol {
   var activityIndicatorWindow: UIWindow?
-  var addresses = [String](), accounts = [[OpenBackupAccount]]()
+  var addresses = [String](), accounts = [[OpenBackupAccount]](), warnings = [() -> Void](), warnedWallets = [String]()
   func openSuccessImport(importedAccountAddress: String, accounts: [OpenBackupAccount]) {
     addresses.append(importedAccountAddress)
     self.accounts.append(accounts)
+  }
+  func presentShortPhraseWarning(name: String?, address: String, acknowledged: @escaping () -> Void) {
+    warnedWallets.append(address)
+    warnings.append(acknowledged)
   }
 }
 private final class BackupPasswordImporter: AccountImportInteractorInputProtocol {
