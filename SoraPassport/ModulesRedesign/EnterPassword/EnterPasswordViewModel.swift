@@ -126,6 +126,12 @@ extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
         view?.hideLoading()
         reload()
     }
+
+    func didCancelAccountImport() {
+        isImporting = false
+        restoredShortPhrase = false
+        view?.hideLoading()
+    }
     
     func didSuggestKeystore(text: String, preferredInfo: AccountImportPreferredInfo?) {}
     func didReceiveAccountImport(metadata: AccountImportMetadata) {}

@@ -96,7 +96,11 @@ class BaseAccountImportInteractor {
                         completion?(.success(account))
                     })
                 case .failure(let error):
-                    if !(error is CancellationError) { self?.presenter?.didReceiveAccountImport(error: error) }
+                    if error is CancellationError {
+                        self?.presenter?.didCancelAccountImport()
+                    } else {
+                        self?.presenter?.didReceiveAccountImport(error: error)
+                    }
                     completion?(.failure(error))
                 }
             }

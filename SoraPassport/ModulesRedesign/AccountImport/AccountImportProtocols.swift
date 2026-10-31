@@ -63,10 +63,13 @@ protocol AccountImportInteractorOutputProtocol: AnyObject {
     /// A Google Drive backup is being restored from a 3-, 6- or 9-word phrase (see
     /// `WalletShortPhraseWarning`). Sent on the main queue before the import completes or fails.
     func didRestoreShortPhraseWallet()
+    /// The user closed the key-repair PIN screen: nothing changed and there is no error to show.
+    func didCancelAccountImport()
 }
 
 extension AccountImportInteractorOutputProtocol {
     func didRestoreShortPhraseWallet() {}
+    func didCancelAccountImport() {}
 }
 
 protocol AccountImportWireframeProtocol: AlertPresentable, ErrorPresentable, WebPresentable {

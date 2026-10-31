@@ -73,6 +73,16 @@ import XCTest
     XCTAssertFalse(f.view.loading)
     XCTAssertEqual(try row(f).errorText, "Fixture rejected password")
   }
+  func testCancelledKeyRepairHidesProgressWithoutAnErrorAndAllowsRetry() throws {
+    let f = make()
+    try row(f).continueButtonHandler?("password")
+    XCTAssertTrue(f.view.loading)
+    f.model.didCancelAccountImport()
+    XCTAssertFalse(f.view.loading)
+    XCTAssertEqual(try row(f).errorText, "")
+    try row(f).continueButtonHandler?("password")
+    XCTAssertEqual(f.importer.requests.count, 2)
+  }
   func testFailedImportCanRetryWithANewPassword() throws {
     let f = make()
     try row(f).continueButtonHandler?("first")
