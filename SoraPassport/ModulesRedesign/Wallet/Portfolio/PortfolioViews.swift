@@ -189,32 +189,9 @@ enum PortfolioBadges {
         return String(name.prefix(2)).uppercased()
     }
 
-    /// The flower on a pink badge with faint rings: the All wallets avatar.
+    /// The SORA mark, the red disc with 天: the All wallets avatar.
     static func allWallets(size: CGFloat) -> UIImage? {
-        cached("all|\(size)") {
-            let rect = CGRect(x: 0, y: 0, width: size, height: size)
-            return UIGraphicsImageRenderer(size: rect.size).image { context in
-                let space = CGColorSpaceCreateDeviceRGB()
-                let colors = [UIColor(portfolioHex: 0xFF2E86), UIColor(portfolioHex: 0xB0005A)].map(\.cgColor)
-                context.cgContext.saveGState()
-                UIBezierPath(ovalIn: rect).addClip()
-                if let gradient = CGGradient(colorsSpace: space, colors: colors as CFArray, locations: [0, 1]) {
-                    context.cgContext.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: size, y: size),
-                                                         options: [])
-                }
-                for (fraction, alpha) in [(0.5, 0.22), (0.7, 0.14), (0.9, 0.07)] {
-                    let radius = size / 2 * CGFloat(fraction)
-                    let ring = UIBezierPath(ovalIn: CGRect(x: size / 2 - radius, y: size / 2 - radius,
-                                                           width: radius * 2, height: radius * 2))
-                    ring.lineWidth = 1
-                    UIColor.white.withAlphaComponent(CGFloat(alpha)).setStroke()
-                    ring.stroke()
-                }
-                context.cgContext.restoreGState()
-                UIColor.white.setFill()
-                PortfolioGlyphs.flowerPath(in: rect.insetBy(dx: size * 0.2, dy: size * 0.2)).fill()
-            }
-        }
+        cached("all|\(size)") { PortfolioGlyphs.soraMarkImage(size: size) }
     }
 }
 
@@ -431,9 +408,14 @@ final class PortfolioLegendChipView: UIControl {
     }
 }
 
-/// A quick action: a tactile disc with a glyph and a label below.
+/// A quick action: a glossy disc in one of the hero's colours (lit from the top left like the planet,
+/// with a glow of its own colour below it), a white glyph, and a label below.
 final class PortfolioQuickActionView: UIControl {
-    let disc = NeumorphicControl()
+    private static let size: CGFloat = 54
+    private let disc = UIView()
+    private let face = CALayer()
+    private let fill = CAGradientLayer()
+    private let gloss = CAGradientLayer()
     private let glyph = UIImageView()
     private let label = UILabel()
     let action: PortfolioQuickAction
@@ -442,8 +424,24 @@ final class PortfolioQuickActionView: UIControl {
         self.action = action
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        disc.shape = .capsule
         disc.isUserInteractionEnabled = false
+        let bounds = CGRect(x: 0, y: 0, width: Self.size, height: Self.size)
+        face.frame = bounds
+        face.cornerRadius = Self.size / 2
+        face.masksToBounds = true
+        face.borderWidth = 1
+        face.borderColor = UIColor.white.withAlphaComponent(0.22).cgColor
+        fill.frame = bounds
+        fill.startPoint = .zero
+        fill.endPoint = CGPoint(x: 1, y: 1)
+        gloss.frame = bounds
+        gloss.colors = [UIColor.white.withAlphaComponent(0.28), UIColor.clear].map(\.cgColor)
+        gloss.locations = [0, 0.5]
+        [fill, gloss].forEach { face.addSublayer($0) }
+        disc.layer.addSublayer(face)
+        disc.layer.shadowPath = UIBezierPath(ovalIn: bounds).cgPath
+        disc.layer.shadowOffset = CGSize(width: 0, height: 5)
+        disc.layer.shadowRadius = 10
         glyph.contentMode = .center
         label.textAlignment = .center
         label.font = PortfolioTheme.font(FontType.textBoldXS, .caption1, maximum: 20)
@@ -456,12 +454,12 @@ final class PortfolioQuickActionView: UIControl {
             addSubview($0)
         }
         glyph.translatesAutoresizingMaskIntoConstraints = false
-        disc.contentView.addSubview(glyph)
+        disc.addSubview(glyph)
         NSLayoutConstraint.activate([
             disc.topAnchor.constraint(equalTo: topAnchor),
             disc.centerXAnchor.constraint(equalTo: centerXAnchor),
-            disc.widthAnchor.constraint(equalToConstant: 54),
-            disc.heightAnchor.constraint(equalToConstant: 54),
+            disc.widthAnchor.constraint(equalToConstant: Self.size),
+            disc.heightAnchor.constraint(equalToConstant: Self.size),
             glyph.centerXAnchor.constraint(equalTo: disc.centerXAnchor),
             glyph.centerYAnchor.constraint(equalTo: disc.centerYAnchor),
             label.topAnchor.constraint(equalTo: disc.bottomAnchor, constant: 8),
@@ -484,26 +482,122 @@ final class PortfolioQuickActionView: UIControl {
         switch action {
         case .send:
             title = PortfolioStrings.send
-            glyph.image = PortfolioGlyphs.symbol("arrow.up.right", pointSize: 19, color: tokens.textPrimary)
+            glyph.image = PortfolioGlyphs.symbol("arrow.up.right", pointSize: 19, color: .white)
         case .receive:
             title = PortfolioStrings.receive
-            glyph.image = PortfolioGlyphs.symbol("arrow.down.left", pointSize: 19, color: tokens.textPrimary)
+            glyph.image = PortfolioGlyphs.symbol("arrow.down.left", pointSize: 19, color: .white)
         case .move:
             title = PortfolioStrings.move
-            glyph.image = PortfolioGlyphs.moveImage(size: 24, color: tokens.textPrimary)
+            glyph.image = PortfolioGlyphs.moveImage(size: 24, color: .white)
         case .swap:
             title = PortfolioStrings.swap
-            glyph.image = PortfolioGlyphs.flowerImage(size: 24)
+            glyph.image = PortfolioGlyphs.flowerImage(size: 24, color: .white)
         }
+        let colors = PortfolioTheme.actionColors(action)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        fill.colors = [colors.lit.cgColor, colors.deep.cgColor]
+        disc.layer.shadowColor = colors.deep.cgColor
+        disc.layer.shadowOpacity = FxPolicy.current.glows ? (PortfolioTheme.isDark ? 0.55 : 0.32) : 0
+        CATransaction.commit()
         label.text = title
         label.textColor = tokens.textPrimary
         accessibilityLabel = title
-        disc.apply()
     }
 
     override var isHighlighted: Bool {
-        // The disc presses itself (shadow, face and scale); the label stays still.
-        didSet { disc.isHighlighted = isHighlighted }
+        // The disc sinks a little (Reduce Motion: it only dims); the label stays still.
+        didSet {
+            let pressed = isHighlighted
+            let scale: CGFloat = pressed && !UIAccessibility.isReduceMotionEnabled ? 0.94 : 1
+            UIView.animate(withDuration: 0.12, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+                self.disc.transform = CGAffineTransform(scaleX: scale, y: scale)
+                self.disc.alpha = pressed ? 0.85 : 1
+            }
+        }
+    }
+}
+
+/// The 24 h change in a capsule tinted with its direction's colour.
+final class PortfolioChangePill: UIView {
+    let label = UILabel.portfolio(FontType.amountS, .subheadline, lines: 0)
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        layer.borderWidth = 1
+        layer.cornerCurve = .continuous
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+        NSLayoutConstraint.activate([
+            label.topAnchor.constraint(equalTo: topAnchor, constant: 3),
+            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -3),
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10)
+        ])
+        isAccessibilityElement = false
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func tint(_ color: UIColor) {
+        backgroundColor = color.withAlphaComponent(PortfolioTheme.isDark ? 0.13 : 0.09)
+        layer.borderColor = color.withAlphaComponent(0.32).cgColor
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // A capsule on one line; a rounded box when large text wraps it.
+        layer.cornerRadius = min(bounds.height / 2, 16)
+    }
+}
+
+/// The planet's light falling on the top of the hero card: a soft red glow from its top edge and a rim
+/// of light along the edge's middle.
+final class PortfolioCardLightView: UIView {
+    private let glow = CAGradientLayer()
+    private let rim = CAGradientLayer()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        isAccessibilityElement = false
+        clipsToBounds = true
+        glow.type = .radial
+        glow.startPoint = CGPoint(x: 0.5, y: 0.5)
+        glow.endPoint = CGPoint(x: 1, y: 1)
+        rim.startPoint = CGPoint(x: 0, y: 0.5)
+        rim.endPoint = CGPoint(x: 1, y: 0.5)
+        [glow, rim].forEach { layer.addSublayer($0) }
+        applyTheme()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func applyTheme() {
+        let dark = PortfolioTheme.isDark
+        let glowColor = PortfolioTheme.soraGlow.withAlphaComponent(dark ? 0.22 : 0.12)
+        let rimColor = PortfolioTheme.soraGlow.withAlphaComponent(dark ? 0.85 : 0.55)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        glow.colors = [glowColor.cgColor, glowColor.withAlphaComponent(0).cgColor]
+        glow.isHidden = !FxPolicy.current.glows
+        rim.colors = [rimColor.withAlphaComponent(0).cgColor, rimColor.cgColor, rimColor.withAlphaComponent(0).cgColor]
+        CATransaction.commit()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let width = bounds.width
+        let radius = width * 0.55
+        glow.frame = CGRect(x: width / 2 - radius, y: -0.45 * radius, width: 2 * radius, height: 0.9 * radius)
+        rim.frame = CGRect(x: width * 0.18, y: 0, width: width * 0.64, height: 1.5)
+        CATransaction.commit()
     }
 }
 
