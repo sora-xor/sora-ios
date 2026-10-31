@@ -142,6 +142,15 @@ extension AuthorizationPresentable {
         self.authorizationView = view
         self.inView = inView
 
+        // A fast downward flick closes the PIN sheet by itself and reports only
+        // through completionHandler. Count it as a cancelled authorization, or
+        // the stale request makes every later authorization fail until relaunch.
+        // The sheet holds the requester strongly, so the shared request state
+        // clears even when nothing else keeps the requester alive.
+        (authorizationView as? BlurViewController)?.completionHandler = {
+            self.showAuthorizationCompletion(with: false)
+        }
+
         authorizationView.modalTransitionStyle = .crossDissolve
         authorizationView.modalPresentationStyle = .fullScreen
 
