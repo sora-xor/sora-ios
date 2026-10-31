@@ -39,5 +39,5 @@ protocol EnterPasswordViewModelProtocol: AnyObject {
 
 protocol EnterPasswordWireframeProtocol: Loadable {
     func openSuccessImport(importedAccountAddress: String, accounts: [OpenBackupAccount])
-    func presentShortPhraseWarning(acknowledged: @escaping () -> Void)
+    func presentShortPhraseWarning(name: String?, address: String, acknowledged: @escaping () -> Void)
 }

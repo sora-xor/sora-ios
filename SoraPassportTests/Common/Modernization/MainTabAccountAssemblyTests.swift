@@ -554,10 +554,11 @@ final class MainTabEventLifecycleTests: XCTestCase {
     private func definition() -> KeystoreDefinition {
         KeystoreDefinition(address: "public-fixture", encoded: "AA==", encoding: KeystoreEncoding(content: ["pkcs8", "sr25519"], type: ["scrypt", "xsalsa20-poly1305"], version: "3"), meta: nil)
     }
-    private func fixture(pendingImport: Bool = false) -> (MainTabBarInteractor, TabEventOutput, TabEventServices, TabEventImport, EventCenter) {
+    private func fixture(pendingImport: Bool = false, shortPhraseWallets: [AccountItem] = []) -> (MainTabBarInteractor, TabEventOutput, TabEventServices, TabEventImport, EventCenter) {
         let output = TabEventOutput(), services = TabEventServices(), imports = TabEventImport(), events = EventCenter()
         imports.definition = pendingImport ? definition() : nil
-        let interactor = MainTabBarInteractor(eventCenter: events, serviceCoordinator: services, keystoreImportService: imports)
+        let interactor = MainTabBarInteractor(eventCenter: events, serviceCoordinator: services, keystoreImportService: imports,
+                                              unwarnedShortPhraseWallets: { shortPhraseWallets })
         interactor.presenter = output; return (interactor, output, services, imports, events)
     }
     private func send(_ event: EventProtocol, through center: EventCenter) async {
@@ -600,6 +601,14 @@ final class MainTabEventLifecycleTests: XCTestCase {
         interactor.didReceiveWillEnterForeground(notification: Notification(name: UIApplication.willEnterForegroundNotification))
         XCTAssertEqual(output.calls, ["wallet"])
     }
+    func testSetupReportsUnwarnedShortPhraseWalletsOnTheMainQueue() async {
+        let wallet = AccountItem(address: "short-phrase-fixture", cryptoType: .sr25519, networkType: 69, username: "Short phrase fixture",
+                                 publicKeyData: Data(repeating: 4, count: 32), settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
+        let (interactor, output, _, _, _) = fixture(shortPhraseWallets: [wallet])
+        let reported = expectation(description: "short-phrase wallets reported"); output.onShortPhraseWallets = { reported.fulfill() }
+        interactor.setup(); await fulfillment(of: [reported], timeout: 3)
+        XCTAssertEqual(output.shortPhraseWallets, [[wallet]]); XCTAssertEqual(output.calls, ["assets"])
+    }
 }
 private final class TabEventServices: ServiceCoordinatorProtocol {
     var starts = 0, migrationChecks = 0
@@ -616,6 +625,8 @@ private final class TabEventOutput: MainTabBarInteractorOutputProtocol {
     func didUserChange() { calls.append("account") }; func didReloadSelectedNetwork() { calls.append("network") }; func didReloadSelectedAccount() { calls.append("selected") }
     func didUpdateWalletInfo() { calls.append("wallet") }; func didRequestImportAccount() { calls.append("import") }; func didRequestMigration(with service: MigrationServiceProtocol) { migration = service; calls.append("migration") }
     func didEndMigration() { calls.append("migration-ended") }; func didEndTransaction() { calls.append("transaction-ended") }; func didLanguageChange() { calls.append("language") }; func didReceiveWalletAssetList() { calls.append("assets") }
+    var shortPhraseWallets: [[AccountItem]] = []; var onShortPhraseWallets: (() -> Void)?
+    func didFindUnwarnedShortPhraseWallets(_ wallets: [AccountItem]) { shortPhraseWallets.append(wallets); onShortPhraseWallets?() }
 }
 
 @MainActor

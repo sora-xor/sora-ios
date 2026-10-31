@@ -108,6 +108,7 @@ final class ApplicationConfig {
         static let enabledCards = "enabledCardIdentifiers"
         static let backupedAddresses = "backupedAccountAddresses"
         static let savedAddresses = "savedAddresses"
+        static let shortPhraseWarnedAddresses = "shortPhraseWarnedAddresses"
     }
 
     private var config: InternalConfig
@@ -334,6 +335,16 @@ extension ApplicationConfig: ApplicationConfigProtocol {
         }
         set {
             UserDefaults.standard.set(newValue, forKey: Constants.backupedAddresses)
+        }
+    }
+
+    /// Wallets whose 3-, 6- or 9-word phrase warning was closed (`WalletShortPhraseWarning`).
+    var shortPhraseWarnedAddresses: [String] {
+        get {
+            return UserDefaults.standard.array(forKey: Constants.shortPhraseWarnedAddresses) as? [String] ?? []
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Constants.shortPhraseWarnedAddresses)
         }
     }
     

@@ -444,15 +444,20 @@ final class CredentialRepairScreenCoverageTests: RootActionFixtureTests {
         XCTAssertEqual(try status(c).text, "Wallet credentials repaired."); XCTAssertTrue(try button("wallet-repair-retry", c).isHidden)
     }
     func testShortPhraseRepairWarnsBeforeItContinues() async throws {
+        let warned = ApplicationConfig.shared.shortPhraseWarnedAddresses; defer { ApplicationConfig.shared.shortPhraseWarnedAddresses = warned }
+        ApplicationConfig.shared.shortPhraseWarnedAddresses = []
         let f = WalletCredentialRepairTests.Fixture(phrase: "abandon abandon ability"); var restored = [AccountItem]()
         let c = try open(f) { restored.append($0) }
+        let address = try f.prepared().account.address
         c.setSuppliedMaterial(source: .phrase, text: f.phrase, derivationPath: "//repair", backupPassword: "unused")
         try field("wallet-repair-pin", c).text = "246810"; c.confirmRepair()
         await wait { c.presentedViewController is UIAlertController }
-        XCTAssertEqual(try alert(c).title, WalletShortPhraseWarning.title); XCTAssertEqual(try alert(c).message, WalletShortPhraseWarning.message)
+        XCTAssertEqual(try alert(c).title, WalletShortPhraseWarning.title)
+        XCTAssertEqual(try alert(c).message, WalletShortPhraseWarning.message + "\n\nPublic repair fixture\n" + address)
         XCTAssertTrue(restored.isEmpty); XCTAssertEqual(try status(c).text, "Wallet credentials repaired.")
         try await choose("OK", c)
-        XCTAssertEqual(restored.map(\.address), [try f.prepared().account.address]); try f.assertWorking(XCTUnwrap(restored.first))
+        XCTAssertEqual(restored.map(\.address), [address]); try f.assertWorking(XCTUnwrap(restored.first))
+        XCTAssertEqual(WalletShortPhraseWarning.warnedAddresses, [address])
     }
     func testChangingSourceClearsPriorMaterialAndShowsOnlyRelevantFields() throws {
         let f = WalletCredentialRepairTests.Fixture(); let c = try open(f)

@@ -676,6 +676,38 @@ final class KnownAddressPromptTests: RootActionFixtureTests {
         try await choose("Cancel", view); XCTAssertEqual(answers, [nil])
     }
 }
+
+@MainActor
+final class ShortPhraseWalletWarningTests: RootActionFixtureTests {
+    private var previousWarned = [String]()
+    override func setUp() {
+        super.setUp(); previousWarned = ApplicationConfig.shared.shortPhraseWarnedAddresses; ApplicationConfig.shared.shortPhraseWarnedAddresses = []
+    }
+    override func tearDown() async throws {
+        ApplicationConfig.shared.shortPhraseWarnedAddresses = previousWarned; try await super.tearDown()
+    }
+    func testOnlyUnwarnedWalletsWithThreeSixOrNineWordEntropyNeedTheWarning() throws {
+        let keys = InMemoryKeychain(), entropy = [("four", 4), ("eight", 8), ("twelve", 12), ("sixteen", 16), ("thirty-two", 32), ("warned", 4)]
+        for (name, count) in entropy { try keys.saveKey(Data(repeating: 7, count: count), with: KeystoreTag.entropyTagForAddress(account(name).address)) }
+        let wallets = (entropy.map { $0.0 } + ["no-entropy"]).map { account($0) }
+        let found = WalletShortPhraseWarning.unwarnedWallets(wallets, keystore: keys, warned: [account("warned").address])
+        XCTAssertEqual(found.map(\.address), ["four", "eight", "twelve"].map { account($0).address })
+    }
+    func testWalletsAreWarnedInTurnAndEachIsRecordedWhenItsAlertCloses() async throws {
+        let host = UIViewController(); mount(host)
+        WalletShortPhraseWarning.presentInTurn([account("one"), account("two")], from: host)
+        XCTAssertEqual(try alert(host).title, "Move your funds to a new wallet")
+        XCTAssertEqual(try alert(host).message, WalletShortPhraseWarning.message + "\n\nFixture one\n" + account("one").address)
+        try await choose("OK", host); XCTAssertEqual(WalletShortPhraseWarning.warnedAddresses, [account("one").address])
+        XCTAssertEqual(try alert(host).message, WalletShortPhraseWarning.message + "\n\nFixture two\n" + account("two").address)
+        try await choose("OK", host); XCTAssertEqual(WalletShortPhraseWarning.warnedAddresses, Set(["one", "two"].map { account($0).address }))
+        XCTAssertNil(host.presentedViewController)
+    }
+    func testAWarningThatNothingCanShowIsNotRecorded() {
+        WalletShortPhraseWarning.presentInTurn([account("one")], from: UIViewController())
+        XCTAssertTrue(WalletShortPhraseWarning.warnedAddresses.isEmpty)
+    }
+}
 private final class KnownAddressPromptView: UIViewController, AccountImportViewProtocol {
     func setSource(type: AccountImportSource) {}
     func setSource(viewModel: InputViewModelProtocol) {}
