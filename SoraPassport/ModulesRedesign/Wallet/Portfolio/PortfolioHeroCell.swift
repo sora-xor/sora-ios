@@ -45,11 +45,15 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
     private let sky = PortfolioSkyView()
     private let scopeButton = PortfolioScopeButton()
     private let card = GlassView()
+    private let cardLight = PortfolioCardLightView()
     private let stack = UIStackView()
     private let eyebrow = UILabel.portfolio(FontType.eyebrow, .caption2, color: PortfolioTheme.textSecondary, maximum: 18)
     private let chip = PortfolioFreshnessChip()
     private let totalLabel = UILabel()
-    private let changeLabel = UILabel.portfolio(FontType.amountS, .subheadline, lines: 0)
+    private let changePill = PortfolioChangePill()
+    /// The pill hugs its text: the row's spacer takes the rest of the width.
+    private lazy var changeRow = UIStackView(arrangedSubviews: [changePill, UIView()])
+    private var changeLabel: UILabel { changePill.label }
     private let captionButton = UIButton(type: .system)
     private let legendScroll = UIScrollView()
     private let legendStack = UIStackView()
@@ -70,9 +74,7 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
     private lazy var parallax = PortfolioParallaxController(layers: [
         .init(view: sky.starsView, depth: PortfolioTheme.Depth.stars),
         .init(view: sky.glowView, depth: PortfolioTheme.Depth.glow, yFactor: 0),
-        .init(view: sky.fanView, depth: PortfolioTheme.Depth.fan),
-        .init(view: sky.sheenView, depth: PortfolioTheme.Depth.sheen),
-        .init(view: sky.flowerView, depth: PortfolioTheme.Depth.flower, rotateDeg: PortfolioTheme.Depth.flowerRotationDeg)
+        .init(view: sky.orbitView, depth: PortfolioTheme.Depth.planet)
     ])
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -83,7 +85,7 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         clipsToBounds = false
         contentView.clipsToBounds = false
         setupViews()
-        parallax.onRender = { [weak self] x, _ in self?.sky.setSheen(deflection: x) }
+        parallax.onRender = { [weak self] x, y in self?.sky.setTilt(x: x, y: y) }
         SoramitsuUI.updates.addObserver(self)
     }
 
@@ -98,6 +100,8 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         }
         card.shape = .chamfer(radius: 24, cut: 18)
         card.fill = .strong
+        cardLight.translatesAutoresizingMaskIntoConstraints = false
+        card.contentView.addSubview(cardLight)
 
         stack.axis = .vertical
         stack.spacing = 0
@@ -139,11 +143,14 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         actionsStack.spacing = 16
         actionRows.forEach { actionsStack.addArrangedSubview($0) }
 
-        [header, totalLabel, changeLabel, captionButton, legendScroll, actionsStack,
+        changeRow.axis = .horizontal
+        changeRow.alignment = .center
+
+        [header, totalLabel, changeRow, captionButton, legendScroll, actionsStack,
          emptyTitle, emptyDetail, emptyReceive].forEach { stack.addArrangedSubview($0) }
         stack.setCustomSpacing(10, after: header)
-        stack.setCustomSpacing(2, after: totalLabel)
-        stack.setCustomSpacing(10, after: changeLabel)
+        stack.setCustomSpacing(6, after: totalLabel)
+        stack.setCustomSpacing(12, after: changeRow)
         stack.setCustomSpacing(14, after: captionButton)
         stack.setCustomSpacing(18, after: legendScroll)
         stack.setCustomSpacing(6, after: emptyTitle)
@@ -170,6 +177,10 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
             card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             card.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6),
+            cardLight.topAnchor.constraint(equalTo: card.contentView.topAnchor),
+            cardLight.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor),
+            cardLight.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor),
+            cardLight.bottomAnchor.constraint(equalTo: card.contentView.bottomAnchor),
             stack.topAnchor.constraint(equalTo: card.contentView.topAnchor, constant: 18),
             stack.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor, constant: 18),
             stack.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor, constant: -18),
@@ -189,9 +200,13 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         self.item?.onVisibilityChange = nil
         self.item = item
         item.onModelChange = { [weak self] in self?.reload(animated: true) }
-        item.onVisibilityChange = { [weak self] visible in self?.parallax.setHeroVisible(visible) }
+        item.onVisibilityChange = { [weak self] visible in
+            self?.parallax.setHeroVisible(visible)
+            self?.sky.setLooping(visible)
+        }
         reload(animated: false)
         parallax.setHeroVisible(item.isSkyVisible)
+        sky.setLooping(item.isSkyVisible)
     }
 
     override func didMoveToWindow() {
@@ -232,7 +247,7 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         totalLabel.attributedText = total
         totalLabel.accessibilityLabel = model.accessibilityTotal
 
-        changeLabel.isHidden = model.isEmpty || model.changeAmount == nil
+        changeRow.isHidden = model.isEmpty || model.changeAmount == nil
         if let amount = model.changeAmount, let percent = model.changePercent {
             let color: UIColor
             let arrow: String
@@ -241,9 +256,11 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
             case .down: color = tokens.error; arrow = "▼ "
             case .flat: color = tokens.textSecondary; arrow = ""
             }
+            let tone = model.isDimmed ? tokens.textSecondary : color
+            changePill.tint(tone)
             let text = NSMutableAttributedString(string: arrow + amount, attributes: [
                 .font: PortfolioTheme.font(FontType.amountM, .subheadline, maximum: 26),
-                .foregroundColor: model.isDimmed ? tokens.textSecondary : color
+                .foregroundColor: tone
             ])
             text.append(NSAttributedString(string: " · \(percent) · \(PortfolioStrings.hours24)", attributes: [
                 .font: PortfolioTheme.font(FontType.amountS, .subheadline, maximum: 24),
@@ -268,6 +285,7 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         }
 
         configureLegend(model.legend)
+        cardLight.applyTheme()
         sky.applyTheme()
         sky.apply(PortfolioSkyView.Model(segments: model.sky.segments, highlightedKey: model.sky.highlightedKey,
                                          showsFan: model.sky.showsFan), animated: animated)
@@ -276,7 +294,7 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
 
         let empty = model.isEmpty
         [totalLabel, legendScroll, actionsStack].forEach { $0.isHidden = empty }
-        changeLabel.isHidden = changeLabel.isHidden || empty
+        changeRow.isHidden = changeRow.isHidden || empty
         captionButton.isHidden = captionButton.isHidden || empty
         legendScroll.isHidden = empty || model.legend.isEmpty
         [emptyTitle, emptyDetail, emptyReceive].forEach { $0.isHidden = !empty }
