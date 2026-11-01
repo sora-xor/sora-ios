@@ -150,67 +150,93 @@ import XCTest
         view.apply(.init(segments: segments, highlightedKey: nil, showsFan: shows), animated: false)
         view.layoutIfNeeded(); return view
     }
-    private func point(_ ray: Int, in sky: PortfolioSkyView, radius: CGFloat? = nil) -> CGPoint {
-        let radius = radius ?? (PortfolioTheme.Sky.innerRadius + PortfolioTheme.Sky.outerRadius) / 2
-        let angle = PortfolioSkyView.rayAngle(ray)
-        return CGPoint(x: sky.flowerCenter.x + sin(angle) * radius, y: sky.flowerCenter.y - cos(angle) * radius)
-    }
+    /// The middle of a ray on the ring's band, on screen, as the ring is drawn now.
+    private func point(_ ray: Int, in sky: PortfolioSkyView) -> CGPoint { sky.pose.point(sky.rayAngle(ray)) }
     private func descendants<T: UIView>(_ type: T.Type, _ view: UIView) -> [T] {
         ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { descendants(type, $0) }
     }
-    func testFanHitTestingPreservesExactAllocationBoundary() {
+    private func hiddenByPlanet(_ ray: Int, in sky: PortfolioSkyView) -> Bool {
+        let p = point(ray, in: sky)
+        return sin(sky.rayAngle(ray) * .pi / 180) < 0 &&
+            hypot(p.x - sky.planetCenter.x, p.y - sky.planetCenter.y) < PortfolioTheme.Sky.planetRadius
+    }
+    func testRingHitTestingPreservesExactAllocationBoundaryUnlessThePlanetHidesIt() {
         let view = sky()
-        for ray in 0..<100 { XCTAssertEqual(view.segmentKey(at: point(ray, in: view)), ray < 40 ? "first" : "second") }
+        for ray in 0..<100 {
+            let expected = hiddenByPlanet(ray, in: view) ? nil : (ray < 40 ? "first" : "second")
+            XCTAssertEqual(view.segmentKey(at: point(ray, in: view)), expected, "ray \(ray)")
+        }
     }
     func testHiddenFanAllowsTouchesToReachControlsBeneathIt() {
         let view = sky(shows: false); let p = point(50, in: view)
         XCTAssertNil(view.segmentKey(at: p)); XCTAssertFalse(view.point(inside: p, with: nil))
     }
-    func testFlowerAndOutsideFanDoNotInterceptTouches() {
-        let view = sky()
-        for p in [view.flowerCenter, point(50, in: view, radius: PortfolioTheme.Sky.outerRadius + 30),
-                  CGPoint(x: view.flowerCenter.x, y: view.flowerCenter.y + 50)] {
+    func testPlanetAndSkyAroundTheRingDoNotInterceptTouches() {
+        let view = sky(); let pose = view.pose
+        for p in [view.planetCenter, pose.point(0, radius: pose.radius * 1.5), pose.point(0, radius: pose.radius * 0.6),
+                  CGPoint(x: view.planetCenter.x, y: view.planetCenter.y + 75)] {
             XCTAssertNil(view.segmentKey(at: p)); XCTAssertFalse(view.point(inside: p, with: nil))
         }
     }
-    func testBelowArcEndpointsCannotMapToInvalidRayIndexes() {
-        let view = sky(); let r = (PortfolioTheme.Sky.innerRadius + PortfolioTheme.Sky.outerRadius) / 2
-        XCTAssertNil(view.segmentKey(at: CGPoint(x: view.flowerCenter.x - r, y: view.flowerCenter.y + 5)))
-        XCTAssertNil(view.segmentKey(at: CGPoint(x: view.flowerCenter.x + r, y: view.flowerCenter.y + 5)))
+    func testTheRingBehindThePlanetTakesNoTouches() {
+        let view = sky()
+        XCTAssertNil(view.segmentKey(at: view.pose.point(270)))
+        XCTAssertEqual(view.segmentKey(at: view.pose.point(90)), "first")
     }
-    func testOnlyFanSegmentsAcceptTouches() {
+    func testASmallSegmentComesRoundToTheFrontInsteadOfHidingBehindThePlanet() {
+        let lopsided = [
+            PortfolioFanSegment(key: "main", slot: .slot(0), rays: 94, value: 94, share: Decimal(string: "0.94")!, members: []),
+            PortfolioFanSegment(key: "small", slot: .slot(1), rays: 6, value: 6, share: Decimal(string: "0.06")!, members: [])
+        ]
+        let view = PortfolioSkyView(frame: CGRect(x: 0, y: 0, width: 390, height: 400))
+        view.apply(.init(segments: lopsided, highlightedKey: nil, showsFan: true), animated: false)
+        view.layoutIfNeeded()
+        for (x, y) in [(0, 1), (0, -1), (1, 0)] as [(CGFloat, CGFloat)] {
+            view.setTilt(x: x, y: y)
+            XCTAssertEqual(view.segmentKey(at: view.pose.point(90)), "small")
+            for ray in 94..<100 { XCTAssertEqual(view.segmentKey(at: point(ray, in: view)), "small", "ray \(ray)") }
+        }
+        XCTAssertEqual(PortfolioRing.start(lopsided) + 47 * PortfolioTheme.Sky.degreesPerRay, 270, accuracy: 1e-6)
+    }
+    func testOnlyRingSegmentsAcceptTouches() {
         let view = sky()
         XCTAssertTrue(view.point(inside: point(20, in: view), with: nil))
         XCTAssertTrue(view.point(inside: point(90, in: view), with: nil))
         XCTAssertTrue(view.accessibilityElementsHidden); XCTAssertFalse(view.isAccessibilityElement)
     }
-    func testFanTapDeliversTheSegmentUnderTheGesture() {
+    func testRingTapDeliversTheSegmentUnderTheGesture() {
         let view = sky(); var selected = [String](); view.onSegmentTap = { selected.append($0) }
         view.perform(NSSelectorFromString("handleTap:"), with: PortfolioTestTap(point(80, in: view)))
-        view.perform(NSSelectorFromString("handleTap:"), with: PortfolioTestTap(view.flowerCenter))
+        view.perform(NSSelectorFromString("handleTap:"), with: PortfolioTestTap(view.planetCenter))
         XCTAssertEqual(selected, ["second"])
     }
-    func testSafeAreaChangesMoveTheFanAndItsHitRegionsTogether() {
-        let view = sky(); let before = view.flowerCenter
+    func testSafeAreaChangesMoveTheRingAndItsHitRegionsTogether() {
+        let view = sky(); let before = view.planetCenter
         view.topInset = 55; view.layoutIfNeeded()
-        XCTAssertEqual(view.flowerCenter.y, before.y + 55)
+        XCTAssertEqual(view.planetCenter.y, before.y + 55)
         XCTAssertEqual(view.segmentKey(at: point(39, in: view)), "first")
         XCTAssertEqual(view.segmentKey(at: point(40, in: view)), "second")
     }
-    func testHighlightLiftsOnlyItsSegmentAndDimsTheOther() throws {
-        let view = sky(); let layers = try XCTUnwrap(view.fanView.layer.sublayers?.compactMap { $0 as? CAShapeLayer })
-        let original = try XCTUnwrap(layers.first?.path)
+    func testTiltTurnsTheRingAndItsHitRegionsTogether() {
+        let view = sky(); view.setTilt(x: 1, y: -1)
+        XCTAssertEqual(view.pose.rollDeg, PortfolioTheme.Sky.rollDeg + PortfolioTheme.Sky.rollTiltDeg, accuracy: 1e-6)
+        XCTAssertEqual(view.pose.aspect, PortfolioTheme.Sky.aspect - PortfolioTheme.Sky.aspectTilt, accuracy: 1e-6)
+        XCTAssertEqual(view.segmentKey(at: point(39, in: view)), "first")
+        XCTAssertEqual(view.segmentKey(at: point(40, in: view)), "second")
+    }
+    func testHighlightWidensOnlyItsSegmentAndDimsTheOther() throws {
+        let view = sky(); let layers = view.segmentLayers
+        XCTAssertEqual(layers.map(\.name), ["first", "second"])
         view.apply(.init(segments: segments, highlightedKey: "first", showsFan: true), animated: false)
-        XCTAssertNotEqual(layers[0].path?.boundingBox, original.boundingBox)
         XCTAssertEqual(layers[0].opacity, 1); XCTAssertEqual(layers[1].opacity, PortfolioTheme.Sky.dimmedAlpha)
         XCTAssertGreaterThan(layers[0].lineWidth, layers[1].lineWidth)
     }
-    func testAnimatedHighlightUsesAPathAnimationWhenMotionIsAllowed() throws {
+    func testAnimatedHighlightAnimatesTheBandWidthWhenMotionIsAllowed() throws {
         let view = sky()
         view.apply(.init(segments: segments, highlightedKey: "second", showsFan: true), animated: true)
-        let layer = try XCTUnwrap(view.fanView.layer.sublayers?.last as? CAShapeLayer)
-        if UIAccessibility.isReduceMotionEnabled { XCTAssertNil(layer.animation(forKey: "lift")) }
-        else { XCTAssertNotNil(layer.animation(forKey: "lift") as? CABasicAnimation) }
+        let layer = try XCTUnwrap(view.segmentLayers.last)
+        if UIAccessibility.isReduceMotionEnabled { XCTAssertNil(layer.animation(forKey: "highlight")) }
+        else { XCTAssertNotNil(layer.animation(forKey: "highlight") as? CABasicAnimation) }
         view.apply(.init(segments: segments, highlightedKey: nil, showsFan: true), animated: false)
         XCTAssertEqual(layer.opacity, 1)
     }

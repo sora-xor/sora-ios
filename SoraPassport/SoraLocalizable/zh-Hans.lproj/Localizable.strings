@@ -1010,6 +1010,9 @@
 "SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted. You can restore any wallet later with its recovery phrase or Google Drive backup. Wallets with a saved ownership PIN can also be restored from Add account with that PIN." = "SORA 将在此 iPhone 上重新开始。此 iPhone 上保存的钱包密钥不会被删除。以后您可以使用恢复助记词或 Google Drive 备份恢复任何钱包。保存了所有权 PIN 的钱包也可以在“添加账户”中使用该 PIN 恢复。";
 "Restore a historical wallet" = "恢复历史钱包";
 "For a 3-, 6-, or 9-word phrase, enter the SORA address of the wallet you want to restore. The phrase and derivation path must match this address before any keys are saved." = "对于 3、6 或 9 个单词的助记词，请输入要恢复的钱包的 SORA 地址。保存任何密钥前，助记词和派生路径必须与此地址匹配。";
+"A phrase with fewer than 12 words is much easier to guess. After restoring, create a new wallet with a 24-word phrase and move your funds to it." = "少于 12 个单词的助记词被猜到的风险高得多。恢复后，请用 24 个单词的助记词创建新钱包，并将资金转入其中。";
+"Move your funds to a new wallet" = "请将资金转入新钱包";
+"This wallet's recovery phrase has fewer than 12 words, which makes it much easier to guess. Create a new wallet with a 24-word phrase and move your funds to it." = "此钱包的助记词少于 12 个单词，被猜到的风险高得多。请用 24 个单词的助记词创建新钱包，并将资金转入其中。";
 "SORA wallet address" = "SORA 钱包地址";
 "Advanced options" = "高级选项";
 "Key type" = "密钥类型";

@@ -1010,6 +1010,9 @@
 "SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted. You can restore any wallet later with its recovery phrase or Google Drive backup. Wallets with a saved ownership PIN can also be restored from Add account with that PIN." = "SORA bu iPhone'da yeniden başlayacak. Bu iPhone'da kayıtlı cüzdan anahtarları silinmez. Her cüzdanı daha sonra kurtarma ifadesi veya Google Drive yedeğiyle geri yükleyebilirsiniz. Kayıtlı sahiplik PIN'i olan cüzdanlar Hesap ekle bölümünden bu PIN ile de geri yüklenebilir.";
 "Restore a historical wallet" = "Eski bir cüzdanı geri yükle";
 "For a 3-, 6-, or 9-word phrase, enter the SORA address of the wallet you want to restore. The phrase and derivation path must match this address before any keys are saved." = "3, 6 veya 9 kelimelik bir ifade için geri yüklemek istediğiniz cüzdanın SORA adresini girin. Anahtarlar kaydedilmeden önce ifade ve türetme yolu bu adresle eşleşmelidir.";
+"A phrase with fewer than 12 words is much easier to guess. After restoring, create a new wallet with a 24-word phrase and move your funds to it." = "12 kelimeden kısa bir ifadeyi tahmin etmek çok daha kolaydır. Geri yükledikten sonra 24 kelimelik bir ifadeyle yeni bir cüzdan oluşturun ve varlıklarınızı bu cüzdana taşıyın.";
+"Move your funds to a new wallet" = "Varlıklarınızı yeni bir cüzdana taşıyın";
+"This wallet's recovery phrase has fewer than 12 words, which makes it much easier to guess. Create a new wallet with a 24-word phrase and move your funds to it." = "Bu cüzdanın kurtarma ifadesi 12 kelimeden kısa olduğu için tahmin edilmesi çok daha kolaydır. 24 kelimelik bir ifadeyle yeni bir cüzdan oluşturun ve varlıklarınızı bu cüzdana taşıyın.";
 "SORA wallet address" = "SORA cüzdan adresi";
 "Advanced options" = "Gelişmiş seçenekler";
 "Key type" = "Anahtar türü";

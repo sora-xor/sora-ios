@@ -99,6 +99,61 @@ enum PortfolioGlyphs {
         return path
     }
 
+    /// The 天 mark of the SORA logo, point for point the XOR token icon's outline on its 22-unit
+    /// disc (the same outline the Android app draws), fitted to the disc `rect`.
+    static func soraMarkPath(in rect: CGRect) -> UIBezierPath {
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: 5.8, y: 20.7))
+        path.addCurve(to: CGPoint(x: 11.1, y: 12.9), controlPoint1: CGPoint(x: 7.5, y: 18.1), controlPoint2: CGPoint(x: 9.3, y: 15.5))
+        path.addLine(to: CGPoint(x: 16.3, y: 20.7))
+        path.addCurve(to: CGPoint(x: 17.1, y: 20.2), controlPoint1: CGPoint(x: 16.6, y: 20.6), controlPoint2: CGPoint(x: 16.8, y: 20.4))
+        path.addCurve(to: CGPoint(x: 17.8, y: 19.7), controlPoint1: CGPoint(x: 17.4, y: 20), controlPoint2: CGPoint(x: 17.6, y: 19.9))
+        path.addCurve(to: CGPoint(x: 12, y: 11), controlPoint1: CGPoint(x: 15.9, y: 16.8), controlPoint2: CGPoint(x: 13.9, y: 13.9))
+        path.addLine(to: CGPoint(x: 17.8, y: 11))
+        path.addLine(to: CGPoint(x: 17.8, y: 9.2))
+        path.addLine(to: CGPoint(x: 12, y: 9.2))
+        path.addLine(to: CGPoint(x: 12, y: 7.3))
+        path.addLine(to: CGPoint(x: 17.8, y: 7.3))
+        path.addLine(to: CGPoint(x: 17.8, y: 5.5))
+        path.addLine(to: CGPoint(x: 4.3, y: 5.5))
+        path.addLine(to: CGPoint(x: 4.3, y: 7.3))
+        path.addLine(to: CGPoint(x: 10.1, y: 7.3))
+        path.addLine(to: CGPoint(x: 10.1, y: 9.2))
+        path.addLine(to: CGPoint(x: 4.3, y: 9.2))
+        path.addLine(to: CGPoint(x: 4.3, y: 11))
+        path.addLine(to: CGPoint(x: 10.1, y: 11))
+        path.addLine(to: CGPoint(x: 4.3, y: 19.7))
+        path.addCurve(to: CGPoint(x: 5, y: 20.2), controlPoint1: CGPoint(x: 4.5, y: 19.9), controlPoint2: CGPoint(x: 4.7, y: 20))
+        path.addCurve(to: CGPoint(x: 5.8, y: 20.7), controlPoint1: CGPoint(x: 5.3, y: 20.4), controlPoint2: CGPoint(x: 5.5, y: 20.6))
+        path.close()
+        let scale = min(rect.width, rect.height) / 22
+        path.apply(CGAffineTransform(translationX: rect.midX - 11 * scale, y: rect.midY - 11 * scale)
+            .scaledBy(x: scale, y: scale))
+        return path
+    }
+
+    /// The SORA mark as a badge: the red disc with 天, as the hero's planet wears it.
+    static func soraMarkImage(size: CGFloat) -> UIImage {
+        let rect = CGRect(x: 0, y: 0, width: size, height: size)
+        return UIGraphicsImageRenderer(size: rect.size).image { context in
+            let colors = [PortfolioTheme.soraRed.blended(with: .white, 0.14),
+                          PortfolioTheme.soraRed.blended(with: .black, 0.24)].map(\.cgColor)
+            context.cgContext.saveGState()
+            UIBezierPath(ovalIn: rect).addClip()
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors as CFArray,
+                                         locations: [0, 1]) {
+                context.cgContext.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: size, y: size), options: [])
+            }
+            context.cgContext.restoreGState()
+            UIColor.white.setFill()
+            soraMarkPath(in: rect).fill()
+            let ring = UIBezierPath(ovalIn: rect.insetBy(dx: 0.5, dy: 0.5))
+            ring.lineWidth = 1
+            UIColor.white.withAlphaComponent(0.22).setStroke()
+            ring.stroke()
+        }
+    }
+
     /// The flower as an image, for buttons, chips and nodes.
     static func flowerImage(size: CGFloat, color: UIColor = PortfolioTheme.flowerPink) -> UIImage {
         let rect = CGRect(x: 0, y: 0, width: size, height: size)

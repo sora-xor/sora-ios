@@ -1091,6 +1091,12 @@
 
 "For a 3-, 6-, or 9-word phrase, enter the SORA address of the wallet you want to restore. The phrase and derivation path must match this address before any keys are saved." = "3・6・9単語のフレーズを使用する場合は、復元するウォレットのSORAアドレスを入力してください。鍵を保存する前に、フレーズと派生パスがこのアドレスに一致することを確認します。";
 
+"A phrase with fewer than 12 words is much easier to guess. After restoring, create a new wallet with a 24-word phrase and move your funds to it." = "12単語未満のフレーズは、推測される危険がはるかに高くなります。復元後、24単語のフレーズで新しいウォレットを作成し、資金を移してください。";
+
+"Move your funds to a new wallet" = "資金を新しいウォレットに移してください";
+
+"This wallet's recovery phrase has fewer than 12 words, which makes it much easier to guess. Create a new wallet with a 24-word phrase and move your funds to it." = "このウォレットのパスフレーズは12単語未満のため、推測される危険がはるかに高くなっています。24単語のフレーズで新しいウォレットを作成し、資金を移してください。";
+
 "SORA wallet address" = "SORAウォレットアドレス";
 
 "Advanced options" = "詳細設定";

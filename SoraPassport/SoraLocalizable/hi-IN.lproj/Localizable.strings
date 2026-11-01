@@ -1010,6 +1010,9 @@
 "SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted. You can restore any wallet later with its recovery phrase or Google Drive backup. Wallets with a saved ownership PIN can also be restored from Add account with that PIN." = "SORA इस iPhone पर नए सिरे से शुरू होगा। सहेजी गई वॉलेट कुंजियाँ नहीं हटाई जातीं। आप बाद में किसी भी वॉलेट को उसके रिकवरी वाक्यांश या Google Drive बैकअप से बहाल कर सकते हैं। सहेजे गए स्वामित्व PIN वाले वॉलेट खाता जोड़ें से उस PIN के साथ भी बहाल किए जा सकते हैं।";
 "Restore a historical wallet" = "पुराना वॉलेट बहाल करें";
 "For a 3-, 6-, or 9-word phrase, enter the SORA address of the wallet you want to restore. The phrase and derivation path must match this address before any keys are saved." = "3, 6 या 9 शब्दों वाले वाक्यांश के लिए उस वॉलेट का SORA पता दर्ज करें जिसे बहाल करना है। कोई कुंजी सहेजने से पहले वाक्यांश और व्युत्पत्ति पथ का इस पते से मेल खाना ज़रूरी है।";
+"A phrase with fewer than 12 words is much easier to guess. After restoring, create a new wallet with a 24-word phrase and move your funds to it." = "12 से कम शब्दों वाले वाक्यांश का अनुमान लगाना कहीं आसान होता है। बहाल करने के बाद 24 शब्दों के वाक्यांश वाला नया वॉलेट बनाएँ और अपने फ़ंड उसमें भेजें।";
+"Move your funds to a new wallet" = "अपने फ़ंड नए वॉलेट में भेजें";
+"This wallet's recovery phrase has fewer than 12 words, which makes it much easier to guess. Create a new wallet with a 24-word phrase and move your funds to it." = "इस वॉलेट के रिकवरी वाक्यांश में 12 से कम शब्द हैं, इसलिए इसका अनुमान लगाना कहीं आसान है। 24 शब्दों के वाक्यांश वाला नया वॉलेट बनाएँ और अपने फ़ंड उसमें भेजें।";
 "SORA wallet address" = "SORA वॉलेट पता";
 "Advanced options" = "उन्नत विकल्प";
 "Key type" = "कुंजी का प्रकार";

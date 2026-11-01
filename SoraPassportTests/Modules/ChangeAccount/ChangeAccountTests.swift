@@ -50,6 +50,20 @@ final class ChangeAccountTests: XCTestCase {
         XCTAssertTrue(content.message.contains("SORA wallet backup"))
     }
 
+    func testUndefinedErrorsShowTheLocalizedGeneralMessage() {
+        for language in ["en", "ja"] {
+            let locale = Locale(identifier: language)
+            let expected = R.string.localizable.commonErrorGeneralMessage(preferredLanguages: [language])
+            XCTAssertNotEqual(expected, "common.error.general.message")
+            for content in [CommonError.undefined.toErrorContent(for: locale),
+                            AccountOperationFactoryError.missingUsername.toErrorContent(for: locale)] {
+                XCTAssertEqual(content.message, expected, language)
+                XCTAssertEqual(content.title,
+                               R.string.localizable.commonErrorGeneralTitle(preferredLanguages: [language]))
+            }
+        }
+    }
+
     func testJSONImportErrorsExplainTheFileOrPasswordProblem() {
         for language in ["en", "ja"] {
             let locale = Locale(identifier: language)

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import SoraUIKit
 import UIKit
 import XCTest
 
@@ -125,6 +126,22 @@ import XCTest
     var calls = 0
     f.removeExistingAuthViewIfPresented { calls += 1 }
     XCTAssertEqual(calls, 1)
+  }
+  func testFlickingThePinSheetClosedCancelsTheRequestAndAllowsTheNextOne() {
+    let f = make()
+    let sheet = BlurViewController()
+    f.screen = sheet
+    f.begin()
+    // What BlurViewController's flick does once the sheet is gone.
+    sheet.completionHandler?()
+    XCTAssertEqual(f.results, [false])
+    XCTAssertFalse((f as AuthorizationAccessible).isAuthorizing)
+    XCTAssertFalse(f.navigation.viewControllers.contains { $0 === sheet })
+    f.begin()
+    XCTAssertEqual(f.creationFlags.count, 2)
+    XCTAssertTrue((f as AuthorizationAccessible).isAuthorizing)
+    f.showAuthorizationCompletion(with: true)
+    XCTAssertEqual(f.results, [false, true])
   }
   func testNoncancellableRequestPassesTheChoiceToScreenFactory() {
     let f = make()

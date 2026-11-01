@@ -346,6 +346,28 @@ final class AccountImportPreparationBoundaryTests: XCTestCase {
         await backup(f, value: OpenBackupAccount(address: "public-fixture"))
         XCTAssertEqual(f.output.errors.count, 1); XCTAssertEqual(f.interactor.imports, 0)
     }
+    private let shortPhrase = "abandon abandon ability"
+    private func shortPhraseAddress(_ f: Fixture) throws -> String {
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromList: shortPhrase)
+        let op = f.factory.prepareAccountOperation(request: AccountCreationRequest(username: "", type: .sora, derivationPath: "", cryptoType: .sr25519), mnemonic: mnemonic)
+        op.start(); let prepared = try XCTUnwrap(op.result).get(); defer { prepared.discard() }; return prepared.account.address
+    }
+    private func drainMainQueue() async {
+        let drained = expectation(description: "main queue drained"); DispatchQueue.main.async { drained.fulfill() }
+        await fulfillment(of: [drained], timeout: 3)
+    }
+    func testCloudShortPhraseReportsItselfOnceItProvesTheSavedAddress() async throws {
+        let f = fixture(), address = try shortPhraseAddress(f)
+        await backup(f, value: OpenBackupAccount(address: address, passphrase: shortPhrase)); await drainMainQueue()
+        XCTAssertEqual(f.interactor.accounts.map(\.address), [address]); XCTAssertEqual(f.output.shortPhraseRestores, 1)
+    }
+    func testCloudRestoreWithoutAProvingShortPhraseReportsNoShortPhrase() async throws {
+        let f = fixture(), account = try expected(f)
+        await backup(f, value: OpenBackupAccount(address: account.address, passphrase: phrase))
+        await backup(f, value: OpenBackupAccount(address: "another-wallet", passphrase: shortPhrase)); await drainMainQueue()
+        XCTAssertEqual(f.interactor.accounts.map(\.address), [account.address]); XCTAssertEqual(f.interactor.failures.count, 1)
+        XCTAssertEqual(f.output.shortPhraseRestores, 0)
+    }
 }
 private final class PreparationOnlyImport: BaseAccountImportInteractor {
     var imports = 0, validations = 0; var accounts: [AccountItem] = [], failures: [Error] = []; var onPrepared: (() -> Void)?
@@ -360,6 +382,8 @@ private final class PreparationOnlyImport: BaseAccountImportInteractor {
 }
 private final class PreparationImportOutput: AccountImportInteractorOutputProtocol {
     var metadata: [AccountImportMetadata] = [], suggestions: [String] = [], infos: [AccountImportPreferredInfo?] = [], errors: [Error] = []; var onError: (() -> Void)?
+    var shortPhraseRestores = 0
+    func didRestoreShortPhraseWallet() { shortPhraseRestores += 1 }
     func didReceiveAccountImport(metadata: AccountImportMetadata) { self.metadata.append(metadata) }
     func didCompleteAccountImport() { XCTFail("Preparation must not persist an account") }
     func didReceiveAccountImport(error: Error) { errors.append(error); onError?() }
@@ -638,4 +662,60 @@ private final class ValidationOnlySelection: SelectedWalletSettingsProtocol {
     func performUpdateAssetSettings(account: AccountItem, settings: AccountSettings, completionClosure: @escaping (Result<AccountItem, Error>) -> Void) { XCTFail("Unexpected wallet mutation") }
     func performSetup(completionClosure: @escaping (Result<AccountItem?, Error>) -> Void) { completionClosure(.success(nil)) }
     func save(value: AccountItem) { XCTFail("Unexpected wallet mutation") }
+}
+
+@MainActor
+final class KnownAddressPromptTests: RootActionFixtureTests {
+    func testShortPhrasePromptSaysThePhraseIsEasyToGuess() async throws {
+        let view = KnownAddressPromptView(); mount(view); var answers = [String?]()
+        AccountImportWireframe(localizationManager: LocalizationManager.shared).requestKnownAddress(from: view) { answers.append($0) }
+        let prompt = try alert(view)
+        XCTAssertEqual(prompt.title, "Restore a historical wallet"); XCTAssertEqual(prompt.textFields?.first?.accessibilityIdentifier, "historical-wallet-known-address")
+        XCTAssertTrue(prompt.message?.hasPrefix("For a 3-, 6-, or 9-word phrase, enter the SORA address") == true)
+        XCTAssertTrue(prompt.message?.hasSuffix("\n\nA phrase with fewer than 12 words is much easier to guess. After restoring, create a new wallet with a 24-word phrase and move your funds to it.") == true)
+        try await choose("Cancel", view); XCTAssertEqual(answers, [nil])
+    }
+}
+
+@MainActor
+final class ShortPhraseWalletWarningTests: RootActionFixtureTests {
+    private var previousWarned = [String]()
+    override func setUp() {
+        super.setUp(); previousWarned = ApplicationConfig.shared.shortPhraseWarnedAddresses; ApplicationConfig.shared.shortPhraseWarnedAddresses = []
+    }
+    override func tearDown() async throws {
+        ApplicationConfig.shared.shortPhraseWarnedAddresses = previousWarned; try await super.tearDown()
+    }
+    func testOnlyUnwarnedWalletsWithThreeSixOrNineWordEntropyNeedTheWarning() throws {
+        let keys = InMemoryKeychain(), entropy = [("four", 4), ("eight", 8), ("twelve", 12), ("sixteen", 16), ("thirty-two", 32), ("warned", 4)]
+        for (name, count) in entropy { try keys.saveKey(Data(repeating: 7, count: count), with: KeystoreTag.entropyTagForAddress(account(name).address)) }
+        let wallets = (entropy.map { $0.0 } + ["no-entropy"]).map { account($0) }
+        let found = WalletShortPhraseWarning.unwarnedWallets(wallets, keystore: keys, warned: [account("warned").address])
+        XCTAssertEqual(found.map(\.address), ["four", "eight", "twelve"].map { account($0).address })
+    }
+    func testWalletsAreWarnedInTurnAndEachIsRecordedWhenItsAlertCloses() async throws {
+        let host = UIViewController(); mount(host)
+        WalletShortPhraseWarning.presentInTurn([account("one"), account("two")], from: host)
+        XCTAssertEqual(try alert(host).title, "Move your funds to a new wallet")
+        XCTAssertEqual(try alert(host).message, WalletShortPhraseWarning.message + "\n\nFixture one\n" + account("one").address)
+        try await choose("OK", host); XCTAssertEqual(WalletShortPhraseWarning.warnedAddresses, [account("one").address])
+        XCTAssertEqual(try alert(host).message, WalletShortPhraseWarning.message + "\n\nFixture two\n" + account("two").address)
+        try await choose("OK", host); XCTAssertEqual(WalletShortPhraseWarning.warnedAddresses, Set(["one", "two"].map { account($0).address }))
+        XCTAssertNil(host.presentedViewController)
+    }
+    func testAWarningThatNothingCanShowIsNotRecorded() {
+        WalletShortPhraseWarning.presentInTurn([account("one")], from: UIViewController())
+        XCTAssertTrue(WalletShortPhraseWarning.warnedAddresses.isEmpty)
+    }
+}
+private final class KnownAddressPromptView: UIViewController, AccountImportViewProtocol {
+    func setSource(type: AccountImportSource) {}
+    func setSource(viewModel: InputViewModelProtocol) {}
+    func setName(viewModel: InputViewModelProtocol) {}
+    func setPassword(viewModel: InputViewModelProtocol) {}
+    func setDerivationPath(viewModel: InputViewModelProtocol) {}
+    func setCryptoType(_ type: CryptoType, available: [CryptoType]) {}
+    func setUploadWarning(message: String) {}
+    func dismissPresentedController() {}
+    func resetFocus() {}
 }

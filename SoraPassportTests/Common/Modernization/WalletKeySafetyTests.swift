@@ -2256,6 +2256,33 @@ final class WalletKeySafetyTests: XCTestCase {
         }
     }
 
+    func testPhraseParserRejectsListsLongerThanThirtyWords() throws {
+        let creator = IRMnemonicCreator(language: .english)
+        // 27 and 30 words (288 and 320 bits) are the longest phrases the creator makes.
+        for bytes in [36, 40] {
+            let longest = try phrase(entropy: 0x5a, bytes: bytes)
+            XCTAssertEqual(try creator.mnemonic(fromList: longest).entropy(), Data(repeating: 0x5a, count: bytes))
+        }
+        // Multiples of three that the parser used to accept, up to lengths that
+        // read past the checksum hash. A decrypted Drive backup can carry them.
+        let words = try creator.mnemonic(fromEntropy: Data(repeating: 0x5a, count: 32)).allWords()
+        for count in [33, 48, 771, 3_000] {
+            let list = (0..<count).map { words[$0 % words.count] }.joined(separator: " ")
+            XCTAssertThrowsError(try creator.mnemonic(fromList: list), "\(count)") { error in
+                XCTAssertTrue((error as NSError).localizedDescription.hasPrefix("Invalid number of words"), "\(error)")
+            }
+        }
+    }
+
+    func testSoftPublicKeyDerivationMatchesTheSoftKeypair() throws {
+        let factory = SNKeyFactory()
+        let parent = try factory.createKeypair(fromSeed: Data(repeating: 0x2a, count: 32))
+        let chaincode = Data((0..<32).map { UInt8($0) })
+        let child = try factory.createKeypairSoft(parent, chaincode: chaincode)
+        let publicChild = try factory.createPublicKeySoft(parent.publicKey(), chaincode: chaincode)
+        XCTAssertEqual(publicChild.rawData(), child.publicKey().rawData())
+    }
+
     // MARK: (l) Interrupted ordinary create or import
 
     func testInterruptedImportBeforeCoreDataIsSetAsideAndTheItemsAreAdopted() throws {
