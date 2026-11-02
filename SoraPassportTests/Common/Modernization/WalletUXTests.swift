@@ -2965,6 +2965,51 @@ final class SoraNeonDesignTests: XCTestCase {
         XCTAssertEqual(fill.frame, glass.middleButton.frame)
     }
 
+    /// iOS 26+ hosts the bar in a container that covers only the bar, so the
+    /// top of the swap disc, which rises above it, sent taps to the tab
+    /// behind (Account options or Edit view on the Wallet tab). The hit area
+    /// gives the whole visible disc to its button, and nothing else.
+    @MainActor
+    func testSwapDiscTakesTapsAboveTheBarContainer() throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 440, height: 956))
+        let root = UIView(frame: window.bounds)
+        window.addSubview(root)
+        let content = UIView(frame: root.bounds)
+        root.addSubview(content)
+        let bar = TabBar(frame: CGRect(x: 0, y: 0, width: 440, height: 83), drawsLegacyChrome: false)
+        let container = UIView(frame: CGRect(x: 0, y: 873, width: 440, height: 83))
+        container.addSubview(bar)
+        root.addSubview(container)
+        bar.layoutIfNeeded()
+        // The container starts at the disc's centre, as the system one starts
+        // at the top of the bar while the disc rises above it.
+        let centre = bar.middleButton.frame.midY
+        container.frame = CGRect(x: 0, y: 873 + centre, width: 440, height: 83 - centre)
+        bar.frame.origin.y = -centre
+        let disc = bar.middleButton.convert(bar.middleButton.bounds, to: root)
+        let raised = CGPoint(x: disc.midX, y: disc.minY + disc.height / 4)
+        let lower = CGPoint(x: disc.midX, y: disc.maxY - disc.height / 4)
+        XCTAssertLessThan(raised.y, container.frame.minY)
+        XCTAssertTrue(root.hitTest(raised, with: nil) === content, "without the hit area the tap goes behind")
+
+        let hitArea = SwapDiscHitArea(frame: root.bounds)
+        hitArea.disc = bar.middleButton
+        root.addSubview(hitArea)
+        XCTAssertTrue(root.hitTest(raised, with: nil) === bar.middleButton)
+        XCTAssertTrue(root.hitTest(lower, with: nil) === bar.middleButton)
+        // Beside the disc and outside its circle the content keeps its taps.
+        XCTAssertTrue(root.hitTest(CGPoint(x: disc.minX - 40, y: raised.y), with: nil) === content)
+        XCTAssertTrue(root.hitTest(CGPoint(x: disc.minX + 2, y: disc.minY + 2), with: nil) === content)
+        XCTAssertTrue(root.hitTest(CGPoint(x: 220, y: 300), with: nil) === content)
+
+        // A hidden bar, or one moved off screen for a pushed screen, claims nothing.
+        bar.isHidden = true
+        XCTAssertTrue(root.hitTest(raised, with: nil) === content)
+        bar.isHidden = false
+        container.frame.origin.y = window.bounds.maxY
+        XCTAssertTrue(root.hitTest(raised, with: nil) === content)
+    }
+
     /// On a small screen or at a large text size the 1.x upgrade screen
     /// centred its content on the visible frame, so the content followed the
     /// scroll offset and its last actions could never be scrolled into view;
