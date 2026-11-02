@@ -21,6 +21,23 @@ def output(*args):
     return subprocess.run(args, check=True, capture_output=True, text=True).stdout
 
 
+def is_static_archive(path):
+    """A link-time `ar` archive, thin or universal: dyld never loads one."""
+    if path.suffix != ".a":
+        return False
+    data = path.read_bytes()
+    if data.startswith(b"!<arch>\n"):
+        return True
+    magic = int.from_bytes(data[:4], "big")
+    if magic not in (0xCAFEBABE, 0xCAFEBABF):
+        return False
+    # fat_arch: offset at bytes 8..12; fat_arch_64: 8..16.
+    entry, width = (20, 4) if magic == 0xCAFEBABE else (32, 8)
+    count = int.from_bytes(data[4:8], "big")
+    offsets = [int.from_bytes(data[8 + i * entry + 8:8 + i * entry + 8 + width], "big") for i in range(count)]
+    return bool(offsets) and all(data[o:o + 8] == b"!<arch>\n" for o in offsets)
+
+
 def prepare(app, localizations):
     app = Path(app)
     if app.suffix != ".app" or not app.is_dir():
@@ -58,9 +75,13 @@ def prepare(app, localizations):
             raise ValueError(f"{name} contains code or data; refusing to remove it")
         if output("/usr/bin/nm", "-gjU", str(binary)).strip():
             raise ValueError(f"{name} contains exported symbols; refusing to remove it")
+        # The simulator slices also carry the static archives the executable
+        # was linked from (blake2lib-arm64.a, libed25519_sha2.a,
+        # libsr25519crust.a); none is loaded at run time.
         extra = [p for p in framework.rglob("*") if p.is_file()
                  and p.relative_to(framework).parts[0] != "_CodeSignature"
-                 and p.name not in (name, "Info.plist")]
+                 and p.name not in (name, "Info.plist")
+                 and not is_static_archive(p)]
         if extra:
             raise ValueError(f"{name} contains resources; refusing to remove it: {extra}")
         removable.append(framework)
