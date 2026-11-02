@@ -21,10 +21,11 @@ final class PortfolioHome {
     private let dataSource: PortfolioDataSource
 
     /// The top of the Wallet tab, above its other cards: the hero, the selected account's key
-    /// warning while it cannot sign, the lens and list, then XOR on other networks.
+    /// warning while it cannot sign, the assets, then XOR on other networks. The home has no
+    /// Tokens / Networks / Wallets switch; it always lists tokens.
     var items: [SoramitsuTableViewItemProtocol] {
         let notice: [SoramitsuTableViewItemProtocol] = noticeItem.isShown ? [noticeItem] : []
-        return [heroItem] + notice + [lensItem, listItem, otherNetworksItem]
+        return [heroItem] + notice + [listItem, otherNetworksItem]
     }
 
     init(dataSource: PortfolioDataSource, preferences: PortfolioPreferences = PortfolioPreferences()) {

@@ -391,8 +391,12 @@ enum PortfolioPresenter {
                          showsWalletDots: Bool) -> PortfolioRow {
         let networks = group.networks
         let walletIds = group.walletIds
+        // The token's name, as every asset list names it ("XOR" over "SORA"); where it lives is
+        // in the row's expansion.
         let subtitle: String
-        if networks.count > 1 {
+        if !token.name.isEmpty, token.name != token.symbol {
+            subtitle = token.name
+        } else if networks.count > 1 {
             subtitle = PortfolioStrings.networksCount(networks.count)
         } else if walletIds.count > 1 {
             subtitle = PortfolioStrings.walletsCount(walletIds.count)

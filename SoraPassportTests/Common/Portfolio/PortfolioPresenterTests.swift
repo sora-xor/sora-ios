@@ -84,6 +84,24 @@ final class PortfolioPresenterTests: XCTestCase {
         XCTAssertFalse(networks.contains { $0.opensToken })
     }
 
+    /// Token rows read like any asset list: the symbol over the token's name. A token whose name
+    /// is its symbol keeps the network or wallet count instead of repeating itself.
+    func testTokenRowsShowTheTokenName() {
+        let sora = PortfolioToken(id: PortfolioFixtures.xor.id, symbol: "XOR", name: "SORA", icon: nil,
+                                  priceUSD: Decimal(string: "0.004"), change24h: nil, isSwappable: true)
+        let named = PortfolioSnapshot(
+            wallets: [PortfolioFixtures.wallet("A", "Alpha", order: 0, selected: true, networks: [.sora2, .taira])],
+            holdings: [PortfolioFixtures.holding("A", .sora2, sora, "100000"),
+                       PortfolioFixtures.holding("A", .taira, sora, "5000"),
+                       PortfolioFixtures.holding("A", .sora2, PortfolioFixtures.eth, "0.5")],
+            networks: [.sora2, .minamoto, .taira], swapsAvailable: true, swapDisclaimerAccepted: true,
+            liveNetworks: [.sora2, .taira])
+        let rows = render(named, scope: .wallet("A")).list.rows
+        XCTAssertEqual(rows.first { $0.key == sora.id }?.title, "XOR")
+        XCTAssertEqual(rows.first { $0.key == sora.id }?.subtitle, "SORA")
+        XCTAssertEqual(rows.first { $0.key == PortfolioFixtures.eth.id }?.subtitle, "SORA2")
+    }
+
     func testWalletsLensOnlyInAllWallets() {
         XCTAssertEqual(render().list.lenses, [.tokens, .networks, .wallets])
         let single = render(scope: .wallet("A"), lens: .wallets)
@@ -240,7 +258,7 @@ final class PortfolioViewModelTests: XCTestCase {
         viewModel.selectLens(.networks)
         let (again, _) = makeViewModel()
         XCTAssertEqual(again.state.scope, .wallet("B"))
-        XCTAssertEqual(again.state.lens, .networks)
+        XCTAssertEqual(again.state.lens, .tokens, "The home has no lens switch: it always opens on Tokens")
     }
 
     func testOneWalletUsesItsOwnScope() {

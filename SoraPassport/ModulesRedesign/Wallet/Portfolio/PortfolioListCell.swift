@@ -220,6 +220,8 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
     private let stack = UIStackView()
     private let emptyLabel = UILabel.portfolio(FontType.paragraphS, .subheadline, color: PortfolioTheme.textSecondary,
                                                lines: 0)
+    /// "Assets", the card's title, styled like "XOR on other networks" below it.
+    private let titleLabel = UILabel.portfolio(FontType.headline2, .title3, maximum: 32)
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -233,6 +235,9 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         stack.translatesAutoresizingMaskIntoConstraints = false
         card.contentView.addSubview(stack)
         emptyLabel.textAlignment = .center
+        titleLabel.adjustsFontSizeToFitWidth = true
+        titleLabel.minimumScaleFactor = 0.8
+        titleLabel.accessibilityTraits = .header
         NSLayoutConstraint.activate([
             card.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
             card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
@@ -276,9 +281,25 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         item.onHeightChange?()
     }
 
+    private func makeHeader() -> UIView {
+        titleLabel.text = PortfolioStrings.assets
+        titleLabel.textColor = PortfolioTheme.textPrimary
+        let wrapper = UIView()
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        wrapper.addSubview(titleLabel)
+        NSLayoutConstraint.activate([
+            titleLabel.leadingAnchor.constraint(equalTo: wrapper.leadingAnchor, constant: 16),
+            titleLabel.trailingAnchor.constraint(equalTo: wrapper.trailingAnchor, constant: -16),
+            titleLabel.topAnchor.constraint(equalTo: wrapper.topAnchor, constant: 12),
+            titleLabel.bottomAnchor.constraint(equalTo: wrapper.bottomAnchor, constant: -2)
+        ])
+        return wrapper
+    }
+
     private func rebuild(_ model: PortfolioListModel) {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         card.apply()
+        stack.addArrangedSubview(makeHeader())
         if let empty = model.emptyText {
             emptyLabel.text = empty
             emptyLabel.textColor = PortfolioTheme.textSecondary

@@ -100,7 +100,9 @@ final class PortfolioViewModel {
         self.dataSource = dataSource
         self.preferences = preferences
         self.now = now
-        state = PortfolioPresentationState(scope: .allWallets, lens: preferences.lens)
+        // Tokens, whatever an earlier build stored: the home has no lens switch to leave
+        // Networks or Wallets again.
+        state = PortfolioPresentationState(scope: .allWallets, lens: .tokens)
         state.scope = resolvedScope(preferences.scope, snapshot: dataSource.snapshot)
         dataSource.onChange = { [weak self] _ in self?.snapshotDidChange() }
     }

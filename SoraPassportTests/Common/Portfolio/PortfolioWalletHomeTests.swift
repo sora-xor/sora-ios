@@ -39,17 +39,33 @@ final class PortfolioWalletHomeTests: XCTestCase {
     @MainActor
     func testHomeShowsTheKeyWarningOnlyWhileTheSelectedAccountCannotSign() {
         let home = home()
-        XCTAssertEqual(home.items.count, 4)
+        // No Tokens / Networks / Wallets switch on the home: the assets follow the hero.
+        XCTAssertEqual(home.items.count, 3)
         XCTAssertTrue(home.items[0] === home.heroItem)
-        XCTAssertTrue(home.items[1] === home.lensItem)
-        XCTAssertTrue(home.items[2] === home.listItem)
+        XCTAssertTrue(home.items[1] === home.listItem)
+        XCTAssertTrue(home.items[2] === home.otherNetworksItem)
+        XCTAssertFalse(home.items.contains { $0 === home.lensItem })
         for state in [WalletAccountCapability.State.missingKeys, .invalidKeys, .watchOnly, .repairPending, .unavailable] {
             home.noticeItem.setCapability(state)
-            XCTAssertEqual(home.items.count, 5)
+            XCTAssertEqual(home.items.count, 4)
             XCTAssertTrue(home.items[1] === home.noticeItem)
         }
         home.noticeItem.setCapability(.signing)
         XCTAssertFalse(home.items.contains { $0 === home.noticeItem })
+    }
+
+    /// A lens stored by an earlier build (Networks, Wallets) cannot strand the home: it has no
+    /// switch to leave it, so the home always opens on the token list.
+    @MainActor
+    func testHomeOpensOnTokensWhateverLensWasStored() {
+        let defaults = UserDefaults(suiteName: "portfolio.home.stored-lens")!
+        defer { defaults.removePersistentDomain(forName: "portfolio.home.stored-lens") }
+        defaults.set(PortfolioLens.networks.rawValue, forKey: PortfolioPreferences.lensKey)
+        let home = PortfolioHome(dataSource: PortfolioFakeSource(PortfolioFixtures.snapshot()),
+                                 preferences: PortfolioPreferences(defaults: defaults))
+        home.viewModel.update()
+        XCTAssertEqual(home.viewModel.state.lens, .tokens)
+        XCTAssertEqual(home.listItem.model?.lens, .tokens)
     }
 
     @MainActor
@@ -72,7 +88,7 @@ final class PortfolioWalletHomeTests: XCTestCase {
         home.otherNetworksItem.onOpen = { opened.append($0) }
         home.otherNetworksItem.rows = [NetworkAssetRow(account: account, title: "XOR · Taira", amount: "5,000 XOR",
                                                        tag: .testnet, icon: nil)]
-        XCTAssertTrue(home.items[3] === home.otherNetworksItem)
+        XCTAssertTrue(home.items.last === home.otherNetworksItem)
         XCTAssertEqual(home.otherNetworksItem.rows.map(\.title), ["XOR · Taira"])
         home.otherNetworksItem.open(account)
         XCTAssertEqual(opened, [account])

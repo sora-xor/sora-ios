@@ -45,6 +45,7 @@ final class MainTabBarViewController: UITabBarController {
         }
         tabBar.middleButtonTitleLabel.sora.text = R.string.localizable.tabbarPolkaswapTitle(preferredLanguages: .currentLocale)
         installCustomTabBar(tabBar)
+        installSwapDiscHitArea(for: tabBar.middleButton)
 
         installAurora()
         SoramitsuUI.updates.addObserver(self)
@@ -67,6 +68,18 @@ final class MainTabBarViewController: UITabBarController {
         }
         guard tabBar !== custom else { return }
         custom.installSwapDisc(in: tabBar)
+    }
+
+    /// The top of the swap disc rises above the bar. On iOS 26+ the system
+    /// keeps the bar in a container that covers only the bar, so touches there
+    /// never reached it and went to the tab behind (on the Wallet tab: the
+    /// Backup or Edit view card). This clear view above the tab content claims
+    /// the visible disc for its button.
+    private func installSwapDiscHitArea(for disc: UIView) {
+        let hitArea = SwapDiscHitArea(frame: view.bounds)
+        hitArea.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        hitArea.disc = disc
+        view.addSubview(hitArea)
     }
 
     /// One static aurora behind every tab (spec §4.2.1). Tab roots are clear.
@@ -123,6 +136,44 @@ final class MainTabBarViewController: UITabBarController {
             $0.setTitleTextAttributes([.foregroundColor: tokens.textPrimary, .font: FontType.textBoldXS.font],
                                       for: .selected)
         }
+    }
+}
+
+/// Claims touches on the swap disc wherever its bar is hosted, and nothing
+/// else: a point counts only inside the disc's circle while the disc is fully
+/// on screen and neither it nor any view above it in the hierarchy is hidden,
+/// transparent or disabled, so a bar hidden for a pushed screen claims none.
+final class SwapDiscHitArea: UIView {
+    weak var disc: UIView?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        guard let disc, Self.isShown(disc, in: window) else { return false }
+        let circle = disc.convert(disc.bounds, to: self)
+        let radius = min(circle.width, circle.height) / 2
+        return hypot(point.x - circle.midX, point.y - circle.midY) <= radius
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        self.point(inside: point, with: event) ? disc : nil
+    }
+
+    private static func isShown(_ view: UIView, in window: UIWindow?) -> Bool {
+        guard let window, view.window === window else { return false }
+        var current: UIView? = view
+        while let ancestor = current, ancestor !== window {
+            guard !ancestor.isHidden, ancestor.alpha > 0.01, ancestor.isUserInteractionEnabled else { return false }
+            current = ancestor.superview
+        }
+        return window.bounds.contains(view.convert(view.bounds, to: window))
     }
 }
 

@@ -6,8 +6,8 @@ import Foundation
 /// network, claim binding and signature are checked before a one-shot submit.
 public actor TairaFaucetClient {
     public static let amount = "25000"
-    public static let authority = "testuﾛ1Pｷﾁﾉﾛｶﾋ2rﾃﾏjﾑtﾒﾛヱﾑ6783ｸwoZPi5ﾑﾇfM5JﾌｼzﾕT5VTX6"
-    static let authorityKey = Data(hexadecimal: "de6e0af5c8455f5039a8f4c81fa5b8fbfc113439dd3e92806215d62632b315e0")!
+    public static let authority = "testuﾛ1PpﾜｲﾇLikｦdMxLﾖ8QﾜXRbﾈTｴｷｵg9juｲCｴS9Cyﾎ3ﾐUXHFVF"
+    static let authorityKey = Data(hexadecimal: "9df446200b9ddc5c76d17935ec2f4a4e3efd56cbcaba436289abdd1e398e6021")!
     public typealias Scrypt = @Sendable (Data, Data, UInt64, UInt32, UInt32) throws -> Data
     public typealias Transport = @Sendable (URLRequest, Int) async throws -> Response
     public struct Response: Sendable {
