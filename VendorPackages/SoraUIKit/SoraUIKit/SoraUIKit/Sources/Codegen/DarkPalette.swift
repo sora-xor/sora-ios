@@ -31,7 +31,9 @@ final class DarkPalette: Palette {
 		case .fgOutline: return Colors.darktheme15
 		case .statusInfo: return Colors.blue40
 		case .statusInfoContainer: return Colors.blue5
-		default: return .black
+		case .additionalPolkaswapText: return Colors.polkaswap40
+		case .skeletonBase: return Colors.darktheme9
+		case .skeletonHighlight: return Colors.white100.withAlphaComponent(0.1)
 		}
 	}
 }

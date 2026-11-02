@@ -2626,6 +2626,15 @@ final class SoraNeonDesignTests: XCTestCase {
         XCTAssertEqual(SoramitsuUI.shared.theme, .light)
     }
 
+    /// The 3.8.6 palettes had no skeleton or Polkaswap-text slots, so those
+    /// fell back to black: loading rows were black bars and pool titles black.
+    func testLoadingRowsAndPolkaswapTextUseClassicColours() {
+        let palette = SoramitsuUI.shared.theme.palette
+        XCTAssertEqual(palette.color(.skeletonBase), Colors.brown10)
+        XCTAssertEqual(palette.color(.skeletonHighlight), Colors.white100.withAlphaComponent(0.7))
+        XCTAssertEqual(palette.color(.additionalPolkaswapText), palette.color(.additionalPolkaswap))
+    }
+
     /// The classic CTA is a solid SORA red fill. A background the caller
     /// chose used to be reset to the type's colour whenever the button was
     /// enabled or disabled.

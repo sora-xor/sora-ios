@@ -31,7 +31,9 @@ final class LightPalette: Palette {
 		case .fgPrimary: return Colors.brown90
 		case .statusSuccessContainer: return Colors.green5
 		case .fgInverted: return Colors.brown5
-		default: return .black
+		case .additionalPolkaswapText: return Colors.polkaswap50
+		case .skeletonBase: return Colors.brown10
+		case .skeletonHighlight: return Colors.white100.withAlphaComponent(0.7)
 		}
 	}
 }
