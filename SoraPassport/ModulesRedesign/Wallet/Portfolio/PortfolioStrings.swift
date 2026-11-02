@@ -77,6 +77,8 @@ enum PortfolioStrings {
     /// "Address ready": a network that is not live yet only has an address to copy.
     static var addressReady: String { text("Address ready") }
     static var otherNetworksTitle: String { text("XOR on other networks") }
+    /// The asset list's title: the app's own translated "Assets".
+    static var assets: String { R.string.localizable.commonAssets(preferredLanguages: .currentLocale) }
 
     // MARK: Readiness
 
