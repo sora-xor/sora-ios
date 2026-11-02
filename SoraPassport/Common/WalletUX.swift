@@ -22,8 +22,7 @@ enum WalletUX {
     static func text(_ value: String, language: String? = nil, bundle: Bundle = .main) -> String {
         let selected = language ?? LocalizationManager.shared.selectedLocalization
         for locale in [selected, "en"] {
-            guard let path = bundle.path(forResource: locale, ofType: "lproj"),
-                  let localized = Bundle(path: path) else { continue }
+            guard let localized = R.languageBundle(locale, in: bundle) else { continue }
             let result = localized.localizedString(forKey: value, value: value, table: "Localizable")
             if !result.isEmpty && result != value { return result }
         }

@@ -3412,9 +3412,6 @@
 		A66A00012F5A000000000001 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = akk; path = akk.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A66A00012F5A000000000002 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = akk; path = akk.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
 		A66A00012F5A000000000003 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = akk; path = akk.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		A66E00012F5C000000000001 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "egy-Egyp"; path = "egy-Egyp.lproj/Localizable.strings"; sourceTree = "<group>"; };
-		A66E00012F5C000000000002 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = "egy-Egyp"; path = "egy-Egyp.lproj/Localizable.stringsdict"; sourceTree = "<group>"; };
-		A66E00012F5C000000000003 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "egy-Egyp"; path = "egy-Egyp.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		A66F00012F5D000000000101 /* NotoSansEgyptianHieroglyphs-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "NotoSansEgyptianHieroglyphs-Regular.ttf"; sourceTree = "<group>"; };
 		A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "NotoSansEgyptianHieroglyphs-OFL.txt"; sourceTree = "<group>"; };
 		3688A43C280F591900C1D16F /* SourceType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceType.swift; sourceTree = "<group>"; };
@@ -7931,6 +7928,7 @@
 				02E319AF21D4AFF500B33B66 /* Setup Firebase Enviroment GoogleService-Info.plist */,
 				02623EB32178C0910011250E /* Resources */,
 				400A05E54C0AA9125093623B /* Inject Google Sign-In Info.plist */,
+				A66F11022F5D000000000001 /* Prepare app distribution resources */,
 				0292033321977A4400D9BACD /* Crashlytics */,
 			);
 			buildRules = (
@@ -8096,6 +8094,7 @@
 				71EEB59B262183D4175AFDEC /* Frameworks */,
 				E196EC41917F99F900B37BBD /* Resources */,
 				C3B63270DEA7A9BCBC6D60A0 /* Inject Google Sign-In Info.plist */,
+				A66F11022F5D000000000002 /* Prepare app distribution resources */,
 			);
 			buildRules = (
 			);
@@ -8228,7 +8227,6 @@
 				ja,
 				pt,
 				akk,
-				"egy-Egyp",
 			);
 			mainGroup = 02623EAC2178C0910011250E;
 			packageReferences = (
@@ -8363,6 +8361,44 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		A66F11022F5D000000000002 /* Prepare app distribution resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Info.plist",
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/prepare-app-store-resources.py",
+				"$(PROJECT_DIR)/SoraPassport/SoraLocalizable/egy-Egyp.lproj/Localizable.strings",
+				"$(PROJECT_DIR)/SoraPassport/SoraLocalizable/egy-Egyp.lproj/Localizable.stringsdict",
+				"$(PROJECT_DIR)/SoraPassport/SoraLocalizable/egy-Egyp.lproj/InfoPlist.strings",
+			);
+			name = "Prepare app distribution resources";
+			outputPaths = ();
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/bin/python3 \"$PROJECT_DIR/SoraPassport/Scripts/prepare-app-store-resources.py\" --app \"$TARGET_BUILD_DIR/$WRAPPER_NAME\" --localizations \"$PROJECT_DIR/SoraPassport/SoraLocalizable\"\n";
+		};
+		A66F11022F5D000000000001 /* Prepare app distribution resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Info.plist",
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/prepare-app-store-resources.py",
+				"$(PROJECT_DIR)/SoraPassport/SoraLocalizable/egy-Egyp.lproj/Localizable.strings",
+				"$(PROJECT_DIR)/SoraPassport/SoraLocalizable/egy-Egyp.lproj/Localizable.stringsdict",
+				"$(PROJECT_DIR)/SoraPassport/SoraLocalizable/egy-Egyp.lproj/InfoPlist.strings",
+			);
+			name = "Prepare app distribution resources";
+			outputPaths = ();
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/bin/python3 \"$PROJECT_DIR/SoraPassport/Scripts/prepare-app-store-resources.py\" --app \"$TARGET_BUILD_DIR/$WRAPPER_NAME\" --localizations \"$PROJECT_DIR/SoraPassport/SoraLocalizable\"\n";
+		};
 		A10000300000000000000001 /* Verify production modernization dependencies */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -11172,7 +11208,6 @@
 				368463A92A40725D00B1F203 /* ja */,
 				368463AC2A40728300B1F203 /* pt */,
 				A66A00012F5A000000000001 /* akk */,
-				A66E00012F5C000000000001 /* egy-Egyp */,
 			);
 			name = Localizable.strings;
 			sourceTree = "<group>";
@@ -11209,7 +11244,6 @@
 				368463AA2A40725D00B1F203 /* ja */,
 				368463AD2A40728300B1F203 /* pt */,
 				A66A00012F5A000000000002 /* akk */,
-				A66E00012F5C000000000002 /* egy-Egyp */,
 			);
 			name = Localizable.stringsdict;
 			sourceTree = "<group>";
@@ -11246,7 +11280,6 @@
 				368463A82A40725D00B1F203 /* ja */,
 				368463AB2A40728300B1F203 /* pt */,
 				A66A00012F5A000000000003 /* akk */,
-				A66E00012F5C000000000003 /* egy-Egyp */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
