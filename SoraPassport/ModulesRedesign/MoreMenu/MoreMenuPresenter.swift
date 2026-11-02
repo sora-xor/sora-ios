@@ -88,8 +88,9 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
                                  circleColor: .statusSuccess,
                                  onTap: { self.showNodes()}
         )
+        // "Language" alone: the classic design is light only, so there is no Appearance row.
         let appSettings = MoreMenuItem(title: R.string.localizable.settingsHeaderApp(preferredLanguages: languages),
-                                       subtitle: R.string.localizable.settingsAppSubtitle(preferredLanguages: languages),
+                                       subtitle: R.string.localizable.profileLanguageTitle(preferredLanguages: languages),
                                        picture: .icon(image: R.image.iconSettingsAltFill()!,
                                                       color: .accentTertiary),
                                        onTap: { self.showAppSettings() }

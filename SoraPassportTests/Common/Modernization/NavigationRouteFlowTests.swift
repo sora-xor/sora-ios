@@ -537,7 +537,8 @@ final class EditFlowCoverageTests: XCTestCase {
     func testDisablingOneCardPersistsOnlyTheRemainingCards() throws {
         let (_, service, model) = try make(); model.reloadView(); try item(model).onTap?(Cards.referralProgram.id)
         XCTAssertEqual(service.viewModels[0].state, .disabled)
-        XCTAssertEqual(ApplicationConfig.shared.getAvailableApplicationSections(), [Cards.pooledAssets.id])
+        // Assets cannot be turned off, so it is listed even though the fixture stored [1, 3].
+        XCTAssertEqual(ApplicationConfig.shared.getAvailableApplicationSections(), [Cards.pooledAssets.id, Cards.liquidAssets.id])
         XCTAssertEqual(try item(model).enabledViewModels[1].state, .selected)
     }
     func testReenablingACardRestoresItOnceAndReusesTheDisplayedRow() throws {
@@ -548,12 +549,12 @@ final class EditFlowCoverageTests: XCTestCase {
     }
     func testDisablingDuplicatePreferenceRemovesEveryCopyOfTheCard() throws {
         let (_, _, model) = try make(); ApplicationConfig.shared.updateAvailableApplicationSections(cards: [1, 1, 3]); model.reloadView(); try item(model).onTap?(1)
-        XCTAssertEqual(ApplicationConfig.shared.getAvailableApplicationSections(), [3])
+        XCTAssertEqual(ApplicationConfig.shared.getAvailableApplicationSections(), [3, 2])
     }
     func testUnknownCardTapDoesNotChangePreferencesOrPublishAnotherSnapshot() throws {
         let (_, _, model) = try make(); model.reloadView(); var publishes = 0
         let token = model.snapshotPublisher.dropFirst().sink { _ in publishes += 1 }; try item(model).onTap?(999)
-        XCTAssertEqual(publishes, 0); XCTAssertEqual(ApplicationConfig.shared.getAvailableApplicationSections(), [1, 3]); withExtendedLifetime(token) {}
+        XCTAssertEqual(publishes, 0); XCTAssertEqual(ApplicationConfig.shared.getAvailableApplicationSections(), [1, 3, 2]); withExtendedLifetime(token) {}
     }
     func testExplicitSectionIsPreservedWithoutRebuildingTheServiceRows() throws {
         let (_, _, model) = try make(); let row = EnabledItem(); let section = EnabledSection(items: [.enabled(row)])
@@ -567,13 +568,13 @@ final class EditFlowCoverageTests: XCTestCase {
         let (f, _, model) = try make(); UserDefaults.standard.set([f.account.address: [1, 3], "another-account": [3]], forKey: "enabledCardIdentifiers")
         model.reloadView(); try item(model).onTap?(1)
         let configs = UserDefaults.standard.dictionary(forKey: "enabledCardIdentifiers")
-        XCTAssertEqual(configs?["another-account"] as? [Int], [3]); XCTAssertEqual(configs?[f.account.address] as? [Int], [3])
+        XCTAssertEqual(configs?["another-account"] as? [Int], [3]); XCTAssertEqual(configs?[f.account.address] as? [Int], [3, 2])
     }
     func testCardCallbackDoesNotRetainReleasedRowOrModel() throws {
         let (_, service, _) = try make(); var model: EditViewModel? = EditViewModel(editViewService: service, completion: nil)
         model?.reloadView(); weak var weakModel = model; weak var weakRow = try item(model!); let callback = weakRow?.onTap
         model = nil; XCTAssertNil(weakModel); XCTAssertNil(weakRow); callback?(1)
-        XCTAssertEqual(ApplicationConfig.shared.getAvailableApplicationSections(), [1, 3])
+        XCTAssertEqual(ApplicationConfig.shared.getAvailableApplicationSections(), [1, 3, 2])
     }
     func testPoolAvailabilityCompletesOnceAndReleasesItsCallback() throws {
         let (f, service, _) = try make(); var results: [Bool] = []; service.loadModels { results.append($0) }

@@ -49,7 +49,7 @@ final class AssetsCell: SoramitsuTableViewCell {
                     self?.moneyLabel.sora.cornerRadius = !value.isEmpty ? .zero : .small
                     // "Price unavailable" is a quiet notice, not an amount.
                     let unavailable = self?.assetsItem?.service?.priceIsUnavailable ?? false
-                    self?.moneyLabel.sora.font = unavailable ? FontType.textS : FontType.displayHero
+                    self?.moneyLabel.sora.font = unavailable ? FontType.textS : FontType.headline2
                     self?.moneyLabel.sora.textColor = unavailable ? .fgSecondary : .fgPrimary
                     self?.scheduleHeightUpdate()
                 }
@@ -85,18 +85,20 @@ final class AssetsCell: SoramitsuTableViewCell {
         return button
     }()
 
+    /// The 3.8.6 total: Bold, beside the title. A total too wide for the
+    /// row shrinks rather than being cut off.
     private lazy var moneyLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.text = " "
-        label.sora.font = FontType.displayHero
-        label.sora.dynamicTextStyle = .largeTitle
-        label.sora.numberOfLines = 0
-        label.sora.lineBreakMode = .byCharWrapping
+        label.sora.font = FontType.headline2
         label.sora.textColor = .fgPrimary
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.5
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         label.sora.loadingPlaceholder.type = .shimmer
         label.sora.cornerRadius = .small
-        label.sora.alignment = .natural
+        label.sora.alignment = localizationManager.isRightToLeft ? .left : .right
         return label
     }()
 
@@ -127,10 +129,12 @@ final class AssetsCell: SoramitsuTableViewCell {
         return view
     }()
 
+    /// The title on the leading side, the total on the trailing side, as in 3.8.6.
     private let mainInfoView: SoramitsuStackView = {
         var view = SoramitsuStackView()
         view.sora.backgroundColor = .custom(uiColor: .clear)
-        view.sora.axis = .vertical
+        view.sora.axis = .horizontal
+        view.sora.alignment = .center
         view.sora.distribution = .fill
         return view
     }()
@@ -184,7 +188,11 @@ final class AssetsCell: SoramitsuTableViewCell {
     }
 
     private func setupConstraints() {
+        // Room for the loading placeholder, as in 3.8.6; a long title wins.
+        let placeholderWidth = moneyLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100)
+        placeholderWidth.priority = .defaultHigh
         NSLayoutConstraint.activate([
+            placeholderWidth,
             containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             containerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             containerView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
