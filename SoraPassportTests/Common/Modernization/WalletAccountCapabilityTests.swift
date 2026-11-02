@@ -63,7 +63,7 @@ final class WalletAccountCapabilityTests: XCTestCase {
     }
 
     @MainActor
-    func testReadOnlySwitcherBadgeAndPortfolioNoticeShowReasonAndRestoreAction() throws {
+    func testReadOnlySwitcherBadgeAndSelectedHeaderShowReasonAndRestoreAction() throws {
         let picker = AccountMenuItemView(frame: .zero)
         let model = AccountMenuItem(title: "Public fixture", image: nil, isSelected: true, isMultiselectionMode: false)
         model.capabilityBadge = WalletAccountCapability.State.invalidKeys.badge
@@ -74,27 +74,27 @@ final class WalletAccountCapabilityTests: XCTestCase {
         model.capabilityBadge = nil; picker.bind(model: model)
         XCTAssertTrue(badge.isHidden)
 
-        let cell = PortfolioNoticeCell(style: .default, reuseIdentifier: nil)
-        let item = PortfolioNoticeItem()
+        let cell = AccountCell(style: .default, reuseIdentifier: nil)
+        let item = AccountTableViewItem(accountName: "Public fixture")
         var restored = false
-        item.onRestore = { restored = true }
-        item.setCapability(.invalidKeys)
+        item.restoreKeysHandler = { restored = true }
+        item.capability = .invalidKeys
         cell.set(item: item, context: nil)
         let reason = try XCTUnwrap(descendants(cell).first { $0.accessibilityIdentifier == "wallet-selected-account-read-only-reason" } as? UILabel)
-        let restore = try XCTUnwrap(descendants(cell).first { $0.accessibilityIdentifier == "wallet-selected-account-restore-keys" } as? UIControl)
+        let restore = try XCTUnwrap(descendants(cell).first { $0.accessibilityIdentifier == "wallet-selected-account-restore-keys" } as? UIButton)
         XCTAssertEqual(reason.text, WalletAccountCapability.State.invalidKeys.reason)
         XCTAssertFalse(restore.isHidden)
         restore.sendActions(for: .touchUpInside)
         XCTAssertTrue(restored)
-        item.setCapability(.watchOnly); cell.set(item: item, context: nil)
+        item.capability = .watchOnly; cell.set(item: item, context: nil)
         XCTAssertTrue(restore.isHidden)
         XCTAssertEqual(reason.text, WalletAccountCapability.State.watchOnly.reason)
-        item.setCapability(.signing); cell.set(item: item, context: nil)
-        XCTAssertFalse(item.isShown)
+        item.capability = .signing; cell.set(item: item, context: nil)
+        XCTAssertTrue(reason.isHidden)
     }
 
     @MainActor
-    func testPortfolioRestoreButtonContainsItsWrappedTitleAtLargestTextSize() throws {
+    func testSelectedHeaderRestoreButtonContainsItsWrappedTitleAtLargestTextSize() throws {
         let traits = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
         var result: Result<Void, Error>!
         traits.performAsCurrent {
@@ -102,9 +102,9 @@ final class WalletAccountCapabilityTests: XCTestCase {
                 let previousWindow = UIApplication.shared.keyWindow
                 let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 844))
                 defer { window.isHidden = true; previousWindow?.makeKeyAndVisible() }
-                let item = PortfolioNoticeItem()
-                item.setCapability(.missingKeys)
-                let host = UIViewController(), controller = PortfolioNoticeVisualController(item: item)
+                let item = AccountTableViewItem(accountName: "Public fixture")
+                item.capability = .missingKeys
+                let host = UIViewController(), controller = RecoveryHeaderVisualController(item: item)
                 host.addChild(controller)
                 host.view.addSubview(controller.view)
                 controller.view.frame = window.bounds
@@ -114,14 +114,15 @@ final class WalletAccountCapabilityTests: XCTestCase {
                 window.makeKeyAndVisible()
                 window.layoutIfNeeded()
                 controller.tableView.layoutIfNeeded()
-                let cell = try XCTUnwrap(controller.tableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? PortfolioNoticeCell)
+                let cell = try XCTUnwrap(controller.tableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? AccountCell)
                 let button = try XCTUnwrap(descendants(cell).first {
                     $0.accessibilityIdentifier == "wallet-selected-account-restore-keys"
-                } as? UIControl)
+                } as? UIButton)
                 let label = try XCTUnwrap(descendants(button).first {
-                    $0 is UILabel
+                    $0.accessibilityIdentifier == "wallet-selected-account-restore-title"
                 } as? UILabel)
-                let insets = NSDirectionalEdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20)
+                XCTAssertEqual(label.font.pointSize, 26, accuracy: 0.1)
+                let insets = try XCTUnwrap(button.configuration).contentInsets
                 let titleHeight = label.sizeThatFits(CGSize(width: button.bounds.width - insets.leading - insets.trailing,
                                                             height: .greatestFiniteMagnitude)).height
                 XCTAssertGreaterThan(titleHeight, 0)
@@ -133,7 +134,7 @@ final class WalletAccountCapabilityTests: XCTestCase {
                     XCTAssertGreaterThanOrEqual(text.bounds.height + 1, height, "\(identifier) must not truncate at AX5")
                 }
                 for state in [WalletAccountCapability.State.watchOnly, .signing, .missingKeys] {
-                    item.setCapability(state)
+                    item.capability = state
                     cell.set(item: item, context: nil)
                     UIView.performWithoutAnimation {
                         controller.tableView.beginUpdates()

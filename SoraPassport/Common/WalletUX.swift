@@ -651,7 +651,8 @@ final class WalletAddressScanner: UIViewController, AVCaptureMetadataOutputObjec
 enum WalletButtonStyle {
     /// Neon CTA: `cta.primary` gradient, ink label in dark, `glow.primary`.
     case primary
-    /// Glass: `glass.fill`, hairline border, `text.primary` label.
+    /// Outlined, as the classic secondary button: clear, with a SORA red
+    /// border and label.
     case secondary
     /// Text: `accent.cyan` label.
     case tertiary
@@ -726,12 +727,12 @@ final class WalletNeonButton: UIButton {
                 configuration.baseForegroundColor = tokens.textDisabled
             }
         case .secondary:
-            let fill = fx.opaqueGlass ? tokens.glassSolid : (isHighlighted ? tokens.glassFillPressed : tokens.glassFill)
+            let fill = isHighlighted ? tokens.brandRed.withAlphaComponent(0.10) : .clear
             background.backgroundColor = fill
             configuration.baseBackgroundColor = fill
-            background.strokeColor = isEnabled ? tokens.hairline : .clear
+            background.strokeColor = isEnabled ? tokens.brandRed : tokens.textDisabled
             background.strokeWidth = fx.highContrast ? 2 : 1
-            configuration.baseForegroundColor = isEnabled ? tokens.textPrimary : tokens.textDisabled
+            configuration.baseForegroundColor = isEnabled ? tokens.brandRed : tokens.textDisabled
         case .tertiary:
             background.backgroundColor = isHighlighted ? tokens.cyan.withAlphaComponent(0.10) : .clear
             configuration.baseForegroundColor = isEnabled ? tokens.link : tokens.textDisabled

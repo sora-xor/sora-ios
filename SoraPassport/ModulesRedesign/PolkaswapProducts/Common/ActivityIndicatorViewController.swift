@@ -19,11 +19,14 @@ import UIKit
 import SoraUIKit
 
 final class ActivityIndicatorViewController: SoramitsuViewController {
-    /// Theme-aware backdrop (dark in dark mode).
     lazy var blurredView: UIView = {
-        let backdrop = NeonScrimView(frame: view.bounds)
-        backdrop.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        return backdrop
+        let containerView = UIView()
+        let blurEffect = UIBlurEffect(style: .light)
+        let customBlurEffectView = CustomVisualEffectView(effect: blurEffect, intensity: 0.5)
+        customBlurEffectView.frame = self.view.bounds
+
+        containerView.addSubview(customBlurEffectView)
+        return containerView
     }()
     
     override func viewDidLoad() {
@@ -36,10 +39,10 @@ final class ActivityIndicatorViewController: SoramitsuViewController {
         view.addSubview(blurredView)
         view.sendSubviewToBack(blurredView)
         
-        // A small glass card holding the spinner (spec §7.14).
-        let backgroundView = GlassView()
-        backgroundView.fill = .strong
-        backgroundView.shape = .rounded(16)
+        let backgroundView = UIView()
+        backgroundView.backgroundColor = UIColor.systemGray5
+        backgroundView.layer.cornerRadius = 10
+        backgroundView.layer.masksToBounds = true
         view.addSubview(backgroundView)
         backgroundView.snp.makeConstraints {
             $0.center.equalToSuperview()
@@ -48,7 +51,6 @@ final class ActivityIndicatorViewController: SoramitsuViewController {
         
         let activityIndicatorView = UIActivityIndicatorView()
         activityIndicatorView.style = .large
-        activityIndicatorView.color = NeonTokens.current.cyan
         backgroundView.addSubview(activityIndicatorView)
         activityIndicatorView.snp.makeConstraints {
             $0.center.equalToSuperview()

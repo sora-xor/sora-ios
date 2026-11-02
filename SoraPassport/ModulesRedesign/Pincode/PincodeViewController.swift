@@ -91,7 +91,7 @@ final class PincodeViewController: SoramitsuViewController {
         view.sora.axis = .horizontal
         view.sora.distribution = .equalCentering
         view.sora.alignment = .center
-        view.spacing = 16
+        view.spacing = 8
         view.sora.clipsToBounds = false
         view.heightAnchor.constraint(equalToConstant: 24).isActive = true
         return view
@@ -100,15 +100,13 @@ final class PincodeViewController: SoramitsuViewController {
     private var circleViews: [SoramitsuView] = []
     private var enteredDigits = 0
 
-    private var keypadWidth: NSLayoutConstraint!
-    private var keypadHeight: NSLayoutConstraint!
     var cooldownTimerFactory: (TimeInterval, @escaping @Sendable (Timer) -> Void) -> Timer = { interval, block in
         Timer.scheduledTimer(withTimeInterval: interval, repeats: true, block: block)
     }
     private var timer: Timer?
     private var cooldownDate: Date = .init()
-    private var errorAnimationDuration: CGFloat = 0.32
-    private var errorAnimationAmplitude: CGFloat = 8.0
+    private var errorAnimationDuration: CGFloat = 0.5
+    private var errorAnimationAmplitude: CGFloat = 20.0
     private var errorAnimationDamping: CGFloat = 0.4
     private var errorAnimationInitialVelocity: CGFloat = 1.0
     private var errorAnimationAnimationOptions: UIView.AnimationOptions = .curveEaseInOut
@@ -126,13 +124,6 @@ final class PincodeViewController: SoramitsuViewController {
         presenter.start()
     }
 
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        let large = view.bounds.width >= 400 && view.bounds.height >= 760
-        keypadWidth.constant = large ? 288 : 264
-        keypadHeight.constant = large ? 368 : 336
-    }
-
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         timer?.invalidate()
@@ -146,9 +137,7 @@ private extension PincodeViewController {
 
     func configure() {
 
-        soramitsuView.sora.backgroundColor = .custom(uiColor: UIColor { traits in
-            traits.userInterfaceStyle == .dark ? NeonTokens.dark.neuBg : NeonTokens.light.neuBg
-        })
+        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         
         numpadView.delegate = self
         
@@ -157,19 +146,16 @@ private extension PincodeViewController {
         
         containerView.addSubviews(titleLabel, circlesStackView)
 
-        keypadWidth = numpadView.widthAnchor.constraint(equalToConstant: 264)
-        keypadHeight = numpadView.heightAnchor.constraint(equalToConstant: 336)
         NSLayoutConstraint.activate([
             containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             containerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             containerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             containerView.bottomAnchor.constraint(equalTo: numpadView.topAnchor),
             
-            numpadView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
+            numpadView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 48),
             numpadView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            keypadWidth,
             numpadView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -18),
-            keypadHeight,
+            numpadView.heightAnchor.constraint(equalToConstant: 368),
             
             titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             titleLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
@@ -312,15 +298,11 @@ extension PincodeViewController: PinSetupViewProtocol {
         circlesStackView.removeArrangedSubviews()
         circleViews = []
         for _ in 0..<count {
-            // SORA Neon (spec §7.9): empty dots are a ring, filled dots cyan.
-            // A dark fill alone was invisible on the dark backdrop.
             let view = SoramitsuView()
-            view.sora.backgroundColor = .custom(uiColor: .clear)
-            view.sora.borderWidth = 1.5
-            view.sora.borderColor = .fgTertiary
+            view.sora.backgroundColor = .bgSurfaceVariant
             view.sora.cornerRadius = .circle
-            view.widthAnchor.constraint(equalToConstant: 14).isActive = true
-            view.heightAnchor.constraint(equalToConstant: 14).isActive = true
+            view.widthAnchor.constraint(equalToConstant: 24).isActive = true
+            view.heightAnchor.constraint(equalToConstant: 24).isActive = true
             view.isAccessibilityElement = false
             circlesStackView.addArrangedSubview(view)
             circleViews.append(view)
@@ -352,9 +334,7 @@ extension PincodeViewController: PinSetupViewProtocol {
             UIAccessibility.post(notification: .announcement, argument: circlesStackView.accessibilityValue)
         }
         for (index, view) in circleViews.enumerated() {
-            // `statusInfo` is the Neon cyan in both themes.
-            view.sora.backgroundColor = index < count ? .statusInfo : .custom(uiColor: .clear)
-            view.sora.borderColor = index < count ? .statusInfo : .fgTertiary
+            view.sora.backgroundColor = index < count ? .accentPrimary : .bgSurfaceVariant
         }
     }
     
@@ -370,10 +350,7 @@ extension PincodeViewController: PinSetupViewProtocol {
     func animateWrongInputError(with completion: @escaping (Bool) -> Void) {
         titleLabel.sora.textColor = .statusError
         titleLabel.sora.text = R.string.localizable.commonWrongPin(preferredLanguages: .currentLocale)
-        (circlesStackView.subviews as? [SoramitsuView])?.forEach {
-            $0.sora.backgroundColor = .statusError
-            $0.sora.borderColor = .statusError
-        }
+        (circlesStackView.subviews as? [SoramitsuView])?.forEach { $0.sora.backgroundColor = .statusError }
         if FxPolicy.current.reduceMotion {
             circlesStackView.transform = .identity
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { completion(true) }

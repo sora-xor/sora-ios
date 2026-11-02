@@ -65,8 +65,8 @@ struct AppearanceFactory {
                                              for: .normal)
     }
 
-    /// SORA Neon chrome (spec §4.3.3, §4.3.4). On iOS 26+ the bars keep the
-    /// system Liquid Glass; only fonts, colours and the tint are set.
+    /// The classic chrome, tinted SORA red. Where the system draws Liquid
+    /// Glass bars they keep it; only colours and the tint are set.
     private static func configureGlobalNavigationBar() {
         let tokens = NeonTokens.current
         let (standard, scrollEdge) = NeonChrome.navigationBarAppearances(tokens: tokens)
@@ -88,7 +88,6 @@ struct AppearanceFactory {
     }
     
     private static func configureTabBarItem() {
-        UITabBarItem.appearance().setTitleTextAttributes([.font: FontType.textXS.font], for: .normal)
-        UITabBarItem.appearance().setTitleTextAttributes([.font: FontType.textBoldXS.font], for: .selected)
+        UITabBarItem.appearance().setTitleTextAttributes(FontType.textBoldXS.attributes, for: .normal)
     }
 }

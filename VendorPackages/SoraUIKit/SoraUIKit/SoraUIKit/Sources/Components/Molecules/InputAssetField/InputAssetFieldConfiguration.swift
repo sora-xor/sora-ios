@@ -67,8 +67,7 @@ public final class InputAssetFieldConfiguration<Type: InputAssetField>: Soramits
     public override func styleDidChange(options: UpdateOptions) {
         super.styleDidChange(options: options)
 
-        // The chrome (fill, border, focus glow) depends on both.
-        if options.contains(.palette) || options.contains(.effects) {
+        if options.contains(.palette) {
             updateView()
         }
     }
@@ -77,12 +76,8 @@ public final class InputAssetFieldConfiguration<Type: InputAssetField>: Soramits
         assetChoiceHandler?()
     }
 
-    /// Fill, border and focus glow of the amount card (spec §7.5). This is
-    /// their only writer.
     func updateView() {
-        guard let owner else { return }
-        // The amount card keeps the card radius; it is a hero input (spec §8.11).
-        NeonInputStyle.apply(to: owner.containerView, state: state, isEnabled: true,
-                             cornerRadius: style.radii.radius(.max, size: owner.containerView.bounds.size))
+        owner?.containerView.layer.borderColor = style.palette.color(state.borderColor).cgColor
+        owner?.containerView.backgroundColor = style.palette.color(.bgSurface)
     }
 }
