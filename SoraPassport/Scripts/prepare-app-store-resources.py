@@ -29,7 +29,7 @@ def prepare(app, localizations):
         info = plistlib.load(stream)
     executable = app / info["CFBundleExecutable"]
     frameworks = app / "Frameworks"
-    binaries = [executable]
+    binaries = [executable] + list(app.glob("*.dylib"))
     for framework in frameworks.glob("*.framework"):
         with (framework / "Info.plist").open("rb") as stream:
             name = plistlib.load(stream)["CFBundleExecutable"]
