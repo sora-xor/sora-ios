@@ -32,7 +32,7 @@ final class AnalyticsPriceAdmissionTests: XCTestCase {
 }
 
 final class TairaFaucetAppTests: XCTestCase {
-    private let receiveAddress = "testuﾛ1PﾍeｸﾊVZeｸYjﾛABRiﾕLｱｦｺjMﾀMAdYqﾊﾊCﾇｿﾓfreﾙ9M8GPH"
+    private let receiveAddress = "testuﾛ1NhｶﾅmVﾛFnｽﾔSvaWﾉﾇ9ｹLBﾛhmMﾙｸHﾈﾁﾍｺoﾀpbHjｵ7S9LE9"
 
     private func account(network: NetworkId = .taira, key: Data? = nil) throws -> NetworkAccount {
         let parsed = try IrohaAddressCodec.parse(receiveAddress, expectedDiscriminant: 369)
@@ -3858,7 +3858,7 @@ private final class FaucetFixtureClock: @unchecked Sendable {
     private let lock = NSLock()
     private var expired = false
     func advance() { lock.lock(); expired = true; lock.unlock() }
-    func now() -> UInt64 { lock.lock(); defer { lock.unlock() }; return expired ? 1_791_874_548_510 : 1_791_874_348_510 }
+    func now() -> UInt64 { lock.lock(); defer { lock.unlock() }; return expired ? 1_793_579_085_193 : 1_793_578_885_193 }
 }
 private actor FaucetFixtureRecords {
     var requests: [URLRequest] = [], phases: [String] = []
@@ -3879,7 +3879,7 @@ private final class FaucetPersistenceFixture: @unchecked Sendable {
         policy = try JSONSerialization.data(withJSONObject: ["schema_version": 1, "network_id": TairaClient.networkLiteral,
             "network_prefix": 369, "authority": TairaFaucetClient.authority, "asset_definition_id": TairaClient.xorDefinition, "amount": TairaFaucetClient.amount])
         puzzle = try JSONSerialization.data(withJSONObject: ["algorithm": "scrypt-leading-zero-bits-v1", "network_id": TairaClient.networkLiteral,
-            "chain_discriminant": 369, "difficulty_bits": 8, "anchor_height": 72, "anchor_block_hash_hex": String(repeating: "01", count: 32),
+            "chain_discriminant": 369, "difficulty_bits": 8, "anchor_height": 10085, "anchor_block_hash_hex": String(repeating: "01", count: 32),
             "challenge_salt_hex": NSNull(), "scrypt_log_n": 13, "scrypt_r": 8, "scrypt_p": 1, "max_anchor_age_blocks": 6])
         status = try JSONSerialization.data(withJSONObject: ["hash": hash, "scope": "global", "resolved_from": mode == .invalidStatus ? "cache" : "state",
             "status": ["kind": mode == .rejected ? "Rejected" : "Applied", "block_height": 73]])
@@ -3889,7 +3889,7 @@ private final class FaucetPersistenceFixture: @unchecked Sendable {
     func phases() async -> [String] { await records.phases }
     func record(_ phase: TairaFaucetService.Phase) async { await records.append(phase) }
     func client() -> TairaFaucetClient {
-        TairaFaucetClient(scrypt: { nonce, _, _, _, _ in Data(repeating: nonce == Data([6, 1, 0, 0, 0, 0, 0, 0]) ? 0 : 255, count: 32) }, transport: { [self] request, _ in
+        TairaFaucetClient(scrypt: { nonce, _, _, _, _ in Data(repeating: nonce == Data([0x38, 0, 0, 0, 0, 0, 0, 0]) ? 0 : 255, count: 32) }, transport: { [self] request, _ in
             await records.append(request)
             switch request.url?.path {
             case "/v1/accounts/faucet/policy": return .init(data: policy)
@@ -3906,6 +3906,6 @@ private final class FaucetPersistenceFixture: @unchecked Sendable {
             case "/v1/pipeline/transactions/status": return .init(data: status)
             default: XCTFail("Unexpected request"); throw URLError(.badURL)
             }
-        }, clock: { [clock] in clock.now() }, requestID: { "7582fe6c111c4ac1b031f8c76db1a3f9442512bb6c50448289dad334fedb9084" })
+        }, clock: { [clock] in clock.now() }, requestID: { "6ddfcc7d143e4c88a6232812ab8de1d45038167b3baf4aedae245d6f534824f4" })
     }
 }

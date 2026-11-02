@@ -4,14 +4,14 @@ import XCTest
 @testable import NexusTransferCodec
 
 final class TairaFaucetClientTests: XCTestCase {
-    private let account = "testuﾛ1PﾍeｸﾊVZeｸYjﾛABRiﾕLｱｦｺjMﾀMAdYqﾊﾊCﾇｿﾓfreﾙ9M8GPH"
-    private let publicKey = Data(hexadecimal: "b30c10e8c82f8b8c80ad83594956f27e09ac75b461eb19694135f437ccfdb4b5")!
-    private let now: UInt64 = 1_791_874_348_510
-    private let requestID = "7582fe6c111c4ac1b031f8c76db1a3f9442512bb6c50448289dad334fedb9084"
+    private let account = "testuﾛ1NhｶﾅmVﾛFnｽﾔSvaWﾉﾇ9ｹLBﾛhmMﾙｸHﾈﾁﾍｺoﾀpbHjｵ7S9LE9"
+    private let publicKey = Data(hexadecimal: "076247e3e97ab20c74cb766d948d0cb19b8f3b529112e4f80d06d32681937f5d")!
+    private let now: UInt64 = 1_793_578_885_193
+    private let requestID = "6ddfcc7d143e4c88a6232812ab8de1d45038167b3baf4aedae245d6f534824f4"
     private func fixture() throws -> Data { try Data(contentsOf: Bundle.module.url(forResource: "faucet-prepared", withExtension: "json")!) }
     private func puzzle() -> [String: Any] { [
         "algorithm": "scrypt-leading-zero-bits-v1", "network_id": TairaClient.networkLiteral,
-        "chain_discriminant": 369, "difficulty_bits": 8, "anchor_height": 72,
+        "chain_discriminant": 369, "difficulty_bits": 8, "anchor_height": 10085,
         "anchor_block_hash_hex": String(repeating: "01", count: 32), "challenge_salt_hex": NSNull(),
         "scrypt_log_n": 13, "scrypt_r": 8, "scrypt_p": 1, "max_anchor_age_blocks": 6] }
     private func policy() -> [String: Any] { ["schema_version": 1, "network_id": TairaClient.networkLiteral,
@@ -26,7 +26,7 @@ final class TairaFaucetClientTests: XCTestCase {
     func testRealFaucetFixtureSignatureAndExactClaimValidate() throws {
         let data = try fixture(), root = try TairaFaucetClient.object(data)
         XCTAssertEqual(try validate(data), root["transaction_hash_hex"] as? String)
-        XCTAssertEqual(TairaFaucetClient.semanticHash(account: account, height: 72, nonce: "0601000000000000"), root["semantic_hash_hex"] as? String)
+        XCTAssertEqual(TairaFaucetClient.semanticHash(account: account, height: 10085, nonce: "3800000000000000"), root["semantic_hash_hex"] as? String)
     }
     func testPreparedRejectsAddressKeyAmountBindingAndWireSubstitution() throws {
         let data = try fixture()
@@ -60,7 +60,7 @@ final class TairaFaucetClientTests: XCTestCase {
         let proof = try TairaFaucetClient.puzzle(puzzle(), account: account)
         let other = try TairaFaucetClient.puzzle(puzzle(), account: account + "x")
         XCTAssertNotEqual(proof.challenge, other.challenge)
-        let expected = TairaClient.networkBytes + Data(account.utf8) + Data([0, 0, 0, 0, 0, 0, 0, 72]) + Data(repeating: 1, count: 32)
+        let expected = TairaClient.networkBytes + Data(account.utf8) + Data([0, 0, 0, 0, 0, 0, 0x27, 0x65]) + Data(repeating: 1, count: 32)
         XCTAssertEqual(proof.challenge, Data(SHA256.hash(data: Data("iroha:accounts:faucet:pow:v1".utf8) + expected)))
         let nonce = try TairaFaucetClient.solve(proof) { nonce, salt, n, r, p in
             XCTAssertEqual(salt, proof.challenge); XCTAssertEqual(n, 8192); XCTAssertEqual(r, 8); XCTAssertEqual(p, 1)
@@ -75,7 +75,7 @@ final class TairaFaucetClientTests: XCTestCase {
         let response = try TairaFaucetClient.json(["schema": "iroha.prepared-transaction-submit.v1", "operation": "faucet",
             "transaction_hash_hex": hash, "binding": root["binding"]!, "outcome": "Pending"])
         let status = try TairaFaucetClient.json(["hash": hash, "scope": "global", "resolved_from": "state", "status": ["kind": "Applied", "block_height": 73]])
-        let client = TairaFaucetClient(scrypt: { nonce, _, _, _, _ in Data(repeating: nonce == Data([6, 1, 0, 0, 0, 0, 0, 0]) ? 0 : 255, count: 32) }, transport: { request, _ in
+        let client = TairaFaucetClient(scrypt: { nonce, _, _, _, _ in Data(repeating: nonce == Data([0x38, 0, 0, 0, 0, 0, 0, 0]) ? 0 : 255, count: 32) }, transport: { request, _ in
             await recorded.append(request)
             switch request.url!.path {
             case "/v1/accounts/faucet/policy": return .init(data: policy)
@@ -84,7 +84,7 @@ final class TairaFaucetClientTests: XCTestCase {
             case "/v1/accounts/faucet": XCTAssertEqual(request.httpBody, data); return .init(data: response, statusCode: 202)
             default: return .init(data: status)
             }
-        }, clock: { 1_791_874_348_510 }, requestID: { "7582fe6c111c4ac1b031f8c76db1a3f9442512bb6c50448289dad334fedb9084" })
+        }, clock: { 1_793_578_885_193 }, requestID: { "6ddfcc7d143e4c88a6232812ab8de1d45038167b3baf4aedae245d6f534824f4" })
         let claim = try await client.prepare(account: account, publicKey: publicKey)
         XCTAssertEqual(claim.transactionHash, hash)
         let sent = try await client.submit(claim); XCTAssertEqual(sent.state, .pending)
@@ -119,7 +119,7 @@ final class TairaFaucetClientTests: XCTestCase {
         let data = try fixture(), policy = try TairaFaucetClient.json(policy()), puzzle = try TairaFaucetClient.json(puzzle())
         for mode in 0..<3 {
             let recorded = FaucetRequests()
-            let client = TairaFaucetClient(scrypt: { nonce, _, _, _, _ in Data(repeating: nonce == Data([6, 1, 0, 0, 0, 0, 0, 0]) ? 0 : 255, count: 32) }, transport: { request, _ in
+            let client = TairaFaucetClient(scrypt: { nonce, _, _, _, _ in Data(repeating: nonce == Data([0x38, 0, 0, 0, 0, 0, 0, 0]) ? 0 : 255, count: 32) }, transport: { request, _ in
                 await recorded.append(request)
                 switch request.url!.path {
                 case "/v1/accounts/faucet/policy": return .init(data: policy)
@@ -130,7 +130,7 @@ final class TairaFaucetClientTests: XCTestCase {
                     if mode == 1 { return .init(data: Data("{}".utf8)) }
                     return .init(data: Data(), statusCode: 429, retryAfterSeconds: 75)
                 }
-            }, clock: { 1_791_874_348_510 }, requestID: { "7582fe6c111c4ac1b031f8c76db1a3f9442512bb6c50448289dad334fedb9084" })
+            }, clock: { 1_793_578_885_193 }, requestID: { "6ddfcc7d143e4c88a6232812ab8de1d45038167b3baf4aedae245d6f534824f4" })
             let claim = try await client.prepare(account: account, publicKey: publicKey)
             do {
                 let outcome = try await client.submit(claim)

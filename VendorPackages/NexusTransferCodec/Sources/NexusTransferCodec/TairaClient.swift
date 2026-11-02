@@ -6,8 +6,8 @@ import Foundation
 /// this is deliberately not an independently verified consensus light client.
 public final class TairaClient {
     public static let origin = URL(string: "https://taira.sora.org")!
-    public static let networkLiteral = "hash:5C3E66C94E079079FF4FC46F59810B9C4EC7B2646DD45CE937831C0FDCE20C9B#44D9"
-    public static let networkBytes = Data(hexadecimal: "5c3e66c94e079079ff4fc46f59810b9c4ec7b2646dd45ce937831c0fdce20c9b")!
+    public static let networkLiteral = "hash:4978D0BD15FC32B834672B27BBD8A03653B1DF060A1EEE7E9374D29AF3886D91#6774"
+    public static let networkBytes = Data(hexadecimal: "4978d0bd15fc32b834672b27bbd8a03653b1df060a1eee7e9374d29af3886d91")!
     public static let xorDefinition = "6TEAJqbb8oEPmLncoNiMRbLEK6tw"
     public enum Failure: Error { case invalidResponse, quoteExpired, rejected(Int), wrongNetwork }
     public typealias Transport = (URLRequest, Int) async throws -> Data
