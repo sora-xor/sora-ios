@@ -42,6 +42,8 @@ final class Sora2MainnetLiveSigningTests: XCTestCase {
     }
     private static let xorAssetId =
         "0x0200000000000000000000000000000000000000000000000000000000000000"
+    private static let valAssetId =
+        "0x0200040000000000000000000000000000000000000000000000000000000000"
 
     private final class FixedRuntimeService: SoraPassport.RuntimeCodingServiceProtocol {
         let factory: RuntimeCoderFactoryProtocol
@@ -286,6 +288,123 @@ final class Sora2MainnetLiveSigningTests: XCTestCase {
                 reason
             )
         }
+    }
+
+    /// LIVE NETWORK TEST, gated like the signing test. The Polkaswap swap the
+    /// swap screen submits (XOR to VAL, Smart market, DEX 0), built by the
+    /// app's call factory and signed by a throwaway zero-balance key, must
+    /// decode, be priced and be rejected only because the key cannot pay the
+    /// fee. A swap call the live runtime cannot decode fails here.
+    func testThrowawayAccountSignsSwapForTheLiveMainnetRuntime() async throws {
+        try XCTSkipUnless(
+            ProcessInfo.processInfo.environment["SORA_LIVE_NETWORK_TESTS"] == "1",
+            "Live-network test. Set TEST_RUNNER_SORA_LIVE_NETWORK_TESTS=1 to run it."
+        )
+
+        let source = WebSocketEngine(
+            connectionName: nil,
+            url: Self.node,
+            reachabilityManager: nil,
+            reconnectionStrategy: nil,
+            autoconnect: false
+        )
+        let engine = Sora2BoundedHTTPJSONRPCEngine(sourceEngine: source)
+        let rpc = PolkamarktRPCClient(engine: engine)
+        let genesis = try await rpc.reviewedGenesisHash()
+        XCTAssertEqual(genesis, PIIndexerClient.soraMainnetGenesis)
+        let finalizedHash = try await rpc.finalizedHead()
+        let header = try await rpc.header(at: finalizedHash)
+        let version = try await rpc.runtimeVersion(at: finalizedHash)
+        let metadataHex = try await rpc.metadataHex(at: finalizedHash)
+        let live = try Sora2LiveRuntimeValidator.liveRuntime(
+            version: version,
+            metadataHex: metadataHex
+        )
+        let factory = try liveFactory(
+            genesis: genesis,
+            version: version,
+            metadataHex: metadataHex
+        )
+        try Sora2LiveRuntimeValidator.validate(factory: factory, live: live)
+
+        var seed = Data(count: 32)
+        let status = seed.withUnsafeMutableBytes {
+            SecRandomCopyBytes(kSecRandomDefault, 32, $0.baseAddress!)
+        }
+        XCTAssertEqual(status, errSecSuccess)
+        let keypair = try SNKeyFactory().createKeypair(fromSeed: seed)
+        seed.resetBytes(in: 0 ..< seed.count)
+        let publicKey = keypair.publicKey().rawData()
+        let signer = ThrowawaySigner(
+            secretKey: keypair.privateKey().rawData(),
+            publicKey: publicKey
+        )
+        let address = try SS58AddressFactory().address(
+            fromAccountId: publicKey,
+            type: Chain.sora.addressType()
+        )
+        let nonce: UInt32 = try call(
+            engine,
+            SoraPassport.RPCMethod.getExtrinsicNonce,
+            [address]
+        )
+        let numberHex = header.number.hasPrefix("0x")
+            ? String(header.number.dropFirst(2))
+            : header.number
+        let blockNumber = try XCTUnwrap(UInt64(numberHex, radix: 16))
+        let era = Era(
+            blockNumber: blockNumber,
+            eraLength: UInt64(Sora2SubmissionRecoveryContext.reviewedEraPeriod)
+        )
+        let market = LiquiditySourceType.smart
+        let (extrinsicData, _) = try ExtrinsicService.assembleSignedExtrinsic(
+            codingFactory: factory,
+            genesisHash: genesis,
+            accountId: publicKey,
+            nonce: nonce,
+            era: era,
+            eraBlockHash: finalizedHash,
+            cryptoType: .sr25519,
+            customClosure: { builder in
+                try builder.adding(
+                    call: try SubstrateCallFactory().swap(
+                        from: Self.xorAssetId,
+                        to: Self.valAssetId,
+                        dexId: "0",
+                        amountCall: [.desiredInput: SwapAmount(type: .desiredInput, desired: 1, slip: 0)],
+                        type: market.code,
+                        filter: market.filter
+                    )
+                )
+            },
+            signingClosure: { payload in
+                try signer.sign(payload).rawData()
+            }
+        )
+        let extrinsicHex = extrinsicData.toHex(includePrefix: true)
+
+        let info: QueryInfo = try call(
+            engine,
+            SoraPassport.RPCMethod.paymentInfo,
+            [extrinsicHex]
+        )
+        let partialFee = try XCTUnwrap(BigUInt(info.partialFee))
+        XCTAssertGreaterThan(partialFee, 0)
+
+        let response = try await submitRaw(extrinsicHex)
+        XCTAssertNil(response.result, "A zero-balance account must not submit")
+        let error = try XCTUnwrap(response.error)
+        let reason = error.data ?? ""
+        print(
+            "SoraLiveSwap spec=\(live.specVersion) tx=\(live.transactionVersion) " +
+                "finalized=\(blockNumber) partialFee=\(partialFee) " +
+                "submit=\(error.code) \(error.message): \(reason)"
+        )
+        XCTAssertEqual(error.code, 1010, "\(error.message) \(reason)")
+        XCTAssertTrue(
+            reason.contains("Inability to pay some fees"),
+            "Rejected for another reason: \(error.message) \(reason)"
+        )
     }
 
     /// LIVE NETWORK TEST, gated like the signing test. Reads live mainnet
