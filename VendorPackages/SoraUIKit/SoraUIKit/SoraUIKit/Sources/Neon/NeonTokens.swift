@@ -79,14 +79,11 @@ public struct NeonTokens {
     // Skeleton
     public let skeletonBase, skeletonHighlight: UIColor
 
-    /// Tokens for the theme currently shown by the app (not the system theme).
-    public static var current: NeonTokens {
-        SoramitsuUI.shared.theme == .dark ? .dark : .light
-    }
+    /// The tokens the app draws with: the classic SORA design of the 3.x
+    /// releases before 3.9 (light, solid white cards, no aurora or glow).
+    public static var current: NeonTokens { .classic }
 
-    public static func tokens(for theme: SoramitsuThemeType) -> NeonTokens {
-        theme == .dark ? .dark : .light
-    }
+    public static func tokens(for theme: SoramitsuThemeType) -> NeonTokens { .classic }
 }
 
 // MARK: - Values
@@ -199,6 +196,53 @@ public extension NeonTokens {
         neuInnerDark: ShadowSpec(color: c(0xA3A9C0), alpha: 0.50, blur: 8, offset: CGSize(width: 3, height: 3)),
         neuInnerLight: ShadowSpec(color: c(0xFFFFFF), alpha: 0.90, blur: 8, offset: CGSize(width: -3, height: -3)),
         skeletonBase: c(0x0B0C14, 0.06), skeletonHighlight: c(0xFFFFFF, 0.70)
+    )
+}
+
+// MARK: - Classic
+
+private let noGradient = NeonGradient([(0, clear), (1, clear)])
+private func solid(_ color: UIColor) -> NeonGradient { NeonGradient([(0, color), (1, color)]) }
+private let noGlow = GlowSpec(color: clear, rest: 0, peak: 0, pressed: 0, blur: 0, offsetY: 0)
+private let noShadow = ShadowSpec(color: clear, alpha: 0, blur: 0, offset: .zero)
+
+public extension NeonTokens {
+    /// The classic SORA look (3.x before 3.9) in the Neon token slots: the
+    /// pre-3.9 light palette's page, surface, text and accent colours, solid
+    /// buttons, the classic card shadow, and no aurora, grid, glass sheen,
+    /// gradient hairline, glow or neumorphic depth.
+    static let classic = NeonTokens(
+        isDark: false,
+        canvas: Colors.brown5, layer1: Colors.brown5, surface: Colors.white100, surfaceVariant: Colors.brown10,
+        sheet: Colors.white100, toast: Colors.brown90,
+        scrim: Colors.brown90.withAlphaComponent(0.32), scrimOverBlur: Colors.brown90.withAlphaComponent(0.24),
+        auroraCyan: clear, auroraMagenta: clear, auroraRed: clear, safeAuroraMint: clear, safeAuroraCyan: clear,
+        gridMinor: clear, gridMajor: clear,
+        glassFill: Colors.white100, glassFillStrong: Colors.white100, glassFillPressed: Colors.brown10,
+        glassSolid: Colors.white100, chromeTint16: Colors.brown5, glassTint26: clear,
+        cardFill: Colors.white100, inputFill: Colors.white100,
+        glassHighlight: noGradient, borderGlass: noGradient, borderSpectrum: noGradient, borderSafe: noGradient,
+        borderCtaSheen: noGradient, borderChromeTop: noGradient,
+        cardShadow: ShadowSpec(color: c(0x999999), alpha: 0.24, blur: 40, offset: CGSize(width: 0, height: 10)),
+        hairline: Colors.brown10, divider: Colors.brown10, borderInput: Colors.brown10, focusRing: Colors.brown50,
+        textPrimary: Colors.brown90, textSecondary: Colors.brown50, textTertiary: Colors.brown30,
+        textDisabled: Colors.brown30, onAccent: Colors.white100, link: Colors.red50,
+        brandRed: Colors.red50, redText: Colors.red50, cyan: Colors.red50, steel: Colors.brown50,
+        magenta: Colors.polkaswap50, polkaswapBrand: Colors.polkaswap50, polkaswapText: Colors.polkaswap50,
+        ctaPrimary: solid(Colors.red50), ctaSwap: solid(Colors.polkaswap50), ctaSafe: solid(Colors.green50),
+        ctaDisabled: Colors.brown10,
+        success: Colors.green50, successContainer: Colors.green5, warning: Colors.yellow30,
+        warningContainer: Colors.yellow5, warningFill: Colors.yellow30, onWarningFill: Colors.brown90,
+        error: Colors.red60, errorContainer: Colors.red5, info: Colors.blue40, infoContainer: Colors.blue5,
+        redContainer: Colors.red5,
+        tertiaryContainer: Colors.brown10, polkaswapContainer: Colors.polkaswap5,
+        glowPrimary: noGlow, glowSwap: noGlow, glowFocus: noGlow, glowDot: noGlow, glowTab: noGlow,
+        glowSafe: noGlow, glowSuccess: noGlow,
+        heroTextGlow: nil,
+        neuBg: Colors.brown5, neuFacePressed: Colors.brown10,
+        neuFace: solid(Colors.white100), neuRim: noGradient,
+        neuDark: noShadow, neuLight: noShadow, neuInnerDark: noShadow, neuInnerLight: noShadow,
+        skeletonBase: Colors.brown10, skeletonHighlight: Colors.white100.withAlphaComponent(0.7)
     )
 }
 

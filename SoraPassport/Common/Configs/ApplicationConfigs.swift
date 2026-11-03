@@ -348,14 +348,20 @@ extension ApplicationConfig: ApplicationConfigProtocol {
         }
     }
     
+    /// The cards the Wallet home shows for the selected account. A card that
+    /// cannot be turned off (Assets) is always included: the 3.9 portfolio
+    /// builds had no Assets card and stored lists without it, which would
+    /// otherwise hide it for good, as Edit view cannot turn it back on.
     func getAvailableApplicationSections() -> [Int] {
         let defaultIdentifiers = Cards.allCases.filter { $0.defaultState != .disabled }.map { $0.id }
-        
+        let lockedIdentifiers = Cards.allCases.filter { $0.defaultState == .unselected }.map { $0.id }
+
         if let address = SelectedWalletSettings.shared.currentAccount?.address,
-           let allAccountConfig = UserDefaults.standard.object(forKey: Constants.enabledCards) as? [String : [Int]] {
-            return allAccountConfig[address] ?? defaultIdentifiers
+           let allAccountConfig = UserDefaults.standard.object(forKey: Constants.enabledCards) as? [String : [Int]],
+           let stored = allAccountConfig[address] {
+            return stored + lockedIdentifiers.filter { !stored.contains($0) }
         }
-        
+
         return defaultIdentifiers
     }
     

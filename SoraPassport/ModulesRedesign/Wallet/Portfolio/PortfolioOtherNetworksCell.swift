@@ -4,18 +4,6 @@
 import SoraUIKit
 import UIKit
 
-/// XOR on a network other than SORA2: one row of "XOR on other networks".
-struct NetworkAssetRow: Equatable {
-    let account: NetworkAccount
-    /// "SORA · Taira". A row on the main network has no network label.
-    let title: String
-    /// "50 XOR", "Address ready" for a network that is not live yet, or empty
-    /// while the balance loads.
-    let amount: String
-    let tag: WalletNetworkTag?
-    let icon: UIImage?
-}
-
 /// "XOR on other networks": the selected wallet's XOR rows on networks other than SORA2, under the
 /// portfolio list, each opening that network's page. The Wallet tab fills the rows
 /// (`RedesignWalletViewModel.refreshNetworkRows`). Without rows it takes no space.

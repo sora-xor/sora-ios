@@ -40,12 +40,12 @@ public struct FxPolicy {
 
     public var reduceMotion: Bool { UIAccessibility.isReduceMotionEnabled }
     public var highContrast: Bool { UIAccessibility.isDarkerSystemColorsEnabled }
-    /// Translucent glass becomes `glassSolid`, no sheen, no live blur.
-    public var opaqueGlass: Bool { tier == .minimal || highContrast }
-    public var glows: Bool { !highContrast }
-    public var pulses: Bool { tier == .full && !reduceMotion }
-    /// Grid texture (aurora is always drawn).
-    public var ambientDetail: Bool { tier != .minimal }
+    /// The classic SORA design draws every surface solid, with no glow, no
+    /// looping motion and no ambient texture, whatever the tier.
+    public var opaqueGlass: Bool { true }
+    public var glows: Bool { false }
+    public var pulses: Bool { false }
+    public var ambientDetail: Bool { false }
 }
 
 public extension Notification.Name {

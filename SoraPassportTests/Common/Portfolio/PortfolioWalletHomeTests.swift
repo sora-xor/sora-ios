@@ -8,7 +8,8 @@ import UIKit
 
 final class PortfolioWalletHomeTests: XCTestCase {
     func testHomeSettingsOfferOnlyTheRemainingOptionalCards() {
-        XCTAssertEqual(Cards.allCases.map(\.id), [1, 3], "Persisted card IDs stay stable; the permanent portfolio has no visibility toggle")
+        XCTAssertEqual(Cards.allCases.map(\.id), [1, 2, 3],
+                       "Persisted card IDs stay stable; the classic home's Assets card can be shown or hidden again")
     }
 
     func testBackupAccountsKeepTheirOwnCellAfterTheHeaderIsRemoved() {

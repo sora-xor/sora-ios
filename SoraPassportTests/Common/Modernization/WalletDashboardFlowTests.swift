@@ -39,7 +39,7 @@ final class WalletDashboardFlowTests: XCTestCase {
         let reader = reader ?? DashboardNetworkReader()
         let assets = DashboardAssets(), fiat = DashboardFiat(), market = DashboardMarket(), pools = DashboardPools(), network = WalletNetworkOperationFactoryProtocolMock(), edit = DashboardEdit(), route = DashboardRoute(), view = DashboardView(), source = DashboardSource()
         let poolRows = PoolsItemService(marketCapService: market, fiatService: fiat, poolViewModelsFactory: PoolViewModelFactory(walletAssets: assets.assets, assetManager: assets, fiatService: fiat))
-        let model = RedesignWalletViewModel(wireframe: route, providerFactory: BalanceProviderFactory(accountId: owner.address, cacheFacade: CoreDataCacheFacade.shared, networkOperationFactory: network, identifierFactory: SingleProviderIdentifierFactory()), assetManager: assets, fiatService: fiat, farmingService: DashboardFarms(), itemFactory: WalletItemFactory(), networkFacade: network, accountId: owner.publicKeyData.toHex(), address: owner.address, polkaswapNetworkFacade: PolkaswapNetworkOperationFactory(engine: DashboardEngine()), qrEncoder: DashboardQR(), sharingFactory: DashboardShare(), poolsService: pools, referralFactory: DashboardReferrals(), assetsProvider: DashboardBalances(), walletContext: WalletContextMock(), editViewService: edit, poolsViewModelService: poolRows, marketCapService: market, selectedNetworkAccounts: networkAccounts, nexusReadClient: reader)
+        let model = RedesignWalletViewModel(wireframe: route, providerFactory: BalanceProviderFactory(accountId: owner.address, cacheFacade: CoreDataCacheFacade.shared, networkOperationFactory: network, identifierFactory: SingleProviderIdentifierFactory()), assetManager: assets, fiatService: fiat, farmingService: DashboardFarms(), itemFactory: WalletItemFactory(), networkFacade: network, accountId: owner.publicKeyData.toHex(), address: owner.address, polkaswapNetworkFacade: PolkaswapNetworkOperationFactory(engine: DashboardEngine()), qrEncoder: DashboardQR(), sharingFactory: DashboardShare(), poolsService: pools, referralFactory: DashboardReferrals(), assetsProvider: DashboardBalances(), walletContext: WalletContextMock(), editViewService: edit, poolsViewModelService: poolRows, assetsViewModelService: AssetsItemService(marketCapService: market, fiatService: fiat, assetViewModelsFactory: AssetViewModelFactory(walletAssets: [], assetManager: assets, fiatService: fiat), assetManager: assets, assetProvider: DashboardBalances()), marketCapService: market, selectedNetworkAccounts: networkAccounts, nexusReadClient: reader)
         let suite = UserDefaults(suiteName: UUID().uuidString)!
         model.portfolioHome = PortfolioHome(dataSource: source, preferences: PortfolioPreferences(defaults: suite))
         model.view = view
@@ -49,18 +49,23 @@ final class WalletDashboardFlowTests: XCTestCase {
     private func row<T>(_ type: T.Type, _ f: Fixture) throws -> T { try XCTUnwrap(f.model.walletItems.compactMap { $0 as? T }.first) }
     private func displayed(_ f: Fixture) -> [SoramitsuTableViewItemProtocol] { var rows: [SoramitsuTableViewItemProtocol] = []; f.model.setupItems = { rows = $0 }; f.model.updateItems(); return rows }
     private func wait() async { try? await Task.sleep(nanoseconds: 30_000_000) }
+    /// The classic home lists other networks' XOR in its Assets card.
+    private func networkRows(_ f: Fixture) -> [NetworkAssetRow] { (f.model.walletItems.compactMap { $0 as? AssetsItem }.first)?.networkRows ?? [] }
 
-    func testInitialCardsContainBackupReferralPoolsAndEditing() throws { let f = make(); load(f); XCTAssertEqual(f.model.walletItems.count, 4); _ = try row(BackupItem.self, f); _ = try row(FriendsItem.self, f); _ = try row(PoolsItem.self, f); _ = try row(EditViewItem.self, f) }
+    func testInitialCardsAreTheClassicHome() throws { let f = make(); load(f); XCTAssertEqual(f.model.walletItems.count, 6); _ = try row(AccountTableViewItem.self, f); _ = try row(BackupItem.self, f); _ = try row(FriendsItem.self, f); _ = try row(AssetsItem.self, f); _ = try row(PoolsItem.self, f); _ = try row(EditViewItem.self, f) }
+    /// The 3.9 portfolio builds stored card lists without Assets, which Edit view cannot turn back on.
+    func testAssetsShowWhateverAnEarlierBuildStored() { let f = make(); load(f); ApplicationConfig.shared.updateAvailableApplicationSections(cards: [Cards.referralProgram.id]); XCTAssertTrue(displayed(f).contains { $0 is AssetsItem }); XCTAssertEqual(ApplicationConfig.shared.getAvailableApplicationSections(), [Cards.referralProgram.id, Cards.liquidAssets.id]) }
+    func testClassicHomeShowsTheCardsIn386Order() { let f = make(); load(f); let shown = displayed(f); let order: [AnyClass] = [AccountTableViewItem.self, BackupItem.self, FriendsItem.self, AssetsItem.self, PoolsItem.self, EditViewItem.self]; XCTAssertEqual(shown.map { ObjectIdentifier(type(of: $0)) }, order.map(ObjectIdentifier.init)) }
     func testFetchCompletionReturnsTheSameRenderedCardsExactlyOnce() { let f = make(); var renders = 0, completions = 0; var shown: [SoramitsuTableViewItemProtocol] = []; f.model.setupItems = { renders += 1; shown = $0 }; f.model.fetchAssets { rows in completions += 1; XCTAssertEqual(rows.map { ObjectIdentifier($0) }, shown.map { ObjectIdentifier($0) }) }; XCTAssertEqual(renders, 1); XCTAssertEqual(completions, 1) }
-    func testRebuildingCardsDoesNotAppendDuplicates() { let f = make(); load(f); load(f); XCTAssertEqual(f.model.walletItems.count, 4); XCTAssertEqual(displayed(f).filter { $0 is BackupItem }.count, 1) }
+    func testRebuildingCardsDoesNotAppendDuplicates() { let f = make(); load(f); load(f); XCTAssertEqual(f.model.walletItems.count, 6); XCTAssertEqual(displayed(f).filter { $0 is BackupItem }.count, 1) }
     func testUnknownBackupStateShowsTheBackupCard() { let f = make(); load(f); XCTAssertTrue(displayed(f).contains { $0 is BackupItem }) }
     func testCloudBackupHidesOnlyThisAccountsBackupCard() { let f = make(); load(f); ApplicationConfig.shared.backupedAccountAddresses = [owner.address]; XCTAssertFalse(displayed(f).contains { $0 is BackupItem }) }
     func testAnotherWalletsBackupDoesNotHideThisWalletsCard() { let f = make(); load(f); ApplicationConfig.shared.backupedAccountAddresses = ["another-wallet"]; XCTAssertTrue(displayed(f).contains { $0 is BackupItem }) }
     func testLocallyConfirmedBackupAlsoHidesTheCard() { let f = make(); load(f); UserDefaults.standard.set([owner.address], forKey: "savedAddresses"); XCTAssertFalse(displayed(f).contains { $0 is BackupItem }) }
-    func testClosingReferralPreservesPoolPreferenceAndUpdatesVisibility() throws { let f = make(); load(f); try row(FriendsItem.self, f).onClose?(); XCTAssertEqual(ApplicationConfig.shared.getAvailableApplicationSections(), [Cards.pooledAssets.id]); XCTAssertTrue(f.model.isReferralProgramHidden); XCTAssertFalse(displayed(f).contains { $0 is FriendsItem }) }
+    func testClosingReferralPreservesPoolPreferenceAndUpdatesVisibility() throws { let f = make(); load(f); try row(FriendsItem.self, f).onClose?(); XCTAssertEqual(ApplicationConfig.shared.getAvailableApplicationSections(), [Cards.liquidAssets.id, Cards.pooledAssets.id]); XCTAssertTrue(f.model.isReferralProgramHidden); XCTAssertFalse(displayed(f).contains { $0 is FriendsItem }) }
     func testDisabledPoolsAreRemovedAndMarkedHidden() throws { let f = make(); load(f); ApplicationConfig.shared.updateAvailableApplicationSections(cards: [Cards.referralProgram.id]); XCTAssertFalse(displayed(f).contains { $0 is PoolsItem }); XCTAssertTrue(try row(PoolsItem.self, f).isHidden) }
     func testReenabledPoolsReappearWithoutRebuilding() throws { let f = make(); load(f); ApplicationConfig.shared.updateAvailableApplicationSections(cards: []); _ = displayed(f); ApplicationConfig.shared.updateAvailableApplicationSections(cards: [Cards.pooledAssets.id]); XCTAssertTrue(displayed(f).contains { $0 is PoolsItem }); XCTAssertFalse(try row(PoolsItem.self, f).isHidden) }
-    func testPoolAvailabilityRemovesUnavailablePoolPreference() async { let f = make(); load(f); f.edit.completion?(false); await wait(); XCTAssertEqual(f.edit.viewModels.map(\.id), [Cards.referralProgram.id]); XCTAssertFalse(ApplicationConfig.shared.getAvailableApplicationSections().contains(Cards.pooledAssets.id)) }
+    func testPoolAvailabilityRemovesUnavailablePoolPreference() async { let f = make(); load(f); f.edit.completion?(false); await wait(); XCTAssertEqual(f.edit.viewModels.map(\.id), [Cards.referralProgram.id, Cards.liquidAssets.id]); XCTAssertFalse(ApplicationConfig.shared.getAvailableApplicationSections().contains(Cards.pooledAssets.id)) }
     func testPoolAvailabilityKeepsBothCardChoices() async { let f = make(); load(f); f.edit.completion?(true); await wait(); XCTAssertEqual(f.edit.viewModels.map(\.id), Cards.allCases.map(\.id)) }
     func testPoolAvailabilityRefreshReloadsTheExistingPoolItem() async throws { let f = make(); load(f); let pool = try row(PoolsItem.self, f); var reloaded: [SoramitsuTableViewItemProtocol] = []; f.model.reloadItem = { reloaded += $0 }; f.edit.completion?(false); await wait(); XCTAssertTrue(reloaded.contains { $0 === pool }); XCTAssertTrue(pool.isHidden) }
     func testReferralCardOpensTheReferralFlow() throws { let f = make(); load(f); try row(FriendsItem.self, f).onTap?(); XCTAssertEqual(f.route.calls, ["showReferralProgram"]) }
@@ -72,13 +77,13 @@ final class WalletDashboardFlowTests: XCTestCase {
     func testPoolSelectionOpensItsMatchingDetails() throws { let f = make(); load(f); f.pools.pool = PoolInfo(baseAssetId: WalletAssetId.xor.rawValue, targetAssetId: WalletAssetId.val.rawValue, poolId: "selected", accountId: owner.address); try row(PoolsItem.self, f).poolHandler?("selected"); XCTAssertEqual(f.route.poolId, "selected") }
     func testFullAssetListReceivesTheBoundAddressAndUpdateCallback() { let f = make(); f.model.showFullListAssets(); XCTAssertEqual(f.route.assetAddress, owner.address); XCTAssertNotNil(f.route.updateHandler) }
     func testFullPoolListReceivesAnUpdateCallback() { let f = make(); f.model.showFullListPools(); XCTAssertEqual(f.route.calls, ["showFullListPools"]); XCTAssertNotNil(f.route.updateHandler) }
-    func testAssetChangeRefreshesPortfolioButPoolChangeDoesNot() async { let f = make(); f.model.updateAssets(updatedSection: .pools); await wait(); XCTAssertEqual(f.source.refreshes, 0); f.model.updateAssets(updatedSection: .assets); await wait(); XCTAssertEqual(f.source.refreshes, 1) }
+    func testAssetChangesNeverDriveThePortfolio() async { let f = make(); load(f); f.model.updateAssets(updatedSection: .pools); f.model.updateAssets(updatedSection: .assets); await wait(); XCTAssertEqual(f.source.refreshes, 0, "the classic home does not show the portfolio") }
     func testSingleNetworkSendUsesTheExistingSoraFlow() { let f = make(); f.model.sendFromWallet(); XCTAssertEqual(f.route.calls, ["showSend"]); XCTAssertEqual(f.route.recipient, ""); XCTAssertNil(f.route.token) }
     func testSingleNetworkReceiveRunsItsProvidedActionOnce() { let f = make(); var calls = 0; f.model.receive { calls += 1 }; XCTAssertEqual(calls, 1) }
     func testBackupEventRendersCurrentPreferencesAgain() { let f = make(); load(f); var renders = 0; f.model.setupItems = { _ in renders += 1 }; f.model.processAccountBackuped(event: AccountBackuped()); XCTAssertEqual(renders, 1) }
     func testWalletCardsDoNotRetainTheViewModelAfterLeavingTheScreen() { weak var weakModel: RedesignWalletViewModel?; autoreleasepool { let f = make(); load(f); weakModel = f.model }; XCTAssertNil(weakModel) }
-    func testRealDashboardControllerLoadsOnlyOneTableAndBindsItsModel() { let f = make(); let screen = RedesignWalletViewController(viewModel: f.model); f.model.view = screen; screen.loadViewIfNeeded(); screen.view.frame = CGRect(x: 0, y: 0, width: 390, height: 844); screen.view.layoutIfNeeded(); XCTAssertEqual(screen.view.subviews.filter { $0 is SoramitsuTableView }.count, 1); XCTAssertEqual(f.model.walletItems.count, 4) }
-    func testDashboardLifecycleStartsAndStopsThePortfolioSource() { let f = make(); let screen = RedesignWalletViewController(viewModel: f.model); f.model.view = screen; screen.loadViewIfNeeded(); screen.viewWillAppear(false); screen.viewDidAppear(false); XCTAssertEqual(f.source.starts, 1); XCTAssertTrue(f.model.portfolioHome.heroItem.isSkyVisible); screen.viewDidDisappear(false); XCTAssertEqual(f.source.stops, 1); XCTAssertFalse(f.model.portfolioHome.heroItem.isSkyVisible) }
+    func testRealDashboardControllerLoadsOnlyOneTableAndBindsItsModel() { let f = make(); let screen = RedesignWalletViewController(viewModel: f.model); f.model.view = screen; screen.loadViewIfNeeded(); screen.view.frame = CGRect(x: 0, y: 0, width: 390, height: 844); screen.view.layoutIfNeeded(); XCTAssertEqual(screen.view.subviews.filter { $0 is SoramitsuTableView }.count, 1); XCTAssertEqual(f.model.walletItems.count, 6) }
+    func testClassicHomeNeverStartsThePortfolioSource() { let f = make(); let screen = RedesignWalletViewController(viewModel: f.model); f.model.view = screen; screen.loadViewIfNeeded(); screen.viewWillAppear(false); screen.viewDidAppear(false); screen.viewDidDisappear(false); XCTAssertEqual(f.source.starts, 0); XCTAssertEqual(f.source.stops, 0) }
     func testPortfolioRouterForwardsSendToTheWalletNetworkChoice() { let f = make(); PortfolioWalletRouter(wallet: f.model).showSend(from: f.view); XCTAssertEqual(f.route.calls, ["showSend"]) }
     func testPortfolioReceiveForwardsTheSelectedAddressAndName() { let f = make(); PortfolioWalletRouter(wallet: f.model).showSora2Receive(from: f.view); XCTAssertEqual(f.route.qrAddress, owner.address); XCTAssertEqual(f.route.qrName, owner.username) }
     func testPortfolioReceiveWithNoAccountDoesNotOpenAnEmptyQR() { let f = make(); SelectedWalletSettings.shared.commitInternalValue(nil); PortfolioWalletRouter(wallet: f.model).showSora2Receive(from: f.view); XCTAssertTrue(f.route.calls.isEmpty) }
@@ -188,6 +193,24 @@ private final class DashboardRoute: RedesignWalletWireframeProtocol {
     var calls: [String] = []
     var optionAccount: AccountItem?, assetAddress: String?, poolId: String?, recipient: String?, token: String?, qrAddress: String?, qrName: String?
     var editService: EditViewServiceProtocol?, editCompletion: (() -> Void)?, updateHandler: ((UpdatedSection) -> Void)?
+    func showAssetDetails(on viewController: UIViewController?,
+                          assetInfo: AssetInfo,
+                          assetManager: AssetManagerProtocol,
+                          fiatService: FiatServiceProtocol,
+                          assetViewModelFactory: AssetViewModelFactory,
+                          poolsService: PoolsServiceInputProtocol,
+                          poolViewModelsFactory: PoolViewModelFactory,
+                          providerFactory: BalanceProviderFactory,
+                          networkFacade: WalletNetworkOperationFactoryProtocol?,
+                          accountId: String,
+                          address: String,
+                          polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
+                          qrEncoder: WalletQREncoderProtocol,
+                          sharingFactory: AccountShareFactoryProtocol,
+                          referralFactory: ReferralsOperationFactoryProtocol,
+                          assetsProvider: AssetProviderProtocol,
+                          marketCapService: MarketCapServiceProtocol,
+                          farmingService: DemeterFarmingServiceProtocol) { calls.append("showAssetDetails"); token = assetInfo.symbol }
     func showFullListAssets(on controller: UIViewController?,
                             assetManager: AssetManagerProtocol,
                             fiatService: FiatServiceProtocol,
@@ -342,8 +365,8 @@ extension WalletDashboardFlowTests {
     func testOtherNetworkRowsKeepPreparedAddressesWithoutFetchingAnInactiveNetwork() async throws {
         let account = try networkAccount(.minamoto), reader = DashboardNetworkReader()
         let fixture = make(networkAccounts: { [account] }, reader: reader)
-        fixture.model.refreshNetworkRows()
-        let row = try XCTUnwrap(fixture.model.portfolioHome.otherNetworksItem.rows.first)
+        load(fixture)
+        let row = try XCTUnwrap(networkRows(fixture).first)
         XCTAssertEqual(row.account, account)
         XCTAssertEqual(row.amount, WalletUX.text("Address ready"))
         XCTAssertEqual(reader.definitions, 0)
@@ -351,48 +374,48 @@ extension WalletDashboardFlowTests {
     func testSora2NeverDuplicatesThePrimaryXorHoldingInOtherNetworkRows() throws {
         let account = try networkAccount(.sora2), reader = DashboardNetworkReader()
         let fixture = make(networkAccounts: { [account] }, reader: reader)
-        fixture.model.refreshNetworkRows()
-        XCTAssertTrue(fixture.model.portfolioHome.otherNetworksItem.rows.isEmpty)
+        load(fixture)
+        XCTAssertTrue(networkRows(fixture).isEmpty)
         XCTAssertEqual(reader.definitions, 0)
     }
     func testLiveNetworkRowRemainsBlankUntilAnAccountBoundBalanceArrives() async throws {
         let account = try networkAccount(.taira), reader = DashboardNetworkReader()
         reader.hold = true
         let fixture = make(networkAccounts: { [account] }, reader: reader)
-        fixture.model.refreshNetworkRows()
+        load(fixture)
         await waitForNetwork { reader.pending.count == 1 }
-        XCTAssertEqual(fixture.model.portfolioHome.otherNetworksItem.rows.first?.amount, "")
+        XCTAssertEqual(networkRows(fixture).first?.amount, "")
         reader.release()
-        await waitForNetwork { fixture.model.portfolioHome.otherNetworksItem.rows.first?.amount.contains("XOR") == true }
+        await waitForNetwork { networkRows(fixture).first?.amount.contains("XOR") == true }
         XCTAssertEqual(reader.accounts, [account.address])
-        XCTAssertEqual(fixture.model.portfolioHome.otherNetworksItem.rows.first?.amount, "12.5 XOR")
+        XCTAssertEqual(networkRows(fixture).first?.amount, "12.5 XOR")
     }
     func testNetworkBalanceFailureIsUnavailableAndNeverInventsZero() async throws {
         let account = try networkAccount(.taira), reader = DashboardNetworkReader()
         reader.failure = NexusToriiError.invalidResponse
         let fixture = make(networkAccounts: { [account] }, reader: reader)
-        fixture.model.refreshNetworkRows()
-        await waitForNetwork { fixture.model.portfolioHome.otherNetworksItem.rows.first?.amount == WalletUX.balanceUnavailableText }
-        XCTAssertFalse(fixture.model.portfolioHome.otherNetworksItem.rows.first?.amount.contains("0 XOR") ?? true)
+        load(fixture)
+        await waitForNetwork { networkRows(fixture).first?.amount == WalletUX.balanceUnavailableText }
+        XCTAssertFalse(networkRows(fixture).first?.amount.contains("0 XOR") ?? true)
     }
     func testCancelledNetworkBalanceReadDoesNotBecomeAnUnavailableBalance() async throws {
         let account = try networkAccount(.taira), reader = DashboardNetworkReader()
         reader.failure = CancellationError()
         let fixture = make(networkAccounts: { [account] }, reader: reader)
-        fixture.model.refreshNetworkRows()
+        load(fixture)
         await waitForNetwork { reader.definitions == 1 }
         for _ in 0..<3 { await Task.yield() }
-        XCTAssertEqual(fixture.model.portfolioHome.otherNetworksItem.rows.first?.amount, "")
+        XCTAssertEqual(networkRows(fixture).first?.amount, "")
     }
     func testSuccessfulRefreshReplacesAnUnavailableNetworkBalance() async throws {
         let account = try networkAccount(.taira), reader = DashboardNetworkReader()
         reader.failure = NexusToriiError.invalidResponse
         let fixture = make(networkAccounts: { [account] }, reader: reader)
-        fixture.model.refreshNetworkRows()
-        await waitForNetwork { fixture.model.portfolioHome.otherNetworksItem.rows.first?.amount == WalletUX.balanceUnavailableText }
+        load(fixture)
+        await waitForNetwork { networkRows(fixture).first?.amount == WalletUX.balanceUnavailableText }
         reader.failure = nil; reader.quantity = "27.125"
         fixture.model.refreshNetworkRows()
-        await waitForNetwork { fixture.model.portfolioHome.otherNetworksItem.rows.first?.amount == "27.125 XOR" }
+        await waitForNetwork { networkRows(fixture).first?.amount == "27.125 XOR" }
         XCTAssertEqual(reader.accounts, [account.address])
     }
     func testSwitchingWalletsDropsRowsBeforeAnOlderBalanceCanComplete() async throws {
@@ -400,49 +423,52 @@ extension WalletDashboardFlowTests {
         var accounts = [account]
         reader.hold = true
         let fixture = make(networkAccounts: { accounts }, reader: reader)
-        fixture.model.refreshNetworkRows()
+        load(fixture)
         await waitForNetwork { reader.pending.count == 1 }
         accounts = []
         SelectedWalletSettings.shared.commitInternalValue(nil)
         fixture.model.refreshNetworkRows()
-        XCTAssertTrue(fixture.model.portfolioHome.otherNetworksItem.rows.isEmpty)
+        XCTAssertTrue(networkRows(fixture).isEmpty)
         reader.release()
         for _ in 0..<5 { await Task.yield() }
-        XCTAssertTrue(fixture.model.portfolioHome.otherNetworksItem.rows.isEmpty)
+        XCTAssertTrue(networkRows(fixture).isEmpty)
     }
     func testAccountChangeDuringAReadCannotPublishThatWalletsBalance() async throws {
         let account = try networkAccount(.taira), reader = DashboardNetworkReader()
         reader.hold = true
         let fixture = make(networkAccounts: { [account] }, reader: reader)
-        fixture.model.refreshNetworkRows()
+        load(fixture)
         await waitForNetwork { reader.pending.count == 1 }
         SelectedWalletSettings.shared.commitInternalValue(nil)
         reader.release()
         for _ in 0..<5 { await Task.yield() }
-        XCTAssertEqual(fixture.model.portfolioHome.otherNetworksItem.rows.first?.amount, "")
+        XCTAssertEqual(networkRows(fixture).first?.amount, "")
     }
     func testRepeatingAnUnchangedPreparedNetworkDoesNotReloadItsCard() throws {
-        let account = try networkAccount(.minamoto)
-        let fixture = make(networkAccounts: { [account] })
+        var accounts = [try networkAccount(.minamoto)]
+        let fixture = make(networkAccounts: { accounts })
+        load(fixture)
+        XCTAssertEqual(networkRows(fixture).count, 1)
         var reloads = 0
-        fixture.model.reloadItem = { _ in reloads += 1 }
+        fixture.model.reloadItem = { items in reloads += items.filter { $0 is AssetsItem }.count }
         fixture.model.refreshNetworkRows()
-        XCTAssertEqual(reloads, 1)
+        XCTAssertEqual(reloads, 0, "the same rows do not reload the Assets card")
+        accounts = []
         fixture.model.refreshNetworkRows()
         XCTAssertEqual(reloads, 1)
     }
     func testRemovingTheLastPreparedNetworkCollapsesItsCard() throws {
         var accounts = [try networkAccount(.minamoto)]
         let fixture = make(networkAccounts: { accounts })
-        fixture.model.refreshNetworkRows()
-        XCTAssertEqual(fixture.model.portfolioHome.otherNetworksItem.rows.count, 1)
+        load(fixture)
+        XCTAssertEqual(networkRows(fixture).count, 1)
         accounts = []; fixture.model.refreshNetworkRows()
-        XCTAssertTrue(fixture.model.portfolioHome.otherNetworksItem.rows.isEmpty)
-        XCTAssertEqual(fixture.model.portfolioHome.otherNetworksItem.itemHeight(forWidth: 390, context: nil), 0)
+        XCTAssertTrue(networkRows(fixture).isEmpty)
     }
     func testReceiveShowsNetworkChoicesWhenTheWalletHasMultipleNetworkAddresses() throws {
         let accounts = [try networkAccount(.sora2), try networkAccount(.taira)]
         let fixture = make(networkAccounts: { accounts })
+        load(fixture)
         var openedPrimary = false
         fixture.model.receive { openedPrimary = true }
         let navigation = try XCTUnwrap(fixture.view.presentations.last as? UINavigationController)
@@ -457,6 +483,7 @@ extension WalletDashboardFlowTests {
     func testSendingWithOnlyOneAvailableNetworkUsesTheExistingSora2Route() throws {
         let accounts = [try networkAccount(.sora2), try networkAccount(.minamoto)]
         let fixture = make(networkAccounts: { accounts })
+        load(fixture)
         fixture.model.sendFromWallet()
         XCTAssertEqual(fixture.route.calls, ["showSend"])
         XCTAssertTrue(fixture.view.presentations.isEmpty)

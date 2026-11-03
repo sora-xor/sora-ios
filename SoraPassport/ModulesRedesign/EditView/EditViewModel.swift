@@ -69,6 +69,8 @@ extension EditViewModel: EditViewModelProtocol {
             else { return }
             
             switch viewModel.state {
+            case .unselected:
+                return
             case .selected:
                 viewModel.state = .disabled
                 var config = ApplicationConfig.shared.getAvailableApplicationSections()

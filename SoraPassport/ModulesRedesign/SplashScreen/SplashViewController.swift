@@ -35,33 +35,9 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         animationView.contentMode = .scaleAspectFit
         animationView.backgroundBehavior = .pauseAndRestore
         animationView.translatesAutoresizingMaskIntoConstraints = false
-        Self.applyNeonColors(to: animationView)
         return animationView
     }()
 
-    /// The splash animation was drawn for a light page: its rings are light
-    /// grey and the mark is SORA red. Recolour both for the theme in use so
-    /// dark mode has no light flash (spec §8.1).
-    private static func applyNeonColors(to animationView: LottieAnimationView) {
-        let tokens = NeonTokens.current
-        func lottie(_ color: UIColor) -> LottieColor {
-            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-            color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-            return LottieColor(r: Double(red), g: Double(green), b: Double(blue), a: Double(alpha))
-        }
-        let rings: [UIColor] = tokens.isDark
-            ? [tokens.canvas, tokens.layer1, tokens.surface]
-            : [tokens.canvas, tokens.layer1, tokens.surfaceVariant]
-        animationView.setValueProvider(
-            GradientValueProvider(rings.map(lottie), locations: [0.75, 0.875, 1]),
-            keypath: AnimationKeypath(keypath: "**.Gradient Fill 1.Colors")
-        )
-        animationView.setValueProvider(
-            ColorValueProvider(lottie(tokens.brandRed)),
-            keypath: AnimationKeypath(keypath: "**.Fill 1.Color")
-        )
-    }
-    
     private var messageLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.text = R.string.localizable.launchScreenLoadingTitle(preferredLanguages: .currentLocale)
@@ -75,7 +51,7 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     private var loaderView: UIActivityIndicatorView = {
         let loaderView = UIActivityIndicatorView(style: .large)
         loaderView.translatesAutoresizingMaskIntoConstraints = false
-        loaderView.color = NeonTokens.current.cyan
+        loaderView.color = SoramitsuUI.shared.theme.palette.color(.fgSecondary)
         return loaderView
     }()
     
