@@ -856,7 +856,11 @@ final class PreservedWalletReturnUICoverageTests: RootActionFixtureTests {
         let f = try make(); _ = try f.preserve([f.account(1)]); _ = try f.preserve([f.account(2)])
         let c = open(f); let a = try await prompt(c, title: "Use the earlier wallet data again")
         XCTAssertEqual(a.actions.map(\.title), ["Saved wallet data 1", "Saved wallet data 2", "Cancel"])
-        XCTAssertEqual(a.preferredStyle, .actionSheet); XCTAssertNotNil(a.popoverPresentationController?.sourceView)
+        XCTAssertEqual(a.preferredStyle, .actionSheet)
+        // With UIDesignRequiresCompatibility an iPhone shows the classic bottom sheet, which has no
+        // popover. Wherever the sheet is a popover (iPad, iOS 27) it must be anchored.
+        if let popover = a.popoverPresentationController { XCTAssertNotNil(popover.sourceView) }
+        else { XCTAssertEqual(UIDevice.current.userInterfaceIdiom, .phone) }
         try await choose("Saved wallet data 2", c); _ = try await prompt(c, title: "Protect the returned wallets")
     }
     func testRetainedKeysWithoutAnOwnerBindingRequireTheOriginalBackup() async throws {
