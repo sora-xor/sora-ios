@@ -60,10 +60,13 @@ if text.count(old) != 2:
 path.write_text(text.replace(old, new))
 PY
 
+# Packages are always cloned to a known folder, so the check after the
+# archive can see every binary artifact SwiftPM downloaded.
+source_packages="${SORA_SOURCE_PACKAGES_PATH:-$stage_parent/SourcePackages}"
 args=(-project "$stage/SoraPassport.xcodeproj" -scheme SoraPassport -configuration Release
       -destination generic/platform=iOS -onlyUsePackageVersionsFromResolvedFile
-      "MARKETING_VERSION=$SORA_MARKETING_VERSION" "CURRENT_PROJECT_VERSION=$SORA_BUILD_NUMBER")
-[[ -z "${SORA_SOURCE_PACKAGES_PATH:-}" ]] || args+=(-clonedSourcePackagesDirPath "$SORA_SOURCE_PACKAGES_PATH")
+      "MARKETING_VERSION=$SORA_MARKETING_VERSION" "CURRENT_PROJECT_VERSION=$SORA_BUILD_NUMBER"
+      -clonedSourcePackagesDirPath "$source_packages")
 [[ -z "${SORA_DERIVED_DATA_PATH:-}" ]] || args+=(-derivedDataPath "$SORA_DERIVED_DATA_PATH")
 [[ -z "${SORA_DEVELOPMENT_TEAM:-}" ]] || args+=("DEVELOPMENT_TEAM=$SORA_DEVELOPMENT_TEAM")
 [[ -z "${SORA_PROVISIONING_PROFILE_SPECIFIER:-}" ]] || args+=("PROVISIONING_PROFILE_SPECIFIER=$SORA_PROVISIONING_PROFILE_SPECIFIER")
@@ -75,6 +78,39 @@ while IFS= read -r -d '' resolved; do
   relative="${resolved#"$stage"/}"
   git show "HEAD:$relative" | cmp -s - "$resolved" || fail "The archive changed pinned dependencies: $relative"
 done < <(find "$stage" -name Package.resolved -print0)
+
+# Every library is built from source in this repository or a pinned package
+# checkout. The repository scan in the source gate covers tracked files; this
+# covers the packages the archive actually resolved. SwiftPM links prebuilt
+# code only through binary targets, which it downloads under artifacts/.
+# (Unused framework folders inside a checkout, such as SVGKit's old
+# CocoaLumberjack copies, are never linked and are not counted.)
+verify_source_built() {
+  /usr/bin/python3 -I - "$source_packages" <<'PY'
+import os
+import re
+import sys
+root = sys.argv[1]
+if not os.path.isdir(os.path.join(root, 'checkouts')):
+    raise SystemExit(f'error: no package checkouts at {root}')
+findings = []
+artifacts = os.path.join(root, 'artifacts')
+if os.path.isdir(artifacts):
+    findings += [os.path.join(artifacts, name) for name in os.listdir(artifacts)]
+binary_target = re.compile(rb'\.binaryTarget\s*\(')
+for current, directories, files in os.walk(os.path.join(root, 'checkouts')):
+    directories[:] = [d for d in directories if d != '.git']
+    for name in files:
+        if name.startswith('Package') and name.endswith('.swift'):
+            path = os.path.join(current, name)
+            with open(path, 'rb') as stream:
+                if binary_target.search(stream.read()):
+                    findings.append(path)
+if findings:
+    raise SystemExit('error: the archive resolved prebuilt binaries:\n' + '\n'.join(sorted(findings)))
+PY
+}
+verify_source_built
 
 # Existing users keep their wallets only while the Keychain group stays the
 # same: bundle ID, team and application identifier, and no access groups.
@@ -102,6 +138,12 @@ if stage == 'export' and entitlements.get('get-task-allow') is not False:
 with open(f'{app}/SoraPassport', 'rb') as stream:
     if b'SoraWalletMigrationEvidence' in stream.read():
         raise SystemExit(f'error: the {stage} contains the migration evidence harness')
+# Every library is linked statically from source; nothing is embedded.
+import os
+for folder in ('Frameworks', 'PlugIns', 'Extensions'):
+    embedded = os.path.join(app, folder)
+    if os.path.isdir(embedded) and os.listdir(embedded):
+        raise SystemExit(f'error: the {stage} embeds {folder}: ' + ', '.join(sorted(os.listdir(embedded))))
 client = info.get('GIDClientID')
 schemes = [s for entry in info.get('CFBundleURLTypes', []) for s in entry.get('CFBundleURLSchemes', [])]
 if not client or not any(s.startswith('com.googleusercontent.apps.') for s in schemes):

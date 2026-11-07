@@ -52,7 +52,15 @@ def write_app(app):
                       'GIDClientID':'fixture.apps.googleusercontent.com',
                       'CFBundleURLTypes':[{'CFBundleURLSchemes':['com.googleusercontent.apps.fixture']}]}, output)
     (app/'SoraPassport').write_bytes(os.environ.get('FAKE_BINARY', 'binary').encode())
+    if os.environ.get('FAKE_EMBEDDED'):
+        (app/'Frameworks'/os.environ['FAKE_EMBEDDED']).mkdir(parents=True)
 if 'archive' in args:
+    packages = pathlib.Path(args[args.index('-clonedSourcePackagesDirPath')+1])
+    (packages/'checkouts'/'fixture').mkdir(parents=True)
+    (packages/'checkouts'/'fixture'/'Package.swift').write_text(
+        os.environ.get('FAKE_PACKAGE', 'targets: [.target(name: "Fixture")]'))
+    if os.environ.get('FAKE_ARTIFACT'):
+        (packages/'artifacts'/os.environ['FAKE_ARTIFACT']).mkdir(parents=True)
     project = pathlib.Path(args[args.index('-project')+1]) / 'project.pbxproj'
     with open(os.environ['CALLS'] + '.project', 'w') as log:
         log.write(project.read_text())
@@ -129,6 +137,29 @@ sys.stdout.buffer.write(plistlib.dumps(entitlements))
         self.assertEqual(self.archive().returncode, 0)
         root, parent = json.loads(Path(str(self.calls) + ".modes").read_text())
         self.assertEqual((root, parent), ("0o755", "0o700"))
+
+    def test_packages_are_cloned_to_a_folder_the_binary_check_reads(self):
+        self.assertEqual(self.archive().returncode, 0)
+        call = self.invocations()[0]
+        self.assertIn("-clonedSourcePackagesDirPath", call)
+        own = self.base / "packages"
+        self.assertEqual(self.archive(SORA_SOURCE_PACKAGES_PATH=str(own), SORA_ARCHIVE_PATH=str(self.base / "second.xcarchive"),
+                                      SORA_EXPORT_PATH=str(self.base / "second-export")).returncode, 0)
+        self.assertEqual(self.invocations()[2][self.invocations()[2].index("-clonedSourcePackagesDirPath")+1], str(own))
+
+    def test_prebuilt_binaries_prevent_export(self):
+        # Every library is built from source: a downloaded binary target, a
+        # package that declares one, or an embedded framework stops the release.
+        cases = [{"FAKE_ARTIFACT": "closed-sdk"},
+                 {"FAKE_PACKAGE": 'targets: [.binaryTarget(name: "Closed", url: "https://example.invalid/c.zip", checksum: "0")]'},
+                 {"FAKE_EMBEDDED": "Prebuilt.framework"}]
+        for index, case in enumerate(cases):
+            self.calls.unlink(missing_ok=True)
+            result = self.archive(SORA_ARCHIVE_PATH=str(self.base / f"case{index}.xcarchive"),
+                                  SORA_EXPORT_PATH=str(self.base / f"case{index}-export"), **case)
+            self.assertNotEqual(result.returncode, 0, case)
+            self.assertIn("prebuilt" if "FAKE_EMBEDDED" not in case else "embeds Frameworks", result.stderr, case)
+            self.assertEqual(len(self.invocations()), 1, "Nothing is exported")
 
     def test_missing_version_or_build_prevents_archive(self):
         for key, value in [("SORA_MARKETING_VERSION", ""), ("SORA_BUILD_NUMBER", ""), ("SORA_BUILD_NUMBER", "42")]:
