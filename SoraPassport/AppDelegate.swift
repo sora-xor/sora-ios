@@ -257,6 +257,15 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         UIView.appearance().semanticContentAttribute = semanticContentAttribute
     }
 
+    /// Third-party keyboards can send every key typed into them to their
+    /// developer, and with Full Access they can read the pasteboard. The
+    /// recovery phrase, raw seed, JSON and its password are typed in this
+    /// app, so only Apple's keyboards are allowed anywhere in it.
+    func application(_ application: UIApplication,
+                     shouldAllowExtensionPointIdentifier extensionPointIdentifier: UIApplication.ExtensionPointIdentifier) -> Bool {
+        AppKeyboardPolicy.allows(extensionPointIdentifier)
+    }
+
     private func resumePendingNexusTransactions() {
         Task { @MainActor in
             // Reconcile every network journal entry regardless of selected
@@ -301,5 +310,12 @@ fileprivate extension Array {
             return nil
         }
         return self[index]
+    }
+}
+
+/// Which app extension points SORA accepts. Only custom keyboards are refused.
+enum AppKeyboardPolicy {
+    static func allows(_ extensionPointIdentifier: UIApplication.ExtensionPointIdentifier) -> Bool {
+        extensionPointIdentifier != .keyboard
     }
 }

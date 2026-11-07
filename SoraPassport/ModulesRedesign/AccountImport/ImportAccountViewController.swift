@@ -71,6 +71,9 @@ final class ImportAccountViewController: SoramitsuViewController {
             $0.textView.autocorrectionType = .no
             $0.textView.returnKeyType = .done
             $0.textView.autocapitalizationType = .none
+            // The phrase, seed or JSON never feeds spelling, prediction or
+            // Writing Tools, so the keyboard keeps none of it.
+            WalletSecretTextInput.harden($0.textView)
             $0.delegate = self
             $0.accessibilityIdentifier = "textView"
         }
@@ -295,5 +298,23 @@ extension ImportAccountViewController: AccountImportViewProtocol {
     
     func dismissPresentedController() {
         dismiss(animated: true)
+    }
+}
+
+/// Text input settings for fields that receive wallet secrets.
+enum WalletSecretTextInput {
+    static func harden(_ textView: UITextView) {
+        textView.autocorrectionType = .no
+        textView.autocapitalizationType = .none
+        textView.spellCheckingType = .no
+        textView.smartQuotesType = .no
+        textView.smartDashesType = .no
+        textView.smartInsertDeleteType = .no
+        if #available(iOS 17.0, *) {
+            textView.inlinePredictionType = .no
+        }
+        if #available(iOS 18.0, *) {
+            textView.writingToolsBehavior = .none
+        }
     }
 }
