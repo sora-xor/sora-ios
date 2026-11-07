@@ -20,10 +20,33 @@ final class IrohaConnectTests: XCTestCase {
                        "Readable-looking bytes are not a decoded transaction")
     }
 
+    /// Approvals use the app's own authorization (PIN, or biometrics bound to
+    /// the enrollment approved with it), never the iPhone passcode alone.
+    func testApprovalsUseTheAppAuthorizationInsteadOfTheDevicePasscode() {
+        XCTAssertTrue((IrohaConnectAuthenticator() as AnyObject) is AuthorizationPresentable)
+    }
+
+    /// Iroha signs transactions and queries over a 32-byte digest. A raw
+    /// message of that length is refused even when it reads as text, because
+    /// its signature could approve a transaction the user never saw.
+    func testRawMessagesAsLongAsATransactionDigestAreRefused() {
+        let digestLike = Data("Verify: 8f3a91c2d4e5f60718293a4b".utf8)
+        XCTAssertEqual(digestLike.count, IrohaConnectSigningReview.transactionDigestBytes)
+        let review = IrohaConnectSigningReview(request: .raw(domain: "example.app", bytes: digestLike))
+        XCTAssertNil(review.readableMessage); XCTAssertFalse(review.canSign)
+        XCTAssertTrue(review.unavailableReason.contains("transaction fingerprint"))
+        for count in [31, 33] {
+            XCTAssertTrue(IrohaConnectSigningReview(request: .raw(domain: "example.app",
+                bytes: Data(repeating: 65, count: count))).canSign, "Only the digest length is refused")
+        }
+        XCTAssertFalse(IrohaConnectSigningReview(request: .transaction(bytes: digestLike)).isTransactionDigestLength)
+    }
+
     func testUninterpretableRequestsNeverInvokeSigner() throws {
         let requests: [IrohaConnectSigningRequest] = [
             .transaction(bytes: Data("Transfer 1 XOR".utf8)),
-            .raw(domain: "uranai.contract-call.v1", bytes: Data("Hidden\u{202E}text".utf8))
+            .raw(domain: "uranai.contract-call.v1", bytes: Data("Hidden\u{202E}text".utf8)),
+            .raw(domain: "uranai.contract-call.v1", bytes: Data("Verify: 8f3a91c2d4e5f60718293a4b".utf8))
         ]
         for request in requests {
             let fixture = try makeFixture()
