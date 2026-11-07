@@ -59,12 +59,14 @@ final class RootWireframe: RootWireframeProtocol {
 
     func showLegacyWalletUpgrade(
         on view: UIWindow,
-        onConfirm: @escaping () -> Void
+        requiresPIN: Bool,
+        onConfirm: @escaping (String?) -> Void
     ) {
         RetainedMigrationEvidenceHarness.shared.observeApplicationRoute(
             .legacyUpgradeReady
         )
         let controller = LegacyWalletUpgradeViewController(
+            requiresPIN: requiresPIN,
             onConfirm: onConfirm
         )
         let navigation = UINavigationController(
@@ -72,6 +74,11 @@ final class RootWireframe: RootWireframeProtocol {
         )
         navigation.navigationBar.isHidden = true
         view.rootViewController = navigation
+    }
+
+    func showLegacyWalletUpgradePINRejected(on view: UIWindow, error: Error) {
+        let controller = (view.rootViewController as? UINavigationController)?.viewControllers.first
+        (controller as? LegacyWalletUpgradeViewController)?.pinRejected(WalletPinPrompt.message(for: error))
     }
 
     @MainActor
@@ -174,15 +181,22 @@ final class RootWireframe: RootWireframeProtocol {
 /// old entropy remains in its original Keychain tag throughout the journaled
 /// account commit and is retained after success for dual-read recovery.
 final class LegacyWalletUpgradeViewController: UIViewController {
-    private let onConfirm: () -> Void
+    private let onConfirm: (String?) -> Void
+    /// SORA 1.x saved a PIN: ask for it before the upgrade starts.
+    private let requiresPIN: Bool
     private let continueButton = WalletSafeMode.button(.safe, title: WalletUX.text("Upgrade wallet"))
     private let statusLabel = UILabel()
     private let progress = UIActivityIndicatorView(style: .medium)
     private var didConfirm = false
 
-    init(onConfirm: @escaping () -> Void) {
+    init(requiresPIN: Bool, onConfirm: @escaping (String?) -> Void) {
+        self.requiresPIN = requiresPIN
         self.onConfirm = onConfirm
         super.init(nibName: nil, bundle: nil)
+    }
+
+    convenience init(onConfirm: @escaping () -> Void) {
+        self.init(requiresPIN: false) { _ in onConfirm() }
     }
 
     @available(*, unavailable)
@@ -288,11 +302,33 @@ final class LegacyWalletUpgradeViewController: UIViewController {
         guard !didConfirm else {
             return
         }
+        guard requiresPIN else {
+            start(pin: nil)
+            return
+        }
+        WalletPinPrompt.present(on: self, message: WalletUX.text(
+            "Enter the PIN you used for SORA on this iPhone. The wallet is upgraded only after this PIN is checked."
+        )) { [weak self] pin in
+            self?.start(pin: pin)
+        }
+    }
+
+    private func start(pin: String?) {
+        guard !didConfirm else { return }
         didConfirm = true
         continueButton.isEnabled = false
         progress.startAnimating()
         statusLabel.text = WalletUX.text("Updating your wallet. Keep SORA open until this finishes.")
-        onConfirm()
+        onConfirm(pin)
+    }
+
+    /// The upgrade did not start because of the PIN. Nothing changed, so the
+    /// button works again.
+    func pinRejected(_ message: String) {
+        didConfirm = false
+        continueButton.isEnabled = true
+        progress.stopAnimating()
+        statusLabel.text = message
     }
 }
 

@@ -262,6 +262,24 @@ final class WalletOwnerPIN {
         }
     }
 
+    /// SORA 1.x kept its PIN under `pincode`, next to `seedEntropy`. The
+    /// upgrade that turns that entropy into a wallet checks it first, with the
+    /// lock screen's attempt limit; otherwise anyone holding the iPhone could
+    /// upgrade, choose a new PIN and read the recovery phrase.
+    func verifyLegacyUpgradePIN(_ pin: String) throws {
+        try Self.synchronized {
+            guard Self.validPIN(pin) else { throw Failure.authenticationRequired }
+            try reserveCurrentPINAttempt()
+            var entered = Data(pin.utf8)
+            var stored = try keystore.fetchKey(for: KeystoreTag.pincode.rawValue)
+            defer { entered.resetBytes(in: 0..<entered.count); stored.resetBytes(in: 0..<stored.count) }
+            guard LegacySoraIdentityValidator.constantTimeEqual(entered, stored) else {
+                throw WalletRetainedPinGate.Failure.incorrectPin(attemptsBeforeWait: 0)
+            }
+            try keystore.deleteKey(for: Self.appThrottleTag)
+        }
+    }
+
     private func reserveCurrentPINAttempt() throws {
         let currentUptime = uptime(), currentBoot = boot()
         var value = try read(Throttle.self, tag: Self.appThrottleTag) ?? Throttle(

@@ -7303,6 +7303,13 @@ final class WalletModernizationTests: XCTestCase {
             wordCount: 15, entropyBytes: 20, corruptCommitJournal: false,
             retainsIrohaPrivateKey: true
         )
+        // SORA 1.x kept its PIN beside `seedEntropy`. The upgrade imports
+        // nothing until that PIN is typed, so whoever holds the iPhone cannot
+        // upgrade, choose a new PIN and read the phrase.
+        try exerciseFullLegacyWalletUpgrade(wordCount: 12, entropyBytes: 16, corruptCommitJournal: false,
+                                            legacyPIN: "1234")
+        try exerciseFullLegacyWalletUpgrade(wordCount: 24, entropyBytes: 32, corruptCommitJournal: false,
+                                            legacyPIN: "123456")
     }
 
     func testRetainedVersionOneCoreDataMigratesCopyOnWriteWithoutLosingWallet() throws {
@@ -20452,7 +20459,8 @@ final class WalletModernizationTests: XCTestCase {
         wordCount: Int,
         entropyBytes: Int,
         corruptCommitJournal: Bool,
-        retainsIrohaPrivateKey: Bool = false
+        retainsIrohaPrivateKey: Bool = false,
+        legacyPIN: String? = nil
     ) throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -20498,6 +20506,9 @@ final class WalletModernizationTests: XCTestCase {
             try keychain.addKey(try Data(hexStringSSF:
                 "e6ede78853ee2a5ede2d25f51d624e46270a9cb4d492a95c4742a3ca52f65f84"),
                 with: "privateKey")
+        }
+        if let legacyPIN {
+            try keychain.addKey(Data(legacyPIN.utf8), with: KeystoreTag.pincode.rawValue)
         }
         try keychain.addKey(
             Data(displayName.utf8),
@@ -20665,7 +20676,8 @@ final class WalletModernizationTests: XCTestCase {
                 "retained \(wordCount)-word async upgrade terminal decision"
         )
         presenter.onDecision = { decision in
-            if decision == .pincodeSetup || decision == .broken {
+            if decision == .pincodeSetup || decision == .broken ||
+                (legacyPIN != nil && decision == .localAuthentication) {
                 terminalDecision.fulfill()
             }
         }
@@ -20673,9 +20685,24 @@ final class WalletModernizationTests: XCTestCase {
 
         root.decideModuleSynchroniously()
         XCTAssertEqual(presenter.decisions, [.legacyWalletUpgrade])
-        root.performLegacyWalletUpgrade()
+        XCTAssertEqual(root.legacyUpgradeRequiresPIN, legacyPIN != nil)
+        if let legacyPIN {
+            root.performLegacyWalletUpgrade(pin: nil)
+            root.performLegacyWalletUpgrade(pin: legacyPIN == "1234" ? "4321" : "654321")
+            XCTAssertEqual(presenter.rejections, 2)
+            XCTAssertFalse(importFactoryCalled.value, "A missing or wrong 1.x PIN imports nothing")
+            XCTAssertFalse(legacySettings.walletMigrationRecoveryRequired, "A wrong PIN is not a broken wallet")
+            XCTAssertEqual(presenter.decisions, [.legacyWalletUpgrade])
+            XCTAssertEqual(try keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data(legacyPIN.utf8))
+        }
+        root.performLegacyWalletUpgrade(pin: legacyPIN)
         wait(for: [terminalDecision], timeout: 5)
         XCTAssertTrue(importFactoryCalled.value)
+        if legacyPIN != nil {
+            XCTAssertFalse(presenter.decisions.contains(.broken))
+            XCTAssertFalse(try keychain.checkKey(for: WalletOwnerPIN.appThrottleTag),
+                           "The correct PIN clears the attempt counter")
+        }
 
         let storedAccounts = try fetchAll(
             from: AnyDataProviderRepository(accountRepository),
@@ -20892,7 +20919,8 @@ final class WalletModernizationTests: XCTestCase {
             from: Data(contentsOf: commitURL))
         XCTAssertEqual(setupIntent.operationID, setupCommit.id)
         XCTAssertEqual(setupIntent.account.address, setupCommit.walletId)
-        XCTAssertFalse(try keychain.checkKey(for: KeystoreTag.pincode.rawValue))
+        XCTAssertEqual(try keychain.checkKey(for: KeystoreTag.pincode.rawValue), legacyPIN != nil,
+                       "A 1.x PIN stays until the new PIN replaces it")
         XCTAssertFalse(try keychain.checkKey(for: expectedAddress + WalletOwnerPIN.bindingSuffix))
         XCTAssertEqual(
             Set(try keychain.allKeyIdentifiers()),
@@ -21167,12 +21195,25 @@ private final class LegacyUpgradeRootPresenterSpy:
 
     private let lock = NSLock()
     private var storedDecisions: [Decision] = []
+    private var storedRejections = 0
     var onDecision: ((Decision) -> Void)?
 
     var decisions: [Decision] {
         lock.lock()
         defer { lock.unlock() }
         return storedDecisions
+    }
+
+    var rejections: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedRejections
+    }
+
+    func didRejectLegacyWalletUpgradePIN(_ error: Error) {
+        lock.lock()
+        storedRejections += 1
+        lock.unlock()
     }
 
     func didDecideOnboarding() {
