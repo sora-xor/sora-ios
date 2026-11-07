@@ -184,31 +184,30 @@ sys.stdout.buffer.write(plistlib.dumps(entitlements))
         self.assertNotEqual(self.archive(SORA_EXPORT_OPTIONS_PLIST=str(options)).returncode, 0)
         self.assertEqual(self.invocations(), [])
 
-    def crashlytics(self, **values):
+    def verify_archive(self, **values):
         env = dict(self.env)
-        for key in ["ACTION", "BUILD_DIR", "PROJECT_TEMP_DIR", "TARGET_TEMP_DIR", "PROJECT_DIR",
-                    "SORA_SOURCE_PACKAGES_PATH"]:
+        for key in ["ACTION", "SORA_EVIDENCE_HARNESS_CONDITION", "SWIFT_ACTIVE_COMPILATION_CONDITIONS",
+                    "OTHER_SWIFT_FLAGS", "SORA_MIGRATION_EVIDENCE_HARNESS"]:
             env.pop(key, None)
         env.update(values)
-        return subprocess.run(["sh", str(ROOT / "SoraPassport/Scripts/run-crashlytics.sh")],
+        return subprocess.run(["sh", str(ROOT / "SoraPassport/Scripts/verify-archive-distribution.sh")],
                               env=env, text=True, capture_output=True)
 
-    def test_crashlytics_never_runs_for_build_or_test(self):
-        self.assertEqual(self.crashlytics(ACTION="build").returncode, 0)
-        self.assertEqual(self.crashlytics(ACTION="test").returncode, 0)
+    def test_archive_checks_never_run_for_build_or_test(self):
+        self.assertEqual(self.verify_archive(ACTION="build").returncode, 0)
+        self.assertEqual(self.verify_archive(ACTION="test").returncode, 0)
 
-    def test_crashlytics_rejects_harness_archive(self):
-        result = self.crashlytics(ACTION="install", SORA_EVIDENCE_HARNESS_CONDITION="SORA_MIGRATION_EVIDENCE_HARNESS")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("harness", result.stderr)
+    def test_archive_check_rejects_harness_archive(self):
+        for values in ({"SORA_EVIDENCE_HARNESS_CONDITION": "SORA_MIGRATION_EVIDENCE_HARNESS"},
+                       {"SWIFT_ACTIVE_COMPILATION_CONDITIONS": "DEBUG SORA_MIGRATION_EVIDENCE_HARNESS"},
+                       {"SORA_MIGRATION_EVIDENCE_HARNESS": "1"}):
+            result = self.verify_archive(ACTION="install", **values)
+            self.assertNotEqual(result.returncode, 0, values)
+            self.assertIn("harness", result.stderr)
 
-    def test_crashlytics_propagates_upload_failure_from_explicit_cache(self):
-        package = self.base / "packages"
-        run = package / "checkouts/firebase-ios-sdk/Crashlytics/run"
-        run.parent.mkdir(parents=True)
-        run.write_text("#!/bin/sh\nexit 17\n")
-        result = self.crashlytics(ACTION="install", SORA_SOURCE_PACKAGES_PATH=str(package))
-        self.assertEqual(result.returncode, 17, result.stderr)
+    def test_archive_check_accepts_a_plain_archive(self):
+        result = self.verify_archive(ACTION="install")
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":

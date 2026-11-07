@@ -79,7 +79,7 @@ final class HistoryService {
         }
     }
 
-    typealias HistoryFilter = (TxHistoryItem) -> KotlinBoolean
+    typealias HistoryFilter = (TxHistoryItem) -> Bool
     /// Reads one page of this account's history from the indexer.
     typealias RemoteRead = (
         _ address: String,
@@ -287,41 +287,41 @@ private extension HistoryService {
             let callPath = KmmCallCodingPath(moduleName: item.module, callName: item.method)
             
             if callPath.isTransfer {
-                return KotlinBoolean(value: item.data?.first { $0.paramName == "assetId" }?.paramValue == assetId)
+                return (item.data?.first { $0.paramName == "assetId" }?.paramValue == assetId)
             }
             
             if callPath == KmmCallCodingPath.bondReferralBalance ||
                 callPath == KmmCallCodingPath.unbondReferralBalance ||
                 callPath == KmmCallCodingPath.setReferral {
-                return KotlinBoolean(value:assetId == WalletAssetId.xor.rawValue)
+                return (assetId == WalletAssetId.xor.rawValue)
             }
             
             if callPath.isSwap {
-                return KotlinBoolean(value: item.data?.first { $0.paramName == "baseAssetId" }?.paramValue == assetId ||
+                return (item.data?.first { $0.paramName == "baseAssetId" }?.paramValue == assetId ||
                                      item.data?.first { $0.paramName == "targetAssetId" }?.paramValue == assetId)
             }
             
             if callPath.isDepositLiquidity || callPath.isWithdrawLiquidity {
-                return KotlinBoolean(value: item.data?.first { $0.paramName == "baseAssetId" }?.paramValue == assetId ||
+                return (item.data?.first { $0.paramName == "baseAssetId" }?.paramValue == assetId ||
                                      item.data?.first { $0.paramName == "targetAssetId" }?.paramValue == assetId)
             }
             
             if callPath == KmmCallCodingPath.batchUtility || callPath == KmmCallCodingPath.batchAllUtility {
-                return KotlinBoolean(value: item.data?.first { $0.paramName == "input_asset_a" }?.paramValue == assetId ||
+                return (item.data?.first { $0.paramName == "input_asset_a" }?.paramValue == assetId ||
                                      item.data?.first { $0.paramName == "input_asset_b" }?.paramValue == assetId)
             }
             
             if callPath.isClaimReward {
-                return KotlinBoolean(value: item.data?.first { $0.paramName == "assetId" }?.paramValue == assetId)
+                return (item.data?.first { $0.paramName == "assetId" }?.paramValue == assetId)
             }
             
             if callPath.isDepositFarmLiquidity || callPath.isWithdrawFarmLiquidity {
-                return KotlinBoolean(value: item.data?.first { $0.paramName == "assetId" }?.paramValue == assetId ||
+                return (item.data?.first { $0.paramName == "assetId" }?.paramValue == assetId ||
                                      item.data?.first { $0.paramName == "baseAssetId" }?.paramValue == assetId ||
                                      item.data?.first { $0.paramName == "rewardAssetId" }?.paramValue == assetId)
             }
             
-            return KotlinBoolean(value: false)
+            return false
         }
     }
 }

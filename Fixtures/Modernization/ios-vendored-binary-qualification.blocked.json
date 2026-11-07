@@ -1,28 +1,11 @@
 {
-  "schemaVersion": 1,
-  "contractId": "sora-ios-vendored-binary-qualification-v1",
+  "schemaVersion": 2,
+  "contractId": "sora-ios-vendored-binary-qualification-v2",
   "platform": "ios",
   "status": "blocked",
-  "runId": null,
-  "qualificationSequenceNumber": 0,
-  "sourceRevision": null,
-  "reviewedAtEpochSeconds": 0,
-  "qualifiedAtEpochSeconds": 0,
-  "qualificationContractSha256": null,
-  "trustRootSha256": null,
-  "evidenceManifestSha256": null,
-  "artifactEvidenceProducerKeyId": null,
-  "independentReviewerKeyId": null,
-  "artifactCount": 6,
-  "completeInventory": false,
-  "wholeTreeContentQualified": false,
-  "sourceOrVendorIdentityQualified": false,
-  "licenseAndNoticeQualified": false,
-  "sbomQualified": false,
-  "buildProvenanceQualified": false,
-  "artifactAttestationsQualified": false,
-  "duplicateSorawalletByteIdentityProven": false,
+  "vendoredBinaryCount": 0,
+  "artifacts": [],
   "blockingReasons": [
-    "No externally authenticated producer and independent-reviewer qualification has been supplied for the six production-reachable XCFramework trees."
+    "No prebuilt binary is vendored: the crypto libraries and the indexer models are built from source. A promotion receipt for this source tree has not been produced."
   ]
 }

@@ -323,7 +323,7 @@ extension PISecondaryReadFlowTests {
 }
 
 extension PISecondaryReadFlowTests {
-    private func legacyHistory(count: Int = 10, page: Int = 1, filter: ((TxHistoryItem) -> KotlinBoolean)? = nil,
+    private func legacyHistory(count: Int = 10, page: Int = 1, filter: ((TxHistoryItem) -> Bool)? = nil,
                                hash: String? = nil) -> SubqueryHistoryOperation<TxHistoryResult<TxHistoryItem>> {
         let canonical = hash ?? server.otherHash
         return SubqueryHistoryOperation(address: "wallet-a", count: count, page: page, filter: filter,
@@ -361,7 +361,7 @@ extension PISecondaryReadFlowTests {
         equal(page.items.count, 1); XCTAssertNil((page.items.first as? TxHistoryItem)?.data)
     }
     func testLegacyHistoryAdapterFilterDoesNotChangeRemoteCompletionState() async throws {
-        let page = try await legacyHistory(filter: { _ in KotlinBoolean(bool: false) }).execute()
+        let page = try await legacyHistory(filter: { _ in false }).execute()
         XCTAssertTrue(page.items.isEmpty); XCTAssertTrue(page.endReached); equal(page.endCursor, "c1")
     }
     func testLegacyHistoryAdapterKeepsAnExplicitFailedExecution() async throws {

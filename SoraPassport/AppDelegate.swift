@@ -16,10 +16,6 @@
 // limitations under the License.
 
 import UIKit
-#if !NO_FIREBASE
-import FirebaseCore
-import FirebaseAnalytics
-#endif
 import GoogleSignIn
 import SoraUIKit
 import SoraFoundation
@@ -58,18 +54,6 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         }
 
         if !isUnitTesting {
-            #if !NO_FIREBASE
-            FirebaseApp.configure()
-            // Metrics remain available, but wallet activity is never eligible for ads.
-            // Repeat at startup because persisted SDK consent overrides plist defaults.
-            Analytics.setConsent([
-                .adStorage: .denied,
-                .adUserData: .denied,
-                .adPersonalization: .denied
-            ])
-            Analytics.setUserProperty("false", forName: AnalyticsUserPropertyAllowAdPersonalizationSignals)
-            #endif
-
             setupLanguage()
             protectLegacyAccountExports(application)
         }

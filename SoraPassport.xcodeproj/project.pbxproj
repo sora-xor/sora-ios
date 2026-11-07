@@ -1170,7 +1170,6 @@
 		388165C1F0EB835407B81991 /* RoundedCellControlView+Inspectable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 847A17A623759E2D003BA71A /* RoundedCellControlView+Inspectable.swift */; };
 		388A4404C7900AC2A48928E0 /* FarmDetailsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364E6EA02B1CD42900002EE3 /* FarmDetailsItem.swift */; };
 		39878F06FBFE6634102B4F88 /* FeeType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F8C325C9697A00775559 /* FeeType.swift */; };
-		39B1CAF12158A54530FB15E8 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 9008BF86CE98BAB7EA0488EF /* FirebaseCrashlytics */; };
 		3A9BAA08B02207934DA4D575 /* SilentWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D61BF29929AE0004938FA /* SilentWindow.swift */; };
 		3AA88A226F1F362D26B93CC5 /* MainTabBarWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB489F2B62CE0CF494AA92E9 /* MainTabBarWireframe.swift */; };
 		3B5E739B0B8F955CE5436410 /* FriendsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4500E3C38424775159499D0D /* FriendsViewFactory.swift */; };
@@ -1242,7 +1241,6 @@
 		48789C0BE944FB55DC2E9650 /* AccountImportedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366A781E2A31FE3600A6DDF9 /* AccountImportedItem.swift */; };
 		491CE4A221D00C4A17A1F236 /* FarmDetailsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364E6EA62B1CD86900002EE3 /* FarmDetailsSection.swift */; };
 		49289D20B34F9D7F5DD5094D /* AccountMenuItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3625FD296EB274007B9525 /* AccountMenuItem.swift */; };
-		49BB62E0ECDC44AF92C9DDA8 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 83FC0B70391DD73EF5A3289E /* FirebaseCrashlytics */; };
 		49F117D0D47AB241E7C4AFA7 /* PolkadotIcon+Image.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441FB0825CAE15700775559 /* PolkadotIcon+Image.swift */; };
 		4A20C08537CC48CC742CA70F /* KeystoreExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441FACA25CAC79D00775559 /* KeystoreExtensions.swift */; };
 		4A70A71D3CB886407B475BCA /* InputAssetAmountViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36110B972953BB2300712BEB /* InputAssetAmountViewController.swift */; };
@@ -1269,7 +1267,6 @@
 		4E63D5F282D4D9272BABAB4B /* ActivityData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32F7929E22286BA9009EFC8B /* ActivityData.swift */; };
 		50235D4874D69E27BAE77EAF /* AccountInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94497DB525EF897F00FD4F14 /* AccountInfo.swift */; };
 		5041929E153BCB9DEAD024BB /* ActivityErrorCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3694D45A2971F5450045A295 /* ActivityErrorCell.swift */; };
-		504F679E7B5F0177CC980E96 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 476C7F47A1A9CFAB82FED522 /* FirebaseCrashlytics */; };
 		50C0AFBF658C7B1627B6482C /* MainTabBarViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E93838B610A2628390A37C56 /* MainTabBarViewController.swift */; };
 		50C1482E9777D0D19EE7CF18 /* AssetProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E00BAF29DB2DAD0023D8BD /* AssetProvider.swift */; };
 		50CCB65BA6A3EAD038024B45 /* RoundedCellControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 847A17A22375796E003BA71A /* RoundedCellControlView.swift */; };
@@ -1505,7 +1502,6 @@
 		6CED35E6757175EBD91FFACE /* ExploreSectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367A32272B455CBA001AFA90 /* ExploreSectionHeader.swift */; };
 		6CF6CF90B65D5958411B4468 /* ExploreFarmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364E6E842B1C88F600002EE3 /* ExploreFarmView.swift */; };
 		6D358703E4EDDD65F76D64E8 /* SubqueryMarketCapOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363EAB682A7BCBE500603361 /* SubqueryMarketCapOperation.swift */; };
-		6D4410D0EBE94FCEA7A96D0B /* FirebaseAnalyticsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 54BA0DBCE3A409412662B5A3 /* FirebaseAnalyticsCore */; };
 		6D90D7374AEB7EB445A28C41 /* AccountOptionSeparator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C88A252A32EAA800B3CF39 /* AccountOptionSeparator.swift */; };
 		6D9DEBD8D5634916858F0EDB /* WalletAccountSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FEA2BA07A61005A44BC /* WalletAccountSettings.swift */; };
 		6DC0CC9D05C78A04EADC3D6B /* FriendsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC3E2A52A53B006D4C19 /* FriendsViewController.swift */; };
@@ -1589,13 +1585,11 @@
 		7D815BDEABED214B729FD229 /* ContactFooterItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366D53C72952937A0094CE36 /* ContactFooterItem.swift */; };
 		7DBA9BAA07862B1E12122CB2 /* AccountImportedViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366A78222A31FE3600A6DDF9 /* AccountImportedViewModel.swift */; };
 		7DC7C4A60D83D60BD5FEBE0E /* DetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36165529291D8D1500060A8D /* DetailViewModel.swift */; };
-		7DDB004A775B4D91C6ED5C9E /* FirebaseAnalyticsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6E975363C1414BCA91AA285F /* FirebaseAnalyticsCore */; };
 		7E3C27BB5FBB7B6122AF6AC5 /* ExtrinsicFactoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94497DEE25EF8FCC00FD4F14 /* ExtrinsicFactoryProtocol.swift */; };
 		7EDD18A21172BF8048D600DD /* PaginationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FA02BA0577B005A44BC /* PaginationModel.swift */; };
 		7EF3D59744DD359B48FF535E /* ActivityViewModelFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36982464290EA54100F5E3D4 /* ActivityViewModelFactory.swift */; };
 		7F13DAAB00C4D53B18A59DEB /* WalletNetworkOperationFactory+Protocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F88D25C957C400775559 /* WalletNetworkOperationFactory+Protocol.swift */; };
 		7F45E93A22BC48906BFE5183 /* ExportOption+ViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F92525C96CC200775559 /* ExportOption+ViewModel.swift */; };
-		7F8F3B65AFBE6A71C6A85888 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5E6544BD9208F55F5AFA2ACE /* FirebaseCore */; };
 		7FE9250272C34FE482212001 /* AccountImportedCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366A781F2A31FE3600A6DDF9 /* AccountImportedCell.swift */; };
 		803F60677CB7BE773B0BC9FD /* ManagedAccountItemMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9447675128D1E72500EC8F74 /* ManagedAccountItemMapper.swift */; };
 		80509939E004AA3789A7C579 /* libswiftCoreGraphics.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 367C532F2C189CF500C07F56 /* libswiftCoreGraphics.tbd */; };
@@ -2377,7 +2371,6 @@
 		BB4DFDA7176F5FD522C57024 /* RobinHood in Frameworks */ = {isa = PBXBuildFile; productRef = C5E18E54974CCC09AD1EF014 /* RobinHood */; };
 		BB596340F5C4B2D2D32E5AF1 /* WalletQROperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FC82BA06C11005A44BC /* WalletQROperationFactory.swift */; };
 		BBB728A2C39E35705A82AA1C /* WithdrawLiquidityCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E138FF2283023CB0010AB54 /* WithdrawLiquidityCall.swift */; };
-		BBC8978B4D79243BF08CE8AF /* FirebaseAnalyticsCore in Frameworks */ = {isa = PBXBuildFile; productRef = D2013D053EA70DB1E75C8B21 /* FirebaseAnalyticsCore */; };
 		BBD5E0EF575C6C6BA78D669B /* EmptyStreamableSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94497E9625EFDB6600FD4F14 /* EmptyStreamableSource.swift */; };
 		BC368E76080CB8CC12D71EED /* Warningable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368E73272A44C587001B7BAF /* Warningable.swift */; };
 		BC55B919B068D42641915771 /* TitleSegmentControlViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364E6E992B1CBB1100002EE3 /* TitleSegmentControlViewModel.swift */; };
@@ -2480,7 +2473,6 @@
 		CEBF49D920FA3A0060FE66A9 /* WalletNetworkFacade+Storage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F88725C957BE00775559 /* WalletNetworkFacade+Storage.swift */; };
 		CED1DB0F6ECB379F61AB8BFC /* ReferralsOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3661C9EA28618B5D00660434 /* ReferralsOperationFactory.swift */; };
 		CF057E0151A1A34247F053FF /* EventRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84EC6D022601476E00A828E6 /* EventRecord.swift */; };
-		CF1791B7B0ADC0E3D6A62C60 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = EA386BC421A1B4C2FA0C7B8C /* FirebaseCore */; };
 		CFB176B81E6BFC2CB1E1C83F /* SetupPasswordWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366A782E2A3227AC00A6DDF9 /* SetupPasswordWireframe.swift */; };
 		CFE5AAF13DF727FD0B8AC3AD /* DateFormatter+Wallet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FE62BA07832005A44BC /* DateFormatter+Wallet.swift */; };
 		D0B8F6D991CE7A2D086FC993 /* ButtonViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C3708E2822960E0027BA77 /* ButtonViewModel.swift */; };
@@ -2619,7 +2611,6 @@
 		EDFD659E1B2E3DF32F26EFA7 /* WebSocketServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441FBD725CC034100775559 /* WebSocketServiceProtocol.swift */; };
 		EE16262F1A17CCC13583F11B /* AccountCreationMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB197C29EDC5CA00B3E3BF /* AccountCreationMetadata.swift */; };
 		EE1F4F5EFD9A4434589B2D11 /* TransferSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441FBE325CC034F00775559 /* TransferSubscription.swift */; };
-		EE37A1A24019F9B8364FF90E /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 3B7A62042C6C75B3BCBEB91B /* FirebaseCore */; };
 		EE5B4A3847FD12C4CA227236 /* PinSetupInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362DAD8629F53283005562B0 /* PinSetupInteractor.swift */; };
 		EEB69406BD25E3714E1EA8DD /* LiquidityWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F94ED6291E545000E211FE /* LiquidityWireframe.swift */; };
 		EEF6B3D408059103AF7B9069 /* ExploreSearchPageViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367A32252B4551D9001AFA90 /* ExploreSearchPageViewModel.swift */; };
@@ -4275,9 +4266,6 @@
 				FE2512DFFC423D5994996366 /* Anchorage in Frameworks */,
 				F930FA4C8E740B71947E201E /* Kingfisher in Frameworks */,
 				34F9F3FAA0B4D27A66C87221 /* SVGKit in Frameworks */,
-				EE37A1A24019F9B8364FF90E /* FirebaseCore in Frameworks */,
-				BBC8978B4D79243BF08CE8AF /* FirebaseAnalyticsCore in Frameworks */,
-				39B1CAF12158A54530FB15E8 /* FirebaseCrashlytics in Frameworks */,
 				56BD8DA71FC0AE944CCC4251 /* Reachability in Frameworks */,
 				6908D8878403DBE7A2632058 /* Starscream in Frameworks */,
 				FB2D9C35FA6B03364A557B18 /* SwiftyBeaver in Frameworks */,
@@ -7957,11 +7945,10 @@
 				02623F072179DCD20011250E /* R.swift */,
 				02623EB12178C0910011250E /* Sources */,
 				02623EB22178C0910011250E /* Frameworks */,
-				02E319AF21D4AFF500B33B66 /* Setup Firebase Enviroment GoogleService-Info.plist */,
 				02623EB32178C0910011250E /* Resources */,
 				400A05E54C0AA9125093623B /* Inject Google Sign-In Info.plist */,
 				A66F11022F5D000000000001 /* Prepare app distribution resources */,
-				0292033321977A4400D9BACD /* Crashlytics */,
+				0292033321977A4400D9BACD /* Verify Archive Distribution */,
 			);
 			buildRules = (
 			);
@@ -7984,9 +7971,6 @@
 				10B2BF606E8721DE091C73FD /* Anchorage */,
 				E43085CA7AF9EB5009196598 /* Kingfisher */,
 				6FB8BC3264ABE2E3BAC9A1BB /* SVGKit */,
-				3B7A62042C6C75B3BCBEB91B /* FirebaseCore */,
-				D2013D053EA70DB1E75C8B21 /* FirebaseAnalyticsCore */,
-				9008BF86CE98BAB7EA0488EF /* FirebaseCrashlytics */,
 				68CD823ED020DFB7E8B72D00 /* Reachability */,
 				E8858BBEAB92EECD0E628B34 /* Starscream */,
 				DB2E54768CEB5CD794CA198C /* SwiftyBeaver */,
@@ -8270,7 +8254,6 @@
 				2C99FBD08CC91F20EA5A02DB /* XCRemoteSwiftPackageReference "Anchorage" */,
 				A8BA557EDEA0F1631EEADCA5 /* XCRemoteSwiftPackageReference "Kingfisher" */,
 				64329616BA308EBC2612D242 /* XCRemoteSwiftPackageReference "SVGKit" */,
-				25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				ECCF9F0190BEFF028BFBEDC5 /* XCRemoteSwiftPackageReference "Reachability.swift" */,
 				3A88E0425D19F5A82627748F /* XCLocalSwiftPackageReference "fearless-starscream" */,
 				6BC235F778D917FA997250D0 /* XCRemoteSwiftPackageReference "SwiftyBeaver" */,
@@ -8451,10 +8434,7 @@
 				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification.blocked.json",
 				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification-trust.blocked.json",
 				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification-README.md",
-				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-readiness.json",
 				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification.blocked.json",
-				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-evidence.blocked.json",
-				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-trust.blocked.json",
 				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-README.md",
 				"$(PROJECT_DIR)/SoraPassport/Configs/ModernizationDependencies.conf",
 				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-funded-nexus-canary.sh",
@@ -8504,10 +8484,7 @@
 				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification.blocked.json",
 				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification-trust.blocked.json",
 				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification-README.md",
-				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-readiness.json",
 				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification.blocked.json",
-				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-evidence.blocked.json",
-				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-trust.blocked.json",
 				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-README.md",
 				"$(PROJECT_DIR)/SoraPassport/Configs/ModernizationDependencies.conf",
 				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-funded-nexus-canary.sh",
@@ -8553,34 +8530,20 @@
 			shellPath = /bin/sh;
 			shellScript = "if [ \"$ACTION\" = \"indexbuild\" ]; then\n  echo \"Not running R.swift during indexing.\"\n  exit 0\nfi\n\nif [ \"${ENABLE_PREVIEWS}\" = \"YES\" ]; then\n  echo \"Not running R.swift during preview builds.\"\n  exit 0\nfi\n\nxcrun --sdk macosx swift run --package-path \"$PROJECT_DIR/VendorPackages/Rswift\" --scratch-path \"$DERIVED_FILE_DIR/RswiftBuild\" --configuration release --disable-automatic-resolution --skip-update rswift generate \"$PROJECT_DIR/R.generated.swift\"\n";
 		};
-		0292033321977A4400D9BACD /* Crashlytics */ = {
+		0292033321977A4400D9BACD /* Verify Archive Distribution */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${TARGET_NAME}",
-			);
-			name = Crashlytics;
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "/bin/sh \"$PROJECT_DIR/SoraPassport/Scripts/run-crashlytics.sh\"\n";
-		};
-		02E319AF21D4AFF500B33B66 /* Setup Firebase Enviroment GoogleService-Info.plist */ = {
-			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 			);
-			name = "Setup Firebase Enviroment GoogleService-Info.plist";
+			name = "Verify Archive Distribution";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Name of the resource we're selectively copying\nGOOGLESERVICE_INFO_PLIST=GoogleService-Info.plist\n\n# Get references to a version of the GoogleService-Info.plist based on config\nGOOGLESERVICE_INFO_CONFIG=${PROJECT_DIR}/${TARGET_NAME}/Configs/${FIREBASE_CONFIG}\n\n# Make sure that plist exists\necho \"Looking for ${GOOGLESERVICE_INFO_CONFIG}\"\nif [ ! -f $GOOGLESERVICE_INFO_CONFIG ]\nthen\necho \"No ${FIREBASE_CONFIG} found. Please ensure it's in the proper directory.\"\nexit 1\nfi\n\n# Get a reference to the destination location for the GoogleService-Info.plist\nPLIST_DESTINATION=${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/${GOOGLESERVICE_INFO_PLIST}\necho \"Will copy ${GOOGLESERVICE_INFO_PLIST} to final destination: ${PLIST_DESTINATION}\"\n\n# Copy GoogleService-Info.plist\necho \"Using ${FIREBASE_CONFIG}\"\ncp \"${GOOGLESERVICE_INFO_CONFIG}\" \"${PLIST_DESTINATION}\"\n";
+			shellScript = "/bin/sh \"$PROJECT_DIR/SoraPassport/Scripts/verify-archive-distribution.sh\"\n";
 		};
 		400A05E54C0AA9125093623B /* Inject Google Sign-In Info.plist */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -11354,7 +11317,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev.flex;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) NO_FIREBASE";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -11933,7 +11896,7 @@
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev.flex;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) NO_FIREBASE";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -11964,7 +11927,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev.flex;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) NO_FIREBASE";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -11997,7 +11960,7 @@
 				OTHER_SWIFT_FLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev.flex;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) NO_FIREBASE";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -12029,7 +11992,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev.flex;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) NO_FIREBASE";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -12409,14 +12372,6 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
-			requirement = {
-				kind = exactVersion;
-				version = 12.19.3;
-			};
-		};
 		2C99FBD08CC91F20EA5A02DB /* XCRemoteSwiftPackageReference "Anchorage" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Rightpoint/Anchorage.git";
@@ -12682,11 +12637,6 @@
 			package = 5042D9A859C7F367351B3D59 /* XCRemoteSwiftPackageReference "SnapKit" */;
 			productName = SnapKit;
 		};
-		3B7A62042C6C75B3BCBEB91B /* FirebaseCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseCore;
-		};
 		3CA4CA2EF27ECA5146B2B197 /* SoraUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 3A87DFA02CC58C9D4033F1D5 /* XCLocalSwiftPackageReference "SoraUI" */;
@@ -12722,11 +12672,6 @@
 			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
 			productName = SoraKeystore;
 		};
-		476C7F47A1A9CFAB82FED522 /* FirebaseCrashlytics */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseCrashlytics;
-		};
 		49D0F24C9E3077A7AC8636D3 /* SSFCrypto */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
@@ -12742,20 +12687,10 @@
 			package = 5FDAF7C5BD3FA665FAD6EBEC /* XCLocalSwiftPackageReference "SoraFoundation" */;
 			productName = SoraFoundation;
 		};
-		54BA0DBCE3A409412662B5A3 /* FirebaseAnalyticsCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseAnalyticsCore;
-		};
 		58883BAD0A6BB57B3A19164E /* Nantes */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 52A0155256AFC2CA527689B6 /* XCRemoteSwiftPackageReference "Nantes" */;
 			productName = Nantes;
-		};
-		5E6544BD9208F55F5AFA2ACE /* FirebaseCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseCore;
 		};
 		60D0DED23E9C7DEA3120BFFF /* SSFStorageQueryKitFixed */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -12797,11 +12732,6 @@
 			package = 6BC235F778D917FA997250D0 /* XCRemoteSwiftPackageReference "SwiftyBeaver" */;
 			productName = SwiftyBeaver;
 		};
-		6E975363C1414BCA91AA285F /* FirebaseAnalyticsCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseAnalyticsCore;
-		};
 		6FB8BC3264ABE2E3BAC9A1BB /* SVGKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 64329616BA308EBC2612D242 /* XCRemoteSwiftPackageReference "SVGKit" */;
@@ -12842,11 +12772,6 @@
 			package = 52A0155256AFC2CA527689B6 /* XCRemoteSwiftPackageReference "Nantes" */;
 			productName = Nantes;
 		};
-		83FC0B70391DD73EF5A3289E /* FirebaseCrashlytics */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseCrashlytics;
-		};
 		89B9475E781BC5404652C2CB /* GoogleSignIn */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = AF4C851C88F94411CE1683C5 /* XCLocalSwiftPackageReference "GoogleSignIn-iOS" */;
@@ -12861,11 +12786,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6BC235F778D917FA997250D0 /* XCRemoteSwiftPackageReference "SwiftyBeaver" */;
 			productName = SwiftyBeaver;
-		};
-		9008BF86CE98BAB7EA0488EF /* FirebaseCrashlytics */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseCrashlytics;
 		};
 		95BF0507DF2A639FB3BC813D /* SnapKit */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -12982,11 +12902,6 @@
 			package = 3A87DFA02CC58C9D4033F1D5 /* XCLocalSwiftPackageReference "SoraUI" */;
 			productName = SoraUI;
 		};
-		D2013D053EA70DB1E75C8B21 /* FirebaseAnalyticsCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseAnalyticsCore;
-		};
 		D566C8B00A9C50C0383121F7 /* GoogleAPIClientForREST_Drive */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 14D2D31BA68E53309B71377E /* XCLocalSwiftPackageReference "google-api-objectivec-client-for-rest" */;
@@ -13041,11 +12956,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */;
 			productName = Lottie;
-		};
-		EA386BC421A1B4C2FA0C7B8C /* FirebaseCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseCore;
 		};
 		ED467EA3F5597C9AC25A4C1A /* Lottie */ = {
 			isa = XCSwiftPackageProductDependency;

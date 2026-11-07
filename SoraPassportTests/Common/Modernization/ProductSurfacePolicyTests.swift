@@ -205,47 +205,30 @@ final class PrivacyDeclarationTests: XCTestCase {
         )
         XCTAssertEqual(app["NSPrivacyTracking"] as? Bool, false)
         let collected = (app["NSPrivacyCollectedDataTypes"] as? [[String: Any]] ?? [])
+        // No analytics or crash SDK is linked, so only data the wallet itself
+        // needs is collected (Google Drive backup, indexer requests).
         let linkedTypes: Set<String> = [
-            "NSPrivacyCollectedDataTypeProductInteraction",
-            "NSPrivacyCollectedDataTypeDeviceID",
             "NSPrivacyCollectedDataTypeUserID",
             "NSPrivacyCollectedDataTypeOtherUserContent",
-            "NSPrivacyCollectedDataTypeOtherFinancialInfo",
-            "NSPrivacyCollectedDataTypeCoarseLocation"
+            "NSPrivacyCollectedDataTypeOtherFinancialInfo"
         ]
-        let diagnosticTypes: Set<String> = [
-            "NSPrivacyCollectedDataTypeCrashData",
-            "NSPrivacyCollectedDataTypeOtherDiagnosticData"
-        ]
-        let analyticsTypes: Set<String> = [
-            "NSPrivacyCollectedDataTypeProductInteraction",
-            "NSPrivacyCollectedDataTypeDeviceID",
-            "NSPrivacyCollectedDataTypeCoarseLocation"
-        ]
-        XCTAssertEqual(Set(collected.compactMap { $0["NSPrivacyCollectedDataType"] as? String }),
-                       linkedTypes.union(diagnosticTypes))
-        XCTAssertEqual(collected.count, linkedTypes.count + diagnosticTypes.count)
+        XCTAssertEqual(Set(collected.compactMap { $0["NSPrivacyCollectedDataType"] as? String }), linkedTypes)
+        XCTAssertEqual(collected.count, linkedTypes.count)
         for item in collected {
-            let category = try XCTUnwrap(item["NSPrivacyCollectedDataType"] as? String)
             XCTAssertEqual(item["NSPrivacyCollectedDataTypeTracking"] as? Bool, false)
-            XCTAssertEqual(item["NSPrivacyCollectedDataTypeLinked"] as? Bool, linkedTypes.contains(category))
+            XCTAssertEqual(item["NSPrivacyCollectedDataTypeLinked"] as? Bool, true)
             XCTAssertEqual(item["NSPrivacyCollectedDataTypePurposes"] as? [String],
-                           [analyticsTypes.contains(category) ? "NSPrivacyCollectedDataTypePurposeAnalytics"
-                            : "NSPrivacyCollectedDataTypePurposeAppFunctionality"])
+                           ["NSPrivacyCollectedDataTypePurposeAppFunctionality"])
         }
     }
 
-    func testEmbeddedWalletFrameworkHasItsOwnManifest() throws {
-        let url = try XCTUnwrap(Bundle.main.privateFrameworksURL)
-            .appendingPathComponent("sorawallet.framework/PrivacyInfo.xcprivacy")
-        let framework = try manifest(at: url)
-        XCTAssertEqual(
-            accessedCategories(framework),
-            [
-                "NSPrivacyAccessedAPICategoryUserDefaults",
-                "NSPrivacyAccessedAPICategorySystemBootTime"
-            ]
-        )
+    func testNoPrebuiltWalletFrameworkIsEmbedded() throws {
+        // The indexer models used to come from a prebuilt Kotlin/Native
+        // sorawallet.framework; they are Swift source in VendorPackages now.
+        let frameworks = try XCTUnwrap(Bundle.main.privateFrameworksURL)
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: frameworks.appendingPathComponent("sorawallet.framework").path))
+        XCTAssertNil(NSClassFromString("SorawalletBase"))
     }
 
     func testPermissionStringsMatchWhatTheAppUses() {

@@ -93,11 +93,28 @@ class ApplicationConfigTests: XCTestCase {
 
         let project = try String(contentsOf: root.appendingPathComponent("SoraPassport.xcodeproj/project.pbxproj"))
         XCTAssertFalse(project.contains("FirebaseMessaging"))
-        for product in ["FirebaseCore", "FirebaseAnalyticsCore", "FirebaseCrashlytics"] {
-            XCTAssertTrue(project.contains("productName = \(product);"), product)
-        }
         XCTAssertNil(NSClassFromString("FIRMessaging"), "The app links no FirebaseMessaging code")
         XCTAssertNil(Bundle.main.url(forResource: "Firebase_FirebaseMessaging", withExtension: "bundle"))
+    }
+
+    func testNoClosedSourceSDKIsLinked() throws {
+        // Firebase Analytics ships Google's closed GoogleAppMeasurement binary,
+        // and Crashlytics needs Google's closed symbol-upload tool, so the app
+        // uses neither. Crash reports come from Apple (Xcode Organizer).
+        let root = try repositoryRoot()
+        let project = try String(contentsOf: root.appendingPathComponent("SoraPassport.xcodeproj/project.pbxproj"))
+        XCTAssertFalse(project.contains("firebase-ios-sdk"))
+        XCTAssertFalse(project.contains("productName = Firebase"))
+        let resolved = try String(contentsOf: root.appendingPathComponent(
+            "SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"))
+        for closed in ["googleappmeasurement", "google-ads-on-device-conversion-ios-sdk", "firebase-ios-sdk"] {
+            XCTAssertFalse(resolved.contains("\"\(closed)\""), closed)
+        }
+        for name in ["FIRApp", "FIRAnalytics", "FIRCrashlytics", "APMMeasurement", "MPQRParser"] {
+            XCTAssertNil(NSClassFromString(name), name)
+        }
+        XCTAssertNil(Bundle.main.object(forInfoDictionaryKey: "FIREBASE_ANALYTICS_COLLECTION_ENABLED"))
+        XCTAssertNil(Bundle.main.url(forResource: "GoogleService-Info", withExtension: "plist"))
     }
 
     func testNodeFailoverTriesEveryCandidateBeforeOneOutageAlert() throws {
