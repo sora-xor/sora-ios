@@ -99,6 +99,9 @@ extension WalletNetworkOperationFactoryCoverageTests {
 final class WalletNetworkOperationFactoryCoverageTests: XCTestCase {
     private let xor = WalletAssetId.xor.rawValue
     private let val = WalletAssetId.val.rawValue
+    /// A listed but not predefined token with 6 decimals. Predefined assets
+    /// always sign with the runtime's 18 decimals, whatever their settings say.
+    private let token6 = "0x0003b1dbee890acfb1b3bc12d1bb3b4295f52755423f84d1751b2545cebf000b"
     private let receiver = String(repeating: "03", count: 32)
     private let queue = OperationQueue()
     private var previousSelectedAccount: AccountItem?
@@ -154,20 +157,29 @@ final class WalletNetworkOperationFactoryCoverageTests: XCTestCase {
     }
 
     func testTransferFeeUsesTheAssetPrecisionAndCanonicalXorFee() async throws {
-        let (factory, service) = try make()
-        let fee = try await factory.estimateTransferFee(for: transfer(amount: Decimal(string: "1.234567")!))
+        let (factory, service) = try make(assets: [asset(xor), asset(token6, precision: 6)])
+        let fee = try await factory.estimateTransferFee(for: transfer(amount: Decimal(string: "1.234567")!, asset: token6))
         XCTAssertEqual(fee, Decimal(string: "0.000000000000000007"))
         let call = try XCTUnwrap(service.builders.first?.calls.first).map(to: RuntimeCall<SoraTransferCall>.self)
         XCTAssertEqual(call.callName, "transfer")
         XCTAssertEqual(call.args.amount, 1_234_567)
         XCTAssertEqual(call.args.receiver, Data(repeating: 3, count: 32))
-        XCTAssertEqual(call.args.assetId.value, val)
+        XCTAssertEqual(call.args.assetId.value, token6)
         XCTAssertEqual(service.estimateCount, 1)
+    }
+    /// VAL's settings below claim 6 decimals, as a node could make them. The
+    /// signed amount still uses the runtime's 18.
+    func testPredefinedAssetsSignWithTheRuntimeDecimalsWhateverTheirSettingsSay() async throws {
+        let (factory, service) = try make()
+        _ = try await factory.estimateTransferFee(for: transfer(amount: Decimal(string: "1.234567")!))
+        let call = try XCTUnwrap(service.builders.first?.calls.first).map(to: RuntimeCall<SoraTransferCall>.self)
+        XCTAssertEqual(call.args.amount, 1_234_567_000_000_000_000)
+        XCTAssertEqual(call.args.assetId.value, val)
     }
     func testTransferFeeRejectsZeroNegativeAndSubAtomicAmountsBeforeService() async throws {
         for amount in [Decimal.zero, Decimal(-1), Decimal(string: "0.0000001")!] {
-            let (factory, service) = try make()
-            await expectFailure(.invalidAmount) { try await factory.estimateTransferFee(for: transfer(amount: amount)) }
+            let (factory, service) = try make(assets: [asset(xor), asset(token6, precision: 6)])
+            await expectFailure(.invalidAmount) { try await factory.estimateTransferFee(for: transfer(amount: amount, asset: token6)) }
             XCTAssertEqual(service.estimateCount, 0)
         }
     }
@@ -325,8 +337,8 @@ final class WalletNetworkOperationFactoryCoverageTests: XCTestCase {
     }
 
     func testPrepareTransferPreservesExactFeeHashAndCall() async throws {
-        let (factory, service) = try make(); var validations = 0
-        let prepared = try await factory.prepareTransferSubmission(for: transfer(amount: 2)) { validations += 1 }
+        let (factory, service) = try make(assets: [asset(xor), asset(token6, precision: 6)]); var validations = 0
+        let prepared = try await factory.prepareTransferSubmission(for: transfer(amount: 2, asset: token6)) { validations += 1 }
         XCTAssertEqual(validations, 1); XCTAssertEqual(service.prepareCount, 1)
         XCTAssertEqual(prepared.rawFee, "7"); XCTAssertEqual(prepared.transactionHash, service.prepared?.hash)
         XCTAssertEqual(prepared.fee, Decimal(string: "0.000000000000000007"))

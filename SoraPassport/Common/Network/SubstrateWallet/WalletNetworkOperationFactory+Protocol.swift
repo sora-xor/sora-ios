@@ -643,9 +643,15 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
               }) else {
             throw WalletNetworkOperationFactoryError.invalidAsset
         }
+        // The signed amount is scaled by the asset's decimals. Predefined
+        // assets use the runtime's fixed value, never one a node reported.
+        let precision = WalletAssetPrecision.pinned(for: asset.identifier).map(Int16.init) ?? asset.precision
+        guard precision >= 0, WalletAssetPrecision.isPossible(UInt32(precision)) else {
+            throw WalletNetworkOperationFactoryError.invalidAsset
+        }
         guard info.amount.decimalValue > 0,
               let amount = info.amount.decimalValue.toSubstrateAmount(
-                  precision: asset.precision
+                  precision: precision
               ),
               amount > 0 else {
             throw WalletNetworkOperationFactoryError.invalidAmount
