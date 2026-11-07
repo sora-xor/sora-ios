@@ -88,12 +88,6 @@ final class TairaFaucetScreenTests: XCTestCase {
     window.layoutIfNeeded()
     return controller
   }
-  private func content(_ controller: NexusNetworkDetailViewController, section: Int, row: Int = 0)
-    -> UIListContentConfiguration?
-  {
-    controller.tableView(controller.tableView, cellForRowAt: IndexPath(row: row, section: section))
-      .contentConfiguration as? UIListContentConfiguration
-  }
   private func waitUntil(
     _ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line
   ) async {
@@ -114,25 +108,28 @@ final class TairaFaucetScreenTests: XCTestCase {
     await Task.yield()
     return screen
   }
-  private func button(_ screen: UIViewController) throws -> UIButton {
-    try XCTUnwrap(
-      views(UIButton.self, in: screen.view).first {
-        $0.accessibilityIdentifier == "taira.faucet.request"
-      })
+  /// The faucet action of the balance card, as the card shows it.
+  private struct FaucetAction {
+    let state: NexusFaucetState
+    var title: String { state.title }
+    var isEnabled: Bool { state.enabled && !state.busy }
+    var busy: Bool { state.busy }
   }
-  private func status(_ screen: UIViewController) throws -> UILabel {
-    try XCTUnwrap(
-      views(UILabel.self, in: screen.view).first {
-        $0.accessibilityIdentifier == "taira.faucet.status"
-      })
+  private struct FaucetStatus {
+    let text: String?
   }
-  private func tap(_ screen: UIViewController) throws {
-    try button(screen).sendActions(for: .touchUpInside)
+  private func button(_ screen: NexusNetworkDetailViewController) throws -> FaucetAction {
+    FaucetAction(state: try XCTUnwrap(screen.balanceItem?.faucet))
   }
-  private func settled(_ screen: UIViewController) async throws {
-    let button = try button(screen)
+  private func status(_ screen: NexusNetworkDetailViewController) throws -> FaucetStatus {
+    FaucetStatus(text: try XCTUnwrap(screen.balanceItem?.faucet).message)
+  }
+  private func tap(_ screen: NexusNetworkDetailViewController) throws {
+    try XCTUnwrap(screen.balanceItem?.actionHandler)(.faucet)
+  }
+  private func settled(_ screen: NexusNetworkDetailViewController) async throws {
     await waitUntil {
-      self.faucet.requests > 0 && button.configuration?.showsActivityIndicator == false
+      self.faucet.requests > 0 && screen.balanceItem?.faucet?.busy == false
     }
   }
 
@@ -140,12 +137,12 @@ final class TairaFaucetScreenTests: XCTestCase {
     let screen = try await open()
     XCTAssertEqual(faucet.pendingAccounts, [reader.account])
     XCTAssertEqual(try status(screen).text, "Free XOR for testing on Taira.")
-    XCTAssertEqual(try button(screen).configuration?.title, "Get test XOR")
+    XCTAssertEqual(try button(screen).title, "Get test XOR")
   }
   func testSavedPendingRequestOffersStatusCheck() async throws {
     faucet.pending = true
     let screen = try await open()
-    XCTAssertEqual(try button(screen).configuration?.title, "Check faucet request")
+    XCTAssertEqual(try button(screen).title, "Check faucet request")
     XCTAssertTrue(try status(screen).text?.contains("still processing") == true)
   }
   func testUnreadableSavedRequestDisablesNewClaim() async throws {
@@ -172,7 +169,7 @@ final class TairaFaucetScreenTests: XCTestCase {
     try tap(screen)
     try await settled(screen)
     XCTAssertTrue(try status(screen).text?.contains("not completed") == true)
-    XCTAssertEqual(try button(screen).configuration?.title, "Get test XOR")
+    XCTAssertEqual(try button(screen).title, "Get test XOR")
     XCTAssertEqual(reader.balanceReads, 1)
   }
   func testPendingClaimOffersReadOnlyStatusCheck() async throws {
@@ -180,7 +177,7 @@ final class TairaFaucetScreenTests: XCTestCase {
     let screen = try await open()
     try tap(screen)
     try await settled(screen)
-    XCTAssertEqual(try button(screen).configuration?.title, "Check faucet request")
+    XCTAssertEqual(try button(screen).title, "Check faucet request")
     XCTAssertTrue(try status(screen).text?.contains("still processing") == true)
   }
   func testSuccessfulCheckClearsPreviouslyPendingButtonTitle() async throws {
@@ -188,7 +185,7 @@ final class TairaFaucetScreenTests: XCTestCase {
     let screen = try await open()
     try tap(screen)
     try await settled(screen)
-    XCTAssertEqual(try button(screen).configuration?.title, "Get test XOR")
+    XCTAssertEqual(try button(screen).title, "Get test XOR")
     XCTAssertEqual(try status(screen).text, "Received 25000 test XOR.")
   }
   func testPreparingProgressIsVisibleWhileClaimIsBusy() async throws {
@@ -207,7 +204,7 @@ final class TairaFaucetScreenTests: XCTestCase {
     try tap(screen)
     await waitUntil { (try? self.status(screen).text) == text }
     XCTAssertFalse(try button(screen).isEnabled)
-    XCTAssertTrue(try button(screen).configuration?.showsActivityIndicator == true)
+    XCTAssertTrue(try button(screen).busy)
     faucet.releaseAll()
     try await settled(screen)
   }
@@ -228,7 +225,7 @@ final class TairaFaucetScreenTests: XCTestCase {
     try tap(screen)
     try await settled(screen)
     XCTAssertTrue(try status(screen).text?.contains("Check your connection") == true)
-    XCTAssertEqual(try button(screen).configuration?.title, "Get test XOR")
+    XCTAssertEqual(try button(screen).title, "Get test XOR")
   }
   func testOfflineFailureWithPendingRequestPreservesCheckAction() async throws {
     faucet.failure = URLError(.networkConnectionLost)
@@ -237,7 +234,7 @@ final class TairaFaucetScreenTests: XCTestCase {
     try tap(screen)
     try await settled(screen)
     XCTAssertTrue(try status(screen).text?.contains("still processing") == true)
-    XCTAssertEqual(try button(screen).configuration?.title, "Check faucet request")
+    XCTAssertEqual(try button(screen).title, "Check faucet request")
   }
   func testUnreadablePendingAfterRequestFailureDoesNotOfferDuplicateClaim() async throws {
     faucet.failure = URLError(.networkConnectionLost)
@@ -245,7 +242,7 @@ final class TairaFaucetScreenTests: XCTestCase {
     faucet.pendingFailure = true
     try tap(screen)
     try await settled(screen)
-    XCTAssertEqual(try button(screen).configuration?.title, "Check faucet request")
+    XCTAssertEqual(try button(screen).title, "Check faucet request")
   }
   func testRateLimitUsesServerCooldownAndDoesNotRepeatClaim() async throws {
     try await assertCooldown(120, minimum: 118, maximum: 120)

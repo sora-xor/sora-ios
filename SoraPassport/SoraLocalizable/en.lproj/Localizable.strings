@@ -1537,3 +1537,12 @@
 "Your wallet is ready." = "Your wallet is ready.";
 
 "Manage selected wallet's assets" = "Manage selected wallet's assets";
+
+/* XOR on Taira and SORA Nexus, on SORA2's screens */
+"%@ units" = "%@ units";
+"Could not load more activity. Retry, or pull down to refresh if new transfers arrived." = "Could not load more activity. Retry, or pull down to refresh if new transfers arrived.";
+"Loading…" = "Loading…";
+"Pending asset recovery" = "Pending asset recovery";
+"Production address" = "Production address";
+"Sending is paused for this network. Check that Taira Testnet is enabled in Settings." = "Sending is paused for this network. Check that Taira Testnet is enabled in Settings.";
+"Your production address is ready to copy or share. Balances, activity, and transfers will be available when the SORA Nexus production network launches." = "Your production address is ready to copy or share. Balances, activity, and transfers will be available when the SORA Nexus production network launches.";

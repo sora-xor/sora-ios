@@ -20,10 +20,14 @@ import SoraUIKit
 final class ContactCellItem: NSObject {
 
     let title: String
+    /// Shown instead of the address's identicon, for addresses of networks
+    /// that have none.
+    let image: UIImage?
     let onTap: (()->())?
 
-    init(title: String, onTap: (()->())? = nil) {
+    init(title: String, image: UIImage? = nil, onTap: (()->())? = nil) {
         self.title = title
+        self.image = image
         self.onTap = onTap
     }
 }

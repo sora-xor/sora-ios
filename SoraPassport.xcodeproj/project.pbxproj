@@ -271,6 +271,8 @@
 		A100000C0000000000000001 /* PolkamarktRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000160000000000000001 /* PolkamarktRuntime.swift */; };
 		A100000D0000000000000001 /* NexusPortfolioViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000170000000000000001 /* NexusPortfolioViewController.swift */; };
 		A100000E0000000000000001 /* NexusPortfolioViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000170000000000000001 /* NexusPortfolioViewController.swift */; };
+		C0DE5A2A00000000000000A2 /* NexusSora2Screens.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE5A2A00000000000000A1 /* NexusSora2Screens.swift */; };
+		C0DE5A2A00000000000000A3 /* NexusSora2Screens.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE5A2A00000000000000A1 /* NexusSora2Screens.swift */; };
 		A100000F0000000000000001 /* PolkamarktViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000180000000000000001 /* PolkamarktViewController.swift */; };
 		A10000100000000000000001 /* PolkamarktViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000180000000000000001 /* PolkamarktViewController.swift */; };
 		A10000200000000000000001 /* WalletModernizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000210000000000000001 /* WalletModernizationTests.swift */; };
@@ -2941,6 +2943,7 @@
 		A10000150000000000000001 /* NexusWalletService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusWalletService.swift; sourceTree = "<group>"; };
 		A10000160000000000000001 /* PolkamarktRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkamarktRuntime.swift; sourceTree = "<group>"; };
 		A10000170000000000000001 /* NexusPortfolioViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusPortfolioViewController.swift; sourceTree = "<group>"; };
+		C0DE5A2A00000000000000A1 /* NexusSora2Screens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusSora2Screens.swift; sourceTree = "<group>"; };
 		A10000180000000000000001 /* PolkamarktViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkamarktViewController.swift; sourceTree = "<group>"; };
 		A10000210000000000000001 /* WalletModernizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletModernizationTests.swift; sourceTree = "<group>"; };
 		A10000410000000000000001 /* WalletRecoveryCapabilityGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRecoveryCapabilityGateTests.swift; sourceTree = "<group>"; };
@@ -6711,6 +6714,7 @@
 				8BF42862293BB29700590F92 /* MoreMenuViewFactory.swift */,
 				8BF42864293BB2A500590F92 /* MoreMenuWireframe.swift */,
 				A10000170000000000000001 /* NexusPortfolioViewController.swift */,
+				C0DE5A2A00000000000000A1 /* NexusSora2Screens.swift */,
 				A10000180000000000000001 /* PolkamarktViewController.swift */,
 				55063DB228FF3CC8008782E1 /* MoreMenuViewController.swift */,
 				55063DBB2902A96E008782E1 /* MoreMenuPresenter.swift */,
@@ -8646,6 +8650,7 @@
 				A77A00000000000000000004 /* TairaTransactionSigning.swift in Sources */,
 				A100000B0000000000000001 /* PolkamarktRuntime.swift in Sources */,
 				A100000D0000000000000001 /* NexusPortfolioViewController.swift in Sources */,
+				C0DE5A2A00000000000000A2 /* NexusSora2Screens.swift in Sources */,
 				A100000F0000000000000001 /* PolkamarktViewController.swift in Sources */,
 				A10000070000000000000001 /* PIAsyncOperation.swift in Sources */,
 				A10000050000000000000001 /* PIIndexerClient.swift in Sources */,
@@ -10065,6 +10070,7 @@
 				A77A00000000000000000004 /* TairaTransactionSigning.swift in Sources */,
 				A100000C0000000000000001 /* PolkamarktRuntime.swift in Sources */,
 				A100000E0000000000000001 /* NexusPortfolioViewController.swift in Sources */,
+				C0DE5A2A00000000000000A3 /* NexusSora2Screens.swift in Sources */,
 				A10000100000000000000001 /* PolkamarktViewController.swift in Sources */,
 				A10000080000000000000001 /* PIAsyncOperation.swift in Sources */,
 				A10000060000000000000001 /* PIIndexerClient.swift in Sources */,

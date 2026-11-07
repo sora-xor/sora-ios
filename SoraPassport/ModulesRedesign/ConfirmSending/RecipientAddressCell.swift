@@ -56,10 +56,10 @@ extension RecipientAddressCell: SoramitsuTableViewCellProtocol {
         }
         
         recipientView.contactView.accountTitle.sora.text = item.address
-        recipientView.contactView.accountImageView.image = try? generator.generateFromAddress(item.address)
+        recipientView.contactView.accountImageView.image = item.image ?? (try? generator.generateFromAddress(item.address)
             .imageWithFillColor(UIColor.white,
                                 size: CGSize(width: 40.0, height: 40.0),
-                                contentScale: UIScreen.main.scale)
+                                contentScale: UIScreen.main.scale))
     }
 }
 

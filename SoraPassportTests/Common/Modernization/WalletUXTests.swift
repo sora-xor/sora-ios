@@ -97,12 +97,14 @@ final class TairaFaucetAppTests: XCTestCase {
             detail.loadViewIfNeeded()
             detail.view.frame = CGRect(x: 0, y: 0, width: 375, height: 812)
             detail.view.layoutIfNeeded()
-            func find(_ view: UIView) -> UIButton? {
-                if view.accessibilityIdentifier == "taira.faucet.request" { return view as? UIButton }
+            detail.tableView.layoutIfNeeded()
+            func find(_ view: UIView) -> UIControl? {
+                if view.accessibilityIdentifier == "taira.faucet.request", !view.isHidden { return view as? UIControl }
                 return view.subviews.compactMap(find).first
             }
-            let button = detail.tableView.tableHeaderView.flatMap(find)
+            let button = find(detail.tableView)
             if configuration.networkId == .taira {
+                XCTAssertNotNil(detail.balanceItem?.faucet)
                 let button = try XCTUnwrap(button)
                 XCTAssertTrue(button.isEnabled)
                 XCTAssertGreaterThanOrEqual(button.bounds.height, 48)
@@ -114,7 +116,10 @@ final class TairaFaucetAppTests: XCTestCase {
                 attachment.name = "Taira faucet screen"
                 attachment.lifetime = .keepAlways
                 add(attachment)
-            } else { XCTAssertNil(button) }
+            } else {
+                XCTAssertNil(detail.balanceItem?.faucet)
+                XCTAssertNil(button)
+            }
         }
     }
 }
@@ -2269,67 +2274,86 @@ final class WalletUXTests: XCTestCase {
     }
 
     @MainActor
+    private func sendFlow() throws -> (NexusSendFlow, UINavigationController) {
+        let flow = NexusSendFlow(network: "Taira · TESTNET", balance: "100",
+                                 configuration: try XCTUnwrap(NexusNetworkConfiguration.taira),
+                                 ownAddress: "own-address", xorAsset: nil)
+        let navigation = flow.makeNavigation()
+        navigation.loadViewIfNeeded()
+        try XCTUnwrap(flow.amountController).loadViewIfNeeded()
+        return (flow, navigation)
+    }
+
+    @MainActor
+    private func enterAmount(_ amount: String, in flow: NexusSendFlow) throws {
+        try XCTUnwrap(flow.amountController).assetView.textField.text = amount
+        flow.amountViewModel.inputedFirstAmount = Decimal(string: amount) ?? 0
+    }
+
+    @MainActor
     func testBusySendCannotStartAnotherReview() throws {
-        let view = NexusSendViewController(network: "Taira · TESTNET", balance: "100")
-        view.loadViewIfNeeded()
-        try XCTUnwrap(descendants(view.view).compactMap { $0 as? UITextView }.first).text = "recipient"
-        try XCTUnwrap(descendants(view.view).compactMap { $0 as? UITextField }.first).text = "1"
+        let (flow, navigation) = try sendFlow()
+        defer { _ = navigation }
+        flow.amountViewModel.set(recipient: "recipient")
+        try enterAmount("1", in: flow)
         var reviews = 0
-        view.onReview = { _, _ in reviews += 1; view.setBusy(true) }
-        let primary = try XCTUnwrap(button("Review send", in: view.view))
-        primary.sendActions(for: .touchUpInside)
-        primary.sendActions(for: .touchUpInside)
+        flow.onReview = { _, _ in reviews += 1; flow.setBusy(true) }
+        flow.amountViewModel.reviewButtonTapped()
+        flow.amountViewModel.reviewButtonTapped()
         XCTAssertEqual(reviews, 1)
+        flow.setBusy(false)
     }
 
     @MainActor
     func testEditingReviewPreservesDraftAndRequiresAnotherQuote() throws {
-        let view = NexusSendViewController(network: "Taira · TESTNET", balance: "100")
-        view.loadViewIfNeeded()
-        let recipient = try XCTUnwrap(descendants(view.view).compactMap { $0 as? UITextView }.first)
-        let amount = try XCTUnwrap(descendants(view.view).compactMap { $0 as? UITextField }.first)
-        recipient.text = "test-recipient-address"
-        amount.text = "12.5"
+        let (flow, navigation) = try sendFlow()
+        flow.amountViewModel.set(recipient: "test-recipient-address")
+        try enterAmount("12.5", in: flow)
         let quantity = try PIQuantity("12.5")
         let request = NexusTransferRequest(walletId: "test-wallet", networkId: .taira,
-            sender: "test-sender", receiver: recipient.text, amount: quantity)
-        let quote = NexusTransferFeeQuote(networkId: .taira, authority: "test-sender", receiver: recipient.text,
+            sender: "test-sender", receiver: "test-recipient-address", amount: quantity)
+        let quote = NexusTransferFeeQuote(networkId: .taira, authority: "test-sender", receiver: "test-recipient-address",
             assetDefinitionId: "test-asset", amount: quantity, fee: try PIQuantity("0.01"), quoteIdentity: "test-quote", validUntilBlock: 100)
-        let prepared = NexusPreparedTransfer(request: request, canonicalReceiver: recipient.text,
+        let prepared = NexusPreparedTransfer(request: request, canonicalReceiver: "test-recipient-address",
             assetDefinitionID: "test-asset", availableBalance: try PIQuantity("100"), quote: quote)
         XCTAssertFalse(prepared.submissionMayHaveStarted)
-        view.showReview(prepared)
-        XCTAssertTrue(descendants(view.view).compactMap { ($0 as? UILabel)?.text }.contains("12.51 XOR"))
-        let edit = try XCTUnwrap(button("Edit details", in: view.view))
-        edit.sendActions(for: .touchUpInside)
-        XCTAssertEqual(recipient.text, "test-recipient-address")
-        XCTAssertEqual(amount.text, "12.5")
+        flow.showReview(prepared)
+        let review = try XCTUnwrap(flow.confirmViewModel)
+        XCTAssertEqual(review.total, "12.51")
+        XCTAssertTrue(navigation.topViewController is ConfirmViewController)
+        // Back to Enter amount: the draft is kept and a new review asks for a new quote.
+        navigation.popViewController(animated: false)
+        XCTAssertEqual(flow.amountViewModel.recipient, "test-recipient-address")
+        XCTAssertEqual(flow.amountViewModel.amountText, "12.5")
         var reviewedDraft: (String, String)?
-        view.onReview = { reviewedDraft = ($0, $1) }
-        view.onConfirm = { _ in XCTFail("Editing must invalidate the prepared quote") }
-        try XCTUnwrap(button("Review send", in: view.view)).sendActions(for: .touchUpInside)
+        flow.onReview = { reviewedDraft = ($0, $1) }
+        flow.onConfirm = { _ in XCTFail("Editing must invalidate the prepared quote") }
+        flow.amountViewModel.reviewButtonTapped()
         XCTAssertEqual(reviewedDraft?.0, "test-recipient-address")
         XCTAssertEqual(reviewedDraft?.1, "12.5")
 
-        view.showReview(prepared)
-        view.setBusy(true)
-        view.showUnsentError(WalletUX.sendError(NexusToriiError.quoteExpired))
+        flow.showReview(prepared)
+        flow.setBusy(true)
+        flow.showUnsentError(WalletUX.sendError(NexusToriiError.quoteExpired))
+        XCTAssertNil(flow.confirmViewModel, "Nothing was sent: back to the draft")
+        XCTAssertNotNil(flow.amountViewModel.warning)
         reviewedDraft = nil
-        try XCTUnwrap(button("Review send", in: view.view)).sendActions(for: .touchUpInside)
+        flow.amountViewModel.reviewButtonTapped()
         XCTAssertEqual(reviewedDraft?.0, "test-recipient-address")
         XCTAssertEqual(reviewedDraft?.1, "12.5")
 
-        view.showReview(prepared)
+        flow.showReview(prepared)
         var submissions = 0
-        view.onConfirm = { _ in submissions += 1; view.setBusy(true) }
-        let confirm = try XCTUnwrap(button("Confirm and send", in: view.view))
-        confirm.sendActions(for: .touchUpInside)
-        confirm.sendActions(for: .touchUpInside)
+        flow.onConfirm = { _ in submissions += 1; flow.setBusy(true) }
+        let confirm = try XCTUnwrap(flow.confirmViewModel)
+        confirm.confirm()
+        confirm.confirm()
         XCTAssertEqual(submissions, 1, "A busy confirmation must not submit twice")
+        XCTAssertEqual(confirm.confirmItem?.isEnable, false)
         prepared.markTransportStarted()
         XCTAssertTrue(prepared.submissionMayHaveStarted)
+        flow.setBusy(false)
     }
-
     func testAmbiguousSendNeverLooksCompletedOrInvitesResubmission() {
         XCTAssertNotEqual(WalletUX.status(.submissionUnknown), WalletUX.status(.committed))
         XCTAssertTrue(WalletUX.statusDetail(.submissionUnknown).contains("do not send it again"))
@@ -2352,19 +2376,20 @@ final class WalletUXTests: XCTestCase {
 
     @MainActor
     func testUncertainSubmissionOnlyOffersActivity() throws {
-        let view = NexusSendViewController(network: "Taira · TESTNET", balance: "100")
-        view.loadViewIfNeeded()
-        view.onConfirm = { _ in XCTFail("An uncertain submission must not be sent again") }
-        view.onReview = { _, _ in XCTFail("An uncertain submission must not be reviewed again") }
-        view.showUncertainSubmission(WalletUX.sendError(NexusToriiError.ambiguousSubmission))
-        let primary = try XCTUnwrap(button("Review send", in: view.view))
-        let edit = try XCTUnwrap(button("Edit details", in: view.view))
-        XCTAssertTrue(primary.isHidden)
-        XCTAssertTrue(edit.isHidden)
-        XCTAssertFalse(try XCTUnwrap(button("View Activity", in: view.view)).isHidden)
-        primary.sendActions(for: .touchUpInside)
-        edit.sendActions(for: .touchUpInside)
-        XCTAssertTrue(primary.isHidden)
+        let (flow, navigation) = try sendFlow()
+        defer { _ = navigation }
+        flow.amountViewModel.set(recipient: "recipient")
+        try enterAmount("1", in: flow)
+        flow.onConfirm = { _ in XCTFail("An uncertain submission must not be sent again") }
+        flow.onReview = { _, _ in XCTFail("An uncertain submission must not be reviewed again") }
+        let message = WalletUX.sendError(NexusToriiError.ambiguousSubmission)
+        flow.showUncertainSubmission(message)
+        XCTAssertTrue(flow.completed)
+        XCTAssertEqual(flow.resultViewModel?.model.note, message)
+        XCTAssertEqual(flow.resultViewModel?.model.statusText, WalletUX.status(.submissionUnknown))
+        flow.amountViewModel.reviewButtonTapped()
+        flow.showRecipientSearch()
+        XCTAssertNil(flow.recipientViewModel)
     }
 
     func testDurableAncestorSynchronizationStopsAtContainerBeforeSandboxDeniedParent() throws {

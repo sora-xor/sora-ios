@@ -6428,7 +6428,7 @@ if ! /usr/bin/grep -Fq "override func viewWillAppear" "${more_menu_view}" ||
 	   /usr/bin/grep -Fq "guard let coordinator, let pendingStore else" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "if access.mutationSurfaceAvailable" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "static func mutationIsReady(" "${nexus_ui}" ||
-	   ! /usr/bin/grep -Fq "sendButton.isEnabled = false" "${nexus_ui}" ||
+	   ! /usr/bin/grep -Fq "sendEntry.isEnabled = false" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "private var mutationReady = false" "${nexus_ui}" ||
 	   [ "$(/usr/bin/grep -Fc 'setMutationReady(false)' "${nexus_ui}")" -lt 3 ] ||
 	   ! /usr/bin/grep -Fq "guard mutationReady, coordinator != nil else" "${nexus_ui}" ||
@@ -6489,7 +6489,7 @@ if [ ! -f "${wallet_network_directory}" ] ||
    ! /usr/bin/grep -Fq "configuration.validate(address: receiver)" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq '$0.walletId == self.account.walletId' "${nexus_ui}" ||
    ! /usr/bin/grep -Fq '$0.networkId == self.account.networkId' "${nexus_ui}" ||
-   ! /usr/bin/grep -Fq "UIImageView(image: qrImage(account.address))" "${nexus_ui}" ||
+   ! /usr/bin/grep -Fq "NexusReceiveViewModel(address: account.address" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq "UIPasteboard.general.string = account.address" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq "UIApplication.shared.open(configuration.explorerURL)" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq "The transaction was not retried." "${nexus_service}" ||

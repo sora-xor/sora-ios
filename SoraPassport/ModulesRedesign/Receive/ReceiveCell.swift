@@ -98,6 +98,17 @@ final class ReceiveCell: SoramitsuTableViewCell {
     }()
     
     private let sendAssetView: SendAssetView = SendAssetView()
+
+    private let noticeLabel: SoramitsuLabel = {
+        var label = SoramitsuLabel()
+        label.sora.textColor = .fgSecondary
+        label.sora.font = FontType.paragraphXS
+        label.sora.alignment = .center
+        label.sora.numberOfLines = 0
+        label.sora.isHidden = true
+        label.accessibilityIdentifier = "receive.notice"
+        return label
+    }()
     
     private lazy var shareButton: SoramitsuButton = {
         let button = SoramitsuButton()
@@ -136,6 +147,7 @@ final class ReceiveCell: SoramitsuTableViewCell {
         contentView.addSubview(contentStackView)
         contentStackView.addArrangedSubview(qrContainerView)
         contentStackView.addArrangedSubview(accountContainerView)
+        contentStackView.addArrangedSubview(noticeLabel)
         contentStackView.addArrangedSubview(sendAssetView)
         contentStackView.addArrangedSubview(shareButton)
     }
@@ -179,10 +191,12 @@ extension ReceiveCell: SoramitsuTableViewCellProtocol {
         }
         self.item = item
         accountAddress.sora.text = item.address
-        accountImageView.image = try? generator.generateFromAddress(item.address)
+        accountImageView.image = item.avatar ?? (try? generator.generateFromAddress(item.address)
             .imageWithFillColor(UIColor.white,
                                 size: CGSize(width: 40.0, height: 40.0),
-                                contentScale: UIScreen.main.scale)
+                                contentScale: UIScreen.main.scale))
+        noticeLabel.sora.text = item.notice
+        noticeLabel.sora.isHidden = item.notice?.isEmpty ?? true
         
         qrImageView.image = item.qrImage
         accountTitle.sora.text = item.name

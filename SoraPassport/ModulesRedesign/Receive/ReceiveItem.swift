@@ -24,14 +24,22 @@ final class ReceiveItem: NSObject {
     let address: String
     let qrImage: UIImage?
     let sendAssetViewModel: SendAssetViewModel?
+    /// Shown instead of the address's identicon, for addresses of networks
+    /// that have none.
+    let avatar: UIImage?
+    /// A line under the account, such as which network the address is for.
+    let notice: String?
     var shareHandler: (() -> Void)?
     var accountTapHandler: (() -> Void)?
     
-    init(name: String, address: String, qrImage: UIImage?, sendAssetViewModel: SendAssetViewModel? = nil) {
+    init(name: String, address: String, qrImage: UIImage?, sendAssetViewModel: SendAssetViewModel? = nil,
+         avatar: UIImage? = nil, notice: String? = nil) {
         self.address = address
         self.qrImage = qrImage
         self.name = name
         self.sendAssetViewModel = sendAssetViewModel
+        self.avatar = avatar
+        self.notice = notice
     }
 
 }

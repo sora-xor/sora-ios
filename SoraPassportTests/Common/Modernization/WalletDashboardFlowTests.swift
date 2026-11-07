@@ -471,14 +471,36 @@ extension WalletDashboardFlowTests {
         load(fixture)
         var openedPrimary = false
         fixture.model.receive { openedPrimary = true }
-        let navigation = try XCTUnwrap(fixture.view.presentations.last as? UINavigationController)
+        let container = try XCTUnwrap(fixture.view.presentations.last as? BlurViewController)
+        let navigation = try XCTUnwrap(container.children.first as? UINavigationController)
         let picker = try XCTUnwrap(navigation.topViewController as? WalletNetworkPickerViewController)
         picker.loadViewIfNeeded()
-        XCTAssertEqual(picker.tableView(picker.tableView, numberOfRowsInSection: 0), 2)
+        XCTAssertEqual(picker.item?.rows.count, 2)
         XCTAssertFalse(openedPrimary)
-        let identities = (0..<2).map { picker.tableView(picker.tableView, cellForRowAt: IndexPath(row: $0, section: 0)).accessibilityIdentifier }
+        let identities = (picker.item?.rows ?? []).map(\.identifier)
         XCTAssertTrue(identities.contains("wallet.network-choice.sora2"))
         XCTAssertTrue(identities.contains("wallet.network-choice.taira"))
+    }
+    func testReceiveOnAnotherNetworkOpensSora2sReceiveScreenWithThatAddress() throws {
+        let previousTaira = SettingsManager.shared.isTairaEnabled
+        SettingsManager.shared.nexusEnabled = true
+        SettingsManager.shared.isTairaEnabled = true
+        defer { SettingsManager.shared.isTairaEnabled = previousTaira }
+        let account = try networkAccount(.taira)
+        let fixture = make(networkAccounts: { [account] })
+        fixture.model.openNetworkReceive(account: account)
+        let container = try XCTUnwrap(fixture.view.presentations.last as? BlurViewController)
+        let navigation = try XCTUnwrap(container.children.first as? UINavigationController)
+        let receive = try XCTUnwrap(navigation.viewControllers.first as? ReceiveViewController)
+        let model = try XCTUnwrap(receive.viewModel as? NexusReceiveViewModel)
+        XCTAssertEqual(model.address, account.address)
+        XCTAssertTrue(model.name.hasPrefix("Taira"))
+        // A Receive for another wallet's account opens nothing.
+        let other = NetworkAccount(walletId: "another-wallet", networkId: .taira, derivationVersion: 1,
+                                   publicKey: account.publicKey, address: account.address)
+        let shown = fixture.view.presentations.count
+        fixture.model.openNetworkReceive(account: other)
+        XCTAssertEqual(fixture.view.presentations.count, shown)
     }
     func testSendingWithOnlyOneAvailableNetworkUsesTheExistingSora2Route() throws {
         let accounts = [try networkAccount(.sora2), try networkAccount(.minamoto)]

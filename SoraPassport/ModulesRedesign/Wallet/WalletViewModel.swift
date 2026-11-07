@@ -469,8 +469,10 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         let open: @MainActor (WalletNetworkChoice) -> Void = { [weak self] choice in
             if choice.account.networkId == .sora2 {
                 sora2()
+            } else if action == .receive {
+                self?.openNetworkReceive(account: choice.account)
             } else {
-                self?.openNetwork(account: choice.account, startSend: action == .send)
+                self?.openNetwork(account: choice.account, startSend: true)
             }
         }
         if let only = WalletNetworkChoices.onlyChoice(choices) {
@@ -496,7 +498,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                 tairaAdmitted: NexusNetworkAdmissionPolicy.current.isTairaAdmitted
             ),
             let configuration = NexusNetworkConfiguration.configuration(for: account.networkId),
-            let navigation = view?.controller.navigationController
+            let presenter = view?.controller
         else {
             return
         }
@@ -509,11 +511,39 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             mutationUnavailableReason: runtime.initializationFailed
                 ? NexusPortfolioPresentationPolicy.journalUnavailableMessage
                 : nil,
-            opensSendWhenReady: startSend
+            opensSendWhenReady: startSend,
+            xorAsset: assetManager.assetInfo(for: WalletAssetId.xor.rawValue)
         )
-        navigation.setNavigationBarHidden(false, animated: false)
-        detail.hidesBottomBarWhenPushed = true
-        navigation.pushViewController(detail, animated: true)
+        // Opened as SORA2 opens XOR's asset details.
+        NexusSora2Presentation.present(detail, from: presenter)
+    }
+
+    /// The wallet's Receive on a network other than SORA2: SORA2's Receive
+    /// screen with that network's address, as SORA2's Receive opens.
+    @MainActor
+    func openNetworkReceive(account: NetworkAccount) {
+        let settings = SettingsManager.shared
+        guard
+            ProductSurfacePolicy.showsNexusPortfolio,
+            settings.nexusEnabled,
+            account.walletId == SelectedWalletSettings.shared.currentAccount?.address,
+            NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
+                networkId: account.networkId,
+                nexusEnabled: settings.nexusEnabled,
+                tairaEnabled: settings.isTairaEnabled,
+                tairaAdmitted: NexusNetworkAdmissionPolicy.current.isTairaAdmitted
+            ),
+            let configuration = NexusNetworkConfiguration.configuration(for: account.networkId),
+            let presenter = view?.controller
+        else {
+            return
+        }
+        NexusNetworkDetailViewController.presentReceive(
+            account: account,
+            configuration: configuration,
+            xorAsset: assetManager.assetInfo(for: WalletAssetId.xor.rawValue),
+            from: presenter
+        )
     }
 
     /// Reloads the other networks' XOR rows for the selected wallet. Account

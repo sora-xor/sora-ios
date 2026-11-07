@@ -71,33 +71,32 @@ final class ExportAndNetworkPickerScreenTests: XCTestCase {
     func testNetworkPickerRendersEveryAddressBalanceAndNetworkTag() throws {
         let choices = [choice(.sora2), choice(.minamoto), choice(.taira)]
         let view = WalletNetworkPickerViewController(action: .receive, choices: choices, onPick: { _ in XCTFail("No selection") }); view.loadViewIfNeeded()
-        XCTAssertEqual(view.numberOfSections(in: view.tableView), 1); XCTAssertEqual(view.tableView(view.tableView, numberOfRowsInSection: 0), 3)
-        for (index, expected) in choices.enumerated() {
-            let cell = view.tableView(view.tableView, cellForRowAt: IndexPath(row: index, section: 0)); let content = try XCTUnwrap(cell.contentConfiguration as? UIListContentConfiguration)
-            XCTAssertEqual(content.text, expected.network.name); XCTAssertTrue(content.secondaryText?.contains("0123456789…OPQRSTUV") == true)
-            XCTAssertTrue(content.secondaryText?.contains(expected.network.isLive ? "12 XOR" : WalletUX.text("Address ready")) == true)
-            XCTAssertEqual(cell.accessoryView?.accessibilityLabel, expected.tag?.title); XCTAssertEqual(cell.accessibilityIdentifier, "wallet.network-choice.\(expected.network.id.rawValue)")
+        let rows = try XCTUnwrap(view.item?.rows); XCTAssertEqual(rows.count, 3)
+        for (row, expected) in zip(rows, choices) {
+            XCTAssertEqual(row.title, expected.network.name); XCTAssertTrue(row.subtitle.contains("0123456789…OPQRSTUV"))
+            XCTAssertTrue(row.subtitle.contains(expected.network.isLive ? "12 XOR" : WalletUX.text("Address ready")))
+            XCTAssertEqual(row.tag?.title, expected.tag?.title); XCTAssertEqual(row.identifier, "wallet.network-choice.\(expected.network.id.rawValue)")
         }
     }
     func testUnavailableNetworkCannotBeSelectedAndHasDisabledAccessibility() throws {
-        var selections = 0; let view = WalletNetworkPickerViewController(action: .send, choices: [choice(.taira, available: false)], onPick: { _ in selections += 1 }); view.loadViewIfNeeded()
-        let index = IndexPath(row: 0, section: 0); let cell = view.tableView(view.tableView, cellForRowAt: index)
-        XCTAssertEqual(cell.selectionStyle, .none); XCTAssertTrue(cell.accessibilityTraits.contains(.notEnabled)); view.tableView(view.tableView, willDisplay: cell, forRowAt: index)
-        XCTAssertEqual(cell.accessoryView?.alpha, 0.5); XCTAssertTrue((cell.contentConfiguration as? UIListContentConfiguration)?.secondaryText?.contains("Read only") == true)
-        view.tableView(view.tableView, didSelectRowAt: index); XCTAssertEqual(selections, 0)
+        var selections = 0; let choices = [choice(.taira, available: false)]
+        let view = WalletNetworkPickerViewController(action: .send, choices: choices, onPick: { _ in selections += 1 }); view.loadViewIfNeeded()
+        let row = try XCTUnwrap(view.item?.rows.first)
+        XCTAssertFalse(row.isAvailable); XCTAssertTrue(row.subtitle.contains("Read only"))
+        view.pick(choices[0]); view.item?.onPick?(row); XCTAssertEqual(selections, 0)
     }
     func testReceiveAndSendPickerExplainTheCorrectAddressDirection() {
         for action in [WalletNetworkAction.receive, .send] {
             let view = WalletNetworkPickerViewController(action: action, choices: [], onPick: { _ in XCTFail("No selection") }); view.loadViewIfNeeded()
             XCTAssertEqual(view.tableView.accessibilityIdentifier, action == .receive ? "wallet.network-picker.receive" : "wallet.network-picker.send")
             XCTAssertEqual(view.title, WalletUX.text(action == .receive ? "Receive on" : "Send on")); XCTAssertNotNil(view.navigationItem.rightBarButtonItem)
-            XCTAssertFalse((view.tableView(view.tableView, titleForFooterInSection: 0) ?? "").isEmpty); XCTAssertEqual(view.tableView(view.tableView, numberOfRowsInSection: 0), 0)
+            XCTAssertFalse((view.item?.footer ?? "").isEmpty); XCTAssertEqual(view.item?.rows.count, 0)
         }
     }
     func testUnknownBalanceIsOmittedWithoutInventingAZero() throws {
         let view = WalletNetworkPickerViewController(action: .receive, choices: [choice(.sora2, balance: nil)], onPick: { _ in }); view.loadViewIfNeeded()
-        let cell = view.tableView(view.tableView, cellForRowAt: IndexPath(row: 0, section: 0)); let content = try XCTUnwrap(cell.contentConfiguration as? UIListContentConfiguration)
-        XCTAssertEqual(content.secondaryText, "0123456789…OPQRSTUV"); XCTAssertFalse(cell.accessibilityTraits.contains(.notEnabled))
+        let row = try XCTUnwrap(view.item?.rows.first)
+        XCTAssertEqual(row.subtitle, "0123456789…OPQRSTUV"); XCTAssertTrue(row.isAvailable)
     }
     func testAddressAbbreviationUsesCharactersAndKeepsShortAddressesUnchanged() {
         XCTAssertEqual(WalletNetworkAccounts.shortAddress("short"), "short"); let short = String(repeating: "a", count: 24); XCTAssertEqual(WalletNetworkAccounts.shortAddress(short), short)

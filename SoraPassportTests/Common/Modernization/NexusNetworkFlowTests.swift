@@ -150,26 +150,32 @@ import XCTest
     screen.loadViewIfNeeded()
     return screen
   }
-  private func form(_ screen: NexusNetworkDetailViewController) throws -> NexusSendViewController {
-    try XCTUnwrap(
-      (screen.presentedViewController as? UINavigationController)?.topViewController
-        as? NexusSendViewController)
-  }
   private func openForm(_ f: Fixture) async throws -> (
-    NexusNetworkDetailViewController, NexusSendViewController
+    NexusNetworkDetailViewController, NexusSendFlow
   ) {
     let screen = try open(f, auto: true)
-    await wait { screen.presentedViewController != nil }
-    return (screen, try form(screen))
+    await wait { screen.sendFlow?.isPresented == true }
+    let flow = try XCTUnwrap(screen.sendFlow)
+    // SORA2's send opens Select recipient on top of Enter amount.
+    await wait { flow.recipientViewModel != nil }
+    return (screen, flow)
   }
-  private func fill(_ form: NexusSendViewController, receiver: String? = nil, amount: String = "2")
-    throws
+  /// Chooses the recipient on Select recipient, types the amount on Enter
+  /// amount and taps Review, as a person does on SORA2's send screens.
+  private func fill(_ flow: NexusSendFlow, receiver: String? = nil, amount: String = "2")
+    async throws
   {
-    try XCTUnwrap(
-      views(UITextView.self, form.view).first { $0.accessibilityLabel == "Recipient address" }
-    ).text = receiver ?? self.receiver
-    try XCTUnwrap(views(UITextField.self, form.view).first).text = amount
-    try button("Review send", form.view).sendActions(for: .touchUpInside)
+    let address = receiver ?? self.receiver
+    let search = try XCTUnwrap(flow.recipientViewModel)
+    search.search(address)
+    let row = try XCTUnwrap(search.items.compactMap { $0 as? ContactCellItem }.first)
+    XCTAssertEqual(row.title, address)
+    row.onTap?()
+    await wait { flow.amountViewModel.recipient == address }
+    let controller = try XCTUnwrap(flow.amountController)
+    controller.assetView.textField.text = amount
+    flow.amountViewModel.inputedFirstAmount = Decimal(string: amount) ?? 0
+    flow.amountViewModel.reviewButtonTapped()
   }
   private func portfolio(
     _ f: Fixture, balances: NetworkUIBalances? = nil,
@@ -292,51 +298,59 @@ import XCTest
   func testQualifiedDetailEnablesSendAfterBalanceAndJournalRead() async throws {
     let f = try make()
     let screen = try open(f)
-    await wait { screen.navigationItem.rightBarButtonItem?.isEnabled == true }
+    await wait { screen.balanceItem?.showsSend == true }
     XCTAssertEqual(f.sign.signs, 0)
     XCTAssertTrue(f.transport.requests.isEmpty)
   }
   func testAutomaticSendPresentsFormAfterQualification() async throws {
     let f = try make()
-    let (_, form) = try await openForm(f)
-    XCTAssertTrue(texts(form.view).contains("Available: 100 XOR"))
-    XCTAssertTrue(try button("Review send", form.view).isEnabled)
+    let (_, flow) = try await openForm(f)
+    XCTAssertEqual(flow.amountViewModel.balance, "100")
+    XCTAssertNotNil(flow.amountController)
   }
   func testValidFormProducesExactReviewWithoutSigning() async throws {
     let f = try make()
-    let (_, form) = try await openForm(f)
-    try fill(form)
-    await wait { self.findButton("Confirm and send", form.view) != nil }
-    XCTAssertTrue(texts(form.view).contains("3 XOR"))
-    XCTAssertTrue(texts(form.view).contains(receiver))
+    let (_, flow) = try await openForm(f)
+    try await fill(flow)
+    await wait { flow.confirmViewModel != nil }
+    let review = try XCTUnwrap(flow.confirmViewModel)
+    XCTAssertEqual(review.total, "3")
+    XCTAssertEqual(review.prepared.canonicalReceiver, receiver)
+    XCTAssertTrue(review.items.contains { ($0 as? RecipientAddressItem)?.address == receiver })
     XCTAssertEqual(f.sign.signs, 0)
   }
   func testInvalidRecipientNeverReachesQuote() async throws {
     let f = try make()
-    let (_, form) = try await openForm(f)
-    try fill(form, receiver: "bad")
-    await wait { self.texts(form.view).contains(where: { $0.contains("Check the recipient") }) }
+    let (_, flow) = try await openForm(f)
+    let search = try XCTUnwrap(flow.recipientViewModel)
+    search.search("bad")
+    XCTAssertTrue(search.items.compactMap { $0 as? ContactCellItem }.isEmpty,
+                  "An address of another network cannot be chosen")
+    XCTAssertTrue(search.items.contains { ($0 as? ContactHeaderCellItem)?.title == "RECIPIENTS NOT FOUND" })
+    flow.amountViewModel.reviewButtonTapped()
+    XCTAssertTrue(flow.amountViewModel.warning?.contains("recipient") == true)
     XCTAssertEqual(f.sign.quotes, 0)
   }
   func testInsufficientBalanceShowsUnsentReviewError() async throws {
     let f = try make()
-    let (_, form) = try await openForm(f)
-    try fill(form, amount: "100")
+    let (_, flow) = try await openForm(f)
+    try await fill(flow, amount: "100")
     await wait {
-      self.texts(form.view).contains(where: {
-        $0.localizedCaseInsensitiveContains("insufficient")
-          || $0.localizedCaseInsensitiveContains("enough")
-      })
+      flow.amountViewModel.warning?.localizedCaseInsensitiveContains("insufficient") == true
+        || flow.amountViewModel.warning?.localizedCaseInsensitiveContains("enough") == true
     }
+    XCTAssertNil(flow.confirmViewModel)
     XCTAssertEqual(f.sign.signs, 0)
   }
   func testConfirmedSendDisplaysCommittedResult() async throws {
     let f = try make()
-    let (_, form) = try await openForm(f)
-    try fill(form)
-    await wait { self.findButton("Confirm and send", form.view) != nil }
-    try button("Confirm and send", form.view).sendActions(for: .touchUpInside)
-    await wait { self.findButton("View Activity", form.view)?.isHidden == false }
+    let (_, flow) = try await openForm(f)
+    try await fill(flow)
+    await wait { flow.confirmViewModel != nil }
+    try XCTUnwrap(flow.confirmViewModel).confirm()
+    await wait { flow.resultViewModel != nil }
+    XCTAssertEqual(flow.resultViewModel?.model.statusText, WalletUX.status(.committed))
+    XCTAssertEqual(flow.resultViewModel?.model.status, .success)
     XCTAssertEqual(f.sign.signs, 1)
     XCTAssertEqual(f.transport.requests.count, 1)
     let rows = try await f.pending.all()
@@ -344,23 +358,29 @@ import XCTest
   }
   func testAmbiguousTransportShowsCheckActivityInsteadOfRetry() async throws {
     let f = try make()
-    let (_, form) = try await openForm(f)
-    try fill(form)
-    await wait { self.findButton("Confirm and send", form.view) != nil }
+    let (_, flow) = try await openForm(f)
+    try await fill(flow)
+    await wait { flow.confirmViewModel != nil }
     f.transport.error = NetworkUIFailure.injected
-    try button("Confirm and send", form.view).sendActions(for: .touchUpInside)
-    await wait { self.findButton("View Activity", form.view)?.isHidden == false }
+    let review = try XCTUnwrap(flow.confirmViewModel)
+    review.confirm()
+    await wait { flow.resultViewModel != nil }
     XCTAssertEqual(f.transport.requests.count, 1)
-    XCTAssertTrue(findButton("Confirm and send", form.view)?.isHidden == true)
+    XCTAssertTrue(flow.resultViewModel?.model.note?.contains("Activity") == true)
+    XCTAssertTrue(review.isUsed)
+    review.confirm()
+    flow.amountViewModel.reviewButtonTapped()
+    XCTAssertEqual(f.transport.requests.count, 1, "An uncertain send is never sent again")
   }
   func testChangedFeeReturnsToEditableDraftWithoutTransport() async throws {
     let f = try make()
-    let (_, form) = try await openForm(f)
-    try fill(form)
-    await wait { self.findButton("Confirm and send", form.view) != nil }
+    let (_, flow) = try await openForm(f)
+    try await fill(flow)
+    await wait { flow.confirmViewModel != nil }
     f.sign.fee = "2"
-    try button("Confirm and send", form.view).sendActions(for: .touchUpInside)
-    await wait { self.findButton("Review send", form.view)?.isHidden == false }
+    try XCTUnwrap(flow.confirmViewModel).confirm()
+    await wait { flow.confirmViewModel == nil && flow.amountViewModel.warning != nil }
+    XCTAssertEqual(flow.amountViewModel.recipient, receiver, "The draft is kept")
     XCTAssertTrue(f.transport.requests.isEmpty)
     XCTAssertEqual(f.sign.signs, 0)
   }
@@ -368,13 +388,8 @@ import XCTest
     let f = try make()
     f.read.balanceError = NetworkUIFailure.injected
     let screen = try open(f)
-    await wait {
-      screen.tableView(screen.tableView, cellForRowAt: IndexPath(row: 0, section: 0)).textLabel?
-        .text == "Unavailable XOR"
-        || (screen.tableView(screen.tableView, cellForRowAt: IndexPath(row: 0, section: 0))
-          .contentConfiguration as? UIListContentConfiguration)?.text == "Unavailable XOR"
-    }
-    XCTAssertFalse(screen.navigationItem.rightBarButtonItem?.isEnabled ?? true)
+    await wait { screen.balanceItem?.balanceText == WalletUX.balanceUnavailableText }
+    XCTAssertFalse(screen.balanceItem?.showsSend ?? true)
   }
 }
 @MainActor private final class NetworkUISelection {

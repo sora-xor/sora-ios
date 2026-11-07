@@ -4,6 +4,7 @@
 import NexusTransferCodec
 import SoraFoundation
 import SoraKeystore
+import SoraUIKit
 import UIKit
 import XCTest
 @testable import SoraPassport
@@ -78,8 +79,29 @@ final class NexusScreenBehaviorTests: XCTestCase {
         window.layoutIfNeeded()
         return controller
     }
-    private func content(_ controller: NexusNetworkDetailViewController, section: Int, row: Int = 0) -> UIListContentConfiguration? {
-        controller.tableView(controller.tableView, cellForRowAt: IndexPath(row: row, section: section)).contentConfiguration as? UIListContentConfiguration
+    private func balance(_ controller: NexusNetworkDetailViewController) -> String? {
+        controller.balanceItem?.balanceText
+    }
+    private func rows(_ controller: NexusNetworkDetailViewController) -> [ActivityContentViewModel] {
+        controller.activityItem?.rows ?? []
+    }
+    private func amount(_ row: ActivityContentViewModel) -> String {
+        row.firstBalanceText.attributedString.string
+    }
+    private func historyRows(_ controller: NexusNetworkDetailViewController) -> [ActivityContentViewModel] {
+        rows(controller).filter { !$0.txHash.hasPrefix(NexusActivityRows.pendingPrefix) }
+    }
+    private func pendingRows(_ controller: NexusNetworkDetailViewController) -> [ActivityContentViewModel] {
+        rows(controller).filter { $0.txHash.hasPrefix(NexusActivityRows.pendingPrefix) }
+    }
+    /// The transaction details SORA2's details screen shows for a row.
+    private func presentedDetails(_ controller: UIViewController) -> NexusActivityDetailsViewModel? {
+        (controller.presentedViewController?.children.first as? ActivityDetailsViewController)?.viewModel
+            as? NexusActivityDetailsViewModel
+    }
+    private func presentedReceive(_ controller: UIViewController) -> NexusReceiveViewModel? {
+        ((controller.presentedViewController?.children.first as? UINavigationController)?
+            .viewControllers.first as? ReceiveViewController)?.viewModel as? NexusReceiveViewModel
     }
     private func waitUntil(_ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
         for _ in 0..<200 {
@@ -88,63 +110,70 @@ final class NexusScreenBehaviorTests: XCTestCase {
         }
         XCTFail("Fixture screen did not settle", file: file, line: line)
     }
-    private func views<T: UIView>(_ type: T.Type, in view: UIView) -> [T] {
-        ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { views(type, in: $0) }
-    }
 
     func testProductionAddressScreenIsExplicitlyOfflineAndCopiesOnlyItsAddress() throws {
         let controller = try open(.minamoto)
-        XCTAssertEqual(content(controller, section: 0)?.text, "Coming soon")
-        XCTAssertNil(controller.navigationItem.rightBarButtonItem)
+        XCTAssertEqual(balance(controller), "Coming soon")
+        XCTAssertEqual(controller.balanceItem?.showsSend, false)
         XCTAssertEqual(reader.balanceReads, 0)
         XCTAssertTrue(reader.historyCursors.isEmpty)
-        XCTAssertTrue(controller.tableView(controller.tableView, titleForFooterInSection: 0)?.contains("production address is ready") == true)
-        let images = views(UIImageView.self, in: try XCTUnwrap(controller.tableView.tableHeaderView))
-        XCTAssertTrue(images.contains { $0.image != nil })
-        let copy = try XCTUnwrap(views(UIButton.self, in: controller.view).first { $0.currentTitle == "Copy address" })
+        XCTAssertTrue(controller.balanceItem?.notes.contains { $0.contains("production address is ready") } == true)
+        XCTAssertNil(controller.activityItem, "An offline network has no activity card")
+        XCTAssertNil(controller.balanceItem?.faucet)
+        XCTAssertEqual(controller.addressItem?.assetId, reader.account)
         let clipboard = UIPasteboard.general.items
         defer { UIPasteboard.general.items = clipboard }
-        copy.sendActions(for: .touchUpInside)
+        controller.addressItem?.tapHandler?()
         XCTAssertEqual(UIPasteboard.general.string, reader.account)
-        XCTAssertFalse(views(UIButton.self, in: controller.view).contains { $0.accessibilityIdentifier == "taira.faucet.request" })
-        XCTAssertTrue(views(UIButton.self, in: controller.view).first { $0.currentTitle == "Open explorer" }?.isHidden == true)
+        // Receive is SORA2's Receive screen with the production address.
+        controller.balanceItem?.actionHandler?(.receive)
+        let receive = try XCTUnwrap(presentedReceive(controller))
+        XCTAssertEqual(receive.address, reader.account)
+        XCTAssertTrue(receive.notice?.contains("production address is ready") == true)
     }
 
     func testTairaReadOnlyScreenShowsExactBalanceHistoryAndJournalRecovery() async throws {
         let controller = try open()
-        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
-        await waitUntil { controller.tableView.numberOfRows(inSection: 2) == 2 }
-        XCTAssertNil(controller.navigationItem.rightBarButtonItem)
-        XCTAssertEqual(content(controller, section: 1)?.text, "Recovery required")
-        XCTAssertTrue(content(controller, section: 2)?.text?.hasPrefix("Sent 1.25 XOR") == true)
-        XCTAssertTrue(content(controller, section: 2, row: 1)?.text?.hasPrefix("Received 2.5 XOR") == true)
+        await waitUntil { self.balance(controller) == "12.500000001 XOR" }
+        await waitUntil { self.historyRows(controller).count == 2 }
+        XCTAssertEqual(controller.balanceItem?.showsSend, false, "No journal means no Send")
+        XCTAssertTrue(controller.activityItem?.notice?.hasPrefix("Recovery required") == true)
+        let rows = historyRows(controller)
+        XCTAssertEqual(rows[0].title, "Sent")
+        XCTAssertEqual(amount(rows[0]), "1.25 XOR")
+        XCTAssertEqual(rows[0].subtitle, "recipient")
+        XCTAssertEqual(rows[1].title, "Received")
+        XCTAssertEqual(amount(rows[1]), "+ 2.5 XOR")
+        XCTAssertEqual(rows[1].subtitle, "sender")
         XCTAssertEqual(reader.historyCursors.count, 1)
         XCTAssertNil(try XCTUnwrap(reader.historyCursors.first))
-        for section in 0..<3 { XCTAssertNotNil(controller.tableView(controller.tableView, titleForHeaderInSection: section)) }
-        controller.view.frame.size.width = 768
-        controller.view.setNeedsLayout(); controller.view.layoutIfNeeded()
-        XCTAssertEqual(controller.tableView.tableHeaderView?.frame.width, controller.tableView.bounds.width)
-        controller.tableView(controller.tableView, didSelectRowAt: IndexPath(row: 0, section: 2))
-        let alert = try XCTUnwrap(controller.presentedViewController as? UIAlertController)
-        XCTAssertEqual(alert.title, "Transfer completed")
-        XCTAssertTrue(alert.message?.contains("first-transaction") == true)
+        XCTAssertTrue(controller.priceItem?.priceText?.hasPrefix("Taira") == true)
+        XCTAssertEqual(controller.addressItem?.assetId, reader.account)
+        controller.activityItem?.openDetails?("first-transaction")
+        let details = try XCTUnwrap(presentedDetails(controller))
+        XCTAssertEqual(details.model.transactionId, "first-transaction")
+        XCTAssertEqual(details.model.recipient, "recipient")
+        XCTAssertEqual(details.model.sender, reader.account)
+        XCTAssertEqual(details.model.status, .success)
+        XCTAssertEqual(details.model.amount, "1.25")
     }
 
     func testUnavailableBalanceCannotBeShownAsZeroOrUsedToRequestHistory() async throws {
         reader.balanceFailure = true
         let controller = try open()
-        await waitUntil { self.content(controller, section: 0)?.text == "Unavailable XOR" }
-        XCTAssertEqual(content(controller, section: 2)?.text, "History unavailable")
+        await waitUntil { self.balance(controller) == WalletUX.balanceUnavailableText }
+        XCTAssertTrue(controller.activityItem?.notice?.contains("History unavailable") == true)
         XCTAssertTrue(reader.historyCursors.isEmpty)
-        XCTAssertNil(controller.navigationItem.rightBarButtonItem)
+        XCTAssertEqual(controller.balanceItem?.showsSend, false)
+        XCTAssertFalse(balance(controller)?.contains("0") ?? true)
     }
 
     func testUnavailableHistoryKeepsBalanceAndOffersReadOnlyRefresh() async throws {
         reader.historyFailures = 1
         let controller = try open()
-        await waitUntil { self.content(controller, section: 2)?.text == "History unavailable" }
-        XCTAssertEqual(content(controller, section: 0)?.text, "12.500000001 XOR")
-        controller.tableView(controller.tableView, didSelectRowAt: IndexPath(row: 0, section: 2))
+        await waitUntil { controller.activityItem?.notice?.contains("History unavailable") == true }
+        XCTAssertEqual(balance(controller), "12.500000001 XOR")
+        controller.activityItem?.openNotice?()
         let alert = try XCTUnwrap(controller.presentedViewController as? UIAlertController)
         XCTAssertEqual(alert.title, "Check connection")
         XCTAssertEqual(alert.actions.map(\.title), ["Refresh", "Technical details", "Close"])
@@ -154,43 +183,63 @@ final class NexusScreenBehaviorTests: XCTestCase {
     func testHistoryPaginationFailureKeepsRowsAndRetriesTheSameCursor() async throws {
         reader.paged = true
         let controller = try open()
-        await waitUntil { controller.tableView.numberOfRows(inSection: 2) == 2 }
-        XCTAssertEqual(content(controller, section: 2, row: 1)?.text, "Load more activity")
+        await waitUntil { self.historyRows(controller).count == 1 && controller.activityItem?.moreTitle != nil }
+        XCTAssertEqual(controller.activityItem?.moreTitle, "Show more")
         reader.historyFailures = 1
-        controller.tableView(controller.tableView, didSelectRowAt: IndexPath(row: 1, section: 2))
-        await waitUntil { self.content(controller, section: 2, row: 1)?.secondaryText?.contains("Could not load more") == true }
-        XCTAssertTrue(content(controller, section: 2)?.text?.hasPrefix("Sent 1.25") == true)
-        controller.tableView(controller.tableView, didSelectRowAt: IndexPath(row: 1, section: 2))
-        await waitUntil { self.content(controller, section: 2, row: 1)?.text?.hasPrefix("Received 2.5") == true }
+        controller.activityItem?.openMore?()
+        await waitUntil { controller.activityItem?.notice?.contains("Could not load more") == true }
+        XCTAssertEqual(historyRows(controller).first?.title, "Sent")
+        XCTAssertEqual(historyRows(controller).first.map(amount), "1.25 XOR")
+        controller.activityItem?.openMore?()
+        await waitUntil { self.historyRows(controller).count == 2 }
+        XCTAssertEqual(historyRows(controller)[1].title, "Received")
         XCTAssertEqual(reader.historyCursors.compactMap { $0 }, ["next-page", "next-page"])
-        XCTAssertEqual(controller.tableView.numberOfRows(inSection: 2), 2)
+        XCTAssertNil(controller.activityItem?.moreTitle, "Every transfer is listed")
     }
 
     func testDuplicateHistoryPageDoesNotAppendOrAdvanceCursor() async throws {
         reader.paged = true
         reader.repeatsSourceID = true
         let controller = try open()
-        await waitUntil { controller.tableView.numberOfRows(inSection: 2) == 2 }
-        controller.tableView(controller.tableView, didSelectRowAt: IndexPath(row: 1, section: 2))
-        await waitUntil { self.content(controller, section: 2, row: 1)?.secondaryText != nil }
-        XCTAssertEqual(controller.tableView.numberOfRows(inSection: 2), 2)
-        XCTAssertEqual(content(controller, section: 2, row: 1)?.text, "Load more activity")
+        await waitUntil { self.historyRows(controller).count == 1 && controller.activityItem?.moreTitle != nil }
+        controller.activityItem?.openMore?()
+        await waitUntil { controller.activityItem?.notice?.contains("Could not load more") == true }
+        XCTAssertEqual(historyRows(controller).count, 1)
+        XCTAssertEqual(controller.activityItem?.moreTitle, "Show more")
         reader.repeatsSourceID = false
-        controller.tableView(controller.tableView, didSelectRowAt: IndexPath(row: 1, section: 2))
-        await waitUntil { self.content(controller, section: 2, row: 1)?.text?.hasPrefix("Received") == true }
+        controller.activityItem?.openMore?()
+        await waitUntil { self.historyRows(controller).last?.title == "Received" }
         XCTAssertEqual(reader.historyCursors.compactMap { $0 }, ["next-page", "next-page"])
     }
 
     func testChangingSelectedWalletRevokesRetainedCopyAction() throws {
         let controller = try open(.minamoto)
-        let copy = try XCTUnwrap(views(UIButton.self, in: controller.view).first { $0.currentTitle == "Copy address" })
+        let copy = try XCTUnwrap(controller.addressItem?.tapHandler)
         let clipboard = UIPasteboard.general.items
         defer { UIPasteboard.general.items = clipboard }
         UIPasteboard.general.string = "unchanged fixture clipboard"
         SelectedWalletSettings.shared.commitInternalValue(nil)
-        copy.sendActions(for: .touchUpInside)
+        copy()
         XCTAssertEqual(UIPasteboard.general.string, "unchanged fixture clipboard")
         XCTAssertFalse(navigation.viewControllers.contains { $0 === controller })
+    }
+
+    func testDetailOpenedFromTheHomeIsSora2sModalAndClosesWhenTheWalletChanges() async throws {
+        let configuration = try XCTUnwrap(NexusNetworkConfiguration.taira)
+        let account = try account(configuration)
+        reader.account = account.address
+        let controller = NexusNetworkDetailViewController(account: account, configuration: configuration,
+            coordinator: nil, readClient: reader, mutationUnavailableReason: nil, faucetService: ScreenNoFaucet())
+        let root = try XCTUnwrap(navigation.viewControllers.first)
+        NexusSora2Presentation.present(controller, from: root)
+        controller.loadViewIfNeeded()
+        let container = try XCTUnwrap(root.presentedViewController as? BlurViewController)
+        XCTAssertTrue(controller.navigationController?.parent === container)
+        XCTAssertNotNil(controller.navigationItem.rightBarButtonItem, "SORA2's close button")
+        SelectedWalletSettings.shared.commitInternalValue(nil)
+        controller.viewWillAppear(false)
+        await waitUntil { root.presentedViewController == nil }
+        XCTAssertNil(root.presentedViewController, "A stale network detail must not stay on screen")
     }
 }
 
@@ -265,68 +314,77 @@ extension NexusScreenBehaviorTests {
     func testCurrentAssetPendingRowShowsExactAmountAndRetainedStatus() async throws {
         let (coordinator, _, _) = try await pendingFixture()
         let controller = try open(coordinator: coordinator)
-        await waitUntil { controller.tableView.numberOfRows(inSection: 1) == 1 && self.content(controller, section: 1)?.text?.hasPrefix("1.25 XOR") == true }
-        XCTAssertEqual(content(controller, section: 1)?.text, "1.25 XOR · \(WalletUX.status(.rejected))")
-        XCTAssertEqual(content(controller, section: 1)?.secondaryText, WalletUX.statusDetail(.rejected))
+        await waitUntil { self.pendingRows(controller).first.map(self.amount) == "1.25 XOR" }
+        let row = try XCTUnwrap(pendingRows(controller).first)
+        XCTAssertEqual(row.title, "Sent")
+        XCTAssertEqual(row.subtitle, WalletUX.status(.rejected))
+        XCTAssertEqual(row.status, .failed)
+        XCTAssertEqual(rows(controller).first?.txHash, row.txHash, "Pending sends are listed first")
     }
     func testSelectingPendingRowShowsItsExactTransactionIdentifier() async throws {
         let (coordinator, _, _) = try await pendingFixture()
         let controller = try open(coordinator: coordinator)
-        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
-        controller.tableView(controller.tableView, didSelectRowAt: IndexPath(row: 0, section: 1))
-        let alert = try XCTUnwrap(controller.presentedViewController as? UIAlertController)
-        XCTAssertEqual(alert.title, WalletUX.status(.rejected))
-        XCTAssertTrue(alert.message?.contains(String(format: "%064x", 1)) == true)
+        await waitUntil { self.balance(controller) == "12.500000001 XOR" && !self.pendingRows(controller).isEmpty }
+        let id = try XCTUnwrap(pendingRows(controller).first?.txHash)
+        controller.activityItem?.openDetails?(id)
+        let details = try XCTUnwrap(presentedDetails(controller))
+        XCTAssertEqual(details.model.statusText, WalletUX.status(.rejected))
+        XCTAssertEqual(details.model.transactionId, String(format: "%064x", 1))
+        XCTAssertEqual(details.model.note, WalletUX.statusDetail(.rejected))
+        XCTAssertEqual(details.model.amount, "1.25")
+        XCTAssertEqual(details.model.fee, "0.01")
     }
     func testFailedPreSubmissionRowDoesNotInventATransactionIdentifier() async throws {
         let (coordinator, _, _) = try await pendingFixture(states: [.failedBeforeSubmission], includesHash: false)
         let controller = try open(coordinator: coordinator)
-        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
-        controller.tableView(controller.tableView, didSelectRowAt: IndexPath(row: 0, section: 1))
-        let alert = try XCTUnwrap(controller.presentedViewController as? UIAlertController)
-        XCTAssertEqual(alert.message, WalletUX.statusDetail(.failedBeforeSubmission))
+        await waitUntil { self.balance(controller) == "12.500000001 XOR" && !self.pendingRows(controller).isEmpty }
+        let id = try XCTUnwrap(pendingRows(controller).first?.txHash)
+        controller.activityItem?.openDetails?(id)
+        let details = try XCTUnwrap(presentedDetails(controller))
+        XCTAssertNil(details.model.transactionId)
+        XCTAssertEqual(details.model.note, WalletUX.statusDetail(.failedBeforeSubmission))
     }
     func testPendingRowsArePresentedNewestFirst() async throws {
         let (coordinator, _, _) = try await pendingFixture(states: [.rejected, .expired])
         let controller = try open(coordinator: coordinator)
-        await waitUntil { controller.tableView.numberOfRows(inSection: 1) == 2 }
-        XCTAssertTrue(content(controller, section: 1)?.text?.hasPrefix("2.25 XOR") == true)
-        XCTAssertTrue(content(controller, section: 1, row: 1)?.text?.hasPrefix("1.25 XOR") == true)
+        await waitUntil { self.pendingRows(controller).count == 2 }
+        XCTAssertEqual(pendingRows(controller).map(amount), ["2.25 XOR", "1.25 XOR"])
     }
     func testPendingTransfersForAnotherWalletAreNotShownOnThisAccount() async throws {
         let (coordinator, _, _) = try await pendingFixture(foreignWallet: true)
         let controller = try open(coordinator: coordinator)
-        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
-        XCTAssertEqual(controller.tableView.numberOfRows(inSection: 1), 0)
+        await waitUntil { self.balance(controller) == "12.500000001 XOR" && self.historyRows(controller).count == 2 }
+        XCTAssertTrue(pendingRows(controller).isEmpty)
     }
     func testUnreadablePendingJournalKeepsReadOnlyBalanceAndExplainsRecovery() async throws {
         let (coordinator, _, directory) = try await pendingFixture()
         try Data("broken journal".utf8).write(to: directory.appendingPathComponent("SORA/PendingTransactions/nexus-v1.json"))
         let controller = try open(coordinator: coordinator)
-        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
-        XCTAssertEqual(content(controller, section: 1)?.text, "Recovery required")
-        XCTAssertEqual(controller.navigationItem.rightBarButtonItem?.isEnabled, false)
+        await waitUntil { self.balance(controller) == "12.500000001 XOR" }
+        await waitUntil { controller.activityItem?.notice?.hasPrefix("Recovery required") == true }
+        XCTAssertEqual(controller.balanceItem?.showsSend, false)
+        XCTAssertTrue(pendingRows(controller).isEmpty)
     }
     func testPullToRefreshReplacesAnUnavailableBalanceWithAFreshVerifiedRead() async throws {
         reader.balanceFailure = true
         let controller = try open()
-        await waitUntil { self.content(controller, section: 0)?.text == "Unavailable XOR" }
-        reader.balanceFailure = false; controller.refreshControl?.sendActions(for: .valueChanged)
-        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
-        XCTAssertFalse(controller.refreshControl?.isRefreshing ?? true)
-        XCTAssertEqual(controller.tableView.numberOfRows(inSection: 2), 2)
+        await waitUntil { self.balance(controller) == WalletUX.balanceUnavailableText }
+        reader.balanceFailure = false; controller.refreshControl.sendActions(for: .valueChanged)
+        await waitUntil { self.balance(controller) == "12.500000001 XOR" }
+        await waitUntil { self.historyRows(controller).count == 2 }
+        XCTAssertFalse(controller.refreshControl.isRefreshing)
     }
     func testForegroundNotificationRefreshesTheVisibleNetworkScreen() async throws {
         let controller = try open()
-        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
+        await waitUntil { self.balance(controller) == "12.500000001 XOR" }
         let previousReads = reader.balanceReads
         NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
         await waitUntil { self.reader.balanceReads > previousReads }
-        XCTAssertEqual(content(controller, section: 0)?.text, "12.500000001 XOR")
+        XCTAssertEqual(balance(controller), "12.500000001 XOR")
     }
     func testForegroundNotificationDoesNotReloadAnOffscreenRetainedController() async throws {
         let controller = try open()
-        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
+        await waitUntil { self.balance(controller) == "12.500000001 XOR" }
         navigation.popViewController(animated: false)
         await waitUntil { controller.view.window == nil }
         let previousReads = reader.balanceReads
@@ -339,7 +397,7 @@ extension NexusScreenBehaviorTests {
         SettingsManager.shared.isTairaEnabled = false
         controller.viewWillAppear(false)
         XCTAssertFalse(navigation.viewControllers.contains { $0 === controller })
-        XCTAssertFalse(controller.navigationItem.rightBarButtonItem?.isEnabled ?? false)
+        XCTAssertFalse(controller.balanceItem?.showsSend ?? false)
     }
     func testWalletChangeDuringHistoryReadCannotPublishTheOldAccountHistory() async throws {
         reader.historyDelay = 80_000_000
@@ -347,15 +405,16 @@ extension NexusScreenBehaviorTests {
         await waitUntil { !self.reader.historyCursors.isEmpty }
         SelectedWalletSettings.shared.commitInternalValue(nil)
         await waitUntil { !self.navigation.viewControllers.contains { $0 === controller } }
-        XCTAssertEqual(controller.tableView.numberOfRows(inSection: 2), 0)
+        try? await Task.sleep(nanoseconds: 120_000_000)
+        XCTAssertTrue(historyRows(controller).isEmpty)
     }
     func testCancellationDoesNotMislabelTheBalanceAsUnavailable() async throws {
         reader.balanceCancellation = true
         let controller = try open()
         try? await Task.sleep(nanoseconds: 50_000_000)
-        XCTAssertNotEqual(content(controller, section: 0)?.text, "Unavailable XOR")
+        XCTAssertNotEqual(balance(controller), WalletUX.balanceUnavailableText)
         XCTAssertTrue(reader.historyCursors.isEmpty)
-        XCTAssertFalse(controller.refreshControl?.isRefreshing ?? true)
+        XCTAssertFalse(controller.refreshControl.isRefreshing)
     }
 }
 

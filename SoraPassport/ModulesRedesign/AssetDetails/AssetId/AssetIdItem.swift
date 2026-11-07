@@ -22,10 +22,13 @@ import SoraUIKit
 final class AssetIdItem: NSObject {
 
     var assetId: String
+    /// The card's title; SORA2's "Asset ID" when nil.
+    var title: String?
     var tapHandler: (() -> Void)?
 
-    init(assetId: String, tapHandler: (() -> Void)?) {
+    init(assetId: String, title: String? = nil, tapHandler: (() -> Void)?) {
         self.assetId = assetId
+        self.title = title
         self.tapHandler = tapHandler
     }
 }

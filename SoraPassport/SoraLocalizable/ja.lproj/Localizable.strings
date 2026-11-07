@@ -1296,3 +1296,32 @@
 "Use Taira for testnet balances and activity. You can create and copy your Nexus production address before the production network launches. Testnet funds have no monetary value." = "テストネットの残高と履歴は Taira で確認できます。SORA Nexus の本番アドレスは、本番ネットワークの開始前から作成・コピーできます。テストネットの資金に金銭的な価値はありません。";
 "Only SORA2 is available for this account. To add other networks, import this wallet using its recovery phrase in Accounts." = "このアカウントで使えるのは SORA2 のみです。他のネットワークを追加するには、アカウント画面でリカバリーフレーズを使ってこのウォレットをインポートしてください。";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "PIN を入力してください。この iPhone のウォレットを保護するため、SORA は一度だけ PIN を必要とします。";
+
+/* XOR on Taira and SORA Nexus, on SORA2's screens */
+"Checking the network and pending transfers before enabling Send." = "送金を有効にする前に、ネットワークと保留中の送金を確認しています。";
+"Sending is unavailable until this network's balance and XOR asset can be verified. Pull down to refresh." = "このネットワークの残高と XOR アセットを確認できるまで送金できません。下に引いて更新してください。";
+"Sending is paused while pending transfers need checking. Review the activity below before starting another transfer." = "保留中の送金を確認する必要があるため、送金を一時停止しています。新しい送金を始める前に、下のアクティビティを確認してください。";
+"Sending is paused for this network. Check that Taira Testnet is enabled in Settings." = "このネットワークへの送金は一時停止しています。設定で Taira テストネットが有効になっているか確認してください。";
+"Your production address is ready to copy or share. Balances, activity, and transfers will be available when the SORA Nexus production network launches." = "本番アドレスをコピー・共有できます。残高、アクティビティ、送金は SORA Nexus 本番ネットワークの開始後に利用できます。";
+"Loading…" = "読み込み中…";
+"Production address" = "本番アドレス";
+"Network" = "ネットワーク";
+"Total including fee" = "手数料を含む合計";
+"Transaction ID" = "トランザクション ID";
+"Recovery required" = "復旧が必要です";
+"History unavailable" = "履歴を利用できません";
+"Activity could not be loaded. Tap to refresh." = "アクティビティを読み込めませんでした。タップして更新してください。";
+"Sending is paused while pending transfers are unavailable. Tap to check again." = "保留中の送金を確認できないため、送金を一時停止しています。タップしてもう一度確認してください。";
+"Could not load more activity. Retry, or pull down to refresh if new transfers arrived." = "これ以上のアクティビティを読み込めませんでした。もう一度試すか、新しい送金があれば下に引いて更新してください。";
+"Check connection" = "接続を確認してください";
+"Check your internet connection, then refresh. Pending transfers will be checked without sending them again." = "インターネット接続を確認してから更新してください。保留中の送金は、再送信せずに確認されます。";
+"Refresh" = "更新";
+"Technical details" = "技術的な詳細";
+"Pending asset recovery" = "保留中のアセット復旧";
+"%@ units" = "%@ 単位";
+"%@ units · Pending asset recovery" = "%@ 単位 · 保留中のアセット復旧";
+"Enter a recipient address and the amount you want to send." = "受取人のアドレスと送金額を入力してください。";
+"Check the recipient address and enter a valid XOR amount for this network." = "受取人のアドレスを確認し、このネットワークで有効な XOR の金額を入力してください。";
+"The send total could not be verified. Review a new quote." = "送金の合計額を確認できませんでした。新しい見積もりを確認してください。";
+"Sends paused" = "送金を一時停止中";
+"Nexus sends are temporarily disabled." = "Nexus の送金は一時的に無効になっています。";

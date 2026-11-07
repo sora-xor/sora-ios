@@ -23,9 +23,13 @@ import RobinHood
 final class RecipientAddressItem: NSObject {
     
     let address: String
+    /// Shown instead of the address's identicon, for addresses of networks
+    /// that have none.
+    let image: UIImage?
     
-    init(address: String) {
+    init(address: String, image: UIImage? = nil) {
         self.address = address
+        self.image = image
     }
 }
 

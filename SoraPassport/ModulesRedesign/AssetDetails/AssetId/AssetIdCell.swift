@@ -91,6 +91,7 @@ extension AssetIdCell: SoramitsuTableViewCellProtocol {
         }
         
         assetIdLabel.sora.text = item.assetId
+        titleLabel.sora.text = item.title ?? R.string.localizable.walletAssetId(preferredLanguages: .currentLocale)
         
         updateSemantics()
     }
