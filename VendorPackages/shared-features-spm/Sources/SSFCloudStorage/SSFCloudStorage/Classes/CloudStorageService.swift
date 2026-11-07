@@ -143,6 +143,14 @@ extension CloudStorageService: CloudStorageServiceProtocol {
 
     public func saveBackup(account: OpenBackupAccount, password: String) async throws {
         let fileUrl = try fileFactory.createFile(from: account, password: password)
+        // The encrypted backup goes up from memory, so its temporary file is
+        // removed straight away instead of staying in tmp.
+        defer {
+            let temporary = FileManager.default.temporaryDirectory.standardizedFileURL
+            if fileUrl.deletingLastPathComponent().standardizedFileURL == temporary {
+                try? FileManager.default.removeItem(at: fileUrl)
+            }
+        }
         let data = try Data(contentsOf: fileUrl)
 
         let signInState = try await signInIfNeeded()

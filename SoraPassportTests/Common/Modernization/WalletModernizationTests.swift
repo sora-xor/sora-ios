@@ -36,6 +36,9 @@ private final class PreservedBackupDriveFixture: GoogleService {
     var head = "original"
     var version: Int64 = 1
     var revisions: [String: Data] = [:]
+    /// Revisions in the order Drive lists them, oldest first.
+    var revisionOrder = ["original"]
+    var deletedRevisions: [String] = []
     var pinned = Set<String>()
     var queries: [GTLRQueryProtocol] = []
     var failure: String?
@@ -105,18 +108,33 @@ private final class PreservedBackupDriveFixture: GoogleService {
             if let upload = create.uploadParameters {
                 try fail("create")
                 XCTAssertTrue(create.keepRevisionForever)
-                head = "created"; version += 1; revisions[head] = try XCTUnwrap(upload.data)
+                head = "created"; version += 1; revisionOrder.append(head); revisions[head] = try XCTUnwrap(upload.data)
                 pinned.insert(head); result = file()
             } else {
                 folderExists = true
                 let folder = GTLRDrive_File(); folder.identifier = "synthetic-folder"; result = folder
             }
+        } else if let list = query as? GTLRDriveQuery_RevisionsList {
+            XCTAssertEqual(list.fileId, "synthetic-wallet-file")
+            let value = GTLRDrive_RevisionList()
+            value.revisions = revisionOrder.enumerated().filter { revisions[$0.element] != nil }.map { index, identifier in
+                let revision = GTLRDrive_Revision(); revision.identifier = identifier
+                revision.modifiedTime = GTLRDateTime(date: Date(timeIntervalSince1970: TimeInterval(1_800_000_000 + index)))
+                return revision
+            }
+            result = value
+        } else if let delete = query as? GTLRDriveQuery_RevisionsDelete {
+            let revision = try XCTUnwrap(delete.revisionId)
+            XCTAssertEqual(delete.fileId, "synthetic-wallet-file")
+            XCTAssertNotEqual(revision, head, "The verified backup is never deleted")
+            revisions[revision] = nil; pinned.remove(revision); deletedRevisions.append(revision)
+            result = NSNull()
         } else if let update = query as? GTLRDriveQuery_FilesUpdate {
             try fail("update")
             XCTAssertTrue(pinned.contains(head), "Existing head must be pinned before replacement")
             XCTAssertTrue(update.keepRevisionForever)
             XCTAssertEqual(update.fileId, "synthetic-wallet-file")
-            head = "updated-\(version)"; version += 1
+            head = "updated-\(version)"; version += 1; revisionOrder.append(head)
             revisions[head] = try XCTUnwrap(update.uploadParameters?.data)
             pinned.insert(head)
             try fail("lost-update-response")
@@ -11356,8 +11374,11 @@ final class WalletModernizationTests: XCTestCase {
             // already have installed the new head; preserve it and verify the retry.
             drive.failure = nil
             _ = try await WalletBackupPreservingGoogleService(base: drive).executeQuery(upload())
-            XCTAssertEqual(drive.revisions["original"], original)
-            XCTAssertTrue(drive.pinned.contains("original"))
+            // Once the replacement is verified, the earlier versions (the old
+            // password's ciphertext) are removed and only the new one stays.
+            XCTAssertNil(drive.revisions["original"])
+            XCTAssertTrue(drive.deletedRevisions.contains("original"))
+            XCTAssertEqual(Array(drive.revisions.keys), [drive.head])
             XCTAssertEqual(drive.revisions[drive.head], replacement)
             XCTAssertTrue(drive.pinned.contains(drive.head))
         }

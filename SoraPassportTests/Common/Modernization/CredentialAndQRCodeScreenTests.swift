@@ -52,6 +52,8 @@ final class CredentialAndQRCodeScreenTests: XCTestCase {
             ("aaaaaaaaaaaa", .repeatedCharacter), ("AAAAAAaaaaaa", .repeatedCharacter), ("777777777777", .repeatedCharacter),
             ("123456789012", .sequence), ("abcdefghijkl", .sequence), ("LKJIHGFEDCBA", .sequence), ("098765432109", .sequence), ("xyzabcdefghi", .sequence),
             ("password1234", .commonPassword), ("Qwerty123456", .commonPassword), (" 1qaz2wsx3edc ", .commonPassword),
+            ("monkeybanana", .tooPredictable), ("Summer2024!!", .tooPredictable), ("ilovemydog12", .tooPredictable),
+            ("qwertyuiopas", .tooPredictable), ("abababababab12", .tooPredictable),
         ]
         for (password, violation) in refused {
             XCTAssertEqual(BackupPasswordPolicy.violation(for: password), violation, password)

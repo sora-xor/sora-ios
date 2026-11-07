@@ -31,10 +31,16 @@ enum BackupPasswordPolicy {
         case repeatedCharacter
         case sequence
         case commonPassword
+        /// Long enough, but drawn from too few kinds of characters or too few
+        /// different ones to resist offline guessing.
+        case tooPredictable
     }
 
     /// Counted in characters, ignoring leading and trailing whitespace.
     static let minimumLength = 12
+    /// The estimated strength a new password needs, in bits. An attacker who
+    /// copies the file can guess offline for as long as they like.
+    static let minimumEstimatedBits = 60.0
 
     static func violation(for password: String) -> Violation? {
         let trimmed = password.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -43,7 +49,27 @@ enum BackupPasswordPolicy {
         guard Set(candidate).count > 1 else { return .repeatedCharacter }
         guard !isSequence(candidate) else { return .sequence }
         guard !commonPasswords.contains(candidate) else { return .commonPassword }
+        guard estimatedBits(of: trimmed) >= minimumEstimatedBits else { return .tooPredictable }
         return nil
+    }
+
+    /// A deliberately low estimate: each *different* character counts once,
+    /// worth the size of the character kinds the password uses. Repeating
+    /// characters adds nothing. A few unrelated words, or a mix of letters,
+    /// digits and symbols, passes; a short single-kind password does not.
+    static func estimatedBits(of password: String) -> Double {
+        var pool = 0
+        if password.unicodeScalars.contains(where: { (97...122).contains($0.value) }) { pool += 26 }
+        if password.unicodeScalars.contains(where: { (65...90).contains($0.value) }) { pool += 26 }
+        if password.unicodeScalars.contains(where: { (48...57).contains($0.value) }) { pool += 10 }
+        if password.unicodeScalars.contains(where: { $0.isASCII && !CharacterSet.alphanumerics.contains($0) }) {
+            pool += 33
+        }
+        // Japanese, Chinese and other scripts draw from far larger sets; 100
+        // is a conservative stand-in.
+        if password.unicodeScalars.contains(where: { !$0.isASCII }) { pool += 100 }
+        guard pool > 1 else { return 0 }
+        return Double(Set(password).count) * log2(Double(pool))
     }
 
     static func validate(_ password: String) throws {
@@ -64,6 +90,8 @@ enum BackupPasswordPolicy {
             return R.string.localizable.backupPasswordPolicySequence(preferredLanguages: preferredLanguages)
         case .commonPassword?:
             return R.string.localizable.backupPasswordPolicyCommon(preferredLanguages: preferredLanguages)
+        case .tooPredictable?:
+            return WalletUX.text("This password is too easy to guess. Use a few unrelated words, or mix upper- and lowercase letters, numbers and symbols.")
         }
     }
 

@@ -1300,6 +1300,41 @@ final class WalletBackupPreservingGoogleService: GoogleService {
         }
     }
 
+    /// After the replacement is verified, the file's earlier versions are
+    /// removed. They hold the same keys under the passwords used before,
+    /// which may be weaker, and Drive would otherwise keep them for good.
+    /// Only versions older than the verified one go; a newer version (another
+    /// device saving at the same moment) is left alone. A version Drive will
+    /// not delete is unpinned, so Drive drops it within 30 days. The backup
+    /// itself is already safe, so a failure here is not an error.
+    private func removeEarlierRevisions(file: String, keeping head: String) async {
+        do {
+            let list = GTLRDriveQuery_RevisionsList.query(withFileId: file)
+            list.pageSize = 1000
+            list.fields = "revisions(id,modifiedTime)"
+            let listed = try await base.executeQuery(list)
+            let listedRevisions = (listed.file as? GTLRDrive_RevisionList)?.revisions ?? []
+            guard let headTime = listedRevisions.first(where: { $0.identifier == head })?.modifiedTime?.date else { return }
+            let earlier = listedRevisions.compactMap { revision -> String? in
+                guard let identifier = revision.identifier, identifier != head,
+                      let time = revision.modifiedTime?.date, time < headTime else { return nil }
+                return identifier
+            }
+            for revision in earlier {
+                do {
+                    _ = try await base.executeQuery(GTLRDriveQuery_RevisionsDelete.query(withFileId: file, revisionId: revision))
+                } catch {
+                    let unpinned = GTLRDrive_Revision(); unpinned.keepForever = false
+                    let unpin = GTLRDriveQuery_RevisionsUpdate.query(withObject: unpinned, fileId: file, revisionId: revision)
+                    unpin.fields = "id,keepForever"
+                    _ = try? await base.executeQuery(unpin)
+                }
+            }
+        } catch {
+            Logger.shared.warning("Google Drive backup: earlier versions were not removed")
+        }
+    }
+
     private func save(_ create: GTLRDriveQuery_FilesCreate, metadata submitted: GTLRDrive_File)
         async throws -> (ticket: GoogleServiceTicket, file: Any?) {
         guard let payload = create.uploadParameters?.data, !payload.isEmpty,
@@ -1366,6 +1401,9 @@ final class WalletBackupPreservingGoogleService: GoogleService {
         let final = try await metadata(saved.identifier!, name: name)
         guard final.headRevisionId == saved.headRevisionId, final.size == saved.size else {
             throw WalletCloudBackupWriteError.verificationFailed
+        }
+        if matches.files.first != nil {
+            await removeEarlierRevisions(file: saved.identifier!, keeping: saved.headRevisionId!)
         }
         return result
     }
