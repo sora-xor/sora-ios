@@ -37,7 +37,7 @@ final class AccountExportWireframe: AccountExportWireframeProtocol, Authorizatio
         let warning = AccountWarningViewController(warningType: .json)
         warning.localizationManager = self.localizationManager
         warning.completion = { [weak self] in
-            self?.authorize(animated: true, cancellable: true, inView: nil) { [weak self] (isAuthorized) in
+            self?.authorizeWithPin(animated: true, cancellable: true, inView: nil) { [weak self] (isAuthorized) in
                 if isAuthorized {
                     guard let accountExportView = self?.createAccountExportView(accounts) else {
                         return

@@ -73,7 +73,7 @@ final class ChangeAccountWireframe: ChangeAccountWireframeProtocol, Authorizatio
         let warning = AccountWarningViewController(warningType: .json)
         warning.localizationManager = LocalizationManager.shared
         warning.completion = { [weak self] in
-            self?.authorize(animated: true, cancellable: true, inView: nil) { isAuthorized in
+            self?.authorizeWithPin(animated: true, cancellable: true, inView: nil) { isAuthorized in
                 if isAuthorized {
                     guard let jsonExportVC = AccountExportViewFactory.createView(accounts: accounts) as? UIViewController else {
                         return

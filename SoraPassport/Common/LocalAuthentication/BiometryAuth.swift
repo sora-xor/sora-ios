@@ -17,6 +17,7 @@
 
 import Foundation
 import LocalAuthentication
+import Security
 
 public enum AvailableBiometryType {
     case none
@@ -26,43 +27,169 @@ public enum AvailableBiometryType {
 
 public protocol BiometryAuthProtocol {
     var availableBiometryType: AvailableBiometryType { get }
+    /// True only while the faces or fingers enrolled on this iPhone are the set
+    /// the owner approved by typing or setting the app PIN.
+    var isEnrollmentApproved: Bool { get }
     func authenticate(localizedReason: String, completionQueue: DispatchQueue,
                       completionBlock: @escaping (Bool) -> Void)
+    /// Approves the faces or fingers enrolled right now. Call only after the
+    /// owner typed or set the app PIN.
+    func approveCurrentEnrollment()
 }
 
-public class BiometryAuth: BiometryAuthProtocol {
-    private lazy var context: LAContext = LAContext()
+public extension BiometryAuthProtocol {
+    var isEnrollmentApproved: Bool { true }
+    func approveCurrentEnrollment() {}
+}
 
-    public var availableBiometryType: AvailableBiometryType {
-        let available = context.canEvaluatePolicy(LAPolicy.deviceOwnerAuthenticationWithBiometrics, error: nil)
-        guard available else { return .none }
+/// The enrollment set iOS reports for Face ID or Touch ID, as an opaque hash.
+public struct BiometryEnrollment: Equatable {
+    public let type: AvailableBiometryType
+    public let state: Data?
 
+    public init(type: AvailableBiometryType, state: Data?) {
+        self.type = type
+        self.state = state
+    }
+}
+
+/// The LocalAuthentication calls BiometryAuth makes, so tests can stand in.
+public protocol BiometryPolicyEvaluating {
+    /// The current biometry, or nil when biometrics cannot be used now.
+    func currentEnrollment() -> BiometryEnrollment?
+    /// Shows the system prompt. Reports success and the enrollment set that
+    /// produced it.
+    func evaluate(localizedReason: String, completion: @escaping (Bool, Data?) -> Void)
+}
+
+public final class LocalAuthenticationPolicyEvaluator: BiometryPolicyEvaluating {
+    public init() {}
+
+    public func currentEnrollment() -> BiometryEnrollment? {
+        let context = LAContext()
+        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil) else {
+            return nil
+        }
+        let type: AvailableBiometryType
         switch context.biometryType {
         case .touchID:
-            return .touchId
+            type = .touchId
         case .faceID:
-            return .faceId
-        case .none:
-            return .none
-        @unknown default:
-            return .none
+            type = .faceId
+        default:
+            type = .none
         }
+        return BiometryEnrollment(type: type, state: Self.enrollmentState(of: context))
+    }
+
+    public func evaluate(localizedReason: String, completion: @escaping (Bool, Data?) -> Void) {
+        let context = LAContext()
+        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics,
+                               localizedReason: localizedReason) { result, _ in
+            completion(result, result ? Self.enrollmentState(of: context) : nil)
+        }
+    }
+
+    /// Changes whenever a face or finger is added or removed.
+    static func enrollmentState(of context: LAContext) -> Data? {
+        if #available(iOS 18.0, *) {
+            return context.domainState.biometry.stateHash
+        }
+        return context.evaluatedPolicyDomainState
+    }
+}
+
+/// Where the approved enrollment set is kept.
+public protocol BiometryEnrollmentApprovalStoring {
+    func load() -> Data?
+    func save(_ state: Data)
+}
+
+/// Keeps the approved enrollment hash in a device-only Keychain item. It is a
+/// generic password, not a `kSecClassKey` item, so the scans that look for
+/// wallet keys never count it, and it never leaves this iPhone in a backup.
+public final class KeychainBiometryEnrollmentApprovals: BiometryEnrollmentApprovalStoring {
+    static let service = "co.jp.sora.biometry.enrollment"
+    static let account = "approved-enrollment-state"
+
+    public init() {}
+
+    private var itemQuery: [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.service,
+            kSecAttrAccount as String: Self.account
+        ]
+    }
+
+    public func load() -> Data? {
+        var query = itemQuery
+        query[kSecReturnData as String] = kCFBooleanTrue
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess else { return nil }
+        return item as? Data
+    }
+
+    public func save(_ state: Data) {
+        let attributes: [String: Any] = [
+            kSecValueData as String: state,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        ]
+        let status = SecItemUpdate(itemQuery as CFDictionary, attributes as CFDictionary)
+        guard status == errSecItemNotFound else { return }
+        let item = itemQuery.merging(attributes) { _, new in new }
+        SecItemAdd(item as CFDictionary, nil)
+    }
+}
+
+/// Face ID or Touch ID unlock that works only for the faces or fingers the
+/// owner approved with the app PIN. Someone who knows the iPhone passcode can
+/// enroll their own face or finger, but that changes the enrollment set, so
+/// the app asks for its PIN again before biometrics work.
+public class BiometryAuth: BiometryAuthProtocol {
+    private let evaluator: BiometryPolicyEvaluating
+    private let approvals: BiometryEnrollmentApprovalStoring
+
+    public init(evaluator: BiometryPolicyEvaluating = LocalAuthenticationPolicyEvaluator(),
+                approvals: BiometryEnrollmentApprovalStoring = KeychainBiometryEnrollmentApprovals()) {
+        self.evaluator = evaluator
+        self.approvals = approvals
+    }
+
+    public var availableBiometryType: AvailableBiometryType {
+        evaluator.currentEnrollment()?.type ?? .none
+    }
+
+    public var isEnrollmentApproved: Bool {
+        guard let current = evaluator.currentEnrollment(), current.type != .none,
+              let state = current.state, let approved = approvals.load() else { return false }
+        return state == approved
     }
 
     public func authenticate(localizedReason: String, completionQueue: DispatchQueue,
                              completionBlock: @escaping (Bool) -> Void) {
-        guard availableBiometryType != .none else {
+        guard let current = evaluator.currentEnrollment(), current.type != .none,
+              let state = current.state, let approved = approvals.load(), state == approved else {
             completionQueue.async {
                 completionBlock(false)
             }
             return
         }
 
-        context.evaluatePolicy(LAPolicy.deviceOwnerAuthenticationWithBiometrics,
-                               localizedReason: localizedReason) { (result: Bool, _: Error?) -> Void in
+        evaluator.evaluate(localizedReason: localizedReason) { result, matchedState in
+            // The set can change while the prompt is up. The face or finger
+            // that matched must still belong to the approved set.
+            let accepted = result && matchedState == approved
             completionQueue.async {
-                completionBlock(result)
+                completionBlock(accepted)
             }
         }
+    }
+
+    public func approveCurrentEnrollment() {
+        guard let current = evaluator.currentEnrollment(), current.type != .none,
+              let state = current.state else { return }
+        approvals.save(state)
     }
 }

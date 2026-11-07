@@ -106,6 +106,11 @@ class PinSetupInteractor {
     }
 
     private func completeSetup() {
+        // The owner just set the PIN, so the faces or fingers enrolled now are
+        // the ones Face ID or Touch ID unlock accepts.
+        if settingsManager.biometryEnabled == true {
+            biometryAuth.approveCurrentEnrollment()
+        }
         state = .submitedPincode
         pincode = nil
         self.presenter?.didSavePin()

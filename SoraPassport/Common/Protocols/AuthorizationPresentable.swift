@@ -23,6 +23,9 @@ typealias AuthorizationCompletionBlock = (Bool) -> Void
 protocol AuthorizationPresentable: ScreenAuthorizationWireframeProtocol {
     @MainActor var authorizationPresentingController: UIViewController? { get }
     @MainActor func createAuthorizationView(cancellable: Bool) -> UIViewController?
+    /// The PIN pad without Face ID or Touch ID, for revealing or exporting
+    /// the phrase, seed or JSON.
+    @MainActor func createPinOnlyAuthorizationView(cancellable: Bool) -> UIViewController?
     @MainActor func authorize(animated: Bool,
                    cancellable: Bool,
                    inView: UINavigationController?,
@@ -47,7 +50,16 @@ extension AuthorizationPresentable {
     }
 
     @MainActor func createAuthorizationView(cancellable: Bool) -> UIViewController? {
-        let authorizeView = PinViewFactory.createRedesignScreenAuthorizationView(with: self, cancellable: cancellable)
+        makeAuthorizationView(cancellable: cancellable, allowsBiometry: true)
+    }
+
+    @MainActor func createPinOnlyAuthorizationView(cancellable: Bool) -> UIViewController? {
+        makeAuthorizationView(cancellable: cancellable, allowsBiometry: false)
+    }
+
+    @MainActor private func makeAuthorizationView(cancellable: Bool, allowsBiometry: Bool) -> UIViewController? {
+        let authorizeView = PinViewFactory.createRedesignScreenAuthorizationView(
+            with: self, cancellable: cancellable, allowsBiometry: allowsBiometry)
         let view = BlurViewController()
         view.modalPresentationStyle = .overFullScreen
         view.add(authorizeView?.controller)
@@ -122,6 +134,27 @@ extension AuthorizationPresentable {
                    cancellable: Bool,
                    inView: UINavigationController?,
                    with completionBlock: @escaping AuthorizationCompletionBlock) {
+        presentAuthorization(animated: animated, inView: inView, with: completionBlock) {
+            createAuthorizationView(cancellable: cancellable)
+        }
+    }
+
+    /// Asks for the typed app PIN; Face ID and Touch ID are not offered.
+    /// Revealing or exporting wallet secrets uses this, so a face or finger
+    /// alone, even the owner's, cannot open them.
+    @MainActor func authorizeWithPin(animated: Bool,
+                          cancellable: Bool,
+                          inView: UINavigationController?,
+                          with completionBlock: @escaping AuthorizationCompletionBlock) {
+        presentAuthorization(animated: animated, inView: inView, with: completionBlock) {
+            createPinOnlyAuthorizationView(cancellable: cancellable)
+        }
+    }
+
+    @MainActor private func presentAuthorization(animated: Bool,
+                                      inView: UINavigationController?,
+                                      with completionBlock: @escaping AuthorizationCompletionBlock,
+                                      makeView: () -> UIViewController?) {
 
         guard !isAuthorizing else {
             completionBlock(false)
@@ -131,7 +164,7 @@ extension AuthorizationPresentable {
             completionBlock(false)
             return
         }
-        let view = createAuthorizationView(cancellable: cancellable)
+        let view = makeView()
 
         guard let authorizationView = view else {
             completionBlock(false)

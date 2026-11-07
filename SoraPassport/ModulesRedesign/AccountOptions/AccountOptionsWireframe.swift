@@ -40,8 +40,10 @@ struct AccountOptionsRouteEnvironment {
 
     static var app: AccountOptionsRouteEnvironment {
         AccountOptionsRouteEnvironment(
+            // Every authorization here guards the phrase, seed, JSON, a Drive
+            // backup or deleting the wallet, so it needs the typed PIN.
             authorize: { route, completion in
-                route.authorize(animated: true, cancellable: true, inView: nil, with: completion)
+                route.authorizeWithPin(animated: true, cancellable: true, inView: nil, with: completion)
             },
             passphrase: { AccountCreateViewFactory.createViewForShowPassthrase($0)?.controller },
             rawSeed: { AccountExportRawSeedViewFactory.createView(account: $0) as? UIViewController },
@@ -144,7 +146,7 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
     }
 
     /// Creating or deleting a Google Drive backup asks for the same fresh
-    /// wallet authorization (PIN or biometrics) as the local exports above.
+    /// typed-PIN authorization as the local exports above.
     /// Google sign-in and the backup password never stand in for it.
     @MainActor
     func authorizeCloudBackup(from view: AccountOptionsViewProtocol?,

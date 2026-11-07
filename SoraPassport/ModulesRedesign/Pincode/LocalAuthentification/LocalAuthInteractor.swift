@@ -75,6 +75,9 @@ class LocalAuthInteractor {
     private(set) var locale: Locale
     private let ownerPIN: WalletOwnerPIN
     private let accounts: () throws -> [AccountItem]
+    /// False for screens that reveal or export wallet secrets: those need the
+    /// typed app PIN even when Face ID or Touch ID unlocks the app.
+    private let allowsBiometry: Bool
     private var authorization: WalletOwnerPIN.Authorization?
     private var failCounter: Int = 0 {
         didSet {
@@ -105,13 +108,15 @@ class LocalAuthInteractor {
          locale: Locale,
          ownerPINKeystore: KeystoreProtocol = Keychain(),
          recoveryGate: WalletRecoveryCapabilityGate = .shared,
-         accounts: @escaping () throws -> [AccountItem] = { try WalletAccountAddresses.accounts() }) {
+         accounts: @escaping () throws -> [AccountItem] = { try WalletAccountAddresses.accounts() },
+         allowsBiometry: Bool = true) {
         self.secretManager = secretManager
         self.settingsManager = settingsManager
         self.biometryAuth = biometryAuth
         self.locale = locale
         self.ownerPIN = WalletOwnerPIN(keystore: ownerPINKeystore, settings: settingsManager, recoveryGate: recoveryGate)
         self.accounts = accounts
+        self.allowsBiometry = allowsBiometry
         self.failCounter = settingsManager.failInputPinCount ?? 0
     }
 
@@ -130,7 +135,7 @@ class LocalAuthInteractor {
 
         let biometryUsageOptional = settingsManager.biometryEnabled
 
-        guard let biometryUsage = biometryUsageOptional, biometryUsage else {
+        guard allowsBiometry, let biometryUsage = biometryUsageOptional, biometryUsage else {
             state = .waitingPincode
             return
         }
@@ -138,6 +143,12 @@ class LocalAuthInteractor {
         guard biometryAuth.availableBiometryType != .none else {
             state = .waitingPincode
             completion?()
+            return
+        }
+
+        // A face or finger enrolled since the owner last typed the PIN.
+        guard biometryAuth.isEnrollmentApproved else {
+            state = .waitingPincode
             return
         }
 
@@ -176,6 +187,11 @@ class LocalAuthInteractor {
         switch result {
         case let .success(authorization):
             self.authorization = authorization
+            // The typed PIN proves the owner is here, so the faces or fingers
+            // enrolled now may unlock the app again.
+            if settingsManager.biometryEnabled == true {
+                biometryAuth.approveCurrentEnrollment()
+            }
             state = .completed
             failCounter = 0
             presenter?.didCompleteAuth()
@@ -201,7 +217,7 @@ extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {
     }
 
     var allowManualBiometryAuth: Bool {
-        return settingsManager.biometryEnabled == true
+        return allowsBiometry && settingsManager.biometryEnabled == true && biometryAuth.isEnrollmentApproved
     }
     
     func getPinCodeCount() {

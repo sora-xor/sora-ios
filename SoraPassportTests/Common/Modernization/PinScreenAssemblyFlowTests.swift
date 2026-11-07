@@ -257,12 +257,13 @@ final class LocalAuthLifecycleBoundaryTests: XCTestCase {
                          failCount: Int = 0, accounts: @escaping () throws -> [AccountItem] = { [] },
                          store: InMemoryKeychainManager = InMemoryKeychainManager(),
                          settings: InMemorySettingsManager = InMemorySettingsManager(),
-                         ownerKeys: KeystoreProtocol? = nil) throws -> Fixture {
+                         ownerKeys: KeystoreProtocol? = nil, allowsBiometry: Bool = true) throws -> Fixture {
         let output = AuthBoundaryOutput(), biometry = AuthBoundaryBiometry()
         if let pin { try store.keychain.saveKey(Data(pin.utf8), with: KeystoreTag.pincode.rawValue) }
         settings.biometryEnabled = enabled; settings.failInputPinCount = failCount; biometry.availableBiometryType = type
         let subject = LocalAuthInteractor(secretManager: store, settingsManager: settings, biometryAuth: biometry,
-            locale: Locale(identifier: "en"), ownerPINKeystore: ownerKeys ?? store.keychain, recoveryGate: gate(settings), accounts: accounts)
+            locale: Locale(identifier: "en"), ownerPINKeystore: ownerKeys ?? store.keychain, recoveryGate: gate(settings), accounts: accounts,
+            allowsBiometry: allowsBiometry)
         subject.presenter = output
         return Fixture(subject: subject, store: store, settings: settings, output: output, biometry: biometry)
     }
@@ -381,6 +382,34 @@ final class LocalAuthLifecycleBoundaryTests: XCTestCase {
         let f = try fixture(); await authenticate(f); f.subject.updatePin(pin: "bad", completion: { XCTFail("Invalid PIN saved") })
         await waitUntil { f.output.failures == 1 }; XCTAssertEqual(f.subject.state, .unexpectedFail); XCTAssertNil(f.subject.pincode)
         XCTAssertEqual(try f.store.keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data("123456".utf8))
+    }
+    // MARK: Face ID and Touch ID accept only the enrollment set the owner approved with the PIN
+
+    func testNewlyEnrolledFaceOrFingerFallsBackToThePinWithoutPrompting() async throws {
+        let f = try fixture(); f.biometry.isEnrollmentApproved = false; XCTAssertFalse(f.subject.allowManualBiometryAuth)
+        var completions = 0; f.subject.startAuth { completions += 1 }
+        await waitUntil { f.subject.state == .waitingPincode }
+        XCTAssertEqual(f.biometry.requests, 0); XCTAssertEqual(f.output.completions, 0); XCTAssertEqual(completions, 0)
+    }
+    func testTypedPinApprovesTheEnrolledFacesOrFingersOnlyWhileBiometryIsOn() async throws {
+        let on = try fixture(); on.biometry.isEnrollmentApproved = false; await authenticate(on)
+        XCTAssertEqual(on.output.completions, 1); XCTAssertEqual(on.biometry.approvals, 1)
+        let off = try fixture(enabled: false); await authenticate(off)
+        XCTAssertEqual(off.output.completions, 1); XCTAssertEqual(off.biometry.approvals, 0)
+        let wrong = try fixture(); await authenticate(wrong, pin: "000000"); XCTAssertEqual(wrong.biometry.approvals, 0)
+    }
+    func testBiometricUnlockNeverApprovesAnEnrollment() async throws {
+        let f = try fixture(); f.subject.startAuth(completion: nil); await waitUntil { f.biometry.requests == 1 }
+        f.biometry.complete(true); await waitUntil { f.output.completions == 1 }; XCTAssertEqual(f.biometry.approvals, 0)
+    }
+    func testPinOnlyAuthorizationNeverOffersBiometry() async throws {
+        let f = try fixture(allowsBiometry: false); XCTAssertFalse(f.subject.allowManualBiometryAuth)
+        var completions = 0; f.subject.startAuth { completions += 1 }
+        await waitUntil { f.subject.state == .waitingPincode }
+        XCTAssertEqual(f.biometry.requests, 0); XCTAssertEqual(completions, 0)
+        f.subject.startAuth(completion: nil); await waitUntil { f.subject.state == .waitingPincode }
+        XCTAssertEqual(f.biometry.requests, 0, "The accessory button cannot start biometry either")
+        await authenticate(f); XCTAssertEqual(f.output.completions, 1); XCTAssertEqual(f.subject.state, .completed)
     }
     func testCompletedAuthIgnoresAdditionalPinSubmissions() async throws {
         let f = try fixture(); await authenticate(f); f.subject.process(pin: "000000")
@@ -523,6 +552,8 @@ final class LocalAuthLifecycleBoundaryTests: XCTestCase {
 private enum AuthBoundaryFailure: Error { case unavailable }
 private final class AuthBoundaryBiometry: BiometryAuthProtocol {
     var availableBiometryType: AvailableBiometryType = .touchId
+    var isEnrollmentApproved = true, approvals = 0
+    func approveCurrentEnrollment() { approvals += 1 }
     var requests = 0, reasons: [String] = []; private var callback: (() -> Void)?; private var delivery: ((Bool) -> Void)?
     func authenticate(localizedReason: String, completionQueue: DispatchQueue, completionBlock: @escaping (Bool) -> Void) {
         requests += 1; reasons.append(localizedReason); delivery = { value in completionQueue.async { completionBlock(value) } }
@@ -550,4 +581,69 @@ private final class AuthBoundaryReadFaultKeychain: KeystoreProtocol {
     func checkKey(for identifier: String) throws -> Bool { try admit(identifier); return try base.checkKey(for: identifier) }
     func allKeyIdentifiers() throws -> [String] { try base.allKeyIdentifiers() }
     func deleteKey(for identifier: String) throws { try base.deleteKey(for: identifier) }
+}
+
+/// BiometryAuth itself: Face ID or Touch ID unlock works only while the device
+/// reports the enrollment set the owner approved with the PIN.
+final class BiometryEnrollmentApprovalTests: XCTestCase {
+    private final class Evaluator: BiometryPolicyEvaluating {
+        var enrollment: BiometryEnrollment? = BiometryEnrollment(type: .faceId, state: Data([1]))
+        var prompts = 0, result = true; var matched: Data? = Data([1])
+        func currentEnrollment() -> BiometryEnrollment? { enrollment }
+        func evaluate(localizedReason: String, completion: @escaping (Bool, Data?) -> Void) {
+            prompts += 1; completion(result, result ? matched : nil)
+        }
+    }
+    private final class Approvals: BiometryEnrollmentApprovalStoring {
+        var stored: Data?, saves = 0
+        func load() -> Data? { stored }; func save(_ state: Data) { stored = state; saves += 1 }
+    }
+    private func unlock(_ auth: BiometryAuth) -> Bool? {
+        let done = expectation(description: "biometry"); var value: Bool?
+        auth.authenticate(localizedReason: "Unlock SORA", completionQueue: .main) { value = $0; done.fulfill() }
+        wait(for: [done], timeout: 2); return value
+    }
+    func testNothingApprovedYetMeansNoPromptAndNoUnlock() {
+        let evaluator = Evaluator(), auth = BiometryAuth(evaluator: evaluator, approvals: Approvals())
+        XCTAssertEqual(auth.availableBiometryType, .faceId); XCTAssertFalse(auth.isEnrollmentApproved)
+        XCTAssertEqual(unlock(auth), false); XCTAssertEqual(evaluator.prompts, 0)
+    }
+    func testTheApprovedEnrollmentUnlocks() {
+        let evaluator = Evaluator(), approvals = Approvals(), auth = BiometryAuth(evaluator: evaluator, approvals: approvals)
+        auth.approveCurrentEnrollment(); XCTAssertEqual(approvals.stored, Data([1])); XCTAssertTrue(auth.isEnrollmentApproved)
+        XCTAssertEqual(unlock(auth), true); XCTAssertEqual(evaluator.prompts, 1)
+        evaluator.result = false; XCTAssertEqual(unlock(auth), false, "A failed or cancelled prompt never unlocks")
+    }
+    func testAnAddedFaceOrFingerStopsBiometricUnlockUntilThePinApprovesIt() {
+        let evaluator = Evaluator(), approvals = Approvals(), auth = BiometryAuth(evaluator: evaluator, approvals: approvals)
+        auth.approveCurrentEnrollment()
+        evaluator.enrollment = BiometryEnrollment(type: .faceId, state: Data([2])); evaluator.matched = Data([2])
+        XCTAssertFalse(auth.isEnrollmentApproved); XCTAssertEqual(unlock(auth), false)
+        XCTAssertEqual(evaluator.prompts, 0, "The changed set is refused before any prompt")
+        auth.approveCurrentEnrollment(); XCTAssertEqual(unlock(auth), true)
+    }
+    func testAnEnrollmentChangeDuringThePromptIsRefused() {
+        let evaluator = Evaluator(), approvals = Approvals(), auth = BiometryAuth(evaluator: evaluator, approvals: approvals)
+        auth.approveCurrentEnrollment(); evaluator.matched = Data([3])
+        XCTAssertEqual(unlock(auth), false); XCTAssertEqual(evaluator.prompts, 1)
+        evaluator.matched = nil; XCTAssertEqual(unlock(auth), false, "A success without an enrollment state is refused")
+    }
+    /// Approval happens before the app's first Face ID prompt (right after
+    /// the PIN is set), so iOS must report the enrollment set without one.
+    /// Runs where the simulator or device has biometrics enrolled.
+    func testTheSystemReportsTheEnrollmentSetWithoutAPrompt() throws {
+        guard let enrollment = LocalAuthenticationPolicyEvaluator().currentEnrollment() else {
+            throw XCTSkip("No biometrics are enrolled here")
+        }
+        XCTAssertNotEqual(enrollment.type, .none)
+        XCTAssertNotNil(enrollment.state)
+        XCTAssertEqual(LocalAuthenticationPolicyEvaluator().currentEnrollment(), enrollment, "Stable while nothing changes")
+    }
+    func testApprovalNeedsUsableBiometricsWithAnEnrollmentState() {
+        let evaluator = Evaluator(), approvals = Approvals(), auth = BiometryAuth(evaluator: evaluator, approvals: approvals)
+        evaluator.enrollment = nil; auth.approveCurrentEnrollment()
+        XCTAssertEqual(auth.availableBiometryType, .none); XCTAssertEqual(approvals.saves, 0); XCTAssertEqual(unlock(auth), false)
+        evaluator.enrollment = BiometryEnrollment(type: .touchId, state: nil); auth.approveCurrentEnrollment()
+        XCTAssertEqual(approvals.saves, 0); XCTAssertFalse(auth.isEnrollmentApproved)
+    }
 }
