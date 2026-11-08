@@ -22,15 +22,18 @@ final class PortfolioSnapshotBuilderTests: XCTestCase {
                               orderedAssetIds: ordered, addresses: taira.map { [.taira: $0] } ?? [:])
     }
 
-    func testVisibilityMirrorsTheAssetList() {
+    func testEverythingHeldIsListedUnlessADefaultTokenWasTurnedOff() {
         let fresh = wallet("A")
         XCTAssertTrue(PortfolioSnapshotBuilder.isVisible(assetId: xor, wallet: fresh))
         XCTAssertTrue(PortfolioSnapshotBuilder.isVisible(assetId: val, wallet: fresh), "Default assets show")
-        XCTAssertFalse(PortfolioSnapshotBuilder.isVisible(assetId: other, wallet: fresh))
+        XCTAssertTrue(PortfolioSnapshotBuilder.isVisible(assetId: other, wallet: fresh), "So does any other token held")
         let customised = wallet("A", visible: [other], ordered: [xor, val, other])
         XCTAssertTrue(PortfolioSnapshotBuilder.isVisible(assetId: other, wallet: customised))
-        XCTAssertFalse(PortfolioSnapshotBuilder.isVisible(assetId: val, wallet: customised))
+        XCTAssertFalse(PortfolioSnapshotBuilder.isVisible(assetId: val, wallet: customised), "The user turned it off")
         XCTAssertTrue(PortfolioSnapshotBuilder.isVisible(assetId: xor, wallet: customised), "XOR always shows")
+        // AssetManager saves other tokens as not visible until they are turned on, chosen or not.
+        let saved = wallet("A", visible: [xor, val], ordered: [xor, val, other])
+        XCTAssertTrue(PortfolioSnapshotBuilder.isVisible(assetId: other, wallet: saved))
     }
 
     func testBuildsHoldingsFromReadsWithTotalsTransferableAndNexusXor() {
@@ -53,7 +56,7 @@ final class PortfolioSnapshotBuilderTests: XCTestCase {
         XCTAssertEqual(xorA?.locked, 15)
         XCTAssertEqual(xorA?.token.priceUSD, 2)
         XCTAssertNil(snapshot.holdings.first { $0.token.id == val }, "Zero balances are not holdings")
-        XCTAssertEqual(snapshot.holdings.first { $0.token.id == other }?.isHidden, true)
+        XCTAssertEqual(snapshot.holdings.first { $0.token.id == other }?.isHidden, false, "Everything held is listed")
         XCTAssertEqual(snapshot.holdings.first { $0.network == .taira }?.amount, 42)
         XCTAssertEqual(snapshot.wallet("A")?.networks, [.sora2, .taira])
         XCTAssertEqual(snapshot.wallet("A")?.addresses[.sora2], "A")

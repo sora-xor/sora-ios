@@ -149,7 +149,8 @@ final class PortfolioViewModel {
     }
 
     private func snapshotDidChange() {
-        let scope = resolvedScope(state.scope, snapshot: dataSource.snapshot)
+        // From the saved choice, so a second wallet opens All wallets unless the user chose one.
+        let scope = resolvedScope(preferences.scope, snapshot: dataSource.snapshot)
         if scope != state.scope { state.scope = scope }
         update()
     }
@@ -242,7 +243,7 @@ final class PortfolioViewModel {
     }
 
     func tapScope() {
-        guard dataSource.snapshot.wallets.count >= 2 else { return }
+        guard !dataSource.snapshot.wallets.isEmpty else { return }
         onRoute?(.walletsSheet)
     }
 

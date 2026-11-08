@@ -125,7 +125,8 @@ final class PortfolioPresenterTests: XCTestCase {
         XCTAssertEqual(eth?.isExpandable, false)
         XCTAssertEqual(eth?.value, "$1,000.00")
         let meme = rows.first { $0.key == PortfolioFixtures.meme.id }
-        XCTAssertEqual(meme?.value, "No price")
+        XCTAssertEqual(meme?.value, "77 MEME", "Without a price the amount is the row's number")
+        XCTAssertEqual(meme?.detail, "")
         XCTAssertNil(meme?.change, "Flat or unknown change is hidden")
         // A single wallet's scope shows no wallet dots.
         XCTAssertTrue(render(scope: .wallet("A")).list.rows.allSatisfy { $0.walletDots.isEmpty })
@@ -147,8 +148,88 @@ final class PortfolioPresenterTests: XCTestCase {
         XCTAssertTrue(result.hero.isEmpty)
         XCTAssertFalse(result.hero.sky.showsFan)
         XCTAssertTrue(result.hero.legend.isEmpty)
-        XCTAssertFalse(result.hero.canChangeScope)
+        XCTAssertTrue(result.hero.canChangeScope, "The Wallets sheet is the way to Manage wallets")
         XCTAssertEqual(result.list.emptyText, "No balance yet")
+    }
+
+    private func oneWallet(_ holdings: [PortfolioHolding], freshness: PortfolioFreshness = .live(Date(timeIntervalSince1970: 1_000)))
+        -> PortfolioSnapshot {
+        PortfolioSnapshot(wallets: [PortfolioFixtures.wallet("A", "Alpha", order: 0, selected: true, freshness: freshness)],
+                          holdings: holdings, networks: [.sora2], swapsAvailable: true,
+                          swapDisclaimerAccepted: true, liveNetworks: [.sora2])
+    }
+
+    func testHoldingsWithoutAnyPriceNeverShowAZeroTotal() {
+        let unpriced = PortfolioFixtures.token("0xaa", "XOR", nil, nil)
+        let snapshot = oneWallet([PortfolioFixtures.holding("A", .sora2, unpriced, "100")])
+        let result = render(snapshot, scope: .wallet("A"))
+        XCTAssertEqual(result.hero.totalWhole + result.hero.totalFraction, "—")
+        XCTAssertEqual(result.hero.caption, WalletUX.priceUnavailableText)
+        XCTAssertTrue(result.hero.isDimmed)
+        XCTAssertFalse(result.hero.isEmpty)
+        XCTAssertNil(result.hero.changeAmount)
+        XCTAssertFalse(result.hero.sky.showsFan)
+        XCTAssertEqual(result.list.rows.first?.value, "100 XOR")
+        XCTAssertEqual(PortfolioPresenter.totalText(snapshot, scope: .wallet("A")), "—")
+    }
+
+    func testWithoutPricesXorAndTheDefaultTokensComeFirst() {
+        func token(_ id: WalletAssetId?, _ symbol: String) -> PortfolioToken {
+            PortfolioFixtures.token(id?.rawValue ?? "0x" + symbol, symbol, nil, nil)
+        }
+        let holdings = [token(nil, "APOLLO"), token(.val, "VAL"), token(nil, "CERES"), token(.xor, "XOR"), token(.pswap, "PSWAP")]
+            .map { PortfolioFixtures.holding("A", .sora2, $0, "5") }
+        XCTAssertEqual(render(oneWallet(holdings), scope: .wallet("A")).list.rows.map(\.title),
+                       ["XOR", "VAL", "PSWAP", "APOLLO", "CERES"])
+    }
+
+    func testAWalletThatCouldNotBeReadIsNotAnEmptyWallet() {
+        let snapshot = oneWallet([], freshness: PortfolioFreshness(state: .partial, updatedAt: nil, unreachable: [.sora2]))
+        let result = render(snapshot, scope: .wallet("A"))
+        XCTAssertFalse(result.hero.isEmpty, "No \"Your wallet is ready\" for a balance nobody has seen")
+        XCTAssertEqual(result.hero.totalWhole + result.hero.totalFraction, "—")
+        XCTAssertEqual(result.hero.caption, WalletUX.balanceUnavailableText)
+        XCTAssertEqual(result.list.emptyText, WalletUX.balanceUnavailableText)
+        XCTAssertEqual(PortfolioPresenter.totalText(snapshot, scope: .wallet("A")), "—")
+    }
+
+    func testAnEmptyWalletThatWasReadStillTotalsZero() {
+        XCTAssertEqual(PortfolioPresenter.totalText(oneWallet([]), scope: .wallet("A")), "$0.00")
+    }
+
+    func testSavedBalancesShowWithTheirAgeDuringTheFirstRead() {
+        var saved = PortfolioFixtures.snapshot(freshnessB: .saved(Date(timeIntervalSince1970: 0)))
+        saved.isLoading = true
+        let hero = render(saved).hero
+        XCTAssertFalse(hero.isLoading)
+        XCTAssertEqual(hero.totalWhole + hero.totalFraction, "$1,600.00")
+        XCTAssertTrue(hero.chipText.hasPrefix("SAVED"), hero.chipText)
+    }
+
+    func testAWalletNotReadYetHasNoChipDuringTheFirstRead() {
+        let unpriced = PortfolioFixtures.token("0xaa", "XOR", nil, nil)
+        var snapshot = oneWallet([PortfolioFixtures.holding("A", .sora2, unpriced, "1")], freshness: .offline)
+        snapshot.isLoading = true
+        XCTAssertEqual(render(snapshot, scope: .wallet("A")).hero.chipText, "")
+    }
+
+    func testDetailWithoutAPriceShowsAmountsAndNoShare() {
+        let unpriced = PortfolioFixtures.token("0xaa", "XOR", nil, nil)
+        let model = PortfolioDetailPresenter.model(tokenId: unpriced.id, selectedHoldingId: nil,
+                                                   snapshot: oneWallet([PortfolioFixtures.holding("A", .sora2, unpriced, "100")]),
+                                                   scope: .wallet("A"), walletSlots: [:])
+        XCTAssertEqual(model?.value, WalletUX.priceUnavailableText)
+        XCTAssertEqual(model?.share, "", "No \"0% of this wallet\"")
+        XCTAssertEqual(model?.holdings.first?.value, "100 XOR")
+        XCTAssertEqual(model?.holdings.first?.amount, "")
+    }
+
+    func testOldPricesSayHowOldTheyAre() {
+        var snapshot = PortfolioFixtures.snapshot()
+        let date = Date(timeIntervalSince1970: 500)
+        snapshot.pricesAsOf = date
+        XCTAssertEqual(render(snapshot).hero.caption,
+                       WalletUX.pricesAsOfText(date) + " · 1 hidden, 1 unpriced, 1 testnet not included")
     }
 
     func testNetworkRowsTakeTheAppsNamesTagsAndOrder() {
@@ -270,7 +351,28 @@ final class PortfolioViewModelTests: XCTestCase {
         var routes: [PortfolioRoute] = []
         viewModel.onRoute = { routes.append($0) }
         viewModel.tapScope()
-        XCTAssertTrue(routes.isEmpty, "The Wallets sheet needs two or more wallets")
+        XCTAssertEqual(routes, [.walletsSheet], "The Wallets sheet is the way to Manage wallets")
+    }
+
+    func testASecondWalletOpensAllWalletsUnlessTheUserChoseOne() {
+        let single = PortfolioSnapshot(wallets: [PortfolioFixtures.wallet("A", "Alpha", order: 0, selected: true)],
+                                       holdings: [], networks: [.sora2], swapsAvailable: true,
+                                       swapDisclaimerAccepted: false, liveNetworks: [.sora2])
+        let (viewModel, source) = makeViewModel(single)
+        XCTAssertEqual(viewModel.state.scope, .wallet("A"))
+        source.publish(PortfolioFixtures.snapshot())
+        XCTAssertEqual(viewModel.state.scope, .allWallets)
+        viewModel.selectScope(.wallet("B"))
+        source.publish(PortfolioFixtures.snapshot())
+        XCTAssertEqual(viewModel.state.scope, .wallet("B"))
+    }
+
+    func testAWalletsListThatArrivesAfterLaunchKeepsTheSavedChoice() {
+        let (first, _) = makeViewModel()
+        first.selectScope(.wallet("B"))
+        let (viewModel, source) = makeViewModel(.empty)
+        source.publish(PortfolioFixtures.snapshot())
+        XCTAssertEqual(viewModel.state.scope, .wallet("B"))
     }
 
     func testFirstTapHighlightsSecondTapOpensWhereItLives() {

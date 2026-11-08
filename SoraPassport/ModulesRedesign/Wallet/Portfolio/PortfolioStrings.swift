@@ -65,7 +65,7 @@ enum PortfolioStrings {
     static func tokensCount(_ count: Int) -> String { self.count(count, one: "%d token", other: "%d tokens") }
     static func openAlone(_ wallet: String) -> String { format("Open %@ alone", wallet) }
     static func openNetwork(_ network: String) -> String { format("Open %@", network) }
-    static var noPrice: String { text("No price") }
+    static var noPrice: String { WalletUX.priceUnavailableText }
     static var noBalanceYet: String { text("No balance yet") }
     static var readingBalances: String { text("Reading balances…") }
 
@@ -123,7 +123,8 @@ enum PortfolioStrings {
     static var moveExplainer: String {
         text("Moves between your own wallets use Send. You review the fee and sign there.")
     }
-    static func whichWallet(for action: String) -> String { format("%@ from which wallet?", action) }
+    static var sendFromWhichWallet: String { format("%@ from which wallet?", send) }
+    static var receiveToWhichWallet: String { text("Receive to which wallet?") }
 
     // MARK: Unavailable reasons
 

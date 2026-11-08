@@ -6,9 +6,14 @@ import UIKit
 
 /// "XOR on other networks": the selected wallet's XOR rows on networks other than SORA2, under the
 /// portfolio list, each opening that network's page. The Wallet tab fills the rows
-/// (`RedesignWalletViewModel.refreshNetworkRows`). Without rows it takes no space.
+/// (`RedesignWalletViewModel.refreshNetworkRows`). Without rows it takes no space, and it steps aside
+/// while the portfolio shows another wallet, whose numbers these rows are not.
 final class PortfolioOtherNetworksItem: NSObject {
     var rows: [NetworkAssetRow] = []
+    /// False while the portfolio's scope is a wallet other than the selected one.
+    var isShown = true
+    /// The selected wallet's name, while All wallets could make the rows look like everyone's.
+    var walletName: String?
     /// Opens the network's page (`RedesignWalletViewModel.openNetwork(account:)`).
     var onOpen: ((NetworkAccount) -> Void)?
 
@@ -25,7 +30,7 @@ extension PortfolioOtherNetworksItem: SoramitsuTableViewItemProtocol {
     /// A fixed height from the fonts: one line of title, then the rows. Measured self-sizing put
     /// this card at the wrong height when it was bound before the table knew its width.
     func itemHeight(forWidth width: CGFloat, context: SoramitsuTableViewContext?) -> CGFloat {
-        rows.isEmpty ? 0 : PortfolioOtherNetworksCell.height(rowCount: rows.count)
+        rows.isEmpty || !isShown ? 0 : PortfolioOtherNetworksCell.height(rowCount: rows.count)
     }
 }
 
@@ -93,14 +98,14 @@ final class PortfolioOtherNetworksCell: SoramitsuTableViewCell, SoramitsuTableVi
     }
 
     private func reload() {
-        let rows = item?.rows ?? []
+        let rows = item?.isShown == true ? item?.rows ?? [] : []
         content.arrangedSubviews.forEach { $0.removeFromSuperview() }
         card.isHidden = rows.isEmpty
         outer.directionalLayoutMargins = rows.isEmpty
             ? .zero : NSDirectionalEdgeInsets(top: 6, leading: 16, bottom: 10, trailing: 16)
         guard !rows.isEmpty else { return }
         card.apply()
-        title.text = PortfolioStrings.otherNetworksTitle
+        title.text = [PortfolioStrings.otherNetworksTitle, item?.walletName].compactMap { $0 }.joined(separator: " · ")
         title.textColor = PortfolioTheme.textPrimary
         content.addArrangedSubview(title)
         content.setCustomSpacing(10, after: title)

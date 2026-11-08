@@ -198,7 +198,11 @@ enum PortfolioPresenter {
         let summary = PortfolioAggregator.summary(snapshot, scope: state.scope)
         let scoped = PortfolioAggregator.scopedHoldings(snapshot, scope: state.scope)
         let isLoading = snapshot.isLoading && scoped.isEmpty
-        let isEmpty = scoped.isEmpty && !isLoading
+        // A wallet whose read failed is not an empty wallet: its balance is unknown.
+        let isUnread = scoped.isEmpty && !isLoading && hasUnreadWallet(snapshot, scope: state.scope)
+        let isEmpty = scoped.isEmpty && !isLoading && !isUnread
+        // Holdings without any price: the total is unknown, never "$0".
+        let isPriceless = summary.total == 0 && summary.unpricedCount > 0
         let segments = isEmpty ? [] : fan(snapshot, scope: state.scope, lens: lens, store: store)
         let groups = PortfolioAggregator.groups(snapshot, scope: state.scope, lens: lens)
         let highlighted = segments.contains(where: { $0.key == state.highlighted }) ? state.highlighted : nil
@@ -213,7 +217,7 @@ enum PortfolioPresenter {
                                        accessibilityLabel: "\(title), \(percent), \(PortfolioFormat.fiat(segment.value))")
         }
 
-        let parts = PortfolioFormat.fiatParts(summary.total)
+        let parts = isPriceless || isUnread ? (whole: "—", fraction: "") : PortfolioFormat.fiatParts(summary.total)
         let direction: PortfolioChangeDirection
         if PortfolioFormat.isFlat(summary.changePercent) {
             direction = .flat
@@ -233,16 +237,28 @@ enum PortfolioPresenter {
             scopeIcon = .wallet(id: id, name: scopeTitle)
         }
 
-        let chip = isLoading ? (text: "", tone: PortfolioChipTone.saved)
+        // While the first read runs, saved balances show without a chip until a wallet has an age.
+        let chip = isLoading || (snapshot.isLoading && summary.freshness.state == .offline)
+            ? (text: "", tone: PortfolioChipTone.saved)
             : PortfolioPresenter.chip(summary.freshness, now: now)
-        let caption = isLoading ? nil : PortfolioStrings.notIncluded(hidden: summary.hiddenCount,
-                                                                     unpriced: summary.unpricedCount,
-                                                                     testnet: summary.testnetCount)
+        let caption: String?
+        if isLoading {
+            caption = nil
+        } else if isUnread {
+            caption = WalletUX.balanceUnavailableText
+        } else if isPriceless {
+            caption = WalletUX.priceUnavailableText
+        } else {
+            let notes = [snapshot.pricesAsOf.map { WalletUX.pricesAsOfText($0) },
+                         PortfolioStrings.notIncluded(hidden: summary.hiddenCount, unpriced: summary.unpricedCount,
+                                                      testnet: summary.testnetCount)].compactMap { $0 }
+            caption = notes.isEmpty ? nil : notes.joined(separator: " · ")
+        }
         let changeAmount = summary.changePercent == nil || isLoading ? nil : PortfolioFormat.signedFiat(summary.change24h)
         let changePercent = isLoading ? nil : summary.changePercent.map(PortfolioFormat.signedPercent)
         guard !isLoading else {
             return PortfolioHeroModel(scopeTitle: scopeTitle, scopeIcon: scopeIcon,
-                                      canChangeScope: snapshot.wallets.count >= 2, totalWhole: "—", totalFraction: "",
+                                      canChangeScope: !snapshot.wallets.isEmpty, totalWhole: "—", totalFraction: "",
                                       isDimmed: true, changeAmount: nil, changePercent: nil, direction: .flat,
                                       caption: nil, chipText: "", chipTone: chip.tone, unreachable: [],
                                       sky: PortfolioSkyModel(segments: [], highlightedKey: nil, showsFan: false),
@@ -250,7 +266,7 @@ enum PortfolioPresenter {
                                       accessibilityTotal: PortfolioStrings.text("Total balance") + ", " +
                                           PortfolioStrings.readingBalances)
         }
-        var spoken = "\(PortfolioStrings.text("Total balance")), \(PortfolioFormat.fiat(summary.total))"
+        var spoken = "\(PortfolioStrings.text("Total balance")), \(parts.whole)\(parts.fraction)"
         if let changeAmount, let changePercent {
             spoken += ". " + PortfolioStrings.format("%@, %@ in 24 hours", changeAmount, changePercent)
         }
@@ -259,10 +275,10 @@ enum PortfolioPresenter {
 
         return PortfolioHeroModel(scopeTitle: scopeTitle,
                                   scopeIcon: scopeIcon,
-                                  canChangeScope: snapshot.wallets.count >= 2,
+                                  canChangeScope: !snapshot.wallets.isEmpty,
                                   totalWhole: parts.whole,
                                   totalFraction: parts.fraction,
-                                  isDimmed: summary.freshness.state == .offline,
+                                  isDimmed: summary.freshness.state == .offline || isPriceless || isUnread,
                                   changeAmount: changeAmount,
                                   changePercent: changePercent,
                                   direction: direction,
@@ -276,6 +292,21 @@ enum PortfolioPresenter {
                                   isEmpty: isEmpty,
                                   isLoading: false,
                                   accessibilityTotal: spoken)
+    }
+
+    /// A wallet in the scope that was never read: its balance is unknown, so is the scope's total.
+    static func hasUnreadWallet(_ snapshot: PortfolioSnapshot, scope: PortfolioScope) -> Bool {
+        PortfolioAggregator.wallets(in: snapshot, scope: scope).contains { $0.freshness.updatedAt == nil }
+    }
+
+    /// A scope's total for a row or a sheet: a dash while it is unknown, never "$0".
+    static func totalText(_ snapshot: PortfolioSnapshot, scope: PortfolioScope) -> String {
+        let summary = PortfolioAggregator.summary(snapshot, scope: scope)
+        let scoped = PortfolioAggregator.scopedHoldings(snapshot, scope: scope)
+        if summary.total == 0, summary.unpricedCount > 0 || (scoped.isEmpty && hasUnreadWallet(snapshot, scope: scope)) {
+            return "—"
+        }
+        return PortfolioFormat.fiat(summary.total)
     }
 
     static func chip(_ freshness: PortfolioFreshness, now: Date) -> (text: String, tone: PortfolioChipTone) {
@@ -328,8 +359,17 @@ enum PortfolioPresenter {
                 return walletRow(group, wallet: wallet, snapshot: snapshot, state: state, now: now)
             }
         }
-        let emptyText = rows.isEmpty
-            ? (snapshot.isLoading ? PortfolioStrings.readingBalances : PortfolioStrings.noBalanceYet) : nil
+        let emptyText: String?
+        if !rows.isEmpty {
+            emptyText = nil
+        } else if snapshot.isLoading {
+            emptyText = PortfolioStrings.readingBalances
+        } else if PortfolioAggregator.scopedHoldings(snapshot, scope: state.scope).isEmpty,
+                  hasUnreadWallet(snapshot, scope: state.scope) {
+            emptyText = WalletUX.balanceUnavailableText
+        } else {
+            emptyText = PortfolioStrings.noBalanceYet
+        }
         return PortfolioListModel(lenses: lenses(for: state.scope), lens: lens, rows: rows, emptyText: emptyText)
     }
 
@@ -359,6 +399,18 @@ enum PortfolioPresenter {
         return PortfolioFormat.fiat(PortfolioAggregator.value(of: holding))
     }
 
+    /// The value on a picker row, whose amount is already below it: nothing when there is no price.
+    static func pickerValue(_ holding: PortfolioHolding) -> String? {
+        let value = holdingValueText(holding)
+        return value == PortfolioStrings.noPrice ? nil : value
+    }
+
+    /// A row's number over its smaller one. Without a price the amount is the row's number: the
+    /// list still says what the user holds, with no price note on every line while prices are out.
+    static func rowNumbers(value: String, amount: String) -> (value: String, detail: String) {
+        value == PortfolioStrings.noPrice ? (amount, "") : (value, amount)
+    }
+
     /// Swap-ready when actionable; otherwise the network's own tag where a row needs one (Testnet,
     /// Coming soon). Rows on the main network and other live mainnets carry none.
     static func tag(for holding: PortfolioHolding, snapshot: PortfolioSnapshot) -> PortfolioTag? {
@@ -376,13 +428,14 @@ enum PortfolioPresenter {
         let network = PortfolioStrings.networkName(holding.network)
         let amount = PortfolioFormat.amount(holding.amount, symbol: holding.token.symbol)
         let value = holdingValueText(holding)
+        let numbers = rowNumbers(value: value, amount: amount)
         let tag = tag(for: holding, snapshot: snapshot)
         var spoken = "\(network), \(walletName), \(amount), \(value)"
         if tag == .swapReady { spoken += ", " + PortfolioStrings.swapReady }
         if tag == .network(.testnet) { spoken += ", " + PortfolioStrings.testnetNoValue }
         return PortfolioChildRow(key: holding.id, icon: .network(holding.network), title: network,
                                  subtitle: walletName, walletSlot: walletSlots[holding.walletId],
-                                 value: value, detail: amount, tag: tag, target: .holding(holding.id),
+                                 value: numbers.value, detail: numbers.detail, tag: tag, target: .holding(holding.id),
                                  accessibilityLabel: spoken)
     }
 
@@ -407,6 +460,7 @@ enum PortfolioPresenter {
         let expanded = expandable && state.expanded.contains(group.key)
         let value = valueText(of: group.holdings)
         let amount = PortfolioFormat.amount(group.tokenAmount, symbol: token.symbol)
+        let numbers = rowNumbers(value: value, amount: amount)
         let change = changeText(token.change24h)
         var spoken = "\(token.symbol), \(value), \(amount), \(subtitle)"
         if let change { spoken += ", " + change }
@@ -415,7 +469,8 @@ enum PortfolioPresenter {
                             title: token.symbol, change: change, direction: direction(of: token.change24h),
                             subtitle: subtitle,
                             walletDots: showsWalletDots ? walletIds.compactMap { walletSlots[$0] } : [],
-                            value: value, detail: amount, tag: group.isTestnetOnly ? .network(.testnet) : nil,
+                            value: numbers.value, detail: numbers.detail,
+                            tag: group.isTestnetOnly ? .network(.testnet) : nil,
                             isExpandable: expandable, isExpanded: expanded,
                             children: expanded ? group.holdings.map {
                                 holdingChild($0, snapshot: snapshot, walletSlots: walletSlots)

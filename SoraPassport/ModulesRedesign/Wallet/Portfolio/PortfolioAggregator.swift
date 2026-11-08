@@ -230,6 +230,10 @@ enum PortfolioAggregator {
         if lhs.value != rhs.value { return lhs.value > rhs.value }
         if lhs.isTestnetOnly != rhs.isTestnetOnly { return !lhs.isTestnetOnly }
         guard case let .token(left) = lhs.kind, case let .token(right) = rhs.kind else { return lhs.key < rhs.key }
+        // Without prices every value ties: XOR and the app's other default tokens come first, in its order.
+        let leftRank = WalletAssetId(rawValue: left.id)?.defaultSort ?? Int.max
+        let rightRank = WalletAssetId(rawValue: right.id)?.defaultSort ?? Int.max
+        if leftRank != rightRank { return leftRank < rightRank }
         if left.symbol != right.symbol { return left.symbol < right.symbol }
         return left.id < right.id
     }

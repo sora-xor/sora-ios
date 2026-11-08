@@ -1445,6 +1445,7 @@
 /* Portfolio view (portfolioView). English keys; other languages fall back to English. */
 "%@ could not be reached on the last try. Its numbers are the last ones read." = "%@ could not be reached on the last try. Its numbers are the last ones read.";
 "%@ could not be reached. Its value is not in the total until it is read again." = "%@ could not be reached. Its value is not in the total until it is read again.";
+"Receive to which wallet?" = "Receive to which wallet?";
 "%@ from which wallet?" = "%@ from which wallet?";
 "%@ is not available for this wallet right now." = "%@ is not available for this wallet right now.";
 "%@ is not live yet." = "%@ is not live yet.";
@@ -1485,7 +1486,6 @@
 "Move %@" = "Move %@";
 "Moves between your own wallets use Send. You review the fee and sign there." = "Moves between your own wallets use Send. You review the fee and sign there.";
 "No balance yet" = "No balance yet";
-"No price" = "No price";
 "Not yet" = "Not yet";
 "Nothing here can do that right now." = "Nothing here can do that right now.";
 "Nothing here can move right now." = "Nothing here can move right now.";
