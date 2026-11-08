@@ -259,10 +259,18 @@ enum Sora2CallTable {
         ) as? GenericCallNode, call.runtimeMetadata === factory.metadata else {
             throw Mismatch(identifier: "GenericCall")
         }
+        try Sora2TypeNames.requireOneDefinitionPerName(in: factory.metadata)
         for pin in pinned {
             // Absent calls cannot be built (e.g. mainnet has no faucet).
             guard let actual = try shape(of: pin, factory: factory) else { continue }
             guard actual == pin.shape else { throw Mismatch(identifier: pin.identifier) }
+        }
+        // The signed extra writes the nonce and tip through these names.
+        let renderer = Sora2EncoderShape(factory: factory)
+        for (name, expected) in [(KnownType.index.name, "u32"), (KnownType.balance.name, "u128")] {
+            guard renderer.render(type: name) == expected else {
+                throw Mismatch(identifier: "signed-extra.\(name)")
+            }
         }
     }
 
@@ -279,6 +287,76 @@ enum Sora2CallTable {
         return "\(pallet):\(call)(" + function.arguments.map {
             "\($0.name):\(renderer.render(type: $0.type))"
         }.joined(separator: ",") + ")"
+    }
+}
+
+/// The encoder finds types by name, and what a name resolves to can change while
+/// types are being built: the first schema item with that name, until another item
+/// is registered under it by id. With two definitions under one name, the call table
+/// could read one layout and the encoder later write the other. Real runtimes repeat
+/// a name only with the same definition, so anything else is refused before signing.
+private enum Sora2TypeNames {
+    private static let lock = NSLock()
+    private static let verified = NSHashTable<RuntimeMetadata>.weakObjects()
+
+    static func requireOneDefinitionPerName(in metadata: RuntimeMetadata) throws {
+        lock.lock()
+        let alreadyVerified = verified.contains(metadata)
+        lock.unlock()
+        guard !alreadyVerified else { return }
+
+        let items = metadata.schema?.types ?? []
+        let resolver = metadata.schemaResolver
+        var names: [BigUInt: String] = [:]
+        for item in items {
+            names[item.id] = try resolver.typeName(for: item.type)
+        }
+        var definitions: [String: String] = [:]
+        for item in items {
+            guard let name = names[item.id] else { throw Sora2CallTable.Mismatch(identifier: "type-name") }
+            let definition = try definition(of: item.type.def, names: names)
+            if let known = definitions[name], known != definition {
+                throw Sora2CallTable.Mismatch(identifier: "type-name")
+            }
+            definitions[name] = definition
+        }
+
+        lock.lock()
+        verified.add(metadata)
+        lock.unlock()
+    }
+
+    /// The layout in terms of names, because two items may refer to the same-named
+    /// child by different ids. Every name is checked here too, so equal text means
+    /// equal bytes.
+    private static func definition(of def: TypeMetadata.Def, names: [BigUInt: String]) throws -> String {
+        func name(_ id: BigUInt) throws -> String {
+            guard let name = names[id] else { throw Sora2CallTable.Mismatch(identifier: "type-name") }
+            return name
+        }
+        func fields(_ fields: [TypeMetadata.Def.Composite.Field]) throws -> String {
+            try fields.map { "\($0.name ?? "_"):\(try name($0.type))" }.joined(separator: ",")
+        }
+        switch def {
+        case let .composite(value):
+            return "{\(try fields(value.fields))}"
+        case let .variant(value):
+            return try "enum{" + value.variants.map {
+                "\($0.index)=\($0.name)(\(try fields($0.fields)))"
+            }.joined(separator: "|") + "}"
+        case let .sequence(value):
+            return "Vec<\(try name(value.type))>"
+        case let .array(value):
+            return "[\(try name(value.type));\(value.length)]"
+        case let .tuple(items):
+            return "(\(try items.map(name).joined(separator: ",")))"
+        case let .primitive(value):
+            return "\(value)"
+        case let .compact(value):
+            return "Compact<\(try name(value.type))>"
+        case let .bitSequence(value):
+            return "BitVec<\(try name(value.store)),\(try name(value.order))>"
+        }
     }
 }
 
