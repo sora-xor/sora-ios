@@ -152,6 +152,16 @@ final class WalletSimulatorUpgradeUITests: XCTestCase {
             XCTAssertTrue(app.buttons["sora.migrationEvidence.v3.continueUpgrade"].waitForExistence(timeout: 60))
             evidence("legacy-confirmation")
             app.buttons["sora.migrationEvidence.v3.continueUpgrade"].tap()
+            // Both legacy fixtures retain the original 1.x PIN. Authenticate
+            // it before waiting for the replacement wallet's PIN setup.
+            let legacyPIN = app.alerts["Enter your PIN"]
+            XCTAssertTrue(legacyPIN.waitForExistence(timeout: 60), app.debugDescription)
+            evidence("legacy-pin-request")
+            let field = legacyPIN.secureTextFields.firstMatch
+            XCTAssertTrue(field.exists, app.debugDescription)
+            field.tap()
+            field.typeText(publicPIN)
+            legacyPIN.buttons["Continue"].tap()
         }
         do {
             XCTAssertTrue(app.otherElements["MainViewAccessibilityId"].waitForExistence(timeout: 60))
