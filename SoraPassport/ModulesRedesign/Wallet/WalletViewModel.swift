@@ -566,8 +566,19 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             opensSendWhenReady: startSend,
             xorAsset: assetManager.assetInfo(for: WalletAssetId.xor.rawValue)
         )
+        detail.onClose = { [weak self] () -> Void in self?.networkPageDidClose() }
         // Opened as SORA2 opens XOR's asset details.
         NexusSora2Presentation.present(detail, from: presenter)
+    }
+
+    /// A network page opens over this screen, so closing it is no
+    /// `viewWillAppear` here. Without this, a send or a faucet claim made there
+    /// would not reach the home: its rows would keep the old balance until the
+    /// next tab switch, the portfolio until its next timed read.
+    @MainActor
+    private func networkPageDidClose() {
+        refreshNetworkRows()
+        if showsPortfolio { portfolioHome.viewModel.refreshAll() }
     }
 
     /// The wallet's Receive on a network other than SORA2: SORA2's Receive
