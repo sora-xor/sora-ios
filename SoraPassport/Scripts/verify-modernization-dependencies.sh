@@ -519,7 +519,7 @@ run_ios_migration_release_source_gate() {
     run_exact_ios_migration_suite "${ios_gate_taira_deployment_suite}" 15 taira-deployment-admission || return 1
     run_exact_ios_migration_suite "${ios_gate_vendored_binary_suite}" 10 vendored-binary-qualification || return 1
     run_exact_ios_migration_suite "${ios_gate_signing_identity_suite}" 10 production-signing-identity || return 1
-    run_exact_ios_migration_suite "${ios_gate_production_promotion_suite}" 25 production-promotion-controller || return 1
+    run_exact_ios_migration_suite "${ios_gate_production_promotion_suite}" 30 production-promotion-controller || return 1
 
     for ios_gate_shell in \
         "${root}/SoraPassport/Scripts/archive-ios-migration-candidate.sh" \
@@ -716,7 +716,7 @@ run_ios_migration_release_source_gate() {
     fi
 
     /usr/bin/printf \
-        'iOS migration Release source gate: OK (94 migration tests + 8 internal-TestFlight tests + 17 Release-package tests + 15 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 25 production-promotion tests, 13 lints, shell/Swift parse)\n'
+        'iOS migration Release source gate: OK (94 migration tests + 8 internal-TestFlight tests + 17 Release-package tests + 15 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 30 production-promotion tests, 13 lints, shell/Swift parse)\n'
 }
 
 if [ "$#" -eq 2 ] && [ "$1" = "--lint-ios-google-signin-phase-dependencies" ]; then
