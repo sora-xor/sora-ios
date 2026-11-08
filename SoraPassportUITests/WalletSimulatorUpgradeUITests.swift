@@ -226,6 +226,10 @@ final class WalletSimulatorUpgradeUITests: XCTestCase {
             }
             if env["SORA_SIMULATOR_REVEAL_PHRASE"] == "1" {
                 wallet.tap()
+                // The portfolio's wallet name opens the Wallets sheet, which leads to the account list.
+                let manage = app.buttons["portfolio.manage-wallets"].firstMatch
+                XCTAssertTrue(manage.waitForExistence(timeout: 10))
+                manage.tap()
                 let options = app.buttons["wallet-account-options"].firstMatch
                 XCTAssertTrue(options.waitForExistence(timeout: 10))
                 evidence("account-picker")

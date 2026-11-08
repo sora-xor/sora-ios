@@ -35,11 +35,11 @@ final class WalletDashboardFlowTests: XCTestCase {
         super.tearDown()
     }
     private struct Fixture { let model: RedesignWalletViewModel; let route: DashboardRoute; let view: DashboardView; let edit: DashboardEdit; let pools: DashboardPools; let source: DashboardSource }
-    private func make(networkAccounts: @escaping @MainActor () -> [NetworkAccount] = { [] }, reader: NexusToriiReading? = nil) -> Fixture {
+    private func make(networkAccounts: @escaping @MainActor () -> [NetworkAccount] = { [] }, reader: NexusToriiReading? = nil, showsPortfolio: Bool = false) -> Fixture {
         let reader = reader ?? DashboardNetworkReader()
         let assets = DashboardAssets(), fiat = DashboardFiat(), market = DashboardMarket(), pools = DashboardPools(), network = WalletNetworkOperationFactoryProtocolMock(), edit = DashboardEdit(), route = DashboardRoute(), view = DashboardView(), source = DashboardSource()
         let poolRows = PoolsItemService(marketCapService: market, fiatService: fiat, poolViewModelsFactory: PoolViewModelFactory(walletAssets: assets.assets, assetManager: assets, fiatService: fiat))
-        let model = RedesignWalletViewModel(wireframe: route, providerFactory: BalanceProviderFactory(accountId: owner.address, cacheFacade: CoreDataCacheFacade.shared, networkOperationFactory: network, identifierFactory: SingleProviderIdentifierFactory()), assetManager: assets, fiatService: fiat, farmingService: DashboardFarms(), itemFactory: WalletItemFactory(), networkFacade: network, accountId: owner.publicKeyData.toHex(), address: owner.address, polkaswapNetworkFacade: PolkaswapNetworkOperationFactory(engine: DashboardEngine()), qrEncoder: DashboardQR(), sharingFactory: DashboardShare(), poolsService: pools, referralFactory: DashboardReferrals(), assetsProvider: DashboardBalances(), walletContext: WalletContextMock(), editViewService: edit, poolsViewModelService: poolRows, assetsViewModelService: AssetsItemService(marketCapService: market, fiatService: fiat, assetViewModelsFactory: AssetViewModelFactory(walletAssets: [], assetManager: assets, fiatService: fiat), assetManager: assets, assetProvider: DashboardBalances()), marketCapService: market, selectedNetworkAccounts: networkAccounts, nexusReadClient: reader)
+        let model = RedesignWalletViewModel(wireframe: route, providerFactory: BalanceProviderFactory(accountId: owner.address, cacheFacade: CoreDataCacheFacade.shared, networkOperationFactory: network, identifierFactory: SingleProviderIdentifierFactory()), assetManager: assets, fiatService: fiat, farmingService: DashboardFarms(), itemFactory: WalletItemFactory(), networkFacade: network, accountId: owner.publicKeyData.toHex(), address: owner.address, polkaswapNetworkFacade: PolkaswapNetworkOperationFactory(engine: DashboardEngine()), qrEncoder: DashboardQR(), sharingFactory: DashboardShare(), poolsService: pools, referralFactory: DashboardReferrals(), assetsProvider: DashboardBalances(), walletContext: WalletContextMock(), editViewService: edit, poolsViewModelService: poolRows, assetsViewModelService: AssetsItemService(marketCapService: market, fiatService: fiat, assetViewModelsFactory: AssetViewModelFactory(walletAssets: [], assetManager: assets, fiatService: fiat), assetManager: assets, assetProvider: DashboardBalances()), marketCapService: market, selectedNetworkAccounts: networkAccounts, nexusReadClient: reader, showsPortfolio: showsPortfolio)
         let suite = UserDefaults(suiteName: UUID().uuidString)!
         model.portfolioHome = PortfolioHome(dataSource: source, preferences: PortfolioPreferences(defaults: suite))
         model.view = view
@@ -82,6 +82,13 @@ final class WalletDashboardFlowTests: XCTestCase {
     func testSingleNetworkReceiveRunsItsProvidedActionOnce() { let f = make(); var calls = 0; f.model.receive { calls += 1 }; XCTAssertEqual(calls, 1) }
     func testBackupEventRendersCurrentPreferencesAgain() { let f = make(); load(f); var renders = 0; f.model.setupItems = { _ in renders += 1 }; f.model.processAccountBackuped(event: AccountBackuped()); XCTAssertEqual(renders, 1) }
     func testWalletCardsDoNotRetainTheViewModelAfterLeavingTheScreen() { weak var weakModel: RedesignWalletViewModel?; autoreleasepool { let f = make(); load(f); weakModel = f.model }; XCTAssertNil(weakModel) }
+    func testThePortfolioIsTheHomeInEveryBuild() { XCTAssertTrue(ProductSurfacePolicy.showsPortfolioView) }
+    func testPortfolioHomeReplacesTheAccountHeaderAndAssetsCard() throws { let f = make(showsPortfolio: true); load(f); XCTAssertEqual(f.model.walletItems.count, 4); XCTAssertFalse(f.model.walletItems.contains { $0 is AccountTableViewItem || $0 is AssetsItem }); let shown = displayed(f); let home = f.model.portfolioHome.items; XCTAssertTrue(zip(home, shown).allSatisfy { $0 === $1 }, "The portfolio comes first"); XCTAssertTrue(shown[home.count...].contains { $0 is EditViewItem }); XCTAssertFalse(shown.contains { $0 is AccountTableViewItem || $0 is AssetsItem }) }
+    func testPortfolioHomeKeepsTheCardsBelowIt() { let f = make(showsPortfolio: true); load(f); let shown = displayed(f); XCTAssertTrue(shown.contains { $0 is BackupItem }); XCTAssertTrue(shown.contains { $0 is FriendsItem }); XCTAssertTrue(shown.contains { $0 is PoolsItem }) }
+    func testEditViewHasNoAssetsSwitchUnderThePortfolio() async { let f = make(showsPortfolio: true); load(f); f.edit.completion?(true); await wait(); XCTAssertFalse(f.edit.viewModels.contains { $0.id == Cards.liquidAssets.id }); XCTAssertTrue(f.edit.viewModels.contains { $0.id == Cards.referralProgram.id }) }
+    func testPortfolioHomeReadsOnlyWhileVisible() { let f = make(showsPortfolio: true); let screen = RedesignWalletViewController(viewModel: f.model); f.model.view = screen; screen.loadViewIfNeeded(); XCTAssertEqual(f.source.starts, 0); screen.viewWillAppear(false); screen.viewDidAppear(false); XCTAssertEqual(f.source.starts, 1); XCTAssertEqual(f.source.stops, 0); screen.viewDidDisappear(false); XCTAssertEqual(f.source.stops, 1) }
+    func testPortfolioRefreshesWhenTheAssetListCloses() async { let f = make(showsPortfolio: true); load(f); f.model.updateAssets(updatedSection: .pools); await wait(); XCTAssertEqual(f.source.refreshes, 0); f.model.updateAssets(updatedSection: .assets); await wait(); XCTAssertEqual(f.source.refreshes, 1) }
+    func testPortfolioHomeRunsUnderTheStatusBarAndClassicDoesNot() { for shows in [true, false] { let f = make(showsPortfolio: shows); let screen = RedesignWalletViewController(viewModel: f.model); f.model.view = screen; screen.additionalSafeAreaInsets.top = 47; let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844)); window.rootViewController = screen; window.isHidden = false; screen.view.layoutIfNeeded(); let table = screen.view.subviews.first { $0 is SoramitsuTableView }; XCTAssertGreaterThan(screen.view.safeAreaInsets.top, 0); XCTAssertEqual(table?.frame.minY ?? -1, shows ? 0 : screen.view.safeAreaInsets.top, accuracy: 0.5); window.isHidden = true } }
     func testRealDashboardControllerLoadsOnlyOneTableAndBindsItsModel() { let f = make(); let screen = RedesignWalletViewController(viewModel: f.model); f.model.view = screen; screen.loadViewIfNeeded(); screen.view.frame = CGRect(x: 0, y: 0, width: 390, height: 844); screen.view.layoutIfNeeded(); XCTAssertEqual(screen.view.subviews.filter { $0 is SoramitsuTableView }.count, 1); XCTAssertEqual(f.model.walletItems.count, 6) }
     func testClassicHomeNeverStartsThePortfolioSource() { let f = make(); let screen = RedesignWalletViewController(viewModel: f.model); f.model.view = screen; screen.loadViewIfNeeded(); screen.viewWillAppear(false); screen.viewDidAppear(false); screen.viewDidDisappear(false); XCTAssertEqual(f.source.starts, 0); XCTAssertEqual(f.source.stops, 0) }
     func testPortfolioRouterForwardsSendToTheWalletNetworkChoice() { let f = make(); PortfolioWalletRouter(wallet: f.model).showSend(from: f.view); XCTAssertEqual(f.route.calls, ["showSend"]) }
@@ -354,6 +361,56 @@ extension WalletDashboardFlowTests {
             address = try IrohaAddressCodec.encode(publicKeyHex: String(repeating: "03", count: 32), chainDiscriminant: configuration.i105Discriminant)
         } else { address = network == .sora2 ? owner.address : "nexus-address-ready" }
         return NetworkAccount(walletId: owner.address, networkId: network, derivationVersion: 1, publicKey: key, address: address)
+    }
+    private func publishTaira(_ amount: String?, to f: Fixture) {
+        f.source.snapshot = PortfolioSnapshot(wallets: [PortfolioFixtures.wallet(owner.address, "Wallet", order: 0, selected: true, networks: [.sora2, .taira])],
+                                              holdings: amount.map { [PortfolioFixtures.holding(owner.address, .taira, PortfolioFixtures.xor, $0)] } ?? [],
+                                              networks: [.sora2, .taira], swapsAvailable: false, swapDisclaimerAccepted: false, liveNetworks: [.sora2, .taira])
+        f.source.onChange?(f.source.snapshot)
+    }
+    /// The list and "XOR on other networks" must not disagree after the portfolio's own read.
+    func testAReadThatChangesAnotherNetworksAmountRefreshesItsRow() async throws {
+        let reader = DashboardNetworkReader(), account = try networkAccount(.taira)
+        let f = make(networkAccounts: { [account] }, reader: reader, showsPortfolio: true)
+        load(f)
+        await waitForNetwork { reader.accounts.count == 1 }
+        publishTaira("5", to: f)
+        await wait()
+        XCTAssertEqual(reader.accounts.count, 1, "The first amounts only set the baseline")
+        publishTaira("25000", to: f)
+        await waitForNetwork { reader.accounts.count == 2 }
+        publishTaira("25000", to: f)
+        await wait()
+        XCTAssertEqual(reader.accounts.count, 2, "No new read for an unchanged amount")
+        publishTaira(nil, to: f)
+        await waitForNetwork { reader.accounts.count == 3 }
+    }
+    /// Its rows are the selected wallet's, so they never sit under another wallet's numbers.
+    func testOtherNetworksCardFollowsTheScope() {
+        let f = make(showsPortfolio: true)
+        load(f)
+        var reloads = 0
+        f.model.reloadItem = { items in if items.contains(where: { $0 === f.model.portfolioHome.otherNetworksItem }) { reloads += 1 } }
+        f.source.snapshot = PortfolioSnapshot(wallets: [PortfolioFixtures.wallet(owner.address, "Mine", order: 0, selected: true),
+                                                        PortfolioFixtures.wallet("other", "Other", order: 1)],
+                                              holdings: [PortfolioFixtures.holding(owner.address, .sora2, PortfolioFixtures.xor, "1")],
+                                              networks: [.sora2], swapsAvailable: false, swapDisclaimerAccepted: false, liveNetworks: [.sora2])
+        f.source.onChange?(f.source.snapshot)
+        let home = f.model.portfolioHome, card = home.otherNetworksItem
+        XCTAssertEqual(home.viewModel.state.scope, .allWallets)
+        XCTAssertTrue(card.isShown)
+        XCTAssertEqual(card.walletName, "Mine", "Under All wallets the rows say whose they are")
+        XCTAssertEqual(reloads, 1)
+        home.viewModel.selectScope(.wallet("other"))
+        XCTAssertFalse(card.isShown)
+        XCTAssertEqual(reloads, 2)
+        card.rows = [NetworkAssetRow(account: NetworkAccount(walletId: owner.address, networkId: .taira, derivationVersion: 1, publicKey: Data(repeating: 3, count: 32), address: "a"),
+                                     title: "XOR", amount: "1 XOR", tag: nil, icon: nil, isMain: false)]
+        XCTAssertEqual(card.itemHeight(forWidth: 390, context: nil), 0, "It takes no space")
+        home.viewModel.selectScope(.wallet(owner.address))
+        XCTAssertTrue(card.isShown)
+        XCTAssertNil(card.walletName)
+        XCTAssertGreaterThan(card.itemHeight(forWidth: 390, context: nil), 0)
     }
     private func waitForNetwork(_ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
         for _ in 0..<300 {
