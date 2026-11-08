@@ -131,12 +131,22 @@ public final class TairaClient {
     }
 
     public struct Checkpoint { public let height: Int64; public let hash: String }
+    /// The block the node has applied. The node's attested head comes first. For minutes after
+    /// each block it cannot attest its tip (409 ConflictingState, 153 s after block 12472 on
+    /// 2026-11-08) and its status can lag the tip (503). A transfer it already reports as applied
+    /// must not wait for that, so the head of its block list answers instead: the same HTTPS
+    /// node, and only ever compared with a height that node reported.
     public func checkpoint() async throws -> Checkpoint {
         let challenge = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
             + UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         var request = URLRequest(url: Self.origin.appendingPathComponent("v1/bridge/finality/attestation/latest"))
         request.setValue(challenge, forHTTPHeaderField: "X-Iroha-Finality-Challenge")
-        let data = try await transport(request, 8 * 1024 * 1024)
+        let data: Data
+        do {
+            data = try await transport(request, 8 * 1024 * 1024)
+        } catch Failure.rejected(let status) where status == 409 || status == 503 {
+            return try await latestBlock()
+        }
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let body = root["body"] as? [String: Any],
               body["challenge"] as? String == challenge.uppercased(),
@@ -151,6 +161,19 @@ public final class TairaClient {
         guard let block = try JSONSerialization.jsonObject(with: blockData) as? [String: Any],
               Self.integer(block["height"]) == height,
               let literal = block["hash"] as? String,
+              let hash = Self.hashLiteral(literal)
+        else { throw Failure.invalidResponse }
+        return Checkpoint(height: Int64(height), hash: hash)
+    }
+
+    private func latestBlock() async throws -> Checkpoint {
+        var components = URLComponents(url: Self.origin.appendingPathComponent("v1/explorer/blocks"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "limit", value: "1")]
+        let data = try await transport(URLRequest(url: components.url!), 65_536)
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let items = root["items"] as? [[String: Any]], items.count == 1,
+              let height = Self.integer(items[0]["height"]), height > 0, height <= UInt64(Int64.max),
+              let literal = items[0]["hash"] as? String,
               let hash = Self.hashLiteral(literal)
         else { throw Failure.invalidResponse }
         return Checkpoint(height: Int64(height), hash: hash)
