@@ -1,6 +1,3 @@
-// This fixture-driven suite runs with the Debug unit-test host.
-// Ordinary Release hosts exclude the sample or evidence helpers it exercises.
-#if DEBUG
 // This file is part of the SORA network and Polkaswap app.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -10,6 +7,14 @@ import SoraUIKit
 import UIKit
 import XCTest
 
+// Shared with the ordinary tab-bar behavior tests in WalletUXTests.
+final class PortfolioCaptureTabPresenter: MainTabBarPresenterProtocol {
+    func setup() {}
+}
+
+// This fixture-driven suite runs with the Debug unit-test host.
+// Ordinary Release hosts exclude the sample helpers it exercises.
+#if DEBUG
 /// Opt-in native screenshots of the portfolio (`SORA_CAPTURE_PORTFOLIO=1`). Production cells,
 /// sheets, screens and the real tab bar render the debug sample portfolio; a file handshake lets
 /// `xcrun simctl io screenshot` capture each settled screen (the driver writes `capture-ack.txt`).
@@ -383,10 +388,6 @@ final class PortfolioCaptureHomeController: SoramitsuViewController {
         tableView.scrollToRow(at: IndexPath(row: row, section: 0), at: .middle, animated: false)
         tableView.layoutIfNeeded()
     }
-}
-
-final class PortfolioCaptureTabPresenter: MainTabBarPresenterProtocol {
-    func setup() {}
 }
 
 /// Records hand-offs. Swap opens the production swap screen in the container `SwapViewFactory`
