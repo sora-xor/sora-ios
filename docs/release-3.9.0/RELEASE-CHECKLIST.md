@@ -129,8 +129,8 @@ existing wallet:
 - [x] `FirebaseMessaging` was linked but unused (no push code, no
       `aps-environment` entitlement, no remote-notification background mode).
       3.9.2 unlinks it, so FCM auto-init (an installation/token fetch at
-      launch) no longer runs. The firebase-ios-sdk package stays for Core,
-      Analytics and Crashlytics, so `Package.resolved` is unchanged.
+      launch) no longer runs. (The rest of firebase-ios-sdk was removed on
+      2026-11-07; see the no-closed-source item below.)
 - [ ] Unused images (for example `KatanaGirl`, 1.6 MB, and some old
       PIN/profile icons) are left for the UI redesign owner, who may reuse
       some of them.
@@ -275,9 +275,13 @@ existing wallet:
 - [ ] Polkamarkt keeps its runtime-130 contract pins (mutations are compiled
       off and the feature is hidden). Re-qualify against the live runtime
       before enabling it.
-- [ ] FirebaseAnalytics stays linked (no code calls it; automatic collection
-      runs). Removing it would change the App Privacy answers. Product and
-      privacy owner to decide.
+- [x] No closed-source SDK is linked (2026-11-07): firebase-ios-sdk is gone
+      (Core, Analytics, Crashlytics), so the App Privacy answers drop Crash Data,
+      Other Diagnostic Data, Product Interaction, Device ID and Coarse Location.
+      Crash reports come from Xcode Organizer. The prebuilt blake2lib,
+      libed25519, sr25519lib, sorawallet and MPQRCoreSDK binaries are replaced
+      by source (see `Fixtures/Modernization/ios-vendored-binary-qualification-README.md`).
+      Update App Store Connect's App Privacy section before submitting.
 
 ## i4: Key safety, lockouts and recovery (core)
 

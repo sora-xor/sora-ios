@@ -1,6 +1,0 @@
-framework module MPQRCoreSDK {
-  umbrella header "MPQRCoreSDK.h"
-
-  export *
-  module * { export * }
-}

@@ -534,7 +534,7 @@ final class HistoryFilterBoundaryTests: XCTestCase {
         return captured
     }
     private func matches(_ asset: String, _ row: TxHistoryItem) throws -> Bool {
-        try XCTUnwrap(requestedFilter(asset: asset))(row).boolValue
+        try XCTUnwrap(requestedFilter(asset: asset))(row)
     }
     func testUnfilteredHistoryDoesNotInstallAnAssetPredicate() throws { XCTAssertNil(try requestedFilter(asset: nil)) }
     func testEverySupportedTransferSpellingFiltersOnItsAssetId() throws {

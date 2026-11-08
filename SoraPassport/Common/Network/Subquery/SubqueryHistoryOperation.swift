@@ -663,7 +663,7 @@ public final class SubqueryHistoryOperation<ResultType>:
     private let count: Int
     private let page: Int
     private let client: PIIndexerClient
-    private let filter: ((TxHistoryItem) -> KotlinBoolean)?
+    private let filter: ((TxHistoryItem) -> Bool)?
     private let canonicalBlockHash: PIHistoryBlockHashResolver
     private let validatedHistoryCache: PIValidatedHistoryCache
     private let coverageLock = NSLock()
@@ -706,7 +706,7 @@ public final class SubqueryHistoryOperation<ResultType>:
         address: String,
         count: Int,
         page: Int,
-        filter: ((TxHistoryItem) -> KotlinBoolean)? = nil
+        filter: ((TxHistoryItem) -> Bool)? = nil
     ) {
         self.init(
             address: address,
@@ -723,7 +723,7 @@ public final class SubqueryHistoryOperation<ResultType>:
         address: String,
         count: Int,
         page: Int,
-        filter: ((TxHistoryItem) -> KotlinBoolean)?,
+        filter: ((TxHistoryItem) -> Bool)?,
         client: PIIndexerClient,
         canonicalBlockHash: @escaping PIHistoryBlockHashResolver,
         validatedHistoryCache: PIValidatedHistoryCache = .shared
@@ -829,7 +829,7 @@ public final class SubqueryHistoryOperation<ResultType>:
         let mapped = try values
             .map(Self.makeLegacyItem)
             .filter { item in
-                filter?(item).boolValue ?? true
+                filter?(item) ?? true
             }
         let legacy = TxHistoryResult<TxHistoryItem>(
             endCursor: endCursor,
