@@ -873,6 +873,12 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
             render()
             return
         }
+        // The balance and Send come first. Until 2026-11-08 this screen drew
+        // nothing until every pending transfer had been reconciled with Torii
+        // and a history page had loaded; one Taira send that was waiting for
+        // its history proof kept it on "Loading…" with no Send for minutes.
+        // Send still opens only on the same checks: a readable journal with
+        // no record from another chain or asset, and a verified XOR identity.
         loadTask = Task { [weak self] in
             guard let self else {
                 return
@@ -880,16 +886,18 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
             guard reloadContextIsCurrent() else {
                 return
             }
-            async let balanceResult = readCurrentNexusXorBalance(
+            async let balanceResult = Self.readBalanceWithDeadline(
                 account: account,
                 configuration: configuration,
                 readClient: readClient
             )
-            var loadedPending: [NexusPendingTransaction]?
+            var journal: [NexusPendingTransaction] = []
             var currentXorAssetDefinitionID: String?
             if let coordinator {
                 do {
-                    loadedPending = try await coordinator.resumePending()
+                    // The journal as written, read locally: enough to gate
+                    // Send. Network reconciliation follows below.
+                    journal = try await coordinator.journalSnapshot()
                         .filter {
                             $0.walletId == self.account.walletId &&
                                 $0.networkId == self.account.networkId
@@ -900,7 +908,7 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
                     }
                     pendingLoadError = nil
                 } catch {
-                    if NexusPortfolioTaskPolicy.isCancellation(error) {
+                    if Self.isOwnCancellation(error) {
                         refreshControl.endRefreshing()
                         return
                     }
@@ -923,12 +931,11 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
                 }
                 balance = .loaded(value.quantity.rawValue)
                 currentXorAssetDefinitionID = value.assetDefinitionID
-                pendingRows = NexusPortfolioPresentationPolicy.pendingRows(
-                    loadedPending ?? [],
-                    currentXorAssetDefinitionID: currentXorAssetDefinitionID
-                )
             } catch {
-                if NexusPortfolioTaskPolicy.isCancellation(error) {
+                // Only cancellation is silent. A request that failed, ran
+                // out of time or was cancelled by the system shows "Balance
+                // unavailable" and the pull-to-refresh retry, never "Loading…".
+                if Self.isOwnCancellation(error) {
                     refreshControl.endRefreshing()
                     return
                 }
@@ -936,38 +943,25 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
                     return
                 }
                 balance = .unavailable
+            }
+            if pendingLoadError == nil {
                 pendingRows = NexusPortfolioPresentationPolicy.pendingRows(
-                    loadedPending ?? [],
-                    currentXorAssetDefinitionID: nil
+                    journal,
+                    currentXorAssetDefinitionID: currentXorAssetDefinitionID
                 )
             }
+            applyMutationReadiness(
+                currentXorIdentityVerified: currentXorAssetDefinitionID != nil
+            )
+            refreshControl.endRefreshing()
+            render()
+
+            // Finalized history, then the pending records' status from
+            // Torii. Each redraws its own rows when it arrives.
             if let currentXorAssetDefinitionID {
-                do {
-                    let value = try await readClient.transferHistoryPage(
-                        account: account.address,
-                        configuration: configuration,
-                        assetDefinitionID: currentXorAssetDefinitionID,
-                        cursor: nil
-                    )
-                    guard reloadContextIsCurrent() else {
-                        return
-                    }
-                    try historyCursor.accept(value)
-                    history = value.items
-                    historyAssetDefinitionID = currentXorAssetDefinitionID
-                    historyLoadError = nil
-                } catch {
-                    if NexusPortfolioTaskPolicy.isCancellation(error) {
-                        refreshControl.endRefreshing()
-                        return
-                    }
-                    guard reloadContextIsCurrent() else {
-                        return
-                    }
-                    history = []
-                    historyLoadError =
-                        "Finalized history is temporarily unavailable. No local transaction was retried."
-                }
+                await loadFirstHistory(
+                    assetDefinitionID: currentXorAssetDefinitionID
+                )
             } else {
                 history = []
                 historyLoadError =
@@ -976,29 +970,140 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
             guard reloadContextIsCurrent() else {
                 return
             }
-            setMutationReady(
-                NexusPortfolioPresentationPolicy.mutationIsReady(
-                    mutationCoordinatorAvailable: coordinator != nil,
-                    pendingJournalLoaded: pendingLoadError == nil,
-                    containsAssetRecovery: pendingRows.contains(where: {
-                        $0.kind == .assetRecovery
-                    }),
-                    currentXorIdentityVerified:
-                        currentXorAssetDefinitionID != nil,
-                    featureEnabled: SettingsManager.shared.nexusSendsEnabled(for: configuration.networkId)
-                )
-            )
-            if mutationReady {
-                sendAvailabilityMessage = nil
-            } else if !SettingsManager.shared.nexusSendsEnabled(for: configuration.networkId) {
-                sendAvailabilityMessage = WalletUX.text("Sending is paused for this network. Check that Taira Testnet is enabled in Settings.")
-            } else if pendingLoadError != nil || pendingRows.contains(where: { $0.kind == .assetRecovery }) {
-                sendAvailabilityMessage = WalletUX.text("Sending is paused while pending transfers need checking. Review the activity below before starting another transfer.")
-            } else {
-                sendAvailabilityMessage = WalletUX.text("Sending is unavailable until this network's balance and XOR asset can be verified. Pull down to refresh.")
-            }
-            refreshControl.endRefreshing()
             render()
+            guard let coordinator, pendingLoadError == nil else {
+                return
+            }
+            do {
+                let reconciled = try await coordinator.resumePending()
+                    .filter {
+                        $0.walletId == self.account.walletId &&
+                            $0.networkId == self.account.networkId
+                    }
+                    .sorted { $0.updatedAt > $1.updatedAt }
+                guard reloadContextIsCurrent() else {
+                    return
+                }
+                pendingRows = NexusPortfolioPresentationPolicy.pendingRows(
+                    reconciled,
+                    currentXorAssetDefinitionID: currentXorAssetDefinitionID
+                )
+            } catch {
+                if Self.isOwnCancellation(error) {
+                    return
+                }
+                guard reloadContextIsCurrent() else {
+                    return
+                }
+                pendingRows = []
+                pendingLoadError =
+                    "The protected pending-transaction journal is unreadable. Sending is disabled until it is recovered."
+                applyMutationReadiness(
+                    currentXorIdentityVerified: currentXorAssetDefinitionID != nil
+                )
+            }
+            render()
+        }
+    }
+
+    /// This load's own cancellation (a newer reload, or the screen going
+    /// away). `URLError.cancelled` alone is not enough: URLSession reports it
+    /// for a refused challenge too, and that must not leave "Loading…".
+    nonisolated static func isOwnCancellation(_ error: Error) -> Bool {
+        Task.isCancelled || error is CancellationError
+    }
+
+    /// The XOR balance read with a deadline: a stalled request shows
+    /// "Balance unavailable" and a retry, never an endless "Loading…".
+    nonisolated static func readBalanceWithDeadline(
+        account: NetworkAccount,
+        configuration: NexusNetworkConfiguration,
+        readClient: NexusToriiReading,
+        seconds: UInt64 = 45
+    ) async throws -> NexusCurrentXorBalance {
+        try await withThrowingTaskGroup(of: NexusCurrentXorBalance?.self) { group in
+            group.addTask {
+                try await readCurrentNexusXorBalance(
+                    account: account,
+                    configuration: configuration,
+                    readClient: readClient
+                )
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: seconds * 1_000_000_000)
+                return nil
+            }
+            defer { group.cancelAll() }
+            guard let first = try await group.next(), let value = first else {
+                throw URLError(.timedOut)
+            }
+            return value
+        }
+    }
+
+    /// Pages of Taira history that may come back empty before the first
+    /// transfer: the server reads block ranges newest first and answers a
+    /// range without matching rows with an empty page and a cursor.
+    static let emptyHistoryPagesToFollow = 12
+
+    /// The first page of finalized history that has transfers in it.
+    private func loadFirstHistory(assetDefinitionID: String) async {
+        do {
+            var cursor = NexusHistoryCursor()
+            var items: [NexusTransferHistoryItem] = []
+            var pages = 0
+            repeat {
+                let value = try await readClient.transferHistoryPage(
+                    account: account.address,
+                    configuration: configuration,
+                    assetDefinitionID: assetDefinitionID,
+                    cursor: cursor.nextCursor
+                )
+                guard reloadContextIsCurrent() else {
+                    return
+                }
+                try cursor.accept(value)
+                items.append(contentsOf: value.items)
+                pages += 1
+            } while items.isEmpty && cursor.hasMore &&
+                pages < Self.emptyHistoryPagesToFollow
+            historyCursor = cursor
+            history = items
+            historyAssetDefinitionID = assetDefinitionID
+            historyLoadError = nil
+        } catch {
+            if Self.isOwnCancellation(error) {
+                return
+            }
+            guard reloadContextIsCurrent() else {
+                return
+            }
+            history = []
+            historyLoadError =
+                "Finalized history is temporarily unavailable. No local transaction was retried."
+        }
+    }
+
+    private func applyMutationReadiness(currentXorIdentityVerified: Bool) {
+        setMutationReady(
+            NexusPortfolioPresentationPolicy.mutationIsReady(
+                mutationCoordinatorAvailable: coordinator != nil,
+                pendingJournalLoaded: pendingLoadError == nil,
+                containsAssetRecovery: pendingRows.contains(where: {
+                    $0.kind == .assetRecovery
+                }),
+                currentXorIdentityVerified: currentXorIdentityVerified,
+                featureEnabled: SettingsManager.shared.nexusSendsEnabled(for: configuration.networkId)
+            )
+        )
+        if mutationReady {
+            sendAvailabilityMessage = nil
+        } else if !SettingsManager.shared.nexusSendsEnabled(for: configuration.networkId) {
+            sendAvailabilityMessage = WalletUX.text("Sending is paused for this network. Check that Taira Testnet is enabled in Settings.")
+        } else if pendingLoadError != nil || pendingRows.contains(where: { $0.kind == .assetRecovery }) {
+            sendAvailabilityMessage = WalletUX.text("Sending is paused while pending transfers need checking. Review the activity below before starting another transfer.")
+        } else {
+            sendAvailabilityMessage = WalletUX.text("Sending is unavailable until this network's balance and XOR asset can be verified. Pull down to refresh.")
         }
     }
 
@@ -1161,7 +1266,20 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
             notices.append(WalletUX.text("Recovery required") + ". " +
                 WalletUX.text("Sending is paused while pending transfers are unavailable. Tap to check again."))
         } else {
-            rows += pendingRows.map { NexusActivityRows.pending($0, xorImage: xorImage) }
+            // A send that finalized history already lists is shown once, as
+            // SORA2 shows it: from history. Rejected or expired sends never
+            // reach history and stay listed from the journal.
+            let finalized = Set(history.compactMap {
+                NexusTransactionHash.normalized($0.transactionHash)
+            })
+            rows += pendingRows
+                .filter { row in
+                    guard let hash = row.transaction.hash.flatMap(NexusTransactionHash.normalized) else {
+                        return true
+                    }
+                    return !finalized.contains(hash)
+                }
+                .map { NexusActivityRows.pending($0, xorImage: xorImage) }
         }
         if historyLoadError != nil {
             notices.append(WalletUX.text("History unavailable") + ". " +
@@ -1204,13 +1322,23 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
                 }
             }
             do {
-                let page = try await readClient.transferHistoryPage(
-                    account: account.address, configuration: configuration,
-                    assetDefinitionID: assetID, cursor: historyCursor.nextCursor
-                )
-                guard reloadContextIsCurrent() else { return }
-                try historyCursor.accept(page)
-                history.append(contentsOf: page.items)
+                // Follow empty block-range pages until the next transfers.
+                var cursor = historyCursor
+                var items: [NexusTransferHistoryItem] = []
+                var pages = 0
+                repeat {
+                    let page = try await readClient.transferHistoryPage(
+                        account: account.address, configuration: configuration,
+                        assetDefinitionID: assetID, cursor: cursor.nextCursor
+                    )
+                    guard reloadContextIsCurrent() else { return }
+                    try cursor.accept(page)
+                    items.append(contentsOf: page.items)
+                    pages += 1
+                } while items.isEmpty && cursor.hasMore &&
+                    pages < Self.emptyHistoryPagesToFollow
+                historyCursor = cursor
+                history.append(contentsOf: items)
             } catch {
                 guard !NexusPortfolioTaskPolicy.isCancellation(error),
                       reloadContextIsCurrent() else { return }

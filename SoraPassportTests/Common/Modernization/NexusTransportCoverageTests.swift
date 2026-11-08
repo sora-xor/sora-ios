@@ -141,6 +141,51 @@ final class NexusTransportCoverageTests: XCTestCase {
         XCTAssertEqual(page.items.first?.transactionHash, txHash)
         XCTAssertEqual(page.nextCursor, "next_cursor")
     }
+    /// 2026-11-08: Taira answers a hash lookup by walking every block range
+    /// (28 pages for one account), so a send's proof asks for its block only.
+    func testCommittedLookupAsksForTheCommittedBlockOnly() async throws {
+        answer(["items": [movement()], "next_cursor": NSNull()])
+        let transfers = try await reader.committedXorTransfers(
+            account: account, configuration: configuration, assetDefinitionID: asset,
+            transactionHash: txHash, committedBlockHeight: 42)
+        XCTAssertEqual(transfers.map(\.transactionHash), [txHash])
+        XCTAssertEqual(NexusTransportFixture.requests.filter { $0.method == "tools/call" }.count, 1)
+        let filter = try XCTUnwrap(NexusTransportFixture.requests.last?.arguments?["filter"] as? String)
+        XCTAssertTrue(filter.hasSuffix("and tx_hash = \"\(txHash)\" and block_height = 42"), filter)
+        XCTAssertThrowsError(try NexusTairaMCPToolContract.accountHistoryRequest(
+            id: "narrowed", account: account, assetDefinitionID: asset, cursor: nil, committedBlockHeight: 42))
+        XCTAssertThrowsError(try NexusTairaMCPToolContract.accountHistoryRequest(
+            id: "narrowed", account: account, assetDefinitionID: asset, cursor: nil,
+            transactionHash: txHash, committedBlockHeight: 0))
+    }
+    /// Discovery is reused only within the `ttlMs` server/discover granted.
+    func testTairaDiscoveryIsReusedOnlyWithinTheLifetimeTheServerGranted() async throws {
+        var now = Date(timeIntervalSince1970: 1_000)
+        transport = NexusToriiClient(session: session, discoveryCache: NexusTairaToolDiscoveryCache(now: { now }))
+        reader = NexusToriiReadClient(transport: transport)
+        NexusTransportFixture.discoveryResult = [
+            "supportedVersions": ["2026-07-28"], "ttlMs": 30000,
+            "capabilities": ["extensions": ["org.hyperledger.iroha/tools": ["toolsetVersion": String(repeating: "f", count: 64)]]]]
+        answer(["id": asset])
+        _ = try await reader.xorAssetDefinition(configuration: configuration)
+        _ = try await reader.xorAssetDefinition(configuration: configuration)
+        XCTAssertEqual(NexusTransportFixture.requests.map(\.method), ["server/discover", "tools/list", "tools/call", "tools/call"])
+        now = now.addingTimeInterval(31)
+        _ = try await reader.xorAssetDefinition(configuration: configuration)
+        XCTAssertEqual(Array(NexusTransportFixture.requests.map(\.method).suffix(3)), ["server/discover", "tools/list", "tools/call"])
+    }
+    func testTairaDiscoveryWithoutALifetimeIsRepeated() async throws {
+        transport = NexusToriiClient(session: session, discoveryCache: NexusTairaToolDiscoveryCache())
+        reader = NexusToriiReadClient(transport: transport)
+        answer(["id": asset])
+        _ = try await reader.xorAssetDefinition(configuration: configuration)
+        _ = try await reader.xorAssetDefinition(configuration: configuration)
+        XCTAssertEqual(NexusTransportFixture.requests.map(\.method),
+                       ["server/discover", "tools/list", "tools/call", "server/discover", "tools/list", "tools/call"])
+        XCTAssertEqual(NexusTairaMCPToolContract.discoveryLifetime(initialize: .object(["ttlMs": .number("30000")])), 30)
+        XCTAssertEqual(NexusTairaMCPToolContract.discoveryLifetime(initialize: .object(["ttlMs": .string("30000")])), 0)
+        XCTAssertEqual(NexusTairaMCPToolContract.discoveryLifetime(initialize: .object(["ttlMs": .number("-1")])), 0)
+    }
     func testHistorySendsTheRequestedCursor() async throws {
         answer(["items": [], "next_cursor": NSNull()])
         _ = try await history(cursor: "opaque_cursor")

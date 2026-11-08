@@ -248,14 +248,23 @@ private final class NexusScreenReader: NexusToriiReading {
     var account = ""
     var balanceFailure = false
     var balanceCancellation = false
+    /// URLSession's cancelled code without this load being cancelled.
+    var balanceURLCancelled = false
     var historyDelay: UInt64 = 0
     var historyFailures = 0
     var paged = false
     var repeatsSourceID = false
+    /// Taira-style empty block-range pages before the first transfers.
+    var emptyLeadingPages = 0
+    /// A slow pipeline-status lookup for pending records.
+    var statusDelay: UInt64 = 0
+    /// The first finalized transfer's hash (a journal send that history lists).
+    var firstHistoryHash: String?
     private(set) var balanceReads = 0
     private(set) var historyCursors: [String?] = []
     func xorAssetDefinition(configuration: NexusNetworkConfiguration) async throws -> NexusAssetDefinition {
         if balanceCancellation { throw CancellationError() }
+        if balanceURLCancelled { throw URLError(.cancelled) }
         if balanceFailure { throw NexusToriiError.invalidResponse }
         return NexusAssetDefinition(id: NexusAssetDefinitionIdentity.tairaXorDefinitionID)
     }
@@ -270,7 +279,11 @@ private final class NexusScreenReader: NexusToriiReading {
         historyCursors.append(cursor)
         if historyDelay > 0 { try await Task.sleep(nanoseconds: historyDelay) }
         if historyFailures > 0 { historyFailures -= 1; throw NexusToriiError.invalidResponse }
-        let first = NexusTransferHistoryItem(transactionHash: "first-transaction", timestampMilliseconds: 1_700_000_000_000,
+        let emptyIndex = cursor.flatMap { $0.hasPrefix("empty-") ? Int($0.dropFirst(6)) : nil } ?? 0
+        if emptyIndex < emptyLeadingPages {
+            return NexusCursorHistoryPage(items: [], sourceItemIDs: [], nextCursor: "empty-\(emptyIndex + 1)")
+        }
+        let first = NexusTransferHistoryItem(transactionHash: firstHistoryHash ?? "first-transaction", timestampMilliseconds: 1_700_000_000_000,
             amount: try PIQuantity("1.25"), sender: account, receiver: "recipient")
         let second = NexusTransferHistoryItem(transactionHash: "second-transaction", timestampMilliseconds: 1_700_000_100_000,
             amount: try PIQuantity("2.5"), sender: "sender", receiver: account)
@@ -278,7 +291,10 @@ private final class NexusScreenReader: NexusToriiReading {
         if cursor == nil { return NexusCursorHistoryPage(items: [first], sourceItemIDs: ["first"], nextCursor: "next-page") }
         return NexusCursorHistoryPage(items: [second], sourceItemIDs: [repeatsSourceID ? "first" : "second"], nextCursor: nil)
     }
-    func status(hash: String, configuration: NexusNetworkConfiguration) async throws -> NexusPipelineStatus { throw NexusToriiError.invalidResponse }
+    func status(hash: String, configuration: NexusNetworkConfiguration) async throws -> NexusPipelineStatus {
+        if statusDelay > 0 { try await Task.sleep(nanoseconds: statusDelay) }
+        throw NexusToriiError.invalidResponse
+    }
     func hasAuthoritativeCommittedTransaction(account: String, configuration: NexusNetworkConfiguration, assetDefinitionID: String, transactionHash: String) async throws -> Bool { false }
     func committedXorTransfers(account: String, configuration: NexusNetworkConfiguration, assetDefinitionID: String, transactionHash: String) async throws -> [NexusTransferHistoryItem] { [] }
 }
@@ -344,6 +360,35 @@ extension NexusScreenBehaviorTests {
         XCTAssertNil(details.model.transactionId)
         XCTAssertEqual(details.model.note, WalletUX.statusDetail(.failedBeforeSubmission))
     }
+    /// 2026-11-08: one Taira send waiting for Torii kept this screen on
+    /// "Loading…" with no Send, because the balance waited until every pending
+    /// record was reconciled. The balance and Send now come from the balance
+    /// read and the journal as written; the slow status lookup follows.
+    func testBalanceAndSendDoNotWaitForPendingReconciliation() async throws {
+        reader.statusDelay = 5_000_000_000
+        let (coordinator, _, _) = try await pendingFixture(states: [.submitted])
+        let controller = try open(coordinator: coordinator)
+        await waitUntil { self.balance(controller) == "12.500000001 XOR" && controller.balanceItem?.showsSend == true }
+        XCTAssertEqual(pendingRows(controller).first.map(amount), "1.25 XOR")
+        XCTAssertFalse(controller.balanceItem?.notes.contains { $0.contains("Checking the network") } ?? true)
+    }
+    /// A send the journal holds and finalized history lists is shown once,
+    /// from history, as SORA2 shows it.
+    func testSendThatHistoryListsIsShownOnce() async throws {
+        reader.firstHistoryHash = String(format: "%064x", 1)
+        let (coordinator, _, _) = try await pendingFixture(states: [.submitted, .rejected])
+        let controller = try open(coordinator: coordinator)
+        await waitUntil { self.historyRows(controller).count == 2 }
+        XCTAssertEqual(pendingRows(controller).map(amount), ["2.25 XOR"], "Only the rejected send stays from the journal")
+    }
+    /// Taira answers the newest block ranges with empty pages and a cursor;
+    /// Recent activity follows them to the first transfers.
+    func testRecentActivityFollowsEmptyHistoryPagesToTheFirstTransfers() async throws {
+        reader.emptyLeadingPages = 3
+        let controller = try open()
+        await waitUntil { self.historyRows(controller).count == 2 }
+        XCTAssertEqual(reader.historyCursors, [nil, "empty-1", "empty-2", "empty-3"])
+    }
     func testPendingRowsArePresentedNewestFirst() async throws {
         let (coordinator, _, _) = try await pendingFixture(states: [.rejected, .expired])
         let controller = try open(coordinator: coordinator)
@@ -407,6 +452,15 @@ extension NexusScreenBehaviorTests {
         await waitUntil { !self.navigation.viewControllers.contains { $0 === controller } }
         try? await Task.sleep(nanoseconds: 120_000_000)
         XCTAssertTrue(historyRows(controller).isEmpty)
+    }
+    /// A request the system cancelled (a refused challenge reports
+    /// URLError.cancelled) is a failure with a retry, not an endless "Loading…".
+    func testSystemCancelledRequestShowsUnavailableInsteadOfLoading() async throws {
+        reader.balanceURLCancelled = true
+        let controller = try open()
+        await waitUntil { self.balance(controller) == WalletUX.balanceUnavailableText }
+        XCTAssertEqual(controller.balanceItem?.showsSend, false)
+        XCTAssertFalse(controller.refreshControl.isRefreshing)
     }
     func testCancellationDoesNotMislabelTheBalanceAsUnavailable() async throws {
         reader.balanceCancellation = true
