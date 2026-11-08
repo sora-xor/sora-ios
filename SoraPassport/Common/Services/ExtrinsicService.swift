@@ -71,6 +71,8 @@ enum ExtrinsicServiceError: Error {
     /// be rejected by every node, so nothing is signed until the app is
     /// updated.
     case unsupportedSignedExtension(identifier: String)
+    /// The node changed a reviewed call index or the effective argument encoding.
+    case unsupportedCallLayout(identifier: String)
     /// The connection moved to another node while the runtime was being
     /// checked. Nothing was signed; the next attempt checks the new node.
     case connectionChanged
@@ -95,7 +97,7 @@ extension ExtrinsicServiceError: LocalizedError {
             return nil
         }
         switch error {
-        case .unsupportedSignedExtension:
+        case .unsupportedSignedExtension, .unsupportedCallLayout:
             return WalletUX.text(
                 "The SORA network was upgraded and this version of the app can't send transactions on it yet. Nothing was signed and your funds are safe. Please update the app."
             )
@@ -407,9 +409,9 @@ final class Sora2LiveRuntimeIdentityCache {
 
 /// Validates the runtime a SORA2 extrinsic is about to be encoded with
 /// against the live chain. This replaces the former pin to runtime 130: any
-/// mainnet runtime at or above the reviewed floor is accepted, provided the
-/// local metadata is exactly the one the connected node runs now. Chain
-/// identity (genesis) is checked separately against the same live engine.
+/// mainnet runtime at or above the reviewed floor is accepted when its live
+/// metadata preserves the locally reviewed call encodings and signed-extension
+/// order. Chain identity (genesis) is checked against the same live engine.
 enum Sora2LiveRuntimeValidator {
     static func validate(
         factory: RuntimeCoderFactoryProtocol,
@@ -451,6 +453,13 @@ enum Sora2LiveRuntimeValidator {
             ) == live.metadataSHA256
         else {
             throw ExtrinsicServiceError.unsupportedRuntimeMetadata
+        }
+        do {
+            try Sora2CallTable.validate(factory: factory)
+        } catch let error as Sora2CallTable.Mismatch {
+            throw ExtrinsicServiceError.unsupportedCallLayout(identifier: error.identifier)
+        } catch {
+            throw ExtrinsicServiceError.unsupportedCallLayout(identifier: "metadata")
         }
         // The metadata is the live one. The encoder still writes a fixed
         // set of signed extensions: refuse to sign when this runtime wants
@@ -704,9 +713,11 @@ enum Sora2SigningNotice {
         if let transport = error as? PreparedExtrinsicTransportError {
             error = transport.underlyingError
         }
-        if let serviceError = error as? ExtrinsicServiceError,
-           case .unsupportedSignedExtension = serviceError {
-            return .appUpdateRequired
+        if let serviceError = error as? ExtrinsicServiceError {
+            switch serviceError {
+            case .unsupportedSignedExtension, .unsupportedCallLayout: return .appUpdateRequired
+            default: break
+            }
         }
         guard let nodeError = error as? Sora2BoundedHTTPJSONRPCError else {
             return nil

@@ -3696,7 +3696,9 @@ if [ ! -f "${rollout_candidate_template}" ] ||
    ! /usr/bin/grep -Fq '"historyBlockHeightContractDeployed=true"' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'legacy-rollout-v2-replay' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'HARNESS_TIMEOUT_SECONDS = 1200' "${rollout_regression_harness}" ||
-   ! /usr/bin/grep -Fq 'timeout=bounded_timeout(180)' "${rollout_regression_harness}" ||
+   ! /usr/bin/grep -Fq 'timeout = bounded_timeout(HARNESS_TIMEOUT_SECONDS)' "${rollout_regression_harness}" ||
+   ! /usr/bin/grep -Fq 'start_new_session=True' "${rollout_regression_harness}" ||
+   ! /usr/bin/grep -Fq 'os.killpg(process.pid, signal.SIGKILL)' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'SAFE_TOOL_ENV' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'env=SAFE_TOOL_ENV' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'SORA_ROLLOUT_REGRESSION_CURRENT_EPOCH_SECONDS' "${rollout_regression_harness}" ||

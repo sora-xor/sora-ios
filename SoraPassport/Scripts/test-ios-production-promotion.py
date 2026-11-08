@@ -376,9 +376,10 @@ class ProductionPromotionTests(unittest.TestCase):
         harness = ROLLOUT_HARNESS.read_text(encoding="utf-8")
         gate = SOURCE_GATE.read_text(encoding="utf-8")
         self.assertIn("HARNESS_TIMEOUT_SECONDS = 1200", harness)
-        self.assertIn("timeout=bounded_timeout(180)", harness)
-        self.assertNotIn("timeout=bounded_timeout(90)", harness)
-        self.assertIn("timeout=bounded_timeout(180)", gate)
+        self.assertIn("timeout = bounded_timeout(HARNESS_TIMEOUT_SECONDS)", harness)
+        self.assertIn("timeout = bounded_timeout(HARNESS_TIMEOUT_SECONDS)", gate)
+        self.assertIn("start_new_session=True", gate)
+        self.assertIn("os.killpg(process.pid, signal.SIGKILL)", gate)
 
 
 class RolloutHashPairTests(unittest.TestCase):
@@ -437,6 +438,72 @@ class RolloutHashPairTests(unittest.TestCase):
 
 
 class RolloutRunnerTests(unittest.TestCase):
+    def test_gate_uses_remaining_aggregate_budget(self) -> None:
+        process = mock.MagicMock()
+        process.__enter__.return_value = process
+        process.communicate.return_value = ("qualified", "")
+        process.returncode = 0
+        with mock.patch.object(HARNESS_MODULE, "_deadline", 600), \
+                mock.patch.object(HARNESS_MODULE.time, "monotonic", return_value=100), \
+                mock.patch.object(HARNESS_MODULE.subprocess, "Popen", return_value=process) as start:
+            HARNESS_MODULE.run_gate(name="retained-chain", shell_path=Path("/gate.sh"),
+                                    environment={}, should_succeed=True,
+                                    expected_fragment="qualified")
+        process.communicate.assert_called_once_with(timeout=500)
+        self.assertTrue(start.call_args.kwargs["start_new_session"])
+
+    def test_expired_aggregate_budget_cannot_start_another_gate(self) -> None:
+        with mock.patch.object(HARNESS_MODULE, "_deadline", 100), \
+                mock.patch.object(HARNESS_MODULE.time, "monotonic", return_value=101), \
+                mock.patch.object(HARNESS_MODULE.subprocess, "Popen") as start:
+            with self.assertRaisesRegex(HARNESS_MODULE.HarnessFailure, "aggregate timeout"):
+                HARNESS_MODULE.run_gate(name="late", shell_path=Path("/gate.sh"),
+                                        environment={}, should_succeed=True,
+                                        expected_fragment="qualified")
+        start.assert_not_called()
+
+    def test_timeout_kills_owned_process_group_and_reaps_output(self) -> None:
+        process = mock.MagicMock()
+        process.__enter__.return_value = process
+        process.pid = 12345
+        process.communicate.side_effect = [subprocess.TimeoutExpired("gate", 1), ("", "")]
+        with mock.patch.object(HARNESS_MODULE, "bounded_timeout", return_value=1), \
+                mock.patch.object(HARNESS_MODULE.subprocess, "Popen", return_value=process), \
+                mock.patch.object(HARNESS_MODULE.os, "killpg") as kill_group:
+            with self.assertRaisesRegex(HARNESS_MODULE.HarnessFailure, "shared 1200-second"):
+                HARNESS_MODULE.run_gate(name="hung", shell_path=Path("/gate.sh"),
+                                        environment={}, should_succeed=True,
+                                        expected_fragment="qualified")
+        kill_group.assert_called_once_with(process.pid, HARNESS_MODULE.signal.SIGKILL)
+        self.assertEqual(process.communicate.call_args_list, [mock.call(timeout=1), mock.call()])
+
+    def test_deadline_during_process_creation_still_reaps_group(self) -> None:
+        process = mock.MagicMock()
+        process.__enter__.return_value = process
+        process.pid = 12345
+        with mock.patch.object(HARNESS_MODULE, "_deadline", 100), \
+                mock.patch.object(HARNESS_MODULE.time, "monotonic", side_effect=[99, 101]), \
+                mock.patch.object(HARNESS_MODULE.subprocess, "Popen", return_value=process), \
+                mock.patch.object(HARNESS_MODULE.os, "killpg") as kill_group:
+            with self.assertRaisesRegex(HARNESS_MODULE.HarnessFailure, "aggregate timeout"):
+                HARNESS_MODULE.run_gate(name="slow-spawn", shell_path=Path("/gate.sh"),
+                                        environment={}, should_succeed=True,
+                                        expected_fragment="qualified")
+        kill_group.assert_called_once_with(process.pid, HARNESS_MODULE.signal.SIGKILL)
+        process.communicate.assert_called_once_with()
+
+    def test_timeout_with_child_holding_output_pipe_returns_promptly(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            shell = Path(temporary) / "gate.sh"
+            shell.write_text("#!/bin/sh\n/bin/sleep 30 &\nwait\n")
+            started = time.monotonic()
+            with mock.patch.object(HARNESS_MODULE, "bounded_timeout", return_value=0.2):
+                with self.assertRaisesRegex(HARNESS_MODULE.HarnessFailure, "harness deadline"):
+                    HARNESS_MODULE.run_gate(name="hung-child", shell_path=shell,
+                                            environment=HARNESS_MODULE.SAFE_TOOL_ENV,
+                                            should_succeed=True, expected_fragment="qualified")
+            self.assertLess(time.monotonic() - started, 10)
+
     def release_tree(self, root: Path) -> tuple[Path, Path]:
         shell = root / "release-tree/SoraPassport/Scripts/check.sh"
         shell.parent.mkdir(parents=True)
