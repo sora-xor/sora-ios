@@ -64,10 +64,11 @@ final class PortfolioSnapshotBuilderTests: XCTestCase {
     }
 
     func testDebugInputsStayOutOfReleaseBuilds() {
-        #if F_RELEASE
-        XCTAssertFalse(PortfolioFeature.allowsDebugInjection, "Release builds never take the sample or an injected tilt")
-        #else
+        // F_RELEASE is set on the app target only, so this bundle goes by its own DEBUG flag.
+        #if DEBUG
         XCTAssertTrue(PortfolioFeature.allowsDebugInjection)
+        #else
+        XCTAssertFalse(PortfolioFeature.allowsDebugInjection, "Release builds never take the sample or an injected tilt")
         #endif
     }
 }
