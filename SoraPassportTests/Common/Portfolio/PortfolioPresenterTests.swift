@@ -173,6 +173,35 @@ final class PortfolioPresenterTests: XCTestCase {
         XCTAssertEqual(PortfolioPresenter.totalText(snapshot, scope: .wallet("A")), "—")
     }
 
+    func testTestnetHoldingsAloneShowADashAndTheNoteNotAZero() {
+        let snapshot = oneWallet([PortfolioFixtures.holding("A", .taira, PortfolioFixtures.xor, "100")])
+        let hero = render(snapshot, scope: .wallet("A")).hero
+        XCTAssertEqual(hero.totalWhole + hero.totalFraction, "—")
+        XCTAssertEqual(hero.caption, PortfolioStrings.testnetNoValue)
+        XCTAssertTrue(hero.isDimmed)
+        XCTAssertFalse(hero.isEmpty)
+        XCTAssertNil(hero.changeAmount)
+        XCTAssertFalse(hero.sky.showsFan)
+        XCTAssertEqual(PortfolioPresenter.totalText(snapshot, scope: .wallet("A")), "—")
+    }
+
+    func testATestnetHoldingBesideACountedOneStaysANote() {
+        let snapshot = oneWallet([PortfolioFixtures.holding("A", .sora2, PortfolioFixtures.xor, "100000"),
+                                  PortfolioFixtures.holding("A", .taira, PortfolioFixtures.xor, "100")])
+        let hero = render(snapshot, scope: .wallet("A")).hero
+        XCTAssertEqual(hero.totalWhole + hero.totalFraction, "$400.00")
+        XCTAssertEqual(hero.caption, "1 testnet not included")
+        XCTAssertEqual(PortfolioPresenter.totalText(snapshot, scope: .wallet("A")), "$400.00")
+    }
+
+    func testWithoutAnyTokensChangeTheHeroStatesNoChange() {
+        let snapshot = oneWallet([PortfolioFixtures.holding("A", .sora2, PortfolioFixtures.pswap, "100000")])
+        let hero = render(snapshot, scope: .wallet("A")).hero
+        XCTAssertEqual(hero.totalWhole + hero.totalFraction, "$50.00")
+        XCTAssertNil(hero.changeAmount, "No \"+$0.00\" for a change nobody has seen")
+        XCTAssertNil(hero.changePercent)
+    }
+
     func testWithoutPricesXorAndTheDefaultTokensComeFirst() {
         func token(_ id: WalletAssetId?, _ symbol: String) -> PortfolioToken {
             PortfolioFixtures.token(id?.rawValue ?? "0x" + symbol, symbol, nil, nil)

@@ -136,6 +136,16 @@ final class PortfolioAggregatorTests: XCTestCase {
         XCTAssertFalse(summary.hasExclusions)
     }
 
+    func testNoTokensChangeMeansNoChangePercentRatherThanZero() {
+        let unchanged = PortfolioSnapshot(wallets: [PortfolioFixtures.wallet("A", "Alpha", order: 0, selected: true)],
+                                          holdings: [PortfolioFixtures.holding("A", .sora2, PortfolioFixtures.pswap, "100")],
+                                          networks: [.sora2], swapsAvailable: true,
+                                          swapDisclaimerAccepted: false, liveNetworks: [.sora2])
+        let summary = PortfolioAggregator.summary(unchanged, scope: .allWallets)
+        XCTAssertGreaterThan(summary.total, 0)
+        XCTAssertNil(summary.changePercent)
+    }
+
     func testFreshnessIsTheWorstWallets() {
         let saved = PortfolioFixtures.snapshot(freshnessB: .saved(Date(timeIntervalSince1970: 500)))
         XCTAssertEqual(PortfolioAggregator.summary(saved, scope: .allWallets).freshness.state, .saved)

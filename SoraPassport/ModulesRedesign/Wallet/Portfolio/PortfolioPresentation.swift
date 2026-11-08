@@ -203,6 +203,8 @@ enum PortfolioPresenter {
         let isEmpty = scoped.isEmpty && !isLoading && !isUnread
         // Holdings without any price: the total is unknown, never "$0".
         let isPriceless = summary.total == 0 && summary.unpricedCount > 0
+        // Nothing but testnet holdings: they have no value, which is not "$0" either.
+        let isTestnetOnly = summary.total == 0 && summary.unpricedCount == 0 && summary.testnetCount > 0
         let segments = isEmpty ? [] : fan(snapshot, scope: state.scope, lens: lens, store: store)
         let groups = PortfolioAggregator.groups(snapshot, scope: state.scope, lens: lens)
         let highlighted = segments.contains(where: { $0.key == state.highlighted }) ? state.highlighted : nil
@@ -217,7 +219,8 @@ enum PortfolioPresenter {
                                        accessibilityLabel: "\(title), \(percent), \(PortfolioFormat.fiat(segment.value))")
         }
 
-        let parts = isPriceless || isUnread ? (whole: "—", fraction: "") : PortfolioFormat.fiatParts(summary.total)
+        let hasNoTotal = isPriceless || isUnread || isTestnetOnly
+        let parts = hasNoTotal ? (whole: "—", fraction: "") : PortfolioFormat.fiatParts(summary.total)
         let direction: PortfolioChangeDirection
         if PortfolioFormat.isFlat(summary.changePercent) {
             direction = .flat
@@ -248,6 +251,8 @@ enum PortfolioPresenter {
             caption = WalletUX.balanceUnavailableText
         } else if isPriceless {
             caption = WalletUX.priceUnavailableText
+        } else if isTestnetOnly {
+            caption = PortfolioStrings.testnetNoValue
         } else {
             let notes = [snapshot.pricesAsOf.map { WalletUX.pricesAsOfText($0) },
                          PortfolioStrings.notIncluded(hidden: summary.hiddenCount, unpriced: summary.unpricedCount,
@@ -278,7 +283,7 @@ enum PortfolioPresenter {
                                   canChangeScope: !snapshot.wallets.isEmpty,
                                   totalWhole: parts.whole,
                                   totalFraction: parts.fraction,
-                                  isDimmed: summary.freshness.state == .offline || isPriceless || isUnread,
+                                  isDimmed: summary.freshness.state == .offline || hasNoTotal,
                                   changeAmount: changeAmount,
                                   changePercent: changePercent,
                                   direction: direction,
@@ -303,7 +308,8 @@ enum PortfolioPresenter {
     static func totalText(_ snapshot: PortfolioSnapshot, scope: PortfolioScope) -> String {
         let summary = PortfolioAggregator.summary(snapshot, scope: scope)
         let scoped = PortfolioAggregator.scopedHoldings(snapshot, scope: scope)
-        if summary.total == 0, summary.unpricedCount > 0 || (scoped.isEmpty && hasUnreadWallet(snapshot, scope: scope)) {
+        if summary.total == 0, summary.unpricedCount > 0 || summary.testnetCount > 0 ||
+            (scoped.isEmpty && hasUnreadWallet(snapshot, scope: scope)) {
             return "—"
         }
         return PortfolioFormat.fiat(summary.total)

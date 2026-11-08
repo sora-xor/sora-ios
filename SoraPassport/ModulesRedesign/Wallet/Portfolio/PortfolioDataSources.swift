@@ -59,6 +59,17 @@ struct PortfolioPriceSource: Equatable {
 enum PortfolioSnapshotBuilder {
     static let xorId = "0x0200000000000000000000000000000000000000000000000000000000000000"
 
+    /// Prices are read about once a minute while the wallet is open. This long without an answer they
+    /// are old, whatever the last answer said: the age the price catalog itself calls stale.
+    static let pricesOldAfter: TimeInterval = 600
+
+    /// The time of the "Prices as of" note, while the prices are old.
+    static func pricesAsOf(_ prices: PortfolioPriceSource, now: Date) -> Date? {
+        if let asOf = prices.asOf { return asOf }
+        guard let readAt = prices.readAt, now.timeIntervalSince(readAt) > pricesOldAfter else { return nil }
+        return readAt
+    }
+
     /// Everything a wallet holds is listed. Only a token the app shows by default can be hidden, when
     /// the user turned it off in the asset list: `AssetManager` saves every other token as not visible
     /// until it is turned on, so for those "not visible" says nothing about the user's choice.
@@ -75,9 +86,12 @@ enum PortfolioSnapshotBuilder {
                       networks: [PortfolioNetwork], liveNetworks: Set<PortfolioNetwork>,
                       swapsAvailable: Bool, disclaimerAccepted: Bool, now: Date) -> PortfolioSnapshot {
         let byId = Dictionary(assets.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let oldPricesDate = pricesAsOf(prices, now: now)
         func token(_ asset: PortfolioAssetSource) -> PortfolioToken {
+            // An old price says nothing about the last 24 hours.
             PortfolioToken(id: asset.id, symbol: asset.symbol, name: asset.name, icon: asset.icon,
-                           priceUSD: prices.usd[asset.id], change24h: prices.change[asset.id], isSwappable: true)
+                           priceUSD: prices.usd[asset.id],
+                           change24h: oldPricesDate == nil ? prices.change[asset.id] : nil, isSwappable: true)
         }
         var holdings: [PortfolioHolding] = []
         var portfolioWallets: [PortfolioWallet] = []
@@ -107,7 +121,7 @@ enum PortfolioSnapshotBuilder {
         }
         return PortfolioSnapshot(wallets: portfolioWallets, holdings: holdings, networks: networks,
                                  swapsAvailable: swapsAvailable, swapDisclaimerAccepted: disclaimerAccepted,
-                                 liveNetworks: liveNetworks, pricesAsOf: prices.asOf)
+                                 liveNetworks: liveNetworks, pricesAsOf: oldPricesDate)
     }
 }
 

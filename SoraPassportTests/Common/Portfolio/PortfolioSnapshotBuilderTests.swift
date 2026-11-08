@@ -66,6 +66,32 @@ final class PortfolioSnapshotBuilderTests: XCTestCase {
         XCTAssertEqual(PortfolioAggregator.summary(snapshot, scope: .allWallets).total, 210)
     }
 
+    func testOldPricesKeepTheirValueButLoseTheir24HourChange() {
+        let now = Date(timeIntervalSince1970: 10_000)
+        func build(_ prices: PortfolioPriceSource) -> PortfolioSnapshot {
+            let reads = ["A": PortfolioWalletReadState(sora2: [xor: PortfolioRawBalance(free: 1, reserved: 0, frozen: 0)], lastRead: now)]
+            return PortfolioSnapshotBuilder.build(wallets: [wallet("A", selected: true)], assets: assets, reads: reads,
+                                                  prices: prices, networks: [.sora2], liveNetworks: [.sora2],
+                                                  swapsAvailable: true, disclaimerAccepted: false, now: now)
+        }
+
+        let recent = build(PortfolioPriceSource(usd: [xor: 2], change: [xor: 1], readAt: now.addingTimeInterval(-60)))
+        XCTAssertEqual(recent.holdings.first?.token.change24h, 1)
+        XCTAssertNil(recent.pricesAsOf)
+
+        // Saved by an earlier launch, or not read since: nothing has said so yet, but they are old.
+        let lastRead = now.addingTimeInterval(-PortfolioSnapshotBuilder.pricesOldAfter - 1)
+        let saved = build(PortfolioPriceSource(usd: [xor: 2], change: [xor: 1], readAt: lastRead))
+        XCTAssertEqual(saved.holdings.first?.token.priceUSD, 2)
+        XCTAssertNil(saved.holdings.first?.token.change24h)
+        XCTAssertEqual(saved.pricesAsOf, lastRead)
+
+        let marked = now.addingTimeInterval(-120)
+        let catalog = build(PortfolioPriceSource(usd: [xor: 2], change: [xor: 1], asOf: marked, readAt: marked))
+        XCTAssertNil(catalog.holdings.first?.token.change24h, "The price catalog already says they are old")
+        XCTAssertEqual(catalog.pricesAsOf, marked)
+    }
+
     func testDebugInputsStayOutOfReleaseBuilds() {
         // F_RELEASE is set on the app target only, so this bundle goes by its own DEBUG flag.
         #if DEBUG

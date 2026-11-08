@@ -130,7 +130,9 @@ enum PortfolioAggregator {
         let total = wallets.reduce(Decimal(0)) { $0 + walletTotal($1.id, in: snapshot) }
         let change = wallets.reduce(Decimal(0)) { $0 + walletChange($1.id, in: snapshot) }
         let previous = total - change
-        let percent: Decimal? = previous > 0 ? change / previous * 100 : nil
+        // No token's 24 h change to go by (none read, or the prices are old): no change to state, not a zero.
+        let hasChange = scopedHoldings(snapshot, scope: scope).contains { isCounted($0) && $0.token.change24h != nil }
+        let percent: Decimal? = hasChange && previous > 0 ? change / previous * 100 : nil
 
         var hidden = 0, unpriced = 0, testnet = 0
         for holding in scopedHoldings(snapshot, scope: scope) {
