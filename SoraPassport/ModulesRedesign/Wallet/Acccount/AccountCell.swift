@@ -235,7 +235,7 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
         capabilityReason.text = item.capability.reason
         capabilityBadge.text = item.capability.badge
         capabilityBadge.isHidden = item.capability.badge == nil
-        capabilityReason.isHidden = item.capability == .signing
+        capabilityReason.isHidden = item.capability.reason == nil
         restoreKeysButton.isHidden = !item.capability.canRestore
         updateRestoreWidth(contentView.bounds.width)
     }

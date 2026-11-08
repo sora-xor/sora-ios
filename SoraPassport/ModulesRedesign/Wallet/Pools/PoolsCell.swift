@@ -31,9 +31,7 @@ final class PoolsCell: SoramitsuTableViewCell {
             item.service?.$moneyText
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
-                    self?.moneyLabel.sora.loadingPlaceholder.type = !value.isEmpty ? .none : .shimmer
-                    self?.moneyLabel.sora.text = value
-                    self?.applyTotalStyle()
+                    self?.applyTotal(value)
                 }
                 .store(in: &cancellables)
             item.service?.$poolViewModels
@@ -60,11 +58,13 @@ final class PoolsCell: SoramitsuTableViewCell {
         let label = SoramitsuLabel()
         label.sora.font = FontType.headline2
         label.sora.textColor = .fgPrimary
-        label.sora.loadingPlaceholder.type = .shimmer
-        label.sora.cornerRadius = .small
+        label.sora.loadingPlaceholder.type = .none
         label.sora.alignment = .right
         return label
     }()
+
+    /// Where the total goes, while it is not known yet.
+    private let totalSpinner = WalletHomeLoading.makeSpinner()
 
     private let containerView: SoramitsuView = {
         var view = SoramitsuView()
@@ -114,7 +114,9 @@ final class PoolsCell: SoramitsuTableViewCell {
         contentView.addSubview(containerView)
         containerView.addSubview(fullStackView)
         
-        mainInfoView.addSubviews(arrowButton, moneyLabel)
+        mainInfoView.addSubviews(arrowButton, moneyLabel, totalSpinner)
+        totalSpinner.accessibilityIdentifier = "wallet.pools.total-loading"
+        totalSpinner.startAnimating()
         fullStackView.addArrangedSubviews(mainInfoView)
         fullStackView.setCustomSpacing(16, after: mainInfoView)
         
@@ -146,6 +148,8 @@ final class PoolsCell: SoramitsuTableViewCell {
             moneyLabel.centerYAnchor.constraint(equalTo: arrowButton.centerYAnchor),
             moneyLabel.heightAnchor.constraint(equalToConstant: 21),
             moneyLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
+            totalSpinner.trailingAnchor.constraint(equalTo: moneyLabel.trailingAnchor),
+            totalSpinner.centerYAnchor.constraint(equalTo: moneyLabel.centerYAnchor),
 
             containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             containerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
@@ -199,44 +203,49 @@ final class PoolsCell: SoramitsuTableViewCell {
         setNeedsLayout()
     }
     
+    /// Rows exist only for pools that were read, so nothing here is drawn
+    /// as a placeholder; a value that arrives later fades in.
     func update(poolView: MainScreenPoolView?, poolModel: PoolViewModel) {
         poolView?.sora.isHidden = !(self.poolsItem?.isExpand ?? false)
         if let icon = poolModel.baseAssetImage {
             poolView?.firstCurrencyImageView.sora.picture = .logo(image: icon)
         }
-        poolView?.firstCurrencyImageView.sora.loadingPlaceholder.type = poolModel.baseAssetImage != nil ? .none : .shimmer
+        poolView?.firstCurrencyImageView.sora.loadingPlaceholder.type = .none
 
         if let icon = poolModel.targetAssetImage {
             poolView?.secondCurrencyImageView.sora.picture = .logo(image: icon)
         }
-        poolView?.secondCurrencyImageView.sora.loadingPlaceholder.type = poolModel.targetAssetImage != nil ? .none : .shimmer
+        poolView?.secondCurrencyImageView.sora.loadingPlaceholder.type = .none
 
         if let icon = poolModel.rewardAssetImage {
             poolView?.rewardImageView.sora.picture = .logo(image: icon)
         }
-        poolView?.rewardImageView.sora.loadingPlaceholder.type = poolModel.rewardAssetImage != nil ? .none : .shimmer
-        
+        poolView?.rewardImageView.sora.loadingPlaceholder.type = .none
+
         if !poolModel.title.isEmpty {
             poolView?.titleLabel.sora.text = poolModel.title
         }
-        poolView?.titleLabel.sora.loadingPlaceholder.type = !poolModel.title.isEmpty ? .none : .shimmer
+        poolView?.titleLabel.sora.loadingPlaceholder.type = .none
 
         if !poolModel.subtitle.isEmpty {
             poolView?.subtitleLabel.sora.text = poolModel.subtitle
         }
-        poolView?.subtitleLabel.sora.loadingPlaceholder.type = !poolModel.subtitle.isEmpty ? .none : .shimmer
+        poolView?.subtitleLabel.sora.loadingPlaceholder.type = .none
 
-        // Once the price read has finished, a pool without a price shows
-        // no value instead of a loading placeholder that never ends.
+        // While the price read runs a pool keeps what it shows (nothing at
+        // first); once it has finished, a pool without a price shows no value.
         let waiting = !poolModel.priceLoadFinished
         if !poolModel.fiatText.isEmpty || !waiting {
+            if let label = poolView?.amountUpLabel, (label.text ?? "") != poolModel.fiatText {
+                WalletHomeLoading.fade(label)
+            }
             poolView?.amountUpLabel.sora.text = poolModel.fiatText
         }
-        poolView?.amountUpLabel.sora.loadingPlaceholder.type = poolModel.fiatText.isEmpty && waiting ? .shimmer : .none
-        
+        poolView?.amountUpLabel.sora.loadingPlaceholder.type = .none
+
         let rewardPictures: [Picture] = poolModel.farmedRewardAssetsImages.map { .logo(image: $0) }
         poolView?.setupFarmedAssetImages(pictures: rewardPictures)
-        poolView?.farmedRewardAssetStackView.sora.loadingPlaceholder.type = poolModel.targetAssetImage != nil ? .none : .shimmer
+        poolView?.farmedRewardAssetStackView.sora.loadingPlaceholder.type = .none
 
         poolView?.isUserInteractionEnabled = !poolModel.title.isEmpty
         
@@ -249,11 +258,13 @@ final class PoolsCell: SoramitsuTableViewCell {
 }
 
 private extension PoolsCell {
-    /// "Price unavailable" is a quiet notice, not an amount.
-    func applyTotalStyle() {
+    /// The total, or the spinner while it is not known. "Price unavailable"
+    /// is a quiet notice, not an amount.
+    func applyTotal(_ value: String, animated: Bool = true) {
         let unavailable = poolsItem?.service?.priceIsUnavailable ?? false
         moneyLabel.sora.font = unavailable ? FontType.textS : FontType.headline2
         moneyLabel.sora.textColor = unavailable ? .fgSecondary : .fgPrimary
+        WalletHomeLoading.applyTotal(value, to: moneyLabel, spinner: totalSpinner, animated: animated)
     }
 }
 
@@ -263,10 +274,10 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
             assertionFailure("Incorect type of item")
             return
         }
+        let isNewItem = poolsItem !== item
         poolsItem = item
-       
-        moneyLabel.sora.text = item.service?.moneyText
-        applyTotalStyle()
+
+        applyTotal(item.service?.moneyText ?? "", animated: !isNewItem)
         moneyLabel.sora.alignment = localizationManager.isRightToLeft ? .left : .right
 
         arrowButton.configure(title: item.title, isExpand: item.isExpand)

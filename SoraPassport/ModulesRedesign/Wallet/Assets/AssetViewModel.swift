@@ -34,6 +34,9 @@ struct AssetViewModel {
     /// fiat value or 24-hour change shows nothing there instead of a
     /// loading placeholder that never ends.
     var priceLoadFinished = false
+    /// The asset is known but its balance has not been read yet: the row
+    /// shows the token and its symbol, and the amount when it arrives.
+    var balanceIsLoading = false
 
     init(identifier: String,
          title: String,

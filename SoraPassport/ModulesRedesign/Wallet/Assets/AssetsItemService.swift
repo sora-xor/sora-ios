@@ -42,16 +42,16 @@ final class AssetsItemService {
     var assetManager: AssetManagerProtocol
     var updateHandler: (() -> Void)?
     
-    @Published var assetViewModels: [AssetViewModel] = [ AssetViewModel(identifier: "1", title: "", subtitle: "", fiatText: ""),
-                                                         AssetViewModel(identifier: "2", title: "", subtitle: "", fiatText: ""),
-                                                         AssetViewModel(identifier: "3", title: "", subtitle: "", fiatText: ""),
-                                                         AssetViewModel(identifier: "4", title: "", subtitle: "", fiatText: ""),
-                                                         AssetViewModel(identifier: "5", title: "", subtitle: "", fiatText: "") ]
-    
+    /// From the start, one row for each visible asset of the local asset
+    /// list: its name and icon need no read. Balances fill in as they
+    /// arrive (the saved ones first), never placeholder rows.
+    @Published var assetViewModels: [AssetViewModel] = []
+
     /// Empty while loading, the total once prices are known, or the "price
-    /// unavailable" notice. Never "$0" for want of prices.
+    /// unavailable" notice. Never "$0" for want of prices or of balances.
     @Published var moneyText: String = ""
-    /// Set before `moneyText`, so the cell can style the notice.
+    /// Set before `moneyText`, so the cell styles unavailable-price or
+    /// unavailable-balance notices quietly instead of as numeric totals.
     private(set) var priceIsUnavailable = false
     /// "Prices as of 09:02" while the total is valued with the last prices
     /// PI could give; empty when the prices are current or unknown.
@@ -61,6 +61,7 @@ final class AssetsItemService {
     private var priceRetry: Task<Void, Never>?
     private var priceFailures = 0
     private var pricesObserver: NSObjectProtocol?
+    private var valuationID = UUID()
 
     /// A retry is waiting to run. For tests.
     var hasScheduledPriceRetry: Bool {
@@ -99,55 +100,85 @@ final class AssetsItemService {
         ) { [weak self] _ in
             self?.setup()
         }
+        // No read and no price is waited for here.
+        let assetIds = visibleAssetIds()
+        assetViewModels = rows(for: assetIds, balances: assetProvider.getBalances(with: assetIds)) { item in
+            row(for: item, priceInfo: nil)
+        }
     }
-    
+
+    private func visibleAssetIds() -> [String] {
+        (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId }
+    }
+
+    /// One balance's row, valued with `priceInfo` once a price read has
+    /// finished: a row without a price then shows no value instead of a
+    /// placeholder that never ends.
+    private func row(for item: BalanceData, priceInfo: PriceInfo?) -> AssetViewModel? {
+        let deltaPrice = priceInfo?.marketCapInfo.first(where: { $0.assetId == item.identifier })?.hourDelta
+        var viewModel = assetViewModelsFactory.createAssetViewModel(with: item,
+                                                                    fiatData: priceInfo?.fiatData ?? [],
+                                                                    mode: .view,
+                                                                    priceDelta: deltaPrice)
+        viewModel?.priceLoadFinished = priceInfo != nil
+        return viewModel
+    }
+
+    /// A visible asset still waits for its first balance: the total is not
+    /// known yet, so it is neither shown without that asset nor as "$0".
+    private func balancesStillLoading(among assetIds: [String], balances: [BalanceData]) -> Bool {
+        guard assetProvider.isAwaitingFirstRead else { return false }
+        let unavailable = assetProvider.unavailableBalanceAssetIds(among: assetIds)
+        return assetIds.contains { assetId in
+            !unavailable.contains(assetId) && !balances.contains { $0.identifier == assetId }
+        }
+    }
+
     func setup() {
-        let assetIds = (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId }
-        if priceInfo == nil || assetIds.count != assetViewModels.count {
-            let items = assetProvider.getBalances(with: assetIds)
-
-            assetViewModels = rows(for: assetIds, balances: items) { item in
-                return self.assetViewModelsFactory.createAssetViewModel(with: item, fiatData: [], mode: .view)
-            }
-            updateHandler?()
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.setup() }
+            return
         }
-
-        Task {
-            let poolItemInfo = await priceInfoService.getPriceInfo(for: assetIds)
-            self.priceInfo = poolItemInfo
-            
-            let assetIds = (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId } 
-            let items = assetProvider.getBalances(with: assetIds)
-            
-            let pricesAvailable = Self.pricesKnown(for: items, fiatData: poolItemInfo.fiatData)
-            priceIsUnavailable = !pricesAvailable
-            let pricesAsOf = pricesAvailable ? poolItemInfo.pricesAsOf : nil
-            // A total that leaves a balance out says so. That matters more
-            // than the age of the prices.
-            let balancesMissing = !assetProvider.unavailableBalanceAssetIds(among: assetIds).isEmpty
-            priceNoteText = balancesMissing
-                ? WalletUX.text("This total does not include balances that could not be read")
-                : (pricesAsOf.map { WalletUX.pricesAsOfText($0) } ?? "")
-            moneyText = Self.fiatTotalText(balances: items, fiatData: poolItemInfo.fiatData)
-            // Keep asking while the prices could not be read, and while
-            // the ones read are old. A wallet whose tokens PI has no price
-            // for gains nothing from asking again.
-            schedulePriceRetry(needed: poolItemInfo.fiatData.isEmpty || poolItemInfo.pricesAsOf != nil)
-            
-            assetViewModels = rows(for: assetIds, balances: items) { item in
-                let deltaPrice = poolItemInfo.marketCapInfo.first(where: { $0.assetId == item.identifier })?.hourDelta
-                var viewModel = self.assetViewModelsFactory.createAssetViewModel(with: item,
-                                                                                 fiatData: poolItemInfo.fiatData,
-                                                                                 mode: .view,
-                                                                                 priceDelta: deltaPrice)
-                // The price read is over: a row without a price shows no
-                // value instead of a placeholder that never ends.
-                viewModel?.priceLoadFinished = true
-                return viewModel
-            }
-            updateHandler?()
+        let id = UUID()
+        valuationID = id
+        let assetIds = visibleAssetIds()
+        // A balance refresh never waits for a price refresh. Value it with
+        // the prices already held, then update those independently.
+        publish(assetIds: assetIds, prices: priceInfo)
+        guard valuationID == id else { return }
+        let priceInfoService = self.priceInfoService
+        Task { @MainActor [weak self] in
+            let prices = await priceInfoService.getPriceInfo(for: assetIds)
+            guard let self, self.valuationID == id else { return }
+            self.priceInfo = prices
+            self.publish(assetIds: self.visibleAssetIds(), prices: prices)
+            guard self.valuationID == id else { return }
+            self.schedulePriceRetry(needed: prices.fiatData.isEmpty || prices.pricesAsOf != nil)
         }
     }
+
+    private func publish(assetIds: [String], prices: PriceInfo?) {
+        let items = assetProvider.getBalances(with: assetIds)
+        let loading = balancesStillLoading(among: assetIds, balances: items)
+        let balancesMissing = !assetProvider.unavailableBalanceAssetIds(among: assetIds).isEmpty
+        let allBalancesUnavailable = !loading && items.isEmpty && balancesMissing
+        let pricesAvailable = prices.map { Self.pricesKnown(for: items, fiatData: $0.fiatData) } ?? false
+        priceIsUnavailable = allBalancesUnavailable || (prices != nil && !pricesAvailable && !loading)
+        let pricesAsOf = pricesAvailable ? prices?.pricesAsOf : nil
+        priceNoteText = allBalancesUnavailable || loading || prices == nil ? "" : balancesMissing
+            ? WalletUX.text("This total does not include balances that could not be read")
+            : (pricesAsOf.map { WalletUX.pricesAsOfText($0) } ?? "")
+        if allBalancesUnavailable {
+            moneyText = WalletUX.balanceUnavailableText
+        } else {
+            moneyText = loading ? "" : prices.map { Self.fiatTotalText(balances: items, fiatData: $0.fiatData) } ?? ""
+        }
+        assetViewModels = rows(for: assetIds, balances: items) { item in
+            self.row(for: item, priceInfo: prices)
+        }
+        updateHandler?()
+    }
+
 }
 
 extension AssetsItemService {
@@ -182,21 +213,26 @@ extension AssetsItemService {
 private extension AssetsItemService {
     /// The rows in list order. An asset whose balance could not be read
     /// keeps its row, which says "Balance unavailable"; it is neither left
-    /// out nor shown as zero.
+    /// out nor shown as zero. Until the first read has ended, an asset
+    /// without a balance yet keeps its row too, without an amount.
     func rows(
         for assetIds: [String],
         balances: [BalanceData],
         build: (BalanceData) -> AssetViewModel?
     ) -> [AssetViewModel] {
         let unavailable = assetProvider.unavailableBalanceAssetIds(among: assetIds)
-        guard !unavailable.isEmpty else {
+        let loading = assetProvider.isAwaitingFirstRead
+        guard !unavailable.isEmpty || loading else {
             return balances.compactMap(build)
         }
         return assetIds.compactMap { assetId in
             if unavailable.contains(assetId) {
                 return assetViewModelsFactory.createBalanceUnavailableViewModel(assetId: assetId, mode: .view)
             }
-            return balances.first(where: { $0.identifier == assetId }).flatMap(build)
+            if let balance = balances.first(where: { $0.identifier == assetId }) {
+                return build(balance)
+            }
+            return loading ? assetViewModelsFactory.createBalanceLoadingViewModel(assetId: assetId, mode: .view) : nil
         }
     }
 
