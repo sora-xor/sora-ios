@@ -1,3 +1,6 @@
+// This fixture-driven suite runs with the Debug unit-test host.
+// Ordinary Release hosts exclude the sample or evidence helpers it exercises.
+#if DEBUG
 // This file is part of the SORA network and Polkaswap app.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -844,34 +847,6 @@ final class PortfolioScreenBehaviorTests: XCTestCase {
         }
     }
 
-    func testPickerInfoAndSwitchSheetsDispatchExactlyOnceAfterRebuild() throws {
-        let picker = PortfolioPickerSheet(title: "Pick")
-        picker.note = "Choose a wallet"
-        picker.options = [.init(id: "one", icon: .allWallets, title: "One", subtitle: "Local", value: "$1", detail: nil)]
-        var picked: [String] = []
-        picker.onPick = { picked.append($0) }
-        mount(picker)
-        picker.rebuild()
-        try XCTUnwrap(descendants(PortfolioOptionRow.self, in: picker.view).first).sendActions(for: .touchUpInside)
-        XCTAssertEqual(picked, ["one"])
-        XCTAssertTrue(labels(in: picker.view).contains("Choose a wallet"))
-        let info = PortfolioInfoSheet(title: "Info")
-        info.paragraphs = ["First", "Second"]
-        info.bullets = ["Third"]
-        info.buttonTitle = "Continue"
-        var calls = 0
-        info.onButton = { calls += 1 }
-        mount(info)
-        try XCTUnwrap(descendants(PortfolioPrimaryButton.self, in: info.view).first).sendActions(for: .touchUpInside)
-        XCTAssertEqual(calls, 1)
-        XCTAssertTrue(labels(in: info.view).contains("•  Third"))
-        let confirmation = PortfolioSwitchSheet(title: "Switch")
-        confirmation.walletName = "Savings"
-        confirmation.onConfirm = { calls += 1 }
-        mount(confirmation)
-        let button = try XCTUnwrap(descendants(PortfolioPrimaryButton.self, in: confirmation.view).first)
-        XCTAssertEqual(button.accessibilityLabel, PortfolioStrings.switchAndReview("Savings"))
-        button.sendActions(for: .touchUpInside)
-        XCTAssertEqual(calls, 2)
-    }
 }
+
+#endif

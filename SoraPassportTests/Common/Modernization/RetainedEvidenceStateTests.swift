@@ -1,3 +1,6 @@
+// This fixture-driven suite runs with the Debug unit-test host.
+// Ordinary Release hosts exclude the sample or evidence helpers it exercises.
+#if DEBUG
 import CryptoKit
 import Foundation
 import XCTest
@@ -215,3 +218,5 @@ final class RetainedEvidenceStateTests: XCTestCase {
     }
 
 }
+
+#endif

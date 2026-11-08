@@ -401,7 +401,7 @@ extension WalletScreenBehaviorTests {
         controller.view = view
         mount(controller)
         var calls: [String] = []
-        let address = PortfolioSampleData.mainId
+        let address = WalletScreenTestAddresses.mainId
         view.viewModel = ReceiveQRViewModel(name: "Savings", address: address, qrImage: UIImage(),
             shareHandler: { calls.append("share") }, scanQRHandler: { calls.append("scan") },
             accountTapHandler: { calls.append("account") })
@@ -528,7 +528,7 @@ extension WalletScreenBehaviorTests {
         view.updateFirstAsset(symbol: "XOR", image: nil)
         view.updateFirstAsset(balance: "100 XOR")
         view.updateFirstAsset(fiatText: "$2")
-        view.updateRecipientView(with: PortfolioSampleData.savingsId)
+        view.updateRecipientView(with: WalletScreenTestAddresses.savingsId)
         view.set(firstAmountText: "5")
         view.setupButton(isEnabled: true)
         view.updateFirstAsset(state: .default, amountColor: .fgPrimary, fiatColor: .fgSecondary)
@@ -536,7 +536,7 @@ extension WalletScreenBehaviorTests {
         XCTAssertEqual(view.assetView.textField.text, "5")
         XCTAssertEqual(view.assetView.sora.assetSymbol, "XOR")
         XCTAssertEqual(view.assetView.sora.fullFiatText, "100 XOR")
-        XCTAssertEqual(view.recipientView.contactView.accountTitle.text, PortfolioSampleData.savingsId)
+        XCTAssertEqual(view.recipientView.contactView.accountTitle.text, WalletScreenTestAddresses.savingsId)
         view.recipientView.contactView.onTap?()
         XCTAssertEqual(model.addressRequests, 1)
         view.updateRecipientView(with: "")
@@ -573,7 +573,7 @@ private final class ScreenReceiveRecorder: GenerateQRViewModelProtocol {
     func viewDidLoad() {
         setupSwicherView?(SwitcherViewModel(buttonViewModels: [
             .init(title: "Receive", isSelected: true), .init(title: "Request", isSelected: false)]))
-        setupReceiveView?(ReceiveQRViewModel(name: "Main", address: PortfolioSampleData.mainId, qrImage: UIImage()))
+        setupReceiveView?(ReceiveQRViewModel(name: "Main", address: WalletScreenTestAddresses.mainId, qrImage: UIImage()))
         updateContent?(.receive)
     }
 }
@@ -870,4 +870,57 @@ private final class PolkaswapInteractionModel: LiquidityViewModelProtocol {
     func reviewButtonTapped() { reviewRequests += 1 }
     func recalculate(field: FocusedField) {}
     func didSelect(variant: Decimal) { percentages.append(variant) }
+}
+
+// Public, invented addresses keep production-screen tests independent of Debug sample mode.
+private enum WalletScreenTestAddresses {
+    static let mainId = "cnRsfMpGQ24tCKDLBbwde6NrS9ttrXN3hjX3zMHnVDeQokoBA"
+    static let savingsId = "cnSG3F5hh3Z5JzV2Qzn6Ez71CL8NUTi68wr9zrjdNedrJht1C"
+}
+
+extension WalletScreenBehaviorTests {
+    func testOnlyWalletRoutesCountAsSuccessfulApplicationRoutes() {
+        XCTAssertTrue(RetainedMigrationEvidenceApplicationRoute.localAuthentication.isSuccessfulWalletRoute)
+        XCTAssertTrue(RetainedMigrationEvidenceApplicationRoute.pincodeSetup.isSuccessfulWalletRoute)
+        XCTAssertFalse(RetainedMigrationEvidenceApplicationRoute.onboarding.isSuccessfulWalletRoute)
+        XCTAssertFalse(RetainedMigrationEvidenceApplicationRoute.legacyUpgradeReady.isSuccessfulWalletRoute)
+        XCTAssertFalse(RetainedMigrationEvidenceApplicationRoute.recovery.isSuccessfulWalletRoute)
+    }
+
+    func testPickerInfoAndSwitchSheetsDispatchExactlyOnceAfterRebuild() throws {
+        func mountSheet(_ controller: UIViewController) {
+            window.rootViewController = controller
+            window.makeKeyAndVisible()
+            controller.loadViewIfNeeded()
+            window.layoutIfNeeded()
+        }
+        let picker = PortfolioPickerSheet(title: "Pick")
+        picker.note = "Choose a wallet"
+        picker.options = [.init(id: "one", icon: .allWallets, title: "One", subtitle: "Local", value: "$1", detail: nil)]
+        var picked: [String] = []
+        picker.onPick = { picked.append($0) }
+        mountSheet(picker)
+        picker.rebuild()
+        try XCTUnwrap(all(PortfolioOptionRow.self, in: picker.view).first).sendActions(for: .touchUpInside)
+        XCTAssertEqual(picked, ["one"])
+        XCTAssertTrue(all(UILabel.self, in: picker.view).compactMap { $0.text ?? $0.attributedText?.string }.contains("Choose a wallet"))
+        let info = PortfolioInfoSheet(title: "Info")
+        info.paragraphs = ["First", "Second"]
+        info.bullets = ["Third"]
+        info.buttonTitle = "Continue"
+        var calls = 0
+        info.onButton = { calls += 1 }
+        mountSheet(info)
+        try XCTUnwrap(all(PortfolioPrimaryButton.self, in: info.view).first).sendActions(for: .touchUpInside)
+        XCTAssertEqual(calls, 1)
+        XCTAssertTrue(all(UILabel.self, in: info.view).compactMap { $0.text ?? $0.attributedText?.string }.contains("•  Third"))
+        let confirmation = PortfolioSwitchSheet(title: "Switch")
+        confirmation.walletName = "Savings"
+        confirmation.onConfirm = { calls += 1 }
+        mountSheet(confirmation)
+        let button = try XCTUnwrap(all(PortfolioPrimaryButton.self, in: confirmation.view).first)
+        XCTAssertEqual(button.accessibilityLabel, PortfolioStrings.switchAndReview("Savings"))
+        button.sendActions(for: .touchUpInside)
+        XCTAssertEqual(calls, 2)
+    }
 }

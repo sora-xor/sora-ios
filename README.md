@@ -109,6 +109,11 @@ qualified by this simulator coverage run.
 Choose an available simulator name if yours differs. Debug simulator signing uses
 Xcode's local ad-hoc identity so tests can access Keychain.
 
+The Debug suite covers the optional sample and migration-evidence helpers, which
+ordinary Release hosts exclude. Eleven durable-write fault-injection cases explicitly
+skip ordinary Release hosts because their checkpoint observer is absent; the other
+wallet storage and screen tests remain enabled in Release.
+
 For the complete Release suite, use the existing local wrapper with fresh output
 paths outside the checkout:
 

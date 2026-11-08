@@ -1,3 +1,6 @@
+// This fixture-driven suite runs with the Debug unit-test host.
+// Ordinary Release hosts exclude the sample or evidence helpers it exercises.
+#if DEBUG
 import Darwin
 import Foundation
 import XCTest
@@ -132,3 +135,5 @@ final class PreparedWalletTreeTests: XCTestCase {
         try write("Library/Application Support/SORA"); XCTAssertThrowsError(try hash())
     }
 }
+
+#endif

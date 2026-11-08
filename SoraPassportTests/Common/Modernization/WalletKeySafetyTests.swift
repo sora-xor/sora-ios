@@ -3735,7 +3735,8 @@ private enum InterruptedWrite {
     /// below `root`. Writes of the host app in other folders are ignored.
     static func observing(below root: URL,
                           _ observer: @escaping (DurableFileWriter.Checkpoint, URL) throws -> Void,
-                          during body: () throws -> Void) rethrows {
+                          during body: () throws -> Void) throws {
+        #if DEBUG || WALLET_TESTING
         let rootPath = root.resolvingSymlinksInPath().path
         DurableFileWriter.checkpointObserver = { checkpoint, directory in
             guard directory.resolvingSymlinksInPath().path.hasPrefix(rootPath) else { return }
@@ -3745,6 +3746,15 @@ private enum InterruptedWrite {
         }
         defer { DurableFileWriter.checkpointObserver = nil }
         try body()
+        #else
+        throw XCTSkip("Durable-write fault injection is absent from the production Release host")
+        #endif
+    }
+
+    static func requireCheckpointObservation() throws {
+        #if !DEBUG && !WALLET_TESTING
+        throw XCTSkip("Durable-write fault injection is absent from the production Release host")
+        #endif
     }
 
     /// Runs `body` and returns what a kill would leave at every checkpoint
@@ -3951,7 +3961,9 @@ final class WalletInterruptedWriteTests: XCTestCase {
     private var scratch: [URL] = []
 
     override func tearDown() {
+        #if DEBUG || WALLET_TESTING
         DurableFileWriter.checkpointObserver = nil
+        #endif
         for url in scratch { try? FileManager.default.removeItem(at: url) }
         scratch = []
         super.tearDown()
@@ -4074,6 +4086,7 @@ final class WalletInterruptedWriteTests: XCTestCase {
     }
 
     func testAWriteInProgressIsNeverSweptAndNeverFailsAListing() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         let directory = try makeDirectory()
         let target = directory.appendingPathComponent("journal.json")
         try DurableFileWriter.write(Data("old".utf8), to: target, fileManager: .default,
@@ -4113,6 +4126,7 @@ final class WalletInterruptedWriteTests: XCTestCase {
     }
 
     func testAKillAtAnyStepOfAWriteLeavesThePublishedFileWholeAndOnlySweepableFiles() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         for replacesExisting in [false, true] {
             let directory = try makeDirectory()
             let target = directory.appendingPathComponent("active.json")
@@ -4160,6 +4174,7 @@ final class WalletInterruptedWriteTests: XCTestCase {
     }
 
     func testAnErrorAtAnyStepOfAWriteLeavesNoHelperFileAndAWholePublishedFile() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         struct InjectedFailure: Error {}
         for replacesExisting in [false, true] {
             for failing in DurableFileWriter.Checkpoint.allCases {
@@ -4217,6 +4232,7 @@ final class WalletInterruptedWriteTests: XCTestCase {
     }
 
     func testAnErrorWhileAFailedWriteIsRolledBackLeavesNoHelperFile() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         struct InjectedFailure: Error {}
         // The publication fails, and then the rollback (or the withdrawal of
         // a new file) fails as well, at each of its steps.
@@ -4347,6 +4363,7 @@ extension WalletInterruptedWriteTests {
     // MARK: 3. A kill at any step, then a fresh start
 
     func testAKillAtAnyStepOfTheFirstLaunchAfterTheUpgradeIsCompletedByTheNextLaunch() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         let (device, first, second) = try upgradedTwoAccountDevice()
         let states = try InterruptedWrite.killStates(of: device, label: "first launch") {
             XCTAssertEqual(try device.startup(), .ready)
@@ -4367,6 +4384,7 @@ extension WalletInterruptedWriteTests {
     }
 
     func testAKillAtAnyStepOfAnAccountSwitchOrRemovalIsCompletedByTheNextLaunch() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         let (device, first, second) = try upgradedTwoAccountDevice()
         XCTAssertEqual(try device.startup(), .ready)
         let store = try device.networkStore()
@@ -4398,6 +4416,7 @@ extension WalletInterruptedWriteTests {
     }
 
     func testAKillAtAnyStepOfAnAccountJournalWriteLeavesAReadableJournal() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         let directory = try makeDirectory()
         let gate = WalletRecoveryCapabilityGate(settings: InMemorySettingsManager(),
             unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
@@ -4529,6 +4548,7 @@ extension WalletInterruptedWriteTests {
     // MARK: 6. Records of unfinished transactions
 
     func testAKillAtAnyStepOfATransactionRecordWriteNeverBlocksTheNextSend() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         let directory = try makeDirectory()
         let store = try Sora2PendingSubmissionStore(baseURL: directory)
         _ = try store.stage(account: "cnAccount", hash: transactionHash(0xa1))
@@ -4556,6 +4576,7 @@ extension WalletInterruptedWriteTests {
     }
 
     func testAWriteOfAnotherJournalInProgressDoesNotRefuseASend() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         let directory = try makeDirectory()
         let store = try Sora2PendingSubmissionStore(baseURL: directory)
         let folder = directory.appendingPathComponent("SORA/PendingTransactions")
@@ -4998,6 +5019,7 @@ extension WalletInterruptedWriteTests {
     // MARK: 8. A rename: the display name follows the database
 
     func testAKillAtAnyStepOfARenameIsCompletedByTheNextLaunchWithTheNewName() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         let (device, first, second) = try upgradedTwoAccountDevice()
         XCTAssertEqual(try device.startup(), .ready)
         // The app's own stack over the installation's database file: the
@@ -5041,6 +5063,7 @@ extension WalletInterruptedWriteTests {
     }
 
     func testARenameWhoseSnapshotWriteFailsIsCompletedByTheNextLaunch() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         struct DiskFull: Error {}
         // The snapshot write fails at its first step, or the pointer write does.
         for failingCheckpoint in [0, 4] {
