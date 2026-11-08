@@ -20,10 +20,12 @@ enum WalletAccountCapability {
     enum State: Equatable {
         case checking, signing, watchOnly, missingKeys, invalidKeys, repairPending, unavailable
 
+        /// Nothing while the check runs: almost every account can sign, so a
+        /// "checking" line would flash under every wallet at each launch and
+        /// read as a fault. Sending runs its own check before it opens.
         var badge: String? {
             switch self {
-            case .signing: return nil
-            case .checking: return WalletUX.text("Checking keys…")
+            case .signing, .checking: return nil
             case .watchOnly: return WalletUX.text("Watch-only")
             default: return WalletUX.text("Read-only")
             }
@@ -31,7 +33,7 @@ enum WalletAccountCapability {
 
         var reason: String? {
             switch self {
-            case .checking: return WalletUX.text("Checking this account’s signing keys…")
+            case .checking: return nil
             case .signing: return nil
             case .watchOnly: return WalletUX.text("This account was added as watch-only. Sending is disabled.")
             case .missingKeys: return WalletUX.text("Signing keys for this account are missing from this iPhone. Restore its backup to send.")

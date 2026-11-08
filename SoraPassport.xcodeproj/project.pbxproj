@@ -253,6 +253,7 @@
 		9320BA3D25F245A8A4B719AC /* SettingsScreenBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 576ED59BCEEB4DAC9211D186 /* SettingsScreenBehaviorTests.swift */; };
 		DD20DA4C9F8048C693985954 /* ScannerLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDA6224111C443DABA2C6E8 /* ScannerLifecycleTests.swift */; };
 		2B74E3DCCDC54125AED0CA49 /* PoolCellLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AB0912FD13E459E90C9007E /* PoolCellLifecycleTests.swift */; };
+		30D807DE9DEE44400A71EDEA /* WalletHomeLoadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33431E7005D1E731776A35B /* WalletHomeLoadingTests.swift */; };
 		2155722DA642452DBD697ED8 /* ExploreFlowBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CDB5BC34744AB5A9FA0095 /* ExploreFlowBehaviorTests.swift */; };
 		2EB7186F5EB444568F8361F5 /* NexusTransportCoverageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DE89F50EEEC41EDB7EE27E2 /* NexusTransportCoverageTests.swift */; };
 		EBA8E9546CB040F798A7021D /* ExploreScreenBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CC81615742949A295D07715 /* ExploreScreenBehaviorTests.swift */; };
@@ -2928,6 +2929,7 @@
 		576ED59BCEEB4DAC9211D186 /* SettingsScreenBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreenBehaviorTests.swift; sourceTree = "<group>"; };
 		9BDA6224111C443DABA2C6E8 /* ScannerLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerLifecycleTests.swift; sourceTree = "<group>"; };
 		1AB0912FD13E459E90C9007E /* PoolCellLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolCellLifecycleTests.swift; sourceTree = "<group>"; };
+		A33431E7005D1E731776A35B /* WalletHomeLoadingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletHomeLoadingTests.swift; sourceTree = "<group>"; };
 		94CDB5BC34744AB5A9FA0095 /* ExploreFlowBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreFlowBehaviorTests.swift; sourceTree = "<group>"; };
 		3DE89F50EEEC41EDB7EE27E2 /* NexusTransportCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusTransportCoverageTests.swift; sourceTree = "<group>"; };
 		2CC81615742949A295D07715 /* ExploreScreenBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreScreenBehaviorTests.swift; sourceTree = "<group>"; };
@@ -4640,6 +4642,7 @@
 				576ED59BCEEB4DAC9211D186 /* SettingsScreenBehaviorTests.swift */,
 				9BDA6224111C443DABA2C6E8 /* ScannerLifecycleTests.swift */,
 				1AB0912FD13E459E90C9007E /* PoolCellLifecycleTests.swift */,
+				A33431E7005D1E731776A35B /* WalletHomeLoadingTests.swift */,
 				94CDB5BC34744AB5A9FA0095 /* ExploreFlowBehaviorTests.swift */,
 				3DE89F50EEEC41EDB7EE27E2 /* NexusTransportCoverageTests.swift */,
 				2CC81615742949A295D07715 /* ExploreScreenBehaviorTests.swift */,
@@ -9914,6 +9917,7 @@
 				9320BA3D25F245A8A4B719AC /* SettingsScreenBehaviorTests.swift in Sources */,
 				DD20DA4C9F8048C693985954 /* ScannerLifecycleTests.swift in Sources */,
 				2B74E3DCCDC54125AED0CA49 /* PoolCellLifecycleTests.swift in Sources */,
+				30D807DE9DEE44400A71EDEA /* WalletHomeLoadingTests.swift in Sources */,
 				2155722DA642452DBD697ED8 /* ExploreFlowBehaviorTests.swift in Sources */,
 				2EB7186F5EB444568F8361F5 /* NexusTransportCoverageTests.swift in Sources */,
 				EBA8E9546CB040F798A7021D /* ExploreScreenBehaviorTests.swift in Sources */,

@@ -27,14 +27,10 @@ final class PoolsItemService {
     var fiatData: [PIExactFiatData] = []
     var updateHandler: (() -> Void)?
     
-    @Published var poolViewModels: [PoolViewModel] = [
-        PoolViewModel(identifier: "1", title: "", subtitle: "", fiatText: ""),
-        PoolViewModel(identifier: "2", title: "", subtitle: "", fiatText: ""),
-        PoolViewModel(identifier: "3", title: "", subtitle: "", fiatText: ""),
-        PoolViewModel(identifier: "4", title: "", subtitle: "", fiatText: ""),
-        PoolViewModel(identifier: "5", title: "", subtitle: "", fiatText: "")
-    ]
-    
+    /// Empty until the account's pools are known: the card stays closed
+    /// rather than showing placeholder rows, and opens with the real ones.
+    @Published var poolViewModels: [PoolViewModel] = []
+
     /// Empty while loading, the total once prices are known, or the "price
     /// unavailable" notice. Never "$0" for want of prices.
     @Published var moneyText: String = ""
