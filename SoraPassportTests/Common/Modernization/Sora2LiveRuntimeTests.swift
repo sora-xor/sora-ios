@@ -2338,6 +2338,79 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         try assertCallLayoutRejected(shadowed)
     }
 
+    func testASecondDefinitionUnderAReviewedNameIsRefusedWhereverItIsListed() throws {
+        // The first item under the name stays honest, so it is what a lookup by
+        // name finds first. Building a type that refers to the second item by id
+        // would register that one under the same name for the encoder's next use.
+        for atStart in [false, true] {
+            let duplicated = try factory(editingMetadata: { types, _, _ in
+                let original = try XCTUnwrap(types.first { $0.type.path == ["common", "primitives", "AssetId32"] })
+                let u64 = try self.typeId(in: types) {
+                    if case .primitive(.u64) = $0.def { return true }
+                    return false
+                }
+                // Still a composite, because only composites and variants take their
+                // name from the path. This one keeps the name with a narrower code.
+                let narrower = try self.replacingType(original) { encoder in
+                    try UInt8(0).encode(scaleEncoder: encoder) // composite
+                    try BigUInt(1).encode(scaleEncoder: encoder)
+                    try ScaleOption<String>.some(value: "code").encode(scaleEncoder: encoder)
+                    try u64.encode(scaleEncoder: encoder)
+                    try ScaleOption<String>.none.encode(scaleEncoder: encoder)
+                    try [String]().encode(scaleEncoder: encoder)
+                }
+                let encoder = ScaleEncoder()
+                try ((types.map(\.id).max() ?? 0) + 1).encode(scaleEncoder: encoder)
+                try narrower.type.encode(scaleEncoder: encoder)
+                types.insert(try SchemaItem(scaleDecoder: ScaleDecoder(data: encoder.encode())), at: atStart ? 0 : types.count)
+            })
+            try assertCallLayoutRejected(duplicated)
+        }
+    }
+
+    func testRepeatingANameWithTheSameDefinitionStaysValid() throws {
+        // Honest runtimes list some types more than once under one name.
+        let repeated = try factory(editingMetadata: { types, _, _ in
+            let original = try XCTUnwrap(types.first { $0.type.path == ["common", "primitives", "AssetId32"] })
+            let encoder = ScaleEncoder()
+            try ((types.map(\.id).max() ?? 0) + 1).encode(scaleEncoder: encoder)
+            try original.type.encode(scaleEncoder: encoder)
+            types.append(try SchemaItem(scaleDecoder: ScaleDecoder(data: encoder.encode())))
+        })
+        XCTAssertNoThrow(try Sora2CallTable.validate(factory: repeated))
+    }
+
+    func testASchemaTypeCannotTakeThePrimitiveNameTheNonceIsEncodedThrough() throws {
+        let shadowed = try factory(editingMetadata: { types, _, _ in
+            let string = try self.typeId(in: types) {
+                if case .primitive(.string) = $0.def { return true }
+                return false
+            }
+            let next = (types.map(\.id).max() ?? 0) + 1
+            let item = try self.schemaItem(id: next, path: ["u32"]) { encoder in
+                try UInt8(0).encode(scaleEncoder: encoder) // composite
+                try BigUInt(1).encode(scaleEncoder: encoder)
+                try ScaleOption<String>.some(value: "x").encode(scaleEncoder: encoder)
+                try string.encode(scaleEncoder: encoder)
+                try ScaleOption<String>.none.encode(scaleEncoder: encoder)
+                try [String]().encode(scaleEncoder: encoder)
+            }
+            types.insert(item, at: 0)
+        })
+        try assertCallLayoutRejected(shadowed)
+    }
+
+    func testTheNonceAndTipEncodersAreThePinnedOnes() throws {
+        let original = try factory()
+        for (name, wrong) in [(KnownType.index.name, "u64"), (KnownType.balance.name, "u64")] {
+            let catalog = CallTableCatalog(base: original.catalog)
+            let factory = RuntimeCoderFactory(catalog: catalog, specVersion: original.specVersion, txVersion: original.txVersion, metadata: original.metadata)
+            XCTAssertNoThrow(try Sora2CallTable.validate(factory: factory))
+            catalog.overrides[name] = AliasNode(typeName: name, underlyingTypeName: wrong)
+            XCTAssertThrowsError(try Sora2CallTable.validate(factory: factory), name)
+        }
+    }
+
     func testEncoderAliasesAreFollowedAndAliasCyclesFailClosed() throws {
         let original = try factory()
         let catalog = CallTableCatalog(base: original.catalog)
