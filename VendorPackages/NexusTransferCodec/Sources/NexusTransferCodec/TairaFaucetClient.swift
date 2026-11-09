@@ -39,22 +39,39 @@ public actor TairaFaucetClient {
         public let transactionHash: String
         public let state: State
     }
+    /// How often a solve stops to read the puzzle again. Not a limit on how long it may take.
+    struct SolvePacing: Sendable {
+        var puzzleRefresh: TimeInterval = 15
+        var uptime: @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
+    }
     private let scrypt: Scrypt
     private let transport: Transport
     private let clock: @Sendable () -> UInt64
     private let clientID = UUID()
     private let requestIDGenerator: @Sendable () -> String
+    private let pacing: SolvePacing
     private var attempted: Set<String> = []
 
     public init(scrypt: @escaping Scrypt, transport: Transport? = nil,
                 clock: @escaping @Sendable () -> UInt64 = { TairaClient.now() }) {
         self.scrypt = scrypt; self.transport = transport ?? { request, maximum in try await Self.send(request, maximum: maximum) }; self.clock = clock
-        self.requestIDGenerator = { Self.requestID() }
+        self.requestIDGenerator = { Self.requestID() }; self.pacing = SolvePacing()
     }
 
     init(scrypt: @escaping Scrypt, transport: @escaping Transport,
-         clock: @escaping @Sendable () -> UInt64, requestID: @escaping @Sendable () -> String) {
-        self.scrypt = scrypt; self.transport = transport; self.clock = clock; self.requestIDGenerator = requestID
+         clock: @escaping @Sendable () -> UInt64, requestID: @escaping @Sendable () -> String,
+         pacing: SolvePacing = SolvePacing()) {
+        self.scrypt = scrypt; self.transport = transport; self.clock = clock; self.requestIDGenerator = requestID; self.pacing = pacing
+    }
+
+    /// What the screen says when a claim ends in `error`, as a key of the app's
+    /// Localizable.strings. Only a failed request blames the connection.
+    public static func failureMessage(for error: Error) -> String {
+        switch error {
+        case Failure.resourceLimit: return "Your test XOR could not be prepared on this device. Please try again later."
+        case is URLError: return "Could not get test XOR. Check your connection and try again."
+        default: return "The faucet request was not completed. Please try again."
+        }
     }
 
     /// Caller must decode the canonical Taira address and supply its matching
@@ -71,29 +88,58 @@ public actor TairaFaucetClient {
         guard policy["authority"] as? String == Self.authority,
               policy["asset_definition_id"] as? String == TairaClient.xorDefinition,
               policy["amount"] as? String == Self.amount else { throw Failure.invalidResponse }
-        let puzzle = try await get("v1/accounts/faucet/puzzle")
-        let proof = try Self.puzzle(puzzle, account: account)
-        let worker = Task.detached(priority: .userInitiated) { [scrypt] in
-            try Self.solve(proof, scrypt: scrypt)
+        var proof = try Self.puzzle(try await get("v1/accounts/faucet/puzzle"), account: account)
+        var nextNonce: UInt64 = 0, refused = 0
+        while true {
+            let nonce: Data
+            (proof, nonce) = try await solveOnNewestAnchor(proof, account: account, nextNonce: &nextNonce)
+            try Task.checkCancellation()
+            let claim: [String: Any] = ["account_id": account, "pow_anchor_height": proof.height, "pow_nonce_hex": nonce.hexadecimal]
+            let semantic = Self.semanticHash(account: account, height: proof.height, nonce: nonce.hexadecimal)
+            let now = clock()
+            guard now <= UInt64.max - 100_000 else { throw Failure.invalidResponse }
+            let expires = now + 100_000
+            let binding: [String: Any] = ["schema": "iroha.prepared-operation.binding.v1", "semantic_hash_hex": semantic,
+                "kind": "faucet", "request_id": requestIDGenerator(), "execution_expires_at_unix_ms": expires]
+            let body = try Self.json(["schema": "iroha.accounts.faucet.prepare.v1", "binding": binding, "claim": claim,
+                "fee_payment": ["payer": "authority", "value": ["charge_limits": [], "gas_limit": NSNull()]]])
+            let response = try await transport(Self.request("v1/accounts/faucet/prepare", body: body), 262_144)
+            if refused < Self.maximumRefusedProofs, Self.chainMovedPastProof(response) {
+                refused += 1
+                try Task.checkCancellation()
+                proof = try Self.puzzle(try await get("v1/accounts/faucet/puzzle"), account: account)
+                continue
+            }
+            try Self.requireSuccess(response)
+            try Task.checkCancellation()
+            let hash = try Self.validatePrepared(response.data, account: account, publicKey: publicKey,
+                claim: claim, binding: binding, semantic: semantic, now: clock())
+            return PreparedClaim(account: account, amount: Self.amount, transactionHash: hash,
+                expiresAt: expires, body: response.data, clientID: clientID)
         }
-        let nonce = try await withTaskCancellationHandler(operation: { try await worker.value }, onCancel: { worker.cancel() })
-        try Task.checkCancellation()
-        let claim: [String: Any] = ["account_id": account, "pow_anchor_height": proof.height, "pow_nonce_hex": nonce.hexadecimal]
-        let semantic = Self.semanticHash(account: account, height: proof.height, nonce: nonce.hexadecimal)
-        let now = clock()
-        guard now <= UInt64.max - 100_000 else { throw Failure.invalidResponse }
-        let expires = now + 100_000
-        let binding: [String: Any] = ["schema": "iroha.prepared-operation.binding.v1", "semantic_hash_hex": semantic,
-            "kind": "faucet", "request_id": requestIDGenerator(), "execution_expires_at_unix_ms": expires]
-        let body = try Self.json(["schema": "iroha.accounts.faucet.prepare.v1", "binding": binding, "claim": claim,
-            "fee_payment": ["payer": "authority", "value": ["charge_limits": [], "gas_limit": NSNull()]]])
-        let response = try await transport(Self.request("v1/accounts/faucet/prepare", body: body), 262_144)
-        try Self.requireSuccess(response)
-        try Task.checkCancellation()
-        let hash = try Self.validatePrepared(response.data, account: account, publicKey: publicKey,
-            claim: claim, binding: binding, semantic: semantic, now: clock())
-        return PreparedClaim(account: account, amount: Self.amount, transactionHash: hash,
-            expiresAt: expires, body: response.data, clientID: clientID)
+    }
+
+    /// The node refuses an anchor older than `max_anchor_age_blocks` (6, which a busy
+    /// chain passes in under a minute), so a slow solve must not outlive its anchor.
+    /// It keeps moving to the newest puzzle, which loses nothing: every try is
+    /// independent of the tries before it.
+    private func solveOnNewestAnchor(_ start: Puzzle, account: String, nextNonce: inout UInt64) async throws -> (Puzzle, Data) {
+        var proof = start
+        while true {
+            try Task.checkCancellation()
+            let current = proof, first = nextNonce
+            let worker = Task.detached(priority: .userInitiated) { [scrypt, pacing] in
+                try Self.solve(current, from: first, until: pacing.uptime() + pacing.puzzleRefresh, uptime: pacing.uptime, scrypt: scrypt)
+            }
+            let stretch = try await withTaskCancellationHandler(operation: { try await worker.value }, onCancel: { worker.cancel() })
+            nextNonce = stretch.next
+            if let nonce = stretch.solution { return (current, nonce) }
+            // A failed read costs nothing here: the tries so far still count,
+            // and the prepare request reports a problem that lasts.
+            if let fresher = try? Self.puzzle(try await get("v1/accounts/faucet/puzzle"), account: account), fresher.height >= proof.height {
+                proof = fresher
+            }
+        }
     }
 
     /// Dispatches exactly once. Persist transactionHash before calling. Network
@@ -180,6 +226,14 @@ public actor TairaFaucetClient {
         if response.statusCode == 429 { throw Failure.rateLimited(retryAfterSeconds: response.retryAfterSeconds) }
         guard [200, 202].contains(response.statusCode) else { throw Failure.rejectedHTTP(response.statusCode) }
     }
+    /// Solving again after this many refusals would keep a claim going without end on a node that refuses every proof.
+    static let maximumRefusedProofs = 3
+    /// The proof was right for the puzzle it answered, but the chain has moved on: a new puzzle can succeed.
+    private static func chainMovedPastProof(_ response: Response) -> Bool {
+        guard response.statusCode == 400, let code = (try? object(response.data))?["code"] as? String else { return false }
+        return ["faucet_pow_anchor_stale", "faucet_pow_anchor_unknown", "faucet_pow_anchor_out_of_range",
+                "faucet_pow_solution_invalid"].contains(code)
+    }
     static func object(_ data: Data) throws -> [String: Any] {
         guard data.count <= 262_144, let result = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw Failure.invalidResponse }
         return result
@@ -217,18 +271,29 @@ public actor TairaFaucetClient {
             + withUnsafeBytes(of: &bigHeight) { Data($0) } + Data(hexadecimal: hash)! + salt
         return Puzzle(height: height, difficulty: difficulty, n: 1 << logN, r: UInt32(r), p: UInt32(p), challenge: Data(SHA256.hash(data: challenge)))
     }
-    static func solve(_ puzzle: Puzzle, scrypt: Scrypt) throws -> Data {
-        let deadline = ProcessInfo.processInfo.systemUptime + 60
-        for nonce in UInt64(0)..<65_536 {
+    /// The only limit on a claim's work. A slow device simply takes longer, so time
+    /// is no limit. At the hardest puzzle `puzzle` accepts (12 bits) a claim runs out
+    /// with probability e^-16; at 10 bits, e^-64.
+    static let maximumTries: UInt64 = 65_536
+    struct SolveStretch: Sendable, Equatable { let solution: Data?; let next: UInt64 }
+    /// Tries nonces from `first` until one solves the puzzle or `end` passes. Passing
+    /// `end` only ends this stretch; always makes at least one try.
+    static func solve(_ puzzle: Puzzle, from first: UInt64 = 0, until end: TimeInterval = .infinity,
+                      uptime: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, scrypt: Scrypt) throws -> SolveStretch {
+        var nonce = first
+        repeat {
             try Task.checkCancellation()
-            guard ProcessInfo.processInfo.systemUptime < deadline else { throw Failure.resourceLimit }
+            guard nonce < maximumTries else { throw Failure.resourceLimit }
             let bytes = NexusTransferCodec.u64(nonce)
             let digest = try scrypt(bytes, puzzle.challenge, puzzle.n, puzzle.r, puzzle.p)
             guard digest.count == 32 else { throw Failure.invalidResponse }
+            nonce += 1
             let whole = Int(puzzle.difficulty / 8), remainder = Int(puzzle.difficulty % 8)
-            if digest.prefix(whole).allSatisfy({ $0 == 0 }) && (remainder == 0 || digest[whole] >> (8 - remainder) == 0) { return bytes }
-        }
-        throw Failure.resourceLimit
+            if digest.prefix(whole).allSatisfy({ $0 == 0 }) && (remainder == 0 || digest[whole] >> (8 - remainder) == 0) {
+                return SolveStretch(solution: bytes, next: nonce)
+            }
+        } while uptime() < end
+        return SolveStretch(solution: nil, next: nonce)
     }
     static func semanticHash(account: String, height: UInt64, nonce: String) -> String {
         let f = NexusTransferCodec.field

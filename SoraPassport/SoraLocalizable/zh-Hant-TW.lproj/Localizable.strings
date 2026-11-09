@@ -1271,3 +1271,7 @@
 "You pay" = "您支付";
 "You see the Polkaswap disclaimer before your first swap" = "首次兌換前，您會看到 Polkaswap 免責聲明";
 "Your wallet is ready." = "您的錢包已準備就緒。";
+
+/* Taira testnet faucet */
+"Preparing your test XOR… %@\nThis can take a few minutes." = "正在準備您的測試 XOR… %@\n這可能需要幾分鐘。";
+"Your test XOR could not be prepared on this device. Please try again later." = "無法在此裝置上準備您的測試 XOR。請稍後再試一次。";

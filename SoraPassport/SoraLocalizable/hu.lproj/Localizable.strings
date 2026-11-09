@@ -1269,3 +1269,7 @@
 "You pay" = "Fizetsz";
 "You see the Polkaswap disclaimer before your first swap" = "Az első csere előtt látni fogod a Polkaswap nyilatkozatát";
 "Your wallet is ready." = "A tárcád készen áll.";
+
+/* Taira testnet faucet */
+"Preparing your test XOR… %@\nThis can take a few minutes." = "A teszt XOR előkészítése… %@\nEz néhány percig is eltarthat.";
+"Your test XOR could not be prepared on this device. Please try again later." = "A teszt XOR-t nem sikerült előkészíteni ezen az eszközön. Próbáld újra később.";

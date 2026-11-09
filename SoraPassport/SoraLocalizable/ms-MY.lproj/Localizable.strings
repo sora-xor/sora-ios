@@ -1269,3 +1269,7 @@
 "You pay" = "Anda bayar";
 "You see the Polkaswap disclaimer before your first swap" = "Anda akan melihat penafian Polkaswap sebelum pertukaran pertama";
 "Your wallet is ready." = "Dompet anda sudah sedia.";
+
+/* Taira testnet faucet */
+"Preparing your test XOR… %@\nThis can take a few minutes." = "Menyediakan XOR ujian anda… %@\nIni mungkin mengambil masa beberapa minit.";
+"Your test XOR could not be prepared on this device. Please try again later." = "XOR ujian anda tidak dapat disediakan pada peranti ini. Cuba lagi nanti.";

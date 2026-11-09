@@ -1029,3 +1029,7 @@
 "You pay" = "Du betaler";
 "You see the Polkaswap disclaimer before your first swap" = "Du ser Polkaswap-ansvarsfråskrivinga før det fyrste bytet";
 "Your wallet is ready." = "Lommeboka di er klar.";
+
+/* Taira testnet faucet */
+"Preparing your test XOR… %@\nThis can take a few minutes." = "Førebur test-XOR-en din … %@\nDette kan ta nokre minutt.";
+"Your test XOR could not be prepared on this device. Please try again later." = "Test-XOR-en din kunne ikkje førebuast på denne eininga. Prøv igjen seinare.";

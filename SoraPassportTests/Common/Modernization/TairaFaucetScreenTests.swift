@@ -202,11 +202,97 @@ final class TairaFaucetScreenTests: XCTestCase {
     faucet.holdRequest = true
     let screen = try await open()
     try tap(screen)
-    await waitUntil { (try? self.status(screen).text) == text }
+    await waitUntil { (try? self.status(screen).text)?.hasPrefix(text) == true }
     XCTAssertFalse(try button(screen).isEnabled)
     XCTAssertTrue(try button(screen).busy)
     faucet.releaseAll()
     try await settled(screen)
+  }
+  private func clock(_ time: String) -> String {
+    "Preparing your test XOR… \(time)\nThis can take a few minutes."
+  }
+  func testClockChangesOnlyTheStatusText() async throws {
+    faucet.holdRequest = true
+    let screen = try await open()
+    try tap(screen)
+    await waitUntil { self.faucet.requests == 1 }
+    window.layoutIfNeeded()
+    // The card that was replaced when the claim began can still be fading out, so ask the table.
+    let table = try XCTUnwrap(views(UITableView.self, in: screen.view).first)
+    let label = try XCTUnwrap(table.visibleCells.compactMap { $0 as? NexusBalanceCell }.first?.faucetStatusLabel)
+    // Replacing the card would fade the whole page once a second.
+    let card = try XCTUnwrap(screen.balanceItem)
+    for (seconds, time) in [(3, "0:03"), (59, "0:59"), (83, "1:23"), (754, "12:34"), (3600, "60:00")] {
+      screen.showFaucetClock(seconds: seconds)
+      XCTAssertTrue(screen.balanceItem === card)
+      XCTAssertEqual(try status(screen).text, clock(time))
+      XCTAssertEqual(label.sora.text, clock(time))
+      XCTAssertFalse(label.isHidden)
+      XCTAssertTrue(try button(screen).busy)
+      XCTAssertFalse(try button(screen).isEnabled)
+    }
+    faucet.releaseAll()
+    try await settled(screen)
+  }
+  func testClockStartsByItselfWhilePreparingAndStopsWithThePhase() async throws {
+    faucet.holdRequest = true
+    faucet.nextPhase = .submitting
+    let screen = try await open()
+    try tap(screen)
+    // Real time: the clock appears after a few seconds.
+    var waited = 0
+    while (try? status(screen).text)?.contains("\n") != true, waited < 600 {
+      waited += 1
+      try await Task.sleep(nanoseconds: 100_000_000)
+    }
+    let shown = try XCTUnwrap(status(screen).text)
+    XCTAssertTrue(shown.hasPrefix("Preparing your test XOR… "), shown)
+    XCTAssertTrue(shown.hasSuffix("\nThis can take a few minutes."), shown)
+    XCTAssertTrue(try button(screen).busy)
+    faucet.releaseAll(keepingNextHold: true)
+    await waitUntil { (try? self.status(screen).text) == "Requesting test XOR…" }
+    // A tick that came after the phase changed would overwrite this text.
+    try await Task.sleep(nanoseconds: 2_500_000_000)
+    XCTAssertEqual(try status(screen).text, "Requesting test XOR…")
+    faucet.releaseAll()
+    try await settled(screen)
+    XCTAssertEqual(try status(screen).text, "Received 25000 test XOR.")
+  }
+  func testNoClockWhenAClaimEndsWhilePreparing() async throws {
+    faucet.failure = TairaFaucetClient.Failure.resourceLimit
+    let screen = try await open()
+    try tap(screen)
+    try await settled(screen)
+    let failed = try status(screen).text
+    try await Task.sleep(nanoseconds: 4_500_000_000)
+    XCTAssertEqual(try status(screen).text, failed)
+  }
+  func testSolveThatRanOutSaysSoInsteadOfBlamingTheConnection() async throws {
+    faucet.failure = TairaFaucetClient.Failure.resourceLimit
+    let screen = try await open()
+    try tap(screen)
+    try await settled(screen)
+    XCTAssertEqual(try status(screen).text, "Your test XOR could not be prepared on this device. Please try again later.")
+    XCTAssertEqual(try button(screen).title, "Get test XOR")
+    XCTAssertTrue(try button(screen).isEnabled)
+  }
+  func testRefusedRequestDoesNotBlameTheConnection() async throws {
+    faucet.failure = TairaFaucetClient.Failure.rejectedHTTP(400)
+    let screen = try await open()
+    try tap(screen)
+    try await settled(screen)
+    XCTAssertEqual(try status(screen).text, "The faucet request was not completed. Please try again.")
+    XCTAssertEqual(try button(screen).title, "Get test XOR")
+  }
+  func testSolveMessagesFollowTheLanguageOrFallBackToEnglish() {
+    let progress = "Preparing your test XOR… %@\nThis can take a few minutes."
+    let failure = "Your test XOR could not be prepared on this device. Please try again later."
+    XCTAssertEqual(WalletUX.text(progress, language: "ja"), "テスト用XORを準備しています… %@\n数分かかることがあります。")
+    XCTAssertEqual(WalletUX.text(failure, language: "de-DE"), "Dein Test-XOR konnte auf diesem Gerät nicht vorbereitet werden. Bitte versuche es später noch einmal.")
+    for language in ["akk", "egy-Egyp"] {
+      XCTAssertEqual(WalletUX.text(progress, language: language), progress)
+      XCTAssertEqual(WalletUX.text(failure, language: language), failure)
+    }
   }
   func testRepeatedTapWhileRequestIsHeldStartsOnlyOneClaim() async throws {
     faucet.holdRequest = true
@@ -319,6 +405,7 @@ private final class FaucetScreenService: TairaFaucetServing {
   var resultKind = "Applied"
   var failure: Error?
   var phase: TairaFaucetService.Phase = .preparing
+  var nextPhase: TairaFaucetService.Phase?
   private(set) var pendingReads = 0
   private(set) var pendingAccounts: [String] = []
   private(set) var requestedAccounts: [NetworkAccount] = []
@@ -327,9 +414,9 @@ private final class FaucetScreenService: TairaFaucetServing {
   private(set) var completedRequests = 0
   private var requestWaiter: CheckedContinuation<Void, Never>?
   private var pendingWaiter: CheckedContinuation<Void, Never>?
-  func releaseAll() {
+  func releaseAll(keepingNextHold: Bool = false) {
     holdPending = false
-    holdRequest = false
+    holdRequest = keepingNextHold
     requestWaiter?.resume()
     requestWaiter = nil
     pendingWaiter?.resume()
@@ -354,6 +441,10 @@ private final class FaucetScreenService: TairaFaucetServing {
     guard await contextIsCurrent() else { throw TairaFaucetService.Failure.wrongAccount }
     await progress(phase)
     if holdRequest { await withCheckedContinuation { requestWaiter = $0 } }
+    if let nextPhase {
+      await progress(nextPhase)
+      if holdRequest { await withCheckedContinuation { requestWaiter = $0 } }
+    }
     if let failure { throw failure }
     // Parse an independently specified wire response with the real codec; no signing or remote request.
     let hash = String(repeating: "ab", count: 32)

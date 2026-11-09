@@ -691,6 +691,7 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
     private var historyAssetDefinitionID: String?
     private var historyPageError: String?
     private var faucetTask: Task<Void, Never>?
+    private var faucetClock: Task<Void, Never>?
     private(set) var faucet: NexusFaucetState?
     private var faucetHasPending = false
     private var faucetRetryAfter: Date?
@@ -758,6 +759,7 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
         loadTask?.cancel()
         historyPageTask?.cancel()
         faucetTask?.cancel()
+        faucetClock?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -1373,6 +1375,39 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
         renderBalance()
     }
 
+    /// Preparing can take minutes on a slow device, and no percentage can be shown
+    /// because every try of the puzzle is independent of the others. So after a few
+    /// seconds the status counts the time, to show that the claim is still going.
+    private func startFaucetClock() {
+        faucetClock?.cancel()
+        let started = ProcessInfo.processInfo.systemUptime
+        faucetClock = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard !Task.isCancelled, let self else { return }
+                let seconds = Int(ProcessInfo.processInfo.systemUptime - started)
+                if seconds >= 3 { self.showFaucetClock(seconds: seconds) }
+            }
+        }
+    }
+
+    /// Changes only the status text. Going through renderBalance once a second
+    /// would replace the table's section, which fades the whole page each time.
+    func showFaucetClock(seconds: Int) {
+        guard var state = faucet else { return }
+        let time = String(format: "%d:%02d", seconds / 60, seconds % 60)
+        state.message = WalletUX.format("Preparing your test XOR… %@\nThis can take a few minutes.", time)
+        faucet = state
+        balanceItem?.faucet = state
+        guard let label = tableView.visibleCells.lazy.compactMap({ ($0 as? NexusBalanceCell)?.faucetStatusLabel }).first else { return }
+        let fitting = CGSize(width: label.bounds.width, height: .greatestFiniteMagnitude)
+        let height = label.sizeThatFits(fitting).height
+        label.sora.text = state.message
+        if label.sizeThatFits(fitting).height != height {
+            UIView.performWithoutAnimation { tableView.performBatchUpdates(nil) }
+        }
+    }
+
     private func restoreFaucetRequest() {
         guard faucet != nil, faucetTask == nil else { return }
         faucetTask = Task { [weak self] in
@@ -1404,6 +1439,7 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
             guard let self else { return }
             defer {
                 faucetTask = nil
+                faucetClock?.cancel()
                 if networkActionContextIsCurrent() {
                     updateFaucet()
                 } else {
@@ -1427,7 +1463,9 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
                             case .submitting: text = "Requesting test XOR…"
                             case .checking: text = "Checking your faucet request…"
                             }
+                            self.faucetClock?.cancel()
                             self.updateFaucet(message: WalletUX.text(text), busy: true)
+                            if case .preparing = phase { self.startFaucetClock() }
                         }
                     }
                 )
@@ -1458,7 +1496,7 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
                 } else {
                     updateFaucet(message: WalletUX.text(faucetHasPending
                         ? "Your faucet request is still processing. Check again to update your balance."
-                        : "Could not get test XOR. Check your connection and try again."))
+                        : TairaFaucetClient.failureMessage(for: error)))
                 }
             }
         }

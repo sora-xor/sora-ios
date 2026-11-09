@@ -1269,3 +1269,7 @@
 "You pay" = "Вы платите";
 "You see the Polkaswap disclaimer before your first swap" = "Перед первым обменом вы увидите отказ от ответственности Polkaswap";
 "Your wallet is ready." = "Ваш кошелек готов.";
+
+/* Taira testnet faucet */
+"Preparing your test XOR… %@\nThis can take a few minutes." = "Подготавливаем тестовые XOR… %@\nЭто может занять несколько минут.";
+"Your test XOR could not be prepared on this device. Please try again later." = "Не удалось подготовить тестовые XOR на этом устройстве. Повторите попытку позже.";
