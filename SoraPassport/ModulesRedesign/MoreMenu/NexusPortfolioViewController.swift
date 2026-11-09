@@ -700,6 +700,10 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
     /// below have made sending safe. Used once; a later refresh never
     /// reopens it.
     private var opensSendWhenReady: Bool
+    /// Told when this screen closes. The wallet home below it stays in the
+    /// window and gets no `viewWillAppear`, so this is how it hears that a
+    /// send or a faucet claim made here may have changed the balance.
+    var onClose: (@MainActor () -> Void)?
 
     private(set) var priceItem: PriceItem?
     private(set) var balanceItem: NexusBalanceItem?
@@ -833,6 +837,7 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
             navigationController?.isBeingDismissed == true ||
             navigationController?.parent?.isBeingDismissed == true {
             faucetTask?.cancel()
+            onClose?()
         }
     }
 
