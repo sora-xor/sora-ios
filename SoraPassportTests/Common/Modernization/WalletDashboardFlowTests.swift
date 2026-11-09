@@ -502,6 +502,28 @@ extension WalletDashboardFlowTests {
         fixture.model.openNetworkReceive(account: other)
         XCTAssertEqual(fixture.view.presentations.count, shown)
     }
+    private func openTairaPage(_ f: Fixture, _ account: NetworkAccount) throws -> NexusNetworkDetailViewController {
+        f.model.openNetwork(account: account)
+        let container = try XCTUnwrap(f.view.presentations.last as? BlurViewController)
+        let navigation = try XCTUnwrap(container.children.first as? UINavigationController)
+        return try XCTUnwrap(navigation.viewControllers.first as? NexusNetworkDetailViewController)
+    }
+    /// Found by a live send: the Taira page showed the new balance and the home kept the old one,
+    /// because closing a page opened over the home is no `viewWillAppear` there.
+    func testClosingANetworkPageShowsItsNewBalanceOnTheHome() async throws {
+        let previousTaira = SettingsManager.shared.isTairaEnabled
+        SettingsManager.shared.nexusEnabled = true
+        SettingsManager.shared.isTairaEnabled = true
+        defer { SettingsManager.shared.isTairaEnabled = previousTaira }
+        let reader = DashboardNetworkReader(), account = try networkAccount(.taira)
+        let f = make(networkAccounts: { [account] }, reader: reader)
+        load(f)
+        await waitForNetwork { networkRows(f).first?.amount == "12.5 XOR" }
+        let page = try openTairaPage(f, account)
+        reader.quantity = "11.49"
+        page.onClose?()
+        await waitForNetwork { networkRows(f).first?.amount == "11.49 XOR" }
+    }
     func testSendingWithOnlyOneAvailableNetworkUsesTheExistingSora2Route() throws {
         let accounts = [try networkAccount(.sora2), try networkAccount(.minamoto)]
         let fixture = make(networkAccounts: { accounts })
