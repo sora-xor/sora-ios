@@ -40,6 +40,7 @@ final class PortfolioOtherNetworksCell: SoramitsuTableViewCell, SoramitsuTableVi
     private let content = UIStackView()
     private let title = UILabel.portfolio(FontType.headline2, .title3, maximum: 32)
     private let outer = UIStackView()
+    private var rowViews: [PortfolioNetworkAssetRowView] = []
 
     static let rowSpacing: CGFloat = 4
 
@@ -65,6 +66,8 @@ final class PortfolioOtherNetworksCell: SoramitsuTableViewCell, SoramitsuTableVi
         content.translatesAutoresizingMaskIntoConstraints = false
         card.contentView.addSubview(content)
         title.accessibilityTraits = .header
+        content.addArrangedSubview(title)
+        content.setCustomSpacing(10, after: title)
         // The card collapses with its last row: a hidden arranged subview takes no height.
         outer.axis = .vertical
         outer.isLayoutMarginsRelativeArrangement = true
@@ -99,24 +102,34 @@ final class PortfolioOtherNetworksCell: SoramitsuTableViewCell, SoramitsuTableVi
 
     private func reload() {
         let rows = item?.isShown == true ? item?.rows ?? [] : []
-        content.arrangedSubviews.forEach { $0.removeFromSuperview() }
         card.isHidden = rows.isEmpty
         outer.directionalLayoutMargins = rows.isEmpty
             ? .zero : NSDirectionalEdgeInsets(top: 6, leading: 16, bottom: 10, trailing: 16)
+        showRows(rows)
+        // VoiceOver reads this list. Left to itself, UIKit keeps its own copy of a cell's elements and refreshes it
+        // only when a direct subview of the content view comes or goes, which never happens down here in the card.
+        accessibilityElements = rows.isEmpty ? nil : [title] + rowViews
         guard !rows.isEmpty else { return }
         card.apply()
         title.text = [PortfolioStrings.otherNetworksTitle, item?.walletName].compactMap { $0 }.joined(separator: " · ")
         title.textColor = PortfolioTheme.textPrimary
-        content.addArrangedSubview(title)
-        content.setCustomSpacing(10, after: title)
-        rows.forEach { content.addArrangedSubview(makeRow($0)) }
     }
 
-    private func makeRow(_ row: NetworkAssetRow) -> UIView {
-        let view = PortfolioNetworkAssetRowView(row: row)
-        let account = row.account
-        view.onTap = { [weak self] in self?.item?.open(account) }
-        return view
+    /// A row keeps its view while its network stays in the card, so VoiceOver stays on a row whose amount changes.
+    private func showRows(_ rows: [NetworkAssetRow]) {
+        var unused = rowViews
+        rowViews = rows.map { row in
+            let index = unused.firstIndex { $0.networkId == row.account.networkId }
+            let view = index.map { unused.remove(at: $0) } ?? PortfolioNetworkAssetRowView()
+            view.configure(row)
+            view.onTap = { [weak self] in self?.item?.open(row.account) }
+            return view
+        }
+        unused.forEach { $0.removeFromSuperview() }
+        // The title stays first. Inserting a view that is already arranged moves it.
+        for (offset, view) in rowViews.enumerated() where content.arrangedSubviews.dropFirst(offset + 1).first !== view {
+            content.insertArrangedSubview(view, at: offset + 1)
+        }
     }
 }
 
@@ -124,6 +137,7 @@ final class PortfolioOtherNetworksCell: SoramitsuTableViewCell, SoramitsuTableVi
 /// where the row has no value to show.
 final class PortfolioNetworkAssetRowView: UIControl {
     var onTap: (() -> Void)?
+    private(set) var networkId: NetworkId?
 
     /// Icon or two lines of text, whichever is taller, with 12 above and below.
     static var height: CGFloat {
@@ -137,30 +151,13 @@ final class PortfolioNetworkAssetRowView: UIControl {
     private let amount = UILabel.portfolio(FontType.textBoldXS, .footnote, maximum: 22)
     private let tagLabel = UILabel.portfolio(FontType.textBoldXS, .caption1, maximum: 20)
 
-    init(row: NetworkAssetRow) {
+    init() {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        icon.image = row.icon
         icon.contentMode = .scaleAspectFit
         icon.layer.cornerRadius = 20
         icon.clipsToBounds = true
         icon.translatesAutoresizingMaskIntoConstraints = false
-        title.text = row.title
-        title.textColor = PortfolioTheme.textPrimary
-        amount.text = row.amount
-        amount.textColor = PortfolioTheme.textPrimary
-        amount.isHidden = row.amount.isEmpty
-        switch row.tag {
-        case .testnet:
-            tagLabel.text = row.tag?.title
-            tagLabel.textColor = .systemOrange
-        case .comingSoon:
-            tagLabel.text = row.tag?.title
-            tagLabel.textColor = PortfolioTheme.textSecondary
-        case .main, nil:
-            tagLabel.text = nil
-        }
-        tagLabel.isHidden = tagLabel.text == nil
         tagLabel.setContentHuggingPriority(.required, for: .horizontal)
         tagLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         let texts = UIStackView(arrangedSubviews: [title, amount])
@@ -183,13 +180,34 @@ final class PortfolioNetworkAssetRowView: UIControl {
         addTarget(self, action: #selector(tapped), for: .touchUpInside)
         isAccessibilityElement = true
         accessibilityTraits = .button
-        accessibilityLabel = [row.title, row.amount, row.tag?.title].compactMap { $0 }
-            .filter { !$0.isEmpty }.joined(separator: ", ")
-        accessibilityIdentifier = "portfolio.network-row.\(row.account.networkId.rawValue)"
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure(_ row: NetworkAssetRow) {
+        networkId = row.account.networkId
+        icon.image = row.icon
+        title.text = row.title
+        title.textColor = PortfolioTheme.textPrimary
+        amount.text = row.amount
+        amount.textColor = PortfolioTheme.textPrimary
+        amount.isHidden = row.amount.isEmpty
+        switch row.tag {
+        case .testnet:
+            tagLabel.text = row.tag?.title
+            tagLabel.textColor = .systemOrange
+        case .comingSoon:
+            tagLabel.text = row.tag?.title
+            tagLabel.textColor = PortfolioTheme.textSecondary
+        case .main, nil:
+            tagLabel.text = nil
+        }
+        tagLabel.isHidden = tagLabel.text == nil
+        accessibilityLabel = [row.title, row.amount, row.tag?.title].compactMap { $0 }
+            .filter { !$0.isEmpty }.joined(separator: ", ")
+        accessibilityIdentifier = "portfolio.network-row.\(row.account.networkId.rawValue)"
     }
 
     override var isHighlighted: Bool {
