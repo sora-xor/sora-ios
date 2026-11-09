@@ -930,6 +930,10 @@
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "Gjenoppretting sletter aldri lommeboknøkler fra nøkkelringen på denne iPhonen.";
 "Enter your PIN" = "Skriv inn PIN-koden din";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Skriv inn PIN-koden din. SORA trenger den én gang for å beskytte lommebøkene på denne iPhonen.";
+"%@ changed on this iPhone" = "%@ er endret på denne iPhonen";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "Et ansikt eller fingeravtrykk er lagt til eller fjernet på denne iPhonen siden %@ sist låste opp SORA. Alle som har ansiktet eller fingeravtrykket sitt på denne iPhonen, kan låse opp lommeboken din. Hvis du ikke gjorde denne endringen, slå av %@.";
+"Keep %@" = "Behold %@";
+"Turn %@ off" = "Slå av %@";
 "PIN" = "PIN";
 "Cancel" = "Avbryt";
 "Continue" = "Fortsett";

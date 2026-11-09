@@ -933,6 +933,10 @@
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "रिकवरी कभी भी इस iPhone की कीचेन से वॉलेट की कुंजियाँ नहीं हटाती।";
 "Enter your PIN" = "अपना PIN दर्ज करें";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "अपना PIN दर्ज करें। इस iPhone पर मौजूद वॉलेट की सुरक्षा के लिए SORA को इसकी एक बार ज़रूरत है।";
+"%@ changed on this iPhone" = "इस iPhone पर %@ बदल गया है";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "पिछली बार %@ से SORA अनलॉक होने के बाद इस iPhone में कोई चेहरा या फ़िंगरप्रिंट जोड़ा या हटाया गया है। जिस किसी का चेहरा या फ़िंगरप्रिंट इस iPhone में है, वह आपका वॉलेट अनलॉक कर सकता है। अगर यह बदलाव आपने नहीं किया, तो %@ बंद कर दें।";
+"Keep %@" = "%@ रखें";
+"Turn %@ off" = "%@ बंद करें";
 "PIN" = "PIN";
 "Cancel" = "रद्द करें";
 "Continue" = "जारी रखें";

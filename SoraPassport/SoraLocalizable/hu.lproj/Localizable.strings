@@ -933,6 +933,10 @@
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "A helyreállítás soha nem törli a tárcakulcsokat az iPhone Kulcskarikájából.";
 "Enter your PIN" = "Add meg a PIN-kódodat";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Add meg a PIN-kódodat. A SORA-nak csak egyszer van rá szüksége, hogy megvédje az ezen az iPhone-on lévő tárcákat.";
+"%@ changed on this iPhone" = "A(z) %@ megváltozott ezen az iPhone-on";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "Amióta a(z) %@ utoljára feloldotta a SORA-t, arcot vagy ujjlenyomatot adtak hozzá ehhez az iPhone-hoz, vagy távolítottak el róla. Bárki, akinek az arca vagy ujjlenyomata ezen az iPhone-on van, feloldhatja a tárcádat. Ha nem te végezted ezt a módosítást, kapcsold ki a(z) %@ funkciót.";
+"Keep %@" = "A(z) %@ megtartása";
+"Turn %@ off" = "A(z) %@ kikapcsolása";
 "PIN" = "PIN";
 "Cancel" = "Mégse";
 "Continue" = "Folytatás";

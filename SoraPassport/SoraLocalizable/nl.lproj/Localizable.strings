@@ -933,6 +933,10 @@
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "Herstel verwijdert nooit walletsleutels uit de sleutelhanger van deze iPhone.";
 "Enter your PIN" = "Voer je pincode in";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Voer je pincode in. SORA heeft die één keer nodig om de wallets op deze iPhone te beschermen.";
+"%@ changed on this iPhone" = "%@ is gewijzigd op deze iPhone";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "Sinds %@ SORA voor het laatst heeft ontgrendeld, is er op deze iPhone een gezicht of vingerafdruk toegevoegd of verwijderd. Iedereen van wie het gezicht of de vingerafdruk op deze iPhone staat, kan je wallet ontgrendelen. Heb je dit niet zelf gedaan, zet %@ dan uit.";
+"Keep %@" = "%@ behouden";
+"Turn %@ off" = "%@ uitzetten";
 "PIN" = "PIN";
 "Cancel" = "Annuleren";
 "Continue" = "Doorgaan";

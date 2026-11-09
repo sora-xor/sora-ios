@@ -142,6 +142,12 @@ extension AuthorizationPresenter: LocalAuthInteractorOutputProtocol {
         view?.setupTitleLabel(text: verifyTitle)
     }
 
+    func didRequireEnrollmentDecision(type: AvailableBiometryType, completion: @escaping (Bool) -> Void) {
+        DispatchQueue.main.async { [weak self] in
+            self?.view?.askToKeepChangedBiometry(type: type, completion: completion)
+        }
+    }
+
     func didChangeState(from state: LocalAuthInteractor.LocalAuthState) {}
 
     func didCompleteAuth() {

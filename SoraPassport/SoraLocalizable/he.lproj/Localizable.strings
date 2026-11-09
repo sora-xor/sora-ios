@@ -933,6 +933,10 @@
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "השחזור לעולם אינו מוחק מפתחות ארנק מצרור המפתחות של ה-iPhone הזה.";
 "Enter your PIN" = "יש להזין את קוד ה-PIN";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "יש להזין את קוד ה-PIN. SORA צריכה אותו פעם אחת כדי להגן על הארנקים ב-iPhone הזה.";
+"%@ changed on this iPhone" = "%@ השתנה ב-iPhone הזה";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "פנים או טביעת אצבע נוספו ל-iPhone הזה או הוסרו ממנו מאז הפעם האחרונה שבה %@ פתח את SORA. כל מי שהפנים או טביעת האצבע שלו נמצאות ב-iPhone הזה יכול לבטל את נעילת הארנק. אם השינוי לא נעשה על ידך, יש לכבות את %@.";
+"Keep %@" = "להשאיר את %@";
+"Turn %@ off" = "כיבוי %@";
 "PIN" = "PIN";
 "Cancel" = "ביטול";
 "Continue" = "המשך";

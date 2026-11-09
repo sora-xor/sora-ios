@@ -933,6 +933,10 @@
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "Kurtarma, bu iPhone'un Anahtar Zinciri'ndeki cüzdan anahtarlarını asla silmez.";
 "Enter your PIN" = "PIN'inizi girin";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "PIN'inizi girin. SORA'nın bu iPhone'daki cüzdanları korumak için PIN'inize bir kez ihtiyacı var.";
+"%@ changed on this iPhone" = "Bu iPhone'da %@ değişti";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "SORA'nın kilidi en son %@ ile açıldığından beri bu iPhone'a yüz veya parmak izi eklendi ya da kaldırıldı. Yüzü veya parmak izi bu iPhone'da kayıtlı olan herkes cüzdanınızın kilidini açabilir. Bu değişikliği siz yapmadıysanız %@ özelliğini kapatın.";
+"Keep %@" = "%@ kalsın";
+"Turn %@ off" = "%@ kapat";
 "PIN" = "PIN";
 "Cancel" = "İptal";
 "Continue" = "Devam et";

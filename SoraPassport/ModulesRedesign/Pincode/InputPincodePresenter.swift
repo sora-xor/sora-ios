@@ -221,4 +221,10 @@ extension InputPincodePresenter: LocalAuthInteractorOutputProtocol {
         guard mode == .verify, verificationPinLength != nil, !isCheckingPin else { return }
         view?.setupTitleLabel(text: verifyTitle)
     }
+
+    func didRequireEnrollmentDecision(type: AvailableBiometryType, completion: @escaping (Bool) -> Void) {
+        DispatchQueue.main.async { [weak self] in
+            self?.view?.askToKeepChangedBiometry(type: type, completion: completion)
+        }
+    }
 }

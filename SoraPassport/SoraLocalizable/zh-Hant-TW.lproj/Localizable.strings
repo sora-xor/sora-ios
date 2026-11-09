@@ -933,6 +933,10 @@
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "復原操作絕不會刪除此 iPhone 鑰匙圈中的錢包金鑰。";
 "Enter your PIN" = "輸入您的 PIN";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "請輸入您的 PIN。SORA 需要您輸入一次 PIN，以保護此 iPhone 上的錢包。";
+"%@ changed on this iPhone" = "此 iPhone 上的 %@ 已變更";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "自上次使用 %@ 解鎖 SORA 以來，此 iPhone 上新增或移除了臉孔或指紋。只要臉孔或指紋登錄在此 iPhone 上，任何人都能解鎖您的錢包。如果這不是您本人所為，請關閉 %@。";
+"Keep %@" = "繼續使用 %@";
+"Turn %@ off" = "關閉 %@";
 "PIN" = "PIN";
 "Cancel" = "取消";
 "Continue" = "繼續";

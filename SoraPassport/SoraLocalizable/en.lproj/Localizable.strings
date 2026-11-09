@@ -979,6 +979,10 @@
 "Edit details" = "Edit details";
 "Enter a recipient address and the amount you want to send." = "Enter a recipient address and the amount you want to send.";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Enter your PIN. SORA needs it once to protect the wallets on this iPhone.";
+"%@ changed on this iPhone" = "%@ changed on this iPhone";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off.";
+"Keep %@" = "Keep %@";
+"Turn %@ off" = "Turn %@ off";
 "Expanded" = "Expanded";
 "Expired" = "Expired";
 "Finalized network history" = "Finalized network history";

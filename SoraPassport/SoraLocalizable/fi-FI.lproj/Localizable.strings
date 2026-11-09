@@ -933,6 +933,10 @@
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "Palautus ei koskaan poista lompakon avaimia tämän iPhonen Avainnipusta.";
 "Enter your PIN" = "Anna PIN-koodisi";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Anna PIN-koodisi. SORA tarvitsee sen kerran suojatakseen tämän iPhonen lompakot.";
+"%@ changed on this iPhone" = "%@ on muuttunut tässä iPhonessa";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "Tähän iPhoneen on lisätty kasvot tai sormenjälki tai niitä on poistettu sen jälkeen, kun %@ viimeksi avasi SORAn. Kuka tahansa, jonka kasvot tai sormenjälki ovat tässä iPhonessa, voi avata lompakkosi lukituksen. Jos et tehnyt tätä muutosta, poista %@ käytöstä.";
+"Keep %@" = "Säilytä %@";
+"Turn %@ off" = "Poista %@ käytöstä";
 "PIN" = "PIN";
 "Cancel" = "Peruuta";
 "Continue" = "Jatka";

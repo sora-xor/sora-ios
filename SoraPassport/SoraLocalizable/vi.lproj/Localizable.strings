@@ -933,6 +933,10 @@
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "Quá trình khôi phục không bao giờ xóa khóa ví khỏi Chuỗi khóa của iPhone này.";
 "Enter your PIN" = "Nhập mã PIN của bạn";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Nhập mã PIN của bạn. SORA cần mã PIN một lần để bảo vệ các ví trên iPhone này.";
+"%@ changed on this iPhone" = "%@ trên iPhone này đã thay đổi";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "Một khuôn mặt hoặc vân tay đã được thêm vào hoặc xóa khỏi iPhone này kể từ lần cuối %@ mở khóa SORA. Bất kỳ ai có khuôn mặt hoặc vân tay trên iPhone này đều có thể mở khóa ví của bạn. Nếu bạn không thực hiện thay đổi này, hãy tắt %@.";
+"Keep %@" = "Giữ %@";
+"Turn %@ off" = "Tắt %@";
 "PIN" = "PIN";
 "Cancel" = "Hủy";
 "Continue" = "Tiếp tục";

@@ -933,6 +933,10 @@
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "При восстановлении ключи кошелька никогда не удаляются из Связки ключей этого iPhone.";
 "Enter your PIN" = "Введите свой PIN";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Введите свой PIN. Он понадобится SORA один раз, чтобы защитить кошельки на этом iPhone.";
+"%@ changed on this iPhone" = "%@ на этом iPhone изменён";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "С тех пор как %@ в последний раз разблокировал SORA, на этом iPhone добавили или удалили лицо или отпечаток пальца. Любой, чьё лицо или отпечаток есть на этом iPhone, может разблокировать ваш кошелёк. Если это сделали не вы, отключите %@.";
+"Keep %@" = "Оставить %@";
+"Turn %@ off" = "Отключить %@";
 "PIN" = "PIN";
 "Cancel" = "Отмена";
 "Continue" = "Продолжить";

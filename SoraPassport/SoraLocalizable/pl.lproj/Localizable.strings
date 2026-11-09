@@ -933,6 +933,10 @@
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "Odzyskiwanie nigdy nie usuwa kluczy portfela z Pęku kluczy tego iPhone’a.";
 "Enter your PIN" = "Wpisz swój PIN";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Wpisz swój PIN. SORA potrzebuje go jeden raz, aby chronić portfele na tym iPhonie.";
+"%@ changed on this iPhone" = "%@ zmienił się na tym iPhonie";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "Od ostatniego odblokowania SORA przez %@ na tym iPhonie dodano lub usunięto twarz albo odcisk palca. Każdy, czyja twarz lub odcisk palca jest na tym iPhonie, może odblokować Twój portfel. Jeśli ta zmiana nie pochodzi od Ciebie, wyłącz %@.";
+"Keep %@" = "Zachowaj %@";
+"Turn %@ off" = "Wyłącz %@";
 "PIN" = "PIN";
 "Cancel" = "Anuluj";
 "Continue" = "Kontynuuj";

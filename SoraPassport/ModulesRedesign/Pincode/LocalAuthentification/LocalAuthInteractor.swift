@@ -187,14 +187,20 @@ class LocalAuthInteractor {
         switch result {
         case let .success(authorization):
             self.authorization = authorization
-            // The typed PIN proves the owner is here, so the faces or fingers
-            // enrolled now may unlock the app again.
-            if settingsManager.biometryEnabled == true {
-                biometryAuth.approveCurrentEnrollment()
+            guard settingsManager.biometryEnabled == true else {
+                completeTypedPinAuth()
+                return
             }
-            state = .completed
-            failCounter = 0
-            presenter?.didCompleteAuth()
+            // The typed PIN proves the owner is here, not that they know the
+            // faces or fingers changed, so a changed set waits for their answer.
+            guard biometryAuth.hasEnrollmentChanged else {
+                biometryAuth.approveFirstEnrollment()
+                completeTypedPinAuth()
+                return
+            }
+            presenter?.didRequireEnrollmentDecision(type: biometryAuth.availableBiometryType) { [weak self] keep in
+                self?.processEnrollmentDecision(keep: keep)
+            }
         case let .failure(error):
             state = .waitingPincode
             if case let .locked(until)? = error as? WalletRetainedPinGate.Failure {
@@ -208,6 +214,21 @@ class LocalAuthInteractor {
         }
     }
 
+    private func processEnrollmentDecision(keep: Bool) {
+        guard state == .checkingPincode else { return }
+        if keep {
+            biometryAuth.approveCurrentEnrollment()
+        } else {
+            settingsManager.biometryEnabled = false
+        }
+        completeTypedPinAuth()
+    }
+
+    private func completeTypedPinAuth() {
+        state = .completed
+        failCounter = 0
+        presenter?.didCompleteAuth()
+    }
 }
 
 extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {

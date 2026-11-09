@@ -30,16 +30,26 @@ public protocol BiometryAuthProtocol {
     /// True only while the faces or fingers enrolled on this iPhone are the set
     /// the owner approved by typing or setting the app PIN.
     var isEnrollmentApproved: Bool { get }
+    /// True when a set was approved here and the one enrolled now differs. The
+    /// owner has to say yes to it: someone who knows the iPhone passcode can
+    /// enroll a face, and typing the PIN as usual must not approve it for them.
+    var hasEnrollmentChanged: Bool { get }
     func authenticate(localizedReason: String, completionQueue: DispatchQueue,
                       completionBlock: @escaping (Bool) -> Void)
     /// Approves the faces or fingers enrolled right now. Call only after the
-    /// owner typed or set the app PIN.
+    /// owner set the app PIN or said yes to a changed set.
     func approveCurrentEnrollment()
+    /// Approves the set enrolled now only when none was ever approved here: the
+    /// first unlock after updating from a version without approvals. Call only
+    /// after the owner typed the app PIN.
+    func approveFirstEnrollment()
 }
 
 public extension BiometryAuthProtocol {
     var isEnrollmentApproved: Bool { true }
+    var hasEnrollmentChanged: Bool { false }
     func approveCurrentEnrollment() {}
+    func approveFirstEnrollment() {}
 }
 
 /// The enrollment set iOS reports for Face ID or Touch ID, as an opaque hash.
@@ -167,6 +177,12 @@ public class BiometryAuth: BiometryAuthProtocol {
         return state == approved
     }
 
+    public var hasEnrollmentChanged: Bool {
+        guard let approved = approvals.load(), let current = evaluator.currentEnrollment(),
+              current.type != .none, let state = current.state else { return false }
+        return state != approved
+    }
+
     public func authenticate(localizedReason: String, completionQueue: DispatchQueue,
                              completionBlock: @escaping (Bool) -> Void) {
         guard let current = evaluator.currentEnrollment(), current.type != .none,
@@ -191,5 +207,10 @@ public class BiometryAuth: BiometryAuthProtocol {
         guard let current = evaluator.currentEnrollment(), current.type != .none,
               let state = current.state else { return }
         approvals.save(state)
+    }
+
+    public func approveFirstEnrollment() {
+        guard approvals.load() == nil else { return }
+        approveCurrentEnrollment()
     }
 }

@@ -933,6 +933,10 @@
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "Pemulihan tidak pernah memadam kunci dompet daripada Rantai Kunci iPhone ini.";
 "Enter your PIN" = "Masukkan PIN anda";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Masukkan PIN anda. SORA memerlukannya satu kali untuk melindungi dompet pada iPhone ini.";
+"%@ changed on this iPhone" = "%@ telah berubah pada iPhone ini";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "Wajah atau cap jari telah ditambah atau dialih keluar pada iPhone ini sejak %@ kali terakhir membuka SORA. Sesiapa yang wajah atau cap jarinya ada pada iPhone ini boleh membuka kunci dompet anda. Jika anda tidak membuat perubahan ini, matikan %@.";
+"Keep %@" = "Kekalkan %@";
+"Turn %@ off" = "Matikan %@";
 "PIN" = "PIN";
 "Cancel" = "Batal";
 "Continue" = "Teruskan";

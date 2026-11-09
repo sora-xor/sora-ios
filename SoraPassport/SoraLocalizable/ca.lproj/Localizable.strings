@@ -933,6 +933,10 @@
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "La recuperació no suprimeix mai claus de la cartera del clauer d'aquest iPhone.";
 "Enter your PIN" = "Introdueix el PIN";
 "Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Introdueix el PIN. SORA el necessita una vegada per protegir les carteres d'aquest iPhone.";
+"%@ changed on this iPhone" = "%@ ha canviat en aquest iPhone";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "S'ha afegit o eliminat una cara o una empremta en aquest iPhone des de l'últim cop que %@ va desbloquejar SORA. Qualsevol persona amb la cara o l'empremta en aquest iPhone pot desbloquejar la teva cartera. Si no has fet aquest canvi, desactiva %@.";
+"Keep %@" = "Mantén %@";
+"Turn %@ off" = "Desactiva %@";
 "PIN" = "PIN";
 "Cancel" = "Cancel·la";
 "Continue" = "Continua";
