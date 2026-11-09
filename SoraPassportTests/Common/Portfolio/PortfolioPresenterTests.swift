@@ -1,6 +1,7 @@
 // This file is part of the SORA network and Polkaswap app.
 // SPDX-License-Identifier: Apache-2.0
 
+import SoraFoundation
 @testable import SoraPassport
 import XCTest
 import UIKit
@@ -43,10 +44,19 @@ final class PortfolioFakeSource: PortfolioDataSource {
 
 final class PortfolioPresenterTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_031)
+    private var language: String!
 
     override func setUp() {
         super.setUp()
+        // These tests read the English copy; a new simulator starts in the Mac's language.
+        language = LocalizationManager.shared.selectedLocalization
+        LocalizationManager.shared.selectedLocalization = "en"
         PortfolioFormat.locale = Locale(identifier: "en_US")
+    }
+
+    override func tearDown() {
+        LocalizationManager.shared.selectedLocalization = language
+        super.tearDown()
     }
 
     private func render(_ snapshot: PortfolioSnapshot = PortfolioFixtures.snapshot(),
@@ -346,11 +356,19 @@ final class PortfolioPresenterTests: XCTestCase {
 @MainActor
 final class PortfolioViewModelTests: XCTestCase {
     private var defaults: UserDefaults!
+    private var language: String!
 
     override func setUp() {
         super.setUp()
+        language = LocalizationManager.shared.selectedLocalization
+        LocalizationManager.shared.selectedLocalization = "en"
         PortfolioFormat.locale = Locale(identifier: "en_US")
         defaults = UserDefaults(suiteName: "portfolio.tests.\(UUID().uuidString)")
+    }
+
+    override func tearDown() {
+        LocalizationManager.shared.selectedLocalization = language
+        super.tearDown()
     }
 
     private func makeViewModel(_ snapshot: PortfolioSnapshot = PortfolioFixtures.snapshot())

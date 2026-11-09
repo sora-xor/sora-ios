@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import Foundation
+import SoraFoundation
 import SoraUIKit
 import UIKit
 import XCTest
@@ -9,9 +10,17 @@ import XCTest
 @MainActor
 final class PortfolioCoordinatorFlowTests: XCTestCase {
   private var fixtures = [PortfolioCoordinatorFixture]()
+  private var language: String!
+  override func setUp() {
+    super.setUp()
+    // These tests read the English copy; a new simulator starts in the Mac's language.
+    language = LocalizationManager.shared.selectedLocalization
+    LocalizationManager.shared.selectedLocalization = "en"
+  }
   override func tearDown() {
     fixtures.forEach { $0.close() }
     fixtures = []
+    LocalizationManager.shared.selectedLocalization = language
     super.tearDown()
   }
   private func make(
