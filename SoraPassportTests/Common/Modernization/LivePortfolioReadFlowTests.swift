@@ -66,6 +66,23 @@ final class LivePortfolioReadFlowTests: XCTestCase {
         XCTAssertTrue(f.cache.prices.usd.isEmpty)
     }
 
+    func testANewlyImportedWalletNeverFlashesThePreviousWalletsCachedBalance() {
+        let f = make(cached: true)
+        SelectedWalletSettings.shared.commitInternalValue(LiveReadFixture.account("new-wallet"))
+        XCTAssertTrue(f.subject.snapshot.wallets.isEmpty)
+        XCTAssertTrue(f.subject.snapshot.holdings.isEmpty)
+        XCTAssertTrue(f.subject.snapshot.isLoading)
+    }
+
+    func testTheCachedFirstFrameUsesTheCurrentWalletSelection() {
+        let f = make(cached: true)
+        f.cache.wallets.append(PortfolioWalletSource(id: "wallet-b", name: "Second", order: 1,
+                                                     isSelected: false, visibleAssetIds: nil,
+                                                     orderedAssetIds: nil, addresses: [:]))
+        SelectedWalletSettings.shared.commitInternalValue(LiveReadFixture.account("wallet-b"))
+        XCTAssertEqual(f.subject.snapshot.wallets.filter(\.isSelected).map(\.id), ["wallet-b"])
+    }
+
     func testANewCatalogDropsAbsentQuotesInsteadOfMarkingThemFresh() async throws {
         let f = make()
         f.reader.value = .success([f.xor: PortfolioRawBalance(free: 10, reserved: 0, frozen: 0),

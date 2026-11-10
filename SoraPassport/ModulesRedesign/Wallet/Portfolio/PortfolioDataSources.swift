@@ -272,8 +272,18 @@ final class LivePortfolioDataSource: PortfolioDataSource {
         self.cache = cache
         self.priceService = priceService
         self.readDeadline = readDeadline
-        wallets = cache.wallets
-        firstPassDone = !cache.wallets.isEmpty && !cache.reads.isEmpty
+        // A shared cache can outlive Forget all / import, or an account switch. Only reuse its
+        // first frame when it belongs to the selected account, and update the selection immediately.
+        let selected = SelectedWalletSettings.shared.currentAccount?.address
+        if let selected, cache.wallets.contains(where: { $0.id == selected }) {
+            wallets = cache.wallets.map { wallet in
+                PortfolioWalletSource(id: wallet.id, name: wallet.name, order: wallet.order,
+                                      isSelected: wallet.id == selected,
+                                      visibleAssetIds: wallet.visibleAssetIds,
+                                      orderedAssetIds: wallet.orderedAssetIds, addresses: wallet.addresses)
+            }
+        }
+        firstPassDone = !wallets.isEmpty && !cache.reads.isEmpty
         EventCenter.shared.add(observer: self, dispatchIn: .main)
         publish()
     }
