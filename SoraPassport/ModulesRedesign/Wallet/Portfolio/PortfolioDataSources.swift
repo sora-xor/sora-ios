@@ -467,13 +467,14 @@ final class LivePortfolioDataSource: PortfolioDataSource {
             await priceService.getPriceInfo(for: ids)
         }
         var prices = cache.prices
-        for fiat in info?.fiatData ?? [] {
-            if let price = fiat.priceUsd?.decimalValue { prices.usd[fiat.id] = price }
-        }
-        for market in info?.marketCapInfo ?? [] {
-            prices.change[market.assetId] = market.hourDelta
-        }
         if let info, !info.fiatData.isEmpty {
+            // FiatService returns the complete catalog snapshot. A missing or unpriced asset
+            // no longer has a quote: merging would keep its old value and call it current.
+            prices.usd = Dictionary(info.fiatData.compactMap { fiat in
+                fiat.priceUsd?.decimalValue.map { (fiat.id, $0) }
+            }, uniquingKeysWith: { _, latest in latest })
+            prices.change = Dictionary(info.marketCapInfo.map { ($0.assetId, $0.hourDelta) },
+                                       uniquingKeysWith: { _, latest in latest })
             prices.asOf = info.pricesAsOf
             prices.readAt = info.pricesAsOf ?? Date()
         } else {

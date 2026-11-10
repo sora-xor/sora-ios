@@ -54,6 +54,50 @@ final class LivePortfolioReadFlowTests: XCTestCase {
     func testAnEmptyPriceAnswerKeepsSavedPricesAndSaysHowOld() async throws { let f = make(); let read = Date(timeIntervalSince1970:1_000); f.cache.prices = PortfolioPriceSource(usd:[f.xor:2],readAt:read); f.subject.start(); await settled(f); XCTAssertEqual(f.subject.snapshot.holdings.first?.token.priceUSD,2); XCTAssertEqual(f.subject.snapshot.pricesAsOf,read) }
     func testFreshPricesClearTheAgeNote() async throws { let f = make(); f.cache.prices = PortfolioPriceSource(usd:[f.xor:2],asOf:Date(timeIntervalSince1970:1_000),readAt:Date(timeIntervalSince1970:1_000)); f.prices.info = PriceInfo(fiatData:[PIExactFiatData(id:f.xor,priceUsd:try PIQuantity("3"))],marketCapInfo:[]); f.subject.start(); await settled(f); XCTAssertEqual(f.subject.snapshot.holdings.first?.token.priceUSD,3); XCTAssertNil(f.subject.snapshot.pricesAsOf); XCTAssertNotNil(f.cache.prices.readAt) }
     func testDisabledNexusDoesNotIssueAnyNexusReads() async { let f = make(); f.subject.start(); await settled(f); XCTAssertEqual(f.subject.snapshot.networks,[.sora2]); XCTAssertEqual(f.nexus.calls,0) }
+
+    func testAnExplicitlyUnavailablePriceRemovesTheOldQuoteAndChange() async {
+        let f = make()
+        f.cache.prices = PortfolioPriceSource(usd: [f.xor: 2], change: [f.xor: 12], readAt: Date())
+        f.prices.info = PriceInfo(fiatData: [PIExactFiatData(id: f.xor, priceUsd: nil)], marketCapInfo: [])
+        f.subject.start()
+        await settled(f)
+        XCTAssertNil(f.subject.snapshot.holdings.first?.token.priceUSD)
+        XCTAssertNil(f.subject.snapshot.holdings.first?.token.change24h)
+        XCTAssertTrue(f.cache.prices.usd.isEmpty)
+    }
+
+    func testANewCatalogDropsAbsentQuotesInsteadOfMarkingThemFresh() async throws {
+        let f = make()
+        f.reader.value = .success([f.xor: PortfolioRawBalance(free: 10, reserved: 0, frozen: 0),
+                                  f.val: PortfolioRawBalance(free: 3, reserved: 0, frozen: 0)])
+        f.cache.prices = PortfolioPriceSource(usd: [f.xor: 2, f.val: 9], change: [f.xor: 12, f.val: 5],
+                                              readAt: Date(timeIntervalSinceNow: -3600))
+        f.prices.info = PriceInfo(fiatData: [PIExactFiatData(id: f.xor, priceUsd: try PIQuantity("3"))],
+                                 marketCapInfo: [])
+        f.subject.start()
+        await settled(f)
+        let xor = try XCTUnwrap(f.subject.snapshot.holdings.first { $0.token.id == f.xor })
+        let val = try XCTUnwrap(f.subject.snapshot.holdings.first { $0.token.id == f.val })
+        XCTAssertEqual(xor.token.priceUSD, 3)
+        XCTAssertNil(xor.token.change24h, "A current quote without change data must not reuse yesterday's change")
+        XCTAssertNil(val.token.priceUSD)
+        XCTAssertNil(val.token.change24h)
+        XCTAssertEqual(PortfolioAggregator.summary(f.subject.snapshot, scope: .allWallets).total, 30)
+    }
+
+    func testAZeroRefreshReplacesSavedHoldingsAndSurvivesAnOfflineRefresh() async {
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        let f = make(cached: true, store: PortfolioReadStore(defaults: defaults))
+        f.reader.value = .success([f.xor: .zero])
+        f.subject.refreshAll()
+        await settled(f)
+        XCTAssertTrue(f.subject.snapshot.holdings.isEmpty)
+        f.reader.value = .failure(LiveReadError.offline)
+        f.subject.refreshAll()
+        await wait { f.cache.reads["wallet-a"]?.failed == [.sora2] }
+        XCTAssertTrue(f.subject.snapshot.holdings.isEmpty)
+        XCTAssertEqual(PortfolioReadStore(defaults: defaults).load()?.reads["wallet-a"]?.sora2, [:])
+    }
 }
 private enum LiveReadError: Error { case offline }
 @MainActor
