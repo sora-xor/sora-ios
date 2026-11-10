@@ -372,7 +372,7 @@ final class WalletHomeLoadingTests: XCTestCase {
 
     /// The card in a real table in a window, laid out once, as the home does
     /// before it knows about the other networks.
-    private func mountCard(listing assets: [AssetInfo]) throws -> (table: SoramitsuTableView, item: AssetsItem, service: AssetsItemService, cell: AssetsCell) {
+    private func mountCard(listing assets: [AssetInfo]) async throws -> (table: SoramitsuTableView, item: AssetsItem, service: AssetsItemService, cell: AssetsCell) {
         let provider = HomeBalances(awaiting: true)
         let manager = HomeAssets(assets: assets)
         let service = AssetsItemService(
@@ -401,6 +401,15 @@ final class WalletHomeLoadingTests: XCTestCase {
             window.isHidden = true
             window.rootViewController = nil
         }
+        // Drain the initial Combine deliveries and the sizing pass they enqueue.
+        // Otherwise the baseline can still include a temporary stacked amount,
+        // and its later shrink is incorrectly charged against the added rows.
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            DispatchQueue.main.async {
+                DispatchQueue.main.async { continuation.resume() }
+            }
+        }
+        RedesignWalletViewController.refresh(items: [item], in: table)
         return (table, item, service, try XCTUnwrap(table.visibleCells.first as? AssetsCell))
     }
 
@@ -448,7 +457,7 @@ final class WalletHomeLoadingTests: XCTestCase {
     /// the hidden price note and Expand when XOR on the other networks arrives.
     /// These rows used to hang above Expand, over the title, until the list came.
     func testNetworkRowsThatArriveBeforeTheAssetListGoBelowTheTitle() async throws {
-        let (table, item, _, cell) = try mountCard(listing: [])
+        let (table, item, _, cell) = try await mountCard(listing: [])
         let emptyHeight = cell.bounds.height
 
         item.networkRows = [networkRow(.minamoto, "XOR · SORA Nexus", tag: .comingSoon), networkRow(.taira, "XOR · Taira", tag: .testnet)]
@@ -474,7 +483,11 @@ final class WalletHomeLoadingTests: XCTestCase {
     /// The rows of the main network go right below the title, before the SORA2
     /// rows, however long the list already is.
     func testAMainNetworkRowThatArrivesLaterGoesBetweenTheTitleAndTheAssets() async throws {
-        let (table, item, _, cell) = try mountCard(listing: assets())
+        let (table, item, _, cell) = try await mountCard(listing: assets())
+        await assertReadsInOrder([
+            try heading(in: cell), try assetRowView("XOR", in: cell),
+            try assetRowView("VAL", in: cell), try expand(in: cell),
+        ], in: cell)
         let heightWithAssets = cell.bounds.height
 
         item.networkRows = [networkRow(.minamoto, "XOR", tag: .main, isMain: true), networkRow(.taira, "XOR · Taira", tag: .testnet)]
@@ -488,7 +501,7 @@ final class WalletHomeLoadingTests: XCTestCase {
     }
 
     func testThePriceNoteComesAndGoesBetweenTheTitleAndTheRows() async throws {
-        let (table, item, service, cell) = try mountCard(listing: [])
+        let (table, item, service, cell) = try await mountCard(listing: [])
         item.networkRows = [networkRow(.taira, "XOR · Taira", tag: .testnet)]
         RedesignWalletViewController.refresh(items: [item], in: table)
         let title = try heading(in: cell), row = try networkRowView(.taira, in: cell), button = try expand(in: cell)
