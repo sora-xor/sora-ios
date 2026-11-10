@@ -6,6 +6,7 @@ import Foundation
 import NexusTransferCodec
 import SoraFoundation
 import SoraKeystore
+import SoraUIKit
 import UIKit
 
 enum NexusPortfolioPresentationPolicy {
@@ -646,37 +647,84 @@ extension NexusPortfolioViewController: AssetProviderObserverProtocol {
     }
 }
 
+/// One network's XOR (Taira, or the SORA Nexus production address) on
+/// SORA2's asset-details screen: the token card, the balance card with its
+/// round actions, Recent activity and the address card. Every read and
+/// every action still checks the selected wallet and the network first.
 @MainActor
-final class NexusNetworkDetailViewController: WalletTableViewController {
+final class NexusNetworkDetailViewController: SoramitsuViewController {
+    private enum BalanceState: Equatable {
+        case loading
+        case loaded(String)
+        case unavailable
+        case notLive
+    }
+
+    /// The balance card's Send: offered on a network that allows sends, and
+    /// usable only once the balance, the XOR asset and the pending journal
+    /// have been checked.
+    private struct SendEntry {
+        var isAvailable = false
+        var isEnabled = false
+    }
+
     private let account: NetworkAccount
     private let configuration: NexusNetworkConfiguration
     private let coordinator: NexusTransactionCoordinator?
     private let readClient: NexusToriiReading
     private let networkStore: () throws -> WalletNetworkStore
     private let mutationUnavailableReason: String?
+    private let xorAsset: AssetInfo?
+    private let xorImage: UIImage?
     private var history: [NexusTransferHistoryItem] = []
     private var pendingRows: [NexusPortfolioPresentationPolicy.PendingRow] = []
     private var pendingLoadError: String?
     private var historyLoadError: String?
-    private var balance = "Loading…"
+    private var balance = BalanceState.loading
     private var mutationReady = false
+    private var sendEntry = SendEntry()
     private var sendAvailabilityMessage: String? = WalletUX.text("Checking the network and pending transfers before enabling Send.")
-    private weak var sendForm: NexusSendViewController?
+    private(set) var sendFlow: NexusSendFlow?
     private var loadTask: Task<Void, Never>?
     private var historyPageTask: Task<Void, Never>?
     private var historyCursor = NexusHistoryCursor()
     private var historyAssetDefinitionID: String?
     private var historyPageError: String?
     private var faucetTask: Task<Void, Never>?
-    private var faucetButton: UIButton?
-    private var faucetStatus: UILabel?
+    private var faucetClock: Task<Void, Never>?
+    private(set) var faucet: NexusFaucetState?
     private var faucetHasPending = false
     private var faucetRetryAfter: Date?
     private let faucetService: TairaFaucetServing
+    private let appEventService = AppEventService()
     /// Opened from the wallet's Send: show the send form once the checks
     /// below have made sending safe. Used once; a later refresh never
     /// reopens it.
     private var opensSendWhenReady: Bool
+    /// Told when this screen closes. The wallet home below it stays in the
+    /// window and gets no `viewWillAppear`, so this is how it hears that a
+    /// send or a faucet claim made here may have changed the balance.
+    var onClose: (@MainActor () -> Void)?
+
+    private(set) var priceItem: PriceItem?
+    private(set) var balanceItem: NexusBalanceItem?
+    private(set) var activityItem: NexusActivityItem?
+    private(set) var addressItem: AssetIdItem?
+    private(set) var items: [SoramitsuTableViewItemProtocol] = []
+    let refreshControl = UIRefreshControl()
+
+    /// The same table as SORA2's asset details.
+    private(set) lazy var tableView: SoramitsuTableView = {
+        let tableView = SoramitsuTableView()
+        tableView.sora.backgroundColor = .custom(uiColor: .clear)
+        tableView.sora.estimatedRowHeight = UITableView.automaticDimension
+        tableView.sora.context = SoramitsuTableViewContext(scrollView: tableView, viewController: self)
+        tableView.sectionHeaderHeight = .zero
+        tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 30, right: 0)
+        tableView.sora.cancelsTouchesOnDragging = true
+        tableView.accessibilityIdentifier = "nexus.network.detail"
+        return tableView
+    }()
 
     init(
         account: NetworkAccount,
@@ -686,6 +734,7 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
         mutationUnavailableReason: String?,
         opensSendWhenReady: Bool = false,
         faucetService: TairaFaucetServing = TairaFaucetService.shared,
+        xorAsset: AssetInfo? = NexusSora2Presentation.xorAsset,
         networkStore: @escaping () throws -> WalletNetworkStore = { try WalletNetworkStore() }
     ) {
         self.account = account
@@ -696,7 +745,9 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
         self.mutationUnavailableReason = mutationUnavailableReason
         self.opensSendWhenReady = opensSendWhenReady
         self.faucetService = faucetService
-        super.init(style: .insetGrouped)
+        self.xorAsset = xorAsset
+        self.xorImage = NexusSora2Presentation.xorImage(xorAsset)
+        super.init()
     }
 
     @available(*, unavailable)
@@ -708,15 +759,26 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
         loadTask?.cancel()
         historyPageTask?.cancel()
         faucetTask?.cancel()
+        faucetClock?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         NotificationCenter.default.addObserver(self, selector: #selector(refreshVisible), name: UIApplication.didBecomeActiveNotification, object: nil)
-        title = WalletUX.format("XOR on %@", network.name)
-        view.backgroundColor = WalletUX.page
-        tableView.tableHeaderView = makeReceiveHeader()
+        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
+        view.addSubview(tableView)
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        if navigationController?.viewControllers.first === self {
+            // Presented as SORA2 presents its asset details.
+            addCloseButton()
+        }
         let access = NexusPortfolioPresentationPolicy.networkDetailAccess(
             networkId: account.networkId,
             nexusEnabled: SettingsManager.shared.nexusEnabled,
@@ -726,21 +788,21 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
             mutationCoordinatorAvailable: coordinator != nil
         )
         if access.mutationSurfaceAvailable {
-            let sendButton = UIBarButtonItem(
-                title: WalletUX.text("Send"),
-                style: .done,
-                target: self,
-                action: #selector(send)
-            )
-            sendButton.isEnabled = false
-            navigationItem.rightBarButtonItem = sendButton
+            sendEntry.isAvailable = true
+            sendEntry.isEnabled = false
         }
-        refreshControl = UIRefreshControl()
-        refreshControl?.addTarget(
+        if account.networkId == .taira, configuration.satisfiesCurrentTairaContract {
+            faucet = NexusFaucetState(title: WalletUX.text("Get test XOR"),
+                                      message: WalletUX.text("Free XOR for testing on Taira."),
+                                      busy: false, enabled: true)
+        }
+        refreshControl.addTarget(
             self,
             action: #selector(refresh),
             for: .valueChanged
         )
+        tableView.refreshControl = refreshControl
+        render()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -764,7 +826,7 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
             loadTask?.cancel()
             faucetTask?.cancel()
             setMutationReady(false)
-            navigationController?.popViewController(animated: false)
+            closeStaleScreen()
             return
         }
         reload()
@@ -773,8 +835,13 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        if isMovingFromParent || navigationController?.isBeingDismissed == true {
+        if isMovingFromParent || isBeingDismissed ||
+            navigationController?.isBeingDismissed == true ||
+            navigationController?.parent?.isBeingDismissed == true {
             faucetTask?.cancel()
+            // The screen may sleep now, even if the request takes a moment to stop.
+            faucetClock?.cancel()
+            onClose?()
         }
     }
 
@@ -788,6 +855,16 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
         reload()
     }
 
+    /// Pops a pushed detail, or closes the SORA2-style modal it is the root of.
+    private func closeStaleScreen() {
+        if presentedViewController != nil { dismiss(animated: false) }
+        if let navigation = navigationController, navigation.viewControllers.first === self {
+            (navigation.parent ?? navigation).dismiss(animated: false)
+        } else {
+            navigationController?.popViewController(animated: false)
+        }
+    }
+
     private func reload() {
         loadTask?.cancel()
         historyPageTask?.cancel()
@@ -797,14 +874,20 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
         historyPageError = nil
         setMutationReady(false)
         if !configuration.isLive {
-            balance = WalletUX.text("Coming soon")
+            balance = .notLive
             history = []
             pendingRows = []
             sendAvailabilityMessage = WalletUX.text("Your production address is ready to copy or share. Balances, activity, and transfers will be available when the SORA Nexus production network launches.")
-            refreshControl?.endRefreshing()
-            tableView.reloadData()
+            refreshControl.endRefreshing()
+            render()
             return
         }
+        // The balance and Send come first. Until 2026-11-08 this screen drew
+        // nothing until every pending transfer had been reconciled with Torii
+        // and a history page had loaded; one Taira send that was waiting for
+        // its history proof kept it on "Loading…" with no Send for minutes.
+        // Send still opens only on the same checks: a readable journal with
+        // no record from another chain or asset, and a verified XOR identity.
         loadTask = Task { [weak self] in
             guard let self else {
                 return
@@ -812,16 +895,18 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
             guard reloadContextIsCurrent() else {
                 return
             }
-            async let balanceResult = readCurrentNexusXorBalance(
+            async let balanceResult = Self.readBalanceWithDeadline(
                 account: account,
                 configuration: configuration,
                 readClient: readClient
             )
-            var loadedPending: [NexusPendingTransaction]?
+            var journal: [NexusPendingTransaction] = []
             var currentXorAssetDefinitionID: String?
             if let coordinator {
                 do {
-                    loadedPending = try await coordinator.resumePending()
+                    // The journal as written, read locally: enough to gate
+                    // Send. Network reconciliation follows below.
+                    journal = try await coordinator.journalSnapshot()
                         .filter {
                             $0.walletId == self.account.walletId &&
                                 $0.networkId == self.account.networkId
@@ -832,8 +917,8 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
                     }
                     pendingLoadError = nil
                 } catch {
-                    if NexusPortfolioTaskPolicy.isCancellation(error) {
-                        refreshControl?.endRefreshing()
+                    if Self.isOwnCancellation(error) {
+                        refreshControl.endRefreshing()
                         return
                     }
                     guard reloadContextIsCurrent() else {
@@ -853,53 +938,39 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
                 guard reloadContextIsCurrent() else {
                     return
                 }
-                balance = value.quantity.rawValue
+                balance = .loaded(value.quantity.rawValue)
                 currentXorAssetDefinitionID = value.assetDefinitionID
-                pendingRows = NexusPortfolioPresentationPolicy.pendingRows(
-                    loadedPending ?? [],
-                    currentXorAssetDefinitionID: currentXorAssetDefinitionID
-                )
             } catch {
-                if NexusPortfolioTaskPolicy.isCancellation(error) {
-                    refreshControl?.endRefreshing()
+                // Only cancellation is silent. A request that failed, ran
+                // out of time or was cancelled by the system shows "Balance
+                // unavailable" and the pull-to-refresh retry, never "Loading…".
+                if Self.isOwnCancellation(error) {
+                    refreshControl.endRefreshing()
                     return
                 }
                 guard reloadContextIsCurrent() else {
                     return
                 }
-                balance = "Unavailable"
+                balance = .unavailable
+            }
+            if pendingLoadError == nil {
                 pendingRows = NexusPortfolioPresentationPolicy.pendingRows(
-                    loadedPending ?? [],
-                    currentXorAssetDefinitionID: nil
+                    journal,
+                    currentXorAssetDefinitionID: currentXorAssetDefinitionID
                 )
             }
+            applyMutationReadiness(
+                currentXorIdentityVerified: currentXorAssetDefinitionID != nil
+            )
+            refreshControl.endRefreshing()
+            render()
+
+            // Finalized history, then the pending records' status from
+            // Torii. Each redraws its own rows when it arrives.
             if let currentXorAssetDefinitionID {
-                do {
-                    let value = try await readClient.transferHistoryPage(
-                        account: account.address,
-                        configuration: configuration,
-                        assetDefinitionID: currentXorAssetDefinitionID,
-                        cursor: nil
-                    )
-                    guard reloadContextIsCurrent() else {
-                        return
-                    }
-                    try historyCursor.accept(value)
-                    history = value.items
-                    historyAssetDefinitionID = currentXorAssetDefinitionID
-                    historyLoadError = nil
-                } catch {
-                    if NexusPortfolioTaskPolicy.isCancellation(error) {
-                        refreshControl?.endRefreshing()
-                        return
-                    }
-                    guard reloadContextIsCurrent() else {
-                        return
-                    }
-                    history = []
-                    historyLoadError =
-                        "Finalized history is temporarily unavailable. No local transaction was retried."
-                }
+                await loadFirstHistory(
+                    assetDefinitionID: currentXorAssetDefinitionID
+                )
             } else {
                 history = []
                 historyLoadError =
@@ -908,29 +979,140 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
             guard reloadContextIsCurrent() else {
                 return
             }
-            setMutationReady(
-                NexusPortfolioPresentationPolicy.mutationIsReady(
-                    mutationCoordinatorAvailable: coordinator != nil,
-                    pendingJournalLoaded: pendingLoadError == nil,
-                    containsAssetRecovery: pendingRows.contains(where: {
-                        $0.kind == .assetRecovery
-                    }),
-                    currentXorIdentityVerified:
-                        currentXorAssetDefinitionID != nil,
-                    featureEnabled: SettingsManager.shared.nexusSendsEnabled(for: configuration.networkId)
-                )
-            )
-            if mutationReady {
-                sendAvailabilityMessage = nil
-            } else if !SettingsManager.shared.nexusSendsEnabled(for: configuration.networkId) {
-                sendAvailabilityMessage = WalletUX.text("Sending is paused for this network. Check that Taira Testnet is enabled in Settings.")
-            } else if pendingLoadError != nil || pendingRows.contains(where: { $0.kind == .assetRecovery }) {
-                sendAvailabilityMessage = WalletUX.text("Sending is paused while pending transfers need checking. Review the activity below before starting another transfer.")
-            } else {
-                sendAvailabilityMessage = WalletUX.text("Sending is unavailable until this network's balance and XOR asset can be verified. Pull down to refresh.")
+            render()
+            guard let coordinator, pendingLoadError == nil else {
+                return
             }
-            refreshControl?.endRefreshing()
-            tableView.reloadData()
+            do {
+                let reconciled = try await coordinator.resumePending()
+                    .filter {
+                        $0.walletId == self.account.walletId &&
+                            $0.networkId == self.account.networkId
+                    }
+                    .sorted { $0.updatedAt > $1.updatedAt }
+                guard reloadContextIsCurrent() else {
+                    return
+                }
+                pendingRows = NexusPortfolioPresentationPolicy.pendingRows(
+                    reconciled,
+                    currentXorAssetDefinitionID: currentXorAssetDefinitionID
+                )
+            } catch {
+                if Self.isOwnCancellation(error) {
+                    return
+                }
+                guard reloadContextIsCurrent() else {
+                    return
+                }
+                pendingRows = []
+                pendingLoadError =
+                    "The protected pending-transaction journal is unreadable. Sending is disabled until it is recovered."
+                applyMutationReadiness(
+                    currentXorIdentityVerified: currentXorAssetDefinitionID != nil
+                )
+            }
+            render()
+        }
+    }
+
+    /// This load's own cancellation (a newer reload, or the screen going
+    /// away). `URLError.cancelled` alone is not enough: URLSession reports it
+    /// for a refused challenge too, and that must not leave "Loading…".
+    nonisolated static func isOwnCancellation(_ error: Error) -> Bool {
+        Task.isCancelled || error is CancellationError
+    }
+
+    /// The XOR balance read with a deadline: a stalled request shows
+    /// "Balance unavailable" and a retry, never an endless "Loading…".
+    nonisolated static func readBalanceWithDeadline(
+        account: NetworkAccount,
+        configuration: NexusNetworkConfiguration,
+        readClient: NexusToriiReading,
+        seconds: UInt64 = 45
+    ) async throws -> NexusCurrentXorBalance {
+        try await withThrowingTaskGroup(of: NexusCurrentXorBalance?.self) { group in
+            group.addTask {
+                try await readCurrentNexusXorBalance(
+                    account: account,
+                    configuration: configuration,
+                    readClient: readClient
+                )
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: seconds * 1_000_000_000)
+                return nil
+            }
+            defer { group.cancelAll() }
+            guard let first = try await group.next(), let value = first else {
+                throw URLError(.timedOut)
+            }
+            return value
+        }
+    }
+
+    /// Pages of Taira history that may come back empty before the first
+    /// transfer: the server reads block ranges newest first and answers a
+    /// range without matching rows with an empty page and a cursor.
+    static let emptyHistoryPagesToFollow = 12
+
+    /// The first page of finalized history that has transfers in it.
+    private func loadFirstHistory(assetDefinitionID: String) async {
+        do {
+            var cursor = NexusHistoryCursor()
+            var items: [NexusTransferHistoryItem] = []
+            var pages = 0
+            repeat {
+                let value = try await readClient.transferHistoryPage(
+                    account: account.address,
+                    configuration: configuration,
+                    assetDefinitionID: assetDefinitionID,
+                    cursor: cursor.nextCursor
+                )
+                guard reloadContextIsCurrent() else {
+                    return
+                }
+                try cursor.accept(value)
+                items.append(contentsOf: value.items)
+                pages += 1
+            } while items.isEmpty && cursor.hasMore &&
+                pages < Self.emptyHistoryPagesToFollow
+            historyCursor = cursor
+            history = items
+            historyAssetDefinitionID = assetDefinitionID
+            historyLoadError = nil
+        } catch {
+            if Self.isOwnCancellation(error) {
+                return
+            }
+            guard reloadContextIsCurrent() else {
+                return
+            }
+            history = []
+            historyLoadError =
+                "Finalized history is temporarily unavailable. No local transaction was retried."
+        }
+    }
+
+    private func applyMutationReadiness(currentXorIdentityVerified: Bool) {
+        setMutationReady(
+            NexusPortfolioPresentationPolicy.mutationIsReady(
+                mutationCoordinatorAvailable: coordinator != nil,
+                pendingJournalLoaded: pendingLoadError == nil,
+                containsAssetRecovery: pendingRows.contains(where: {
+                    $0.kind == .assetRecovery
+                }),
+                currentXorIdentityVerified: currentXorIdentityVerified,
+                featureEnabled: SettingsManager.shared.nexusSendsEnabled(for: configuration.networkId)
+            )
+        )
+        if mutationReady {
+            sendAvailabilityMessage = nil
+        } else if !SettingsManager.shared.nexusSendsEnabled(for: configuration.networkId) {
+            sendAvailabilityMessage = WalletUX.text("Sending is paused for this network. Check that Taira Testnet is enabled in Settings.")
+        } else if pendingLoadError != nil || pendingRows.contains(where: { $0.kind == .assetRecovery }) {
+            sendAvailabilityMessage = WalletUX.text("Sending is paused while pending transfers need checking. Review the activity below before starting another transfer.")
+        } else {
+            sendAvailabilityMessage = WalletUX.text("Sending is unavailable until this network's balance and XOR asset can be verified. Pull down to refresh.")
         }
     }
 
@@ -952,12 +1134,12 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
                     .current.isTairaAdmitted
             )
         else {
-            refreshControl?.endRefreshing()
+            refreshControl.endRefreshing()
             setMutationReady(false)
             faucetTask?.cancel()
-            faucetButton?.isEnabled = false
-            if presentedViewController != nil { dismiss(animated: false) }
-            navigationController?.popViewController(animated: false)
+            faucet?.enabled = false
+            renderBalance()
+            closeStaleScreen()
             return false
         }
         return true
@@ -965,13 +1147,14 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
 
     private func setMutationReady(_ ready: Bool) {
         mutationReady = ready
-        navigationItem.rightBarButtonItem?.isEnabled = ready
-        guard ready, opensSendWhenReady, view.window != nil, presentedViewController == nil else {
+        sendEntry.isEnabled = ready
+        renderBalance()
+        guard ready, opensSendWhenReady, isViewLoaded, view.window != nil, presentedViewController == nil else {
             return
         }
         opensSendWhenReady = false
-        // The checks can finish while this screen is still being pushed.
-        if let transition = navigationController?.transitionCoordinator {
+        // The checks can finish while this screen is still being presented.
+        if let transition = transitionCoordinator ?? navigationController?.transitionCoordinator {
             transition.animate(alongsideTransition: nil) { [weak self] _ in
                 self?.send()
             }
@@ -986,10 +1169,151 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
 
     /// "Taira · Testnet" or "SORA Nexus · Coming soon".
     private var networkLabel: String {
+        Self.networkLabel(for: account.networkId)
+    }
+
+    static func networkLabel(for networkId: NetworkId) -> String {
         let directory = WalletNetworkDirectory.current
-        let main = directory.mainNetwork(walletNetworks: [.sora2, account.networkId])
-        return directory.tag(for: account.networkId, main: main)
+        let network = directory.info(networkId)
+        let main = directory.mainNetwork(walletNetworks: [.sora2, networkId])
+        return directory.tag(for: networkId, main: main)
             .map { "\(network.name) · \($0.title)" } ?? network.name
+    }
+
+    private var balanceQuantity: String? {
+        if case let .loaded(quantity) = balance { return quantity }
+        return nil
+    }
+
+    /// SORA2 hides Send while there is nothing to send.
+    private var hasBalanceToSend: Bool {
+        guard let quantity = balanceQuantity,
+              let value = Decimal(string: quantity, locale: Locale(identifier: "en_US_POSIX")) else { return false }
+        return value > 0
+    }
+
+    private var balanceText: String {
+        switch balance {
+        case .loading: return WalletUX.text("Loading…")
+        case let .loaded(quantity): return "\(quantity) XOR"
+        case .unavailable: return WalletUX.balanceUnavailableText
+        case .notLive: return WalletUX.text("Coming soon")
+        }
+    }
+
+    // MARK: Items
+
+    private func render() {
+        guard isViewLoaded else { return }
+        let price = PriceItem(icon: xorAsset?.icon,
+                              tokenName: xorAsset?.name ?? "XOR",
+                              tokenSymbol: xorAsset?.symbol ?? "XOR",
+                              priceText: networkLabel)
+        priceItem = price
+        let balance = makeBalanceItem()
+        balanceItem = balance
+        var items: [SoramitsuTableViewItemProtocol] = [
+            price,
+            SoramitsuTableViewSpacerItem(space: 16, color: .custom(uiColor: .clear)),
+            balance
+        ]
+        activityItem = makeActivityItem()
+        if let activityItem {
+            items.append(activityItem)
+        }
+        let address = AssetIdItem(
+            assetId: account.address,
+            title: configuration.isLive
+                ? R.string.localizable.accountAddress(preferredLanguages: .currentLocale)
+                : WalletUX.text("Production address"),
+            tapHandler: { [weak self] in self?.copyAddress() })
+        addressItem = address
+        items.append(SoramitsuTableViewSpacerItem(space: 16, color: .custom(uiColor: .clear)))
+        items.append(address)
+        self.items = items
+        tableView.sora.sections = [SoramitsuTableViewSection(rows: items)]
+    }
+
+    /// Updates the balance card alone, for the changes that only it shows.
+    private func renderBalance() {
+        guard isViewLoaded, let current = balanceItem,
+              let index = items.firstIndex(where: { $0 === current }) else { return }
+        let updated = makeBalanceItem()
+        balanceItem = updated
+        items[index] = updated
+        tableView.sora.sections = [SoramitsuTableViewSection(rows: items)]
+    }
+
+    private func makeBalanceItem() -> NexusBalanceItem {
+        var notes: [String] = []
+        if let sendAvailabilityMessage, sendEntry.isAvailable || !configuration.isLive {
+            notes.append(sendAvailabilityMessage)
+        }
+        let item = NexusBalanceItem(
+            balanceText: balanceText,
+            showsSend: sendEntry.isAvailable && sendEntry.isEnabled && hasBalanceToSend,
+            receiveTitle: configuration.isLive
+                ? R.string.localizable.commonReceive(preferredLanguages: .currentLocale)
+                : WalletUX.text("Production address"),
+            faucet: faucet,
+            notes: notes)
+        item.actionHandler = { [weak self] action in
+            switch action {
+            case .send: self?.send()
+            case .receive: self?.receive()
+            case .faucet: self?.requestTestXor()
+            }
+        }
+        return item
+    }
+
+    private func makeActivityItem() -> NexusActivityItem? {
+        guard configuration.isLive else { return nil }
+        var rows: [ActivityContentViewModel] = []
+        var notices: [String] = []
+        if pendingLoadError != nil {
+            notices.append(WalletUX.text("Recovery required") + ". " +
+                WalletUX.text("Sending is paused while pending transfers are unavailable. Tap to check again."))
+        } else {
+            // A send that finalized history already lists is shown once, as
+            // SORA2 shows it: from history. Rejected or expired sends never
+            // reach history and stay listed from the journal.
+            let finalized = Set(history.compactMap {
+                NexusTransactionHash.normalized($0.transactionHash)
+            })
+            rows += pendingRows
+                .filter { row in
+                    guard let hash = row.transaction.hash.flatMap(NexusTransactionHash.normalized) else {
+                        return true
+                    }
+                    return !finalized.contains(hash)
+                }
+                .map { NexusActivityRows.pending($0, xorImage: xorImage) }
+        }
+        if historyLoadError != nil {
+            notices.append(WalletUX.text("History unavailable") + ". " +
+                WalletUX.text("Activity could not be loaded. Tap to refresh."))
+        } else {
+            rows += history.map { NexusActivityRows.history($0, account: account.address, xorImage: xorImage) }
+        }
+        if let historyPageError {
+            notices.append(historyPageError)
+        }
+        let hasMore = historyLoadError == nil && historyCursor.hasMore && historyAssetDefinitionID != nil
+        // SORA2 shows no activity card without activity.
+        guard !rows.isEmpty || !notices.isEmpty || hasMore else { return nil }
+        let item = NexusActivityItem(
+            rows: rows,
+            notice: notices.isEmpty ? nil : notices.joined(separator: "\n\n"),
+            moreTitle: hasMore
+                ? (historyPageTask == nil
+                    ? R.string.localizable.showMore(preferredLanguages: .currentLocale)
+                    : WalletUX.text("Loading…"))
+                : nil)
+        item.openDetails = { [weak self] id in self?.openActivity(id) }
+        item.openMore = { [weak self] in self?.loadMoreHistory() }
+        item.openNotice = { [weak self] in self?.showConnectionHelp() }
+        return item
     }
 
     private func loadMoreHistory() {
@@ -1003,24 +1327,34 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
             defer {
                 if !Task.isCancelled {
                     historyPageTask = nil
-                    tableView.reloadData()
+                    render()
                 }
             }
             do {
-                let page = try await readClient.transferHistoryPage(
-                    account: account.address, configuration: configuration,
-                    assetDefinitionID: assetID, cursor: historyCursor.nextCursor
-                )
-                guard reloadContextIsCurrent() else { return }
-                try historyCursor.accept(page)
-                history.append(contentsOf: page.items)
+                // Follow empty block-range pages until the next transfers.
+                var cursor = historyCursor
+                var items: [NexusTransferHistoryItem] = []
+                var pages = 0
+                repeat {
+                    let page = try await readClient.transferHistoryPage(
+                        account: account.address, configuration: configuration,
+                        assetDefinitionID: assetID, cursor: cursor.nextCursor
+                    )
+                    guard reloadContextIsCurrent() else { return }
+                    try cursor.accept(page)
+                    items.append(contentsOf: page.items)
+                    pages += 1
+                } while items.isEmpty && cursor.hasMore &&
+                    pages < Self.emptyHistoryPagesToFollow
+                historyCursor = cursor
+                history.append(contentsOf: items)
             } catch {
                 guard !NexusPortfolioTaskPolicy.isCancellation(error),
                       reloadContextIsCurrent() else { return }
                 historyPageError = WalletUX.text("Could not load more activity. Retry, or pull down to refresh if new transfers arrived.")
             }
         }
-        tableView.reloadData()
+        render()
     }
 
     private func networkActionContextIsCurrent() -> Bool {
@@ -1030,95 +1364,60 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
         reloadContextIsCurrent()
     }
 
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        guard let header = tableView.tableHeaderView else { return }
-        let size = header.systemLayoutSizeFitting(CGSize(width: tableView.bounds.width, height: 0),
-            withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel)
-        if abs(header.frame.height - size.height) > 1 || header.frame.width != tableView.bounds.width {
-            header.frame.size = CGSize(width: tableView.bounds.width, height: size.height)
-            tableView.tableHeaderView = header
-        }
-    }
-
-    private func makeReceiveHeader() -> UIView {
-        let container = UIView(
-            frame: CGRect(x: 0, y: 0, width: 1, height: 310)
-        )
-        let badge = UILabel()
-        badge.font = .preferredFont(forTextStyle: .subheadline)
-        badge.adjustsFontForContentSizeCategory = true
-        badge.numberOfLines = 0
-        badge.textAlignment = .center
-        badge.textColor = configuration.isTestnet ? .systemOrange : .secondaryLabel
-        badge.text = networkLabel
-
-        let image = UIImageView(image: qrImage(account.address))
-        image.contentMode = .scaleAspectFit
-
-        let address = UILabel()
-        address.font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .monospacedSystemFont(ofSize: 13, weight: .regular))
-        address.adjustsFontForContentSizeCategory = true
-        address.lineBreakMode = .byCharWrapping
-        address.textAlignment = .center
-        address.numberOfLines = 0
-        address.text = account.address
-
-        let copy = UIButton(type: .system)
-        copy.setTitle(WalletUX.text(configuration.isLive ? "Copy receive address" : "Copy address"), for: .normal)
-        copy.addTarget(self, action: #selector(copyAddress), for: .touchUpInside)
-
-        let explorer = UIButton(type: .system)
-        explorer.setTitle(WalletUX.text("Open explorer"), for: .normal)
-        explorer.addTarget(self, action: #selector(openExplorer), for: .touchUpInside)
-        explorer.isHidden = !configuration.isLive
-
-        var headerViews: [UIView] = [badge, image, address, copy]
-        if account.networkId == .taira, configuration.satisfiesCurrentTairaContract {
-            let button = WalletUX.button("Get test XOR", primary: true) { [weak self] in
-                self?.requestTestXor()
-            }
-            button.accessibilityIdentifier = "taira.faucet.request"
-            let status = WalletUX.label(WalletUX.text("Free XOR for testing on Taira."), style: .footnote)
-            status.textColor = WalletUX.secondary
-            status.textAlignment = .center
-            status.accessibilityIdentifier = "taira.faucet.status"
-            faucetButton = button
-            faucetStatus = status
-            headerViews += [button, status]
-        }
-        headerViews.append(explorer)
-        let stack = UIStackView(arrangedSubviews: headerViews)
-        stack.axis = .vertical
-        stack.alignment = .fill
-        stack.spacing = 8
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -24),
-            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
-            image.heightAnchor.constraint(equalToConstant: 170),
-            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -12),
-            copy.heightAnchor.constraint(greaterThanOrEqualToConstant: 48),
-            explorer.heightAnchor.constraint(greaterThanOrEqualToConstant: configuration.isLive ? 48 : 0)
-        ])
-        return container
-    }
+    // MARK: Faucet
 
     private func updateFaucet(message: String? = nil, busy: Bool = false) {
-        if let message { faucetStatus?.text = message }
-        var style = faucetButton?.configuration
-        style?.title = WalletUX.text(faucetHasPending ? "Check faucet request" : "Get test XOR")
-        style?.showsActivityIndicator = busy
-        faucetButton?.configuration = style
-        // Keep the button tappable during a cooldown to explain when to retry.
-        faucetButton?.isEnabled = !busy
-        view.setNeedsLayout()
+        guard var state = faucet else { return }
+        if let message { state.message = message }
+        state.title = WalletUX.text(faucetHasPending ? "Check faucet request" : "Get test XOR")
+        state.busy = busy
+        // Keep the action tappable during a cooldown to explain when to retry.
+        state.enabled = !busy
+        faucet = state
+        renderBalance()
+    }
+
+    /// Preparing can take minutes on a slow device, and no percentage can be shown
+    /// because every try of the puzzle is independent of the others. So after a few
+    /// seconds the status counts the time, to show that the claim is still going.
+    /// The screen stays on until the clock stops, because the solve stands still
+    /// while the phone is locked.
+    private func startFaucetClock() {
+        faucetClock?.cancel()
+        let started = ProcessInfo.processInfo.systemUptime
+        faucetClock = Task { [weak self] in
+            defer { UIApplication.shared.isIdleTimerDisabled = false }
+            while !Task.isCancelled {
+                // One flag for the whole app, and a clock that has just stopped
+                // clears it, so each tick sets it again.
+                UIApplication.shared.isIdleTimerDisabled = true
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard !Task.isCancelled, let self else { return }
+                let seconds = Int(ProcessInfo.processInfo.systemUptime - started)
+                if seconds >= 3 { self.showFaucetClock(seconds: seconds) }
+            }
+        }
+    }
+
+    /// Changes only the status text. Going through renderBalance once a second
+    /// would replace the table's section, which fades the whole page each time.
+    func showFaucetClock(seconds: Int) {
+        guard var state = faucet else { return }
+        let time = String(format: "%d:%02d", seconds / 60, seconds % 60)
+        state.message = WalletUX.format("Preparing your test XOR… %@\nThis can take a few minutes.", time)
+        faucet = state
+        balanceItem?.faucet = state
+        guard let label = tableView.visibleCells.lazy.compactMap({ ($0 as? NexusBalanceCell)?.faucetStatusLabel }).first else { return }
+        let fitting = CGSize(width: label.bounds.width, height: .greatestFiniteMagnitude)
+        let height = label.sizeThatFits(fitting).height
+        label.sora.text = state.message
+        if label.sizeThatFits(fitting).height != height {
+            UIView.performWithoutAnimation { tableView.performBatchUpdates(nil) }
+        }
     }
 
     private func restoreFaucetRequest() {
-        guard faucetButton != nil, faucetTask == nil else { return }
+        guard faucet != nil, faucetTask == nil else { return }
         faucetTask = Task { [weak self] in
             guard let self else { return }
             defer { faucetTask = nil }
@@ -1130,13 +1429,15 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
             } catch {
                 guard !Task.isCancelled, networkActionContextIsCurrent() else { return }
                 updateFaucet(message: WalletUX.text("Your saved faucet request could not be read. Try again after restarting the app."))
-                faucetButton?.isEnabled = false
+                faucet?.enabled = false
+                renderBalance()
             }
         }
     }
 
     private func requestTestXor() {
-        guard faucetButton != nil, faucetTask == nil, networkActionContextIsCurrent() else { return }
+        guard faucet != nil, faucetTask == nil, networkActionContextIsCurrent() else { return }
+        guard faucet?.enabled == true else { return }
         if let retry = faucetRetryAfter, retry > Date() {
             updateFaucet(message: WalletUX.format("Please wait %@ seconds before requesting more test XOR.", String(Int(ceil(retry.timeIntervalSinceNow)))))
             return
@@ -1146,10 +1447,12 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
             guard let self else { return }
             defer {
                 faucetTask = nil
+                faucetClock?.cancel()
                 if networkActionContextIsCurrent() {
                     updateFaucet()
                 } else {
-                    faucetButton?.isEnabled = false
+                    faucet?.enabled = false
+                    renderBalance()
                 }
             }
             do {
@@ -1168,7 +1471,9 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
                             case .submitting: text = "Requesting test XOR…"
                             case .checking: text = "Checking your faucet request…"
                             }
+                            self.faucetClock?.cancel()
                             self.updateFaucet(message: WalletUX.text(text), busy: true)
+                            if case .preparing = phase { self.startFaucetClock() }
                         }
                     }
                 )
@@ -1199,35 +1504,20 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
                 } else {
                     updateFaucet(message: WalletUX.text(faucetHasPending
                         ? "Your faucet request is still processing. Check again to update your balance."
-                        : "Could not get test XOR. Check your connection and try again."))
+                        : TairaFaucetClient.failureMessage(for: error)))
                 }
             }
         }
     }
 
-    private func qrImage(_ value: String) -> UIImage? {
-        guard let filter = CIFilter(name: "CIQRCodeGenerator") else {
-            return nil
-        }
-        filter.setValue(Data(value.utf8), forKey: "inputMessage")
-        filter.setValue("M", forKey: "inputCorrectionLevel")
-        guard let output = filter.outputImage?
-            .transformed(by: CGAffineTransform(scaleX: 8, y: 8))
-        else {
-            return nil
-        }
-        let context = CIContext()
-        guard let image = context.createCGImage(output, from: output.extent) else {
-            return nil
-        }
-        return UIImage(cgImage: image)
-    }
+    // MARK: Actions
 
     @objc private func copyAddress() {
         guard networkActionContextIsCurrent() else {
             return
         }
         UIPasteboard.general.string = account.address
+        NexusSora2Presentation.showCopied(appEventService)
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
     }
@@ -1237,6 +1527,98 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
             return
         }
         UIApplication.shared.open(configuration.explorerURL)
+    }
+
+    /// SORA2's Receive screen with this network's receive address.
+    private func receive() {
+        guard networkActionContextIsCurrent() else {
+            return
+        }
+        Self.presentReceive(account: account, configuration: configuration, xorAsset: xorAsset, from: self,
+                            isCurrent: { [weak self] in self?.networkActionContextIsCurrent() ?? false })
+    }
+
+    /// SORA2's Receive screen for a network account, also opened straight
+    /// from the wallet's Receive, as SORA2's own Receive is. Copy and Share
+    /// check the selected wallet and the network first.
+    static func presentReceive(
+        account: NetworkAccount,
+        configuration: NexusNetworkConfiguration,
+        xorAsset: AssetInfo?,
+        from presenter: UIViewController,
+        isCurrent: (@MainActor () -> Bool)? = nil
+    ) {
+        let accountIsCurrent: @MainActor () -> Bool = {
+            NexusPortfolioPresentationPolicy.detailMatchesSelectedWallet(
+                walletId: account.walletId,
+                selectedWalletId: SelectedWalletSettings.shared.currentAccount?.address
+            ) && NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
+                networkId: account.networkId,
+                nexusEnabled: SettingsManager.shared.nexusEnabled,
+                tairaEnabled: SettingsManager.shared.isTairaEnabled,
+                tairaAdmitted: NexusNetworkAdmissionPolicy.current.isTairaAdmitted
+            )
+        }
+        let contextIsCurrent: @MainActor () -> Bool
+        if let isCurrent {
+            contextIsCurrent = isCurrent
+        } else {
+            contextIsCurrent = accountIsCurrent
+        }
+        let notice = configuration.isLive
+            ? WalletUX.text("Each network has its own address. Share the address of the network the sender uses.")
+            : WalletUX.text("Your production address is ready to copy or share. Balances, activity, and transfers will be available when the SORA Nexus production network launches.")
+        let viewModel = NexusReceiveViewModel(address: account.address, name: networkLabel(for: account.networkId), notice: notice,
+                                              avatar: NexusSora2Presentation.xorImage(xorAsset), isCurrent: contextIsCurrent)
+        let controller = ReceiveViewController(viewModel: viewModel)
+        viewModel.view = controller
+        let navigation = UINavigationController(rootViewController: controller)
+        navigation.addCustomTransitioning()
+        NexusSora2Presentation.present(controller, from: presenter, navigation: navigation)
+    }
+
+    /// SORA2's transaction details for a row of Recent activity.
+    private func openActivity(_ id: String) {
+        guard networkActionContextIsCurrent() else { return }
+        let model: NexusActivityDetailsViewModel.Model
+        if id.hasPrefix(NexusActivityRows.pendingPrefix) {
+            guard let row = pendingRows.first(where: {
+                NexusActivityRows.pendingPrefix + $0.transaction.id.uuidString == id
+            }) else { return }
+            model = NexusActivityDetailsViewModel.pending(row)
+        } else if let transfer = history.first(where: { $0.transactionHash == id }) {
+            model = NexusActivityDetailsViewModel.transfer(transfer, account: account.address)
+        } else {
+            return
+        }
+        var explorer: (@MainActor () -> Void)?
+        if configuration.isLive {
+            explorer = { [weak self] () -> Void in
+                self?.openExplorer()
+            }
+        }
+        let viewModel = NexusActivityDetailsViewModel(
+            model: model, xorImage: xorImage,
+            isCurrent: { [weak self] in self?.networkActionContextIsCurrent() ?? false },
+            openExplorer: explorer)
+        let controller = ActivityDetailsViewController(viewModel: viewModel)
+        viewModel.view = controller
+        NexusSora2Presentation.presentDetails(controller, from: self)
+    }
+
+    private func showConnectionHelp() {
+        guard networkActionContextIsCurrent() else { return }
+        let error = [pendingLoadError, historyLoadError].compactMap { $0 }.joined(separator: "\n\n")
+        let alert = UIAlertController(title: WalletUX.text("Check connection"),
+            message: WalletUX.text("Check your internet connection, then refresh. Pending transfers will be checked without sending them again."), preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: WalletUX.text("Refresh"), style: .default) { [weak self] _ in self?.reload() })
+        if !error.isEmpty {
+            alert.addAction(UIAlertAction(title: WalletUX.text("Technical details"), style: .default) { [weak self] _ in
+                self?.show(title: WalletUX.text("Technical details"), message: error)
+            })
+        }
+        alert.addAction(UIAlertAction(title: WalletUX.text("Close"), style: .cancel))
+        present(alert, animated: true)
     }
 
     @objc private func send() {
@@ -1253,24 +1635,26 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
             )
             return
         }
-        let form = NexusSendViewController(
+        let flow = NexusSendFlow(
             network: networkLabel,
-            balance: balance
+            balance: balanceQuantity ?? "0",
+            configuration: configuration,
+            ownAddress: account.address,
+            xorAsset: xorAsset
         )
-        form.onReview = { [weak self] receiver, amount in self?.reviewSend(receiver: receiver, amount: amount) }
-        form.onConfirm = { [weak self] prepared in self?.performSend(prepared) }
-        form.onActivity = { [weak self] in
+        flow.onReview = { [weak self] receiver, amount in self?.reviewSend(receiver: receiver, amount: amount) }
+        flow.onConfirm = { [weak self] prepared in self?.performSend(prepared) }
+        flow.onActivity = { [weak self] in
             guard let self else { return }
             self.reload()
             self.tableView.layoutIfNeeded()
-            if self.tableView.numberOfSections > 1 {
-                self.tableView.scrollRectToVisible(self.tableView.rectForHeader(inSection: 1), animated: true)
+            if let activityItem = self.activityItem,
+               let row = self.items.firstIndex(where: { $0 === activityItem }) {
+                self.tableView.scrollToRow(at: IndexPath(row: row, section: 0), at: .top, animated: true)
             }
         }
-        sendForm = form
-        let navigation = SoraNavigationController(rootViewController: form)
-        navigation.modalPresentationStyle = .fullScreen
-        present(navigation, animated: true)
+        sendFlow = flow
+        flow.present(from: self)
     }
 
     private func reviewSend(receiver: String, amount: String) {
@@ -1285,19 +1669,19 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
             try configuration.validate(address: receiver)
             quantity = try PIQuantity(amount)
         } catch {
-            sendForm?.showError(WalletUX.text("Check the recipient address and enter a valid XOR amount for this network."))
+            sendFlow?.showError(WalletUX.text("Check the recipient address and enter a valid XOR amount for this network."))
             return
         }
 
-        navigationItem.rightBarButtonItem?.isEnabled = false
-        sendForm?.setBusy(true)
+        setSendEntryEnabled(false)
+        sendFlow?.setBusy(true)
         Task { [weak self] in
             guard let self else {
                 return
             }
             defer {
-                navigationItem.rightBarButtonItem?.isEnabled = mutationReady
-                sendForm?.setBusy(false)
+                setSendEntryEnabled(mutationReady)
+                sendFlow?.setBusy(false)
             }
             do {
                 let prepared = try await coordinator.prepare(
@@ -1313,12 +1697,12 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
                 guard networkActionContextIsCurrent() else {
                     return
                 }
-                sendForm?.showReview(prepared)
+                sendFlow?.showReview(prepared)
             } catch {
                 guard networkActionContextIsCurrent() else {
                     return
                 }
-                sendForm?.showError(WalletUX.sendError(error))
+                sendFlow?.showError(WalletUX.sendError(error))
             }
         }
     }
@@ -1330,15 +1714,15 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
         guard mutationReady, let coordinator else {
             return
         }
-        navigationItem.rightBarButtonItem?.isEnabled = false
-        sendForm?.setBusy(true)
+        setSendEntryEnabled(false)
+        sendFlow?.setBusy(true)
         Task { [weak self] in
             guard let self else {
                 return
             }
             defer {
-                navigationItem.rightBarButtonItem?.isEnabled = mutationReady
-                sendForm?.setBusy(false)
+                setSendEntryEnabled(mutationReady)
+                sendFlow?.setBusy(false)
             }
             do {
                 let transaction = try await coordinator.send(
@@ -1348,20 +1732,27 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
                 guard networkActionContextIsCurrent() else {
                     return
                 }
-                sendForm?.showResult(transaction)
+                sendFlow?.showResult(transaction)
                 reload()
             } catch {
                 guard networkActionContextIsCurrent() else {
                     return
                 }
                 if WalletUX.sendOutcomeNeedsChecking(error, submissionMayHaveStarted: prepared.submissionMayHaveStarted) {
-                    sendForm?.showUncertainSubmission(WalletUX.sendError(NexusToriiError.ambiguousSubmission))
+                    sendFlow?.showUncertainSubmission(WalletUX.sendError(NexusToriiError.ambiguousSubmission))
                 } else {
-                    sendForm?.showUnsentError(WalletUX.sendError(error))
+                    sendFlow?.showUnsentError(WalletUX.sendError(error))
                 }
                 reload()
             }
         }
+    }
+
+    /// Send stays off while a review or a send of this screen is running.
+    private func setSendEntryEnabled(_ enabled: Bool) {
+        guard sendEntry.isAvailable else { return }
+        sendEntry.isEnabled = enabled
+        renderBalance()
     }
 
     private func selectedAccountSnapshot() -> NetworkAccount? {
@@ -1376,131 +1767,6 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
         return snapshot.accounts.first(where: { $0.id == account.id })
     }
 
-    override func numberOfSections(in tableView: UITableView) -> Int {
-        configuration.isLive ? 3 : 1
-    }
-
-    override func tableView(
-        _ tableView: UITableView,
-        numberOfRowsInSection section: Int
-    ) -> Int {
-        switch section {
-        case 0:
-            return 1
-        case 1:
-            return pendingLoadError == nil ? pendingRows.count : 1
-        default:
-            return historyLoadError == nil
-                ? history.count + (historyCursor.hasMore && historyAssetDefinitionID != nil ? 1 : 0)
-                : 1
-        }
-    }
-
-    override func tableView(
-        _ tableView: UITableView,
-        titleForHeaderInSection section: Int
-    ) -> String? {
-        switch section {
-        case 0:
-            return WalletUX.text(configuration.isLive ? "Balance" : "Production network")
-        case 1:
-            return WalletUX.text("Pending and recent local sends")
-        default:
-            return WalletUX.text("Finalized network history")
-        }
-    }
-
-    override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-        section == 0 ? sendAvailabilityMessage : nil
-    }
-
-    override func tableView(
-        _ tableView: UITableView,
-        cellForRowAt indexPath: IndexPath
-    ) -> UITableViewCell {
-        let cell = UITableViewCell(
-            style: .subtitle,
-            reuseIdentifier: nil
-        )
-        var content = cell.defaultContentConfiguration()
-        switch indexPath.section {
-        case 0:
-            content.text = configuration.isLive ? "\(balance) XOR" : balance
-            content.secondaryText = networkLabel
-        case 1:
-            if let pendingLoadError {
-                content.text = WalletUX.text("Recovery required")
-                content.secondaryText = WalletUX.text("Sending is paused while pending transfers are unavailable. Tap to check again.")
-                content.secondaryTextProperties.numberOfLines = 0
-                cell.contentConfiguration = content
-                return cell
-            }
-            let row = pendingRows[indexPath.row]
-            let item = row.transaction
-            switch row.kind {
-            case .currentXor:
-                content.text = "\(item.amount.rawValue) XOR · \(WalletUX.status(item.state))"
-            case .assetRecovery:
-                content.text =
-                    WalletUX.format("%@ units · Pending asset recovery", item.amount.rawValue)
-            }
-            content.secondaryText = WalletUX.statusDetail(item.state)
-            content.secondaryTextProperties.numberOfLines = 0
-        default:
-            if let historyLoadError {
-                content.text = WalletUX.text("History unavailable")
-                content.secondaryText = WalletUX.text("Activity could not be loaded. Tap to refresh.")
-                content.secondaryTextProperties.numberOfLines = 0
-                cell.contentConfiguration = content
-                return cell
-            }
-            if indexPath.row == history.count {
-                content.text = WalletUX.text(historyPageTask == nil ? "Load more activity" : "Loading…")
-                content.secondaryText = historyPageError
-                content.secondaryTextProperties.numberOfLines = 0
-                cell.contentConfiguration = content
-                return cell
-            }
-            let item = history[indexPath.row]
-            let direction = WalletUX.text(item.sender == account.address ? "Sent" : "Received")
-            content.text = "\(direction) \(item.amount.rawValue) XOR · \(WalletUX.text("Completed"))"
-            content.secondaryText =
-                Date(timeIntervalSince1970: TimeInterval(item.timestampMilliseconds) / 1000).formatted(date: .abbreviated, time: .shortened)
-            content.secondaryTextProperties.numberOfLines = 0
-        }
-        cell.contentConfiguration = content
-        return cell
-    }
-
-    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        tableView.deselectRow(at: indexPath, animated: true)
-        guard networkActionContextIsCurrent() else { return }
-        if indexPath.section == 2, historyLoadError == nil,
-           indexPath.row == history.count {
-            loadMoreHistory()
-            return
-        }
-        if (indexPath.section == 1 && pendingLoadError != nil) || (indexPath.section == 2 && historyLoadError != nil) {
-            let error = indexPath.section == 1 ? pendingLoadError : historyLoadError
-            let alert = UIAlertController(title: WalletUX.text("Check connection"),
-                message: WalletUX.text("Check your internet connection, then refresh. Pending transfers will be checked without sending them again."), preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: WalletUX.text("Refresh"), style: .default) { [weak self] _ in self?.reload() })
-            alert.addAction(UIAlertAction(title: WalletUX.text("Technical details"), style: .default) { [weak self] _ in
-                self?.show(title: WalletUX.text("Technical details"), message: error ?? "")
-            })
-            alert.addAction(UIAlertAction(title: WalletUX.text("Close"), style: .cancel))
-            present(alert, animated: true)
-        } else if indexPath.section == 1, pendingRows.indices.contains(indexPath.row) {
-            let transaction = pendingRows[indexPath.row].transaction
-            show(title: WalletUX.status(transaction.state), message: WalletUX.statusDetail(transaction.state) +
-                (transaction.hash.map { "\n\n\(WalletUX.text("Transaction ID"))\n\($0)" } ?? ""))
-        } else if indexPath.section == 2, history.indices.contains(indexPath.row) {
-            let transaction = history[indexPath.row]
-            show(title: WalletUX.text("Transfer completed"), message:
-                "\(WalletUX.text("From"))\n\(transaction.sender)\n\n\(WalletUX.text("To"))\n\(transaction.receiver)\n\n\(WalletUX.text("Transaction ID"))\n\(transaction.transactionHash)")
-        }
-    }
-
     private func show(title: String, message: String) {
         let alert = UIAlertController(
             title: title,
@@ -1509,5 +1775,56 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
         )
         alert.addAction(UIAlertAction(title: WalletUX.text("OK"), style: .default))
         present(alert, animated: true)
+    }
+}
+
+// MARK: - Activity rows
+
+enum NexusActivityRows {
+    static let pendingPrefix = "pending:"
+
+    /// A finalized transfer, as SORA2 lists a transfer.
+    static func history(_ item: NexusTransferHistoryItem, account: String, xorImage: UIImage?) -> ActivityContentViewModel {
+        let outgoing = item.sender == account
+        let type: TransferTransaction.TransferType = outgoing ? .outcoming : .incoming
+        let isRTL = LocalizationManager.shared.isRightToLeft
+        return ActivityContentViewModel(
+            txHash: item.transactionHash,
+            title: type.title,
+            subtitle: outgoing ? item.receiver : item.sender,
+            typeTransactionImage: type.image,
+            firstAssetImageViewModel: xorImage,
+            firstBalanceText: NexusSora2Presentation.amountText(
+                item.amount.rawValue, incoming: !outgoing, font: FontType.textM,
+                alignment: isRTL ? .left : .right),
+            status: .success)
+    }
+
+    /// A send of this wallet the network has not finalized, with the
+    /// status the journal keeps for it.
+    static func pending(_ row: NexusPortfolioPresentationPolicy.PendingRow, xorImage: UIImage?) -> ActivityContentViewModel {
+        let item = row.transaction
+        let isRTL = LocalizationManager.shared.isRightToLeft
+        let amount: SoramitsuTextItem
+        let title: String
+        switch row.kind {
+        case .currentXor:
+            title = TransferTransaction.TransferType.outcoming.title
+            amount = NexusSora2Presentation.amountText(item.amount.rawValue, incoming: false,
+                                                        font: FontType.textM, alignment: isRTL ? .left : .right)
+        case .assetRecovery:
+            title = WalletUX.text("Pending asset recovery")
+            amount = SoramitsuTextItem(text: WalletUX.format("%@ units", item.amount.rawValue),
+                                       fontData: FontType.textM, textColor: .fgPrimary,
+                                       alignment: isRTL ? .left : .right)
+        }
+        return ActivityContentViewModel(
+            txHash: pendingPrefix + item.id.uuidString,
+            title: title,
+            subtitle: WalletUX.status(item.state),
+            typeTransactionImage: TransferTransaction.TransferType.outcoming.image,
+            firstAssetImageViewModel: xorImage,
+            firstBalanceText: amount,
+            status: NexusSora2Presentation.status(of: item.state))
     }
 }

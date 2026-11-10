@@ -50,7 +50,18 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
         var dict = [String:JSON]()
 
         for element in data ?? [] {
-            dict[element.paramName] = JSON.stringValue(element.paramValue)
+            // SDK parameters are strings even when the history schema expects
+            // a boolean or era number. Keep amounts and identifiers as strings.
+            switch element.paramName {
+            case "isReward", "success":
+                dict[element.paramName] = Bool(element.paramValue).map(JSON.boolValue)
+                    ?? .stringValue(element.paramValue)
+            case "era":
+                dict[element.paramName] = Int64(element.paramValue).map(JSON.signedIntValue)
+                    ?? .stringValue(element.paramValue)
+            default:
+                dict[element.paramName] = .stringValue(element.paramValue)
+            }
         }
 
         let json: JSON = .dictionaryValue(dict)
@@ -169,7 +180,6 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
             context: nil)
     }
 
-    // never works yet
     private func createTransactionForExtrinsic(
         _ extrinsic: SubqueryExtrinsic,
         address: String,

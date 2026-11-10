@@ -7,6 +7,14 @@ import SoraUIKit
 import UIKit
 import XCTest
 
+// Shared with the ordinary tab-bar behavior tests in WalletUXTests.
+final class PortfolioCaptureTabPresenter: MainTabBarPresenterProtocol {
+    func setup() {}
+}
+
+// This fixture-driven suite runs with the Debug unit-test host.
+// Ordinary Release hosts exclude the sample helpers it exercises.
+#if DEBUG
 /// Opt-in native screenshots of the portfolio (`SORA_CAPTURE_PORTFOLIO=1`). Production cells,
 /// sheets, screens and the real tab bar render the debug sample portfolio; a file handshake lets
 /// `xcrun simctl io screenshot` capture each settled screen (the driver writes `capture-ack.txt`).
@@ -380,10 +388,6 @@ final class PortfolioCaptureHomeController: SoramitsuViewController {
         tableView.scrollToRow(at: IndexPath(row: row, section: 0), at: .middle, animated: false)
         tableView.layoutIfNeeded()
     }
-}
-
-final class PortfolioCaptureTabPresenter: MainTabBarPresenterProtocol {
-    func setup() {}
 }
 
 /// Records hand-offs. Swap opens the production swap screen in the container `SwapViewFactory`
@@ -844,34 +848,6 @@ final class PortfolioScreenBehaviorTests: XCTestCase {
         }
     }
 
-    func testPickerInfoAndSwitchSheetsDispatchExactlyOnceAfterRebuild() throws {
-        let picker = PortfolioPickerSheet(title: "Pick")
-        picker.note = "Choose a wallet"
-        picker.options = [.init(id: "one", icon: .allWallets, title: "One", subtitle: "Local", value: "$1", detail: nil)]
-        var picked: [String] = []
-        picker.onPick = { picked.append($0) }
-        mount(picker)
-        picker.rebuild()
-        try XCTUnwrap(descendants(PortfolioOptionRow.self, in: picker.view).first).sendActions(for: .touchUpInside)
-        XCTAssertEqual(picked, ["one"])
-        XCTAssertTrue(labels(in: picker.view).contains("Choose a wallet"))
-        let info = PortfolioInfoSheet(title: "Info")
-        info.paragraphs = ["First", "Second"]
-        info.bullets = ["Third"]
-        info.buttonTitle = "Continue"
-        var calls = 0
-        info.onButton = { calls += 1 }
-        mount(info)
-        try XCTUnwrap(descendants(PortfolioPrimaryButton.self, in: info.view).first).sendActions(for: .touchUpInside)
-        XCTAssertEqual(calls, 1)
-        XCTAssertTrue(labels(in: info.view).contains("•  Third"))
-        let confirmation = PortfolioSwitchSheet(title: "Switch")
-        confirmation.walletName = "Savings"
-        confirmation.onConfirm = { calls += 1 }
-        mount(confirmation)
-        let button = try XCTUnwrap(descendants(PortfolioPrimaryButton.self, in: confirmation.view).first)
-        XCTAssertEqual(button.accessibilityLabel, PortfolioStrings.switchAndReview("Savings"))
-        button.sendActions(for: .touchUpInside)
-        XCTAssertEqual(calls, 2)
-    }
 }
+
+#endif

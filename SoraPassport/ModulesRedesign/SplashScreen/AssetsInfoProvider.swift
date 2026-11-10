@@ -496,13 +496,18 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
     }
 
     static func assetInfo(from change: StorageUpdateData.StorageUpdateChangeData, chainId: String) -> AssetInfo? {
-        guard let assetInfoDto = assetInfoDto(from: change.value) else { return nil }
+        // SORA2 cannot store more than 18 decimals, so a larger value is a
+        // node's invention. Such an asset is left out rather than scaled.
+        guard let assetInfoDto = assetInfoDto(from: change.value),
+              WalletAssetPrecision.isPossible(UInt32(assetInfoDto.precision)) else { return nil }
         let assetId = assetId(from: change.key)
         return AssetInfo(
             id: assetId,
             symbol: assetInfoDto.symbol,
             chainId: chainId,
-            precision: UInt32(assetInfoDto.precision),
+            // The decimals scale the amount the user signs. Predefined assets
+            // keep the runtime's value whatever the node reports.
+            precision: WalletAssetPrecision.pinned(for: assetId) ?? UInt32(assetInfoDto.precision),
             icon: nil,
             displayName: assetInfoDto.name,
             visible: [

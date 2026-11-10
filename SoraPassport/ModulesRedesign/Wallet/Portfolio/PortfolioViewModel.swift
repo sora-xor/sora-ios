@@ -100,7 +100,9 @@ final class PortfolioViewModel {
         self.dataSource = dataSource
         self.preferences = preferences
         self.now = now
-        state = PortfolioPresentationState(scope: .allWallets, lens: preferences.lens)
+        // Tokens, whatever an earlier build stored: the home has no lens switch to leave
+        // Networks or Wallets again.
+        state = PortfolioPresentationState(scope: .allWallets, lens: .tokens)
         state.scope = resolvedScope(preferences.scope, snapshot: dataSource.snapshot)
         dataSource.onChange = { [weak self] _ in self?.snapshotDidChange() }
     }
@@ -147,7 +149,8 @@ final class PortfolioViewModel {
     }
 
     private func snapshotDidChange() {
-        let scope = resolvedScope(state.scope, snapshot: dataSource.snapshot)
+        // From the saved choice, so a second wallet opens All wallets unless the user chose one.
+        let scope = resolvedScope(preferences.scope, snapshot: dataSource.snapshot)
         if scope != state.scope { state.scope = scope }
         update()
     }
@@ -240,7 +243,7 @@ final class PortfolioViewModel {
     }
 
     func tapScope() {
-        guard dataSource.snapshot.wallets.count >= 2 else { return }
+        guard !dataSource.snapshot.wallets.isEmpty else { return }
         onRoute?(.walletsSheet)
     }
 

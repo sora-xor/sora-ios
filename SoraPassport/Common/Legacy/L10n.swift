@@ -322,8 +322,7 @@ extension L10n {
 
         for language in languages {
             guard checked.insert(language).inserted,
-                  let path = bundle.path(forResource: language, ofType: "lproj"),
-                  let langBundle = Bundle(path: path) else {
+                  let langBundle = R.languageBundle(language, in: bundle) else {
                 continue
             }
 

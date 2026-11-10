@@ -41,6 +41,26 @@ extension Struct {
     let internalFunctions = [
       Function(
         availables: [],
+        comments: ["Resolve an in-app language without advertising it as an Apple localization"],
+        accessModifier: .internalLevel,
+        isStatic: true,
+        name: "languageBundle",
+        generics: nil,
+        parameters: [
+          .init(name: "_", localName: "language", type: Type._String),
+          .init(name: "in", localName: "resourceBundle", type: Type._Bundle, defaultValue: "hostingBundle")
+        ],
+        doesThrow: false,
+        returnType: Type._Bundle.asOptional(),
+        body: """
+          let url = resourceBundle.url(forResource: language, withExtension: nil, subdirectory: "AppLanguages")
+            ?? resourceBundle.url(forResource: language, withExtension: "lproj")
+          return url.flatMap(Bundle.init(url:))
+          """,
+        os: []
+      ),
+      Function(
+        availables: [],
         comments: ["Load string from Info.plist file"],
         accessModifier: .filePrivate,
         isStatic: true,
@@ -83,13 +103,13 @@ extension Struct {
             .map { Locale(identifier: $0) }
             .prefix(1)
             .flatMap { locale -> [String] in
-              if resourceBundle.localizations.contains(locale.identifier) {
-                if let language = locale.languageCode, resourceBundle.localizations.contains(language) {
+              if languageBundle(locale.identifier, in: resourceBundle) != nil {
+                if let language = locale.languageCode, languageBundle(language, in: resourceBundle) != nil {
                   return [locale.identifier, language]
                 } else {
                   return [locale.identifier]
                 }
-              } else if let language = locale.languageCode, resourceBundle.localizations.contains(language) {
+              } else if let language = locale.languageCode, languageBundle(language, in: resourceBundle) != nil {
                 return [language]
               } else {
                 return []
@@ -115,8 +135,7 @@ extension Struct {
           // including the development language, before returning a raw key.
           let missingValue = UUID().uuidString
           for language in languages {
-            if let lproj = resourceBundle.url(forResource: language, withExtension: "lproj"),
-               let lbundle = Bundle(url: lproj)
+            if let lbundle = languageBundle(language, in: resourceBundle)
             {
               let strings = lbundle.url(forResource: tableName, withExtension: "strings")
               let stringsdict = lbundle.url(forResource: tableName, withExtension: "stringsdict")

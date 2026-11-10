@@ -6,8 +6,10 @@ import CoreImage
 import UIKit
 import IrohaCrypto
 import RobinHood
+import SoraKeystore
 import SoraFoundation
 import SSFUtils
+import SSFCrypto
 import XCTest
 @testable import SoraPassport
 
@@ -294,4 +296,741 @@ private final class QRImageMatcher: WalletQRMatcherProtocol {
     let expected: String
     init(expected: String) { self.expected = expected }
     func match(code: String) -> Bool { code == expected }
+}
+
+final class SwapMarketSourceBoundaryTests: XCTestCase {
+    private func source() -> SwapMarketSourcer { SwapMarketSourcer(fromAssetId: WalletAssetId.xor.rawValue, toAssetId: WalletAssetId.val.rawValue) }
+    func testUnloadedSourcesAreDistinctFromAnEmptyServerResponse() {
+        let value = source(); XCTAssertFalse(value.isLoaded()); XCTAssertTrue(value.isEmpty())
+        XCTAssertTrue(value.getMarketSources().isEmpty); XCTAssertTrue(value.getServerMarketSources().isEmpty)
+        XCTAssertNil(value.getMarketSource(at: 0)); XCTAssertNil(value.index(of: .xyk)); XCTAssertFalse(value.contains(.smart))
+        value.didLoad([]); XCTAssertTrue(value.isLoaded()); XCTAssertFalse(value.isEmpty()); XCTAssertEqual(value.getMarketSources(), [.smart])
+        XCTAssertTrue(value.getServerMarketSources().isEmpty)
+    }
+    func testRecognizedServerSourcesKeepTheirOrderAndAppendSmartOnce() {
+        let value = source(); value.didLoad([LiquiditySourceType.xyk.rawValue, LiquiditySourceType.tbc.rawValue])
+        XCTAssertEqual(value.getMarketSources(), [.xyk, .tbc, .smart]); XCTAssertEqual(value.getServerMarketSources(), [LiquiditySourceType.xyk.rawValue, LiquiditySourceType.tbc.rawValue])
+        XCTAssertEqual(value.index(of: .tbc), 1); XCTAssertTrue(value.contains(.xyk)); XCTAssertEqual(value.getMarketSource(at: 2), .smart)
+        value.addSmartIfNotEmpty(); XCTAssertEqual(value.getMarketSources(), [.xyk, .tbc, .smart])
+    }
+    func testUnknownServerSourcesCannotBecomeASelectableMarket() {
+        let value = source(); value.didLoad(["unknown", "XYKPool_typo"])
+        XCTAssertEqual(value.getMarketSources(), [.smart]); XCTAssertTrue(value.getServerMarketSources().isEmpty)
+    }
+    func testReloadReplacesPreviousServerMarkets() {
+        let value = source(); value.didLoad([LiquiditySourceType.xyk.rawValue]); value.didLoad([LiquiditySourceType.tbc.rawValue])
+        XCTAssertEqual(value.getMarketSources(), [.tbc, .smart]); XCTAssertFalse(value.contains(.xyk))
+    }
+    func testSmartServerEntryIsNotDuplicatedOrSentAsASourceFilter() {
+        let value = source(); value.didLoad([LiquiditySourceType.smart.rawValue, LiquiditySourceType.xyk.rawValue])
+        XCTAssertEqual(value.getMarketSources(), [.smart, .xyk]); XCTAssertEqual(value.getServerMarketSources(), [LiquiditySourceType.xyk.rawValue])
+        XCTAssertFalse(value.shouldSendToServer(.smart)); XCTAssertTrue(value.shouldSendToServer(.xyk))
+    }
+    func testSourceLookupRejectsNegativeAndOutOfRangeIndices() {
+        let value = source(); value.didLoad([LiquiditySourceType.xyk.rawValue])
+        for index in [Int.min, -1, 2, Int.max] { XCTAssertNil(value.getMarketSource(at: index)) }
+        XCTAssertEqual(value.getMarketSource(at: 0), .xyk)
+    }
+    func testExplicitSourcesAndSyntheticAssetRecognitionPreserveTheirMeaning() {
+        let value = source(); value.setMarketSources([.xyk]); value.add(.tbc)
+        XCTAssertEqual(value.getMarketSources(), [.xyk, .tbc]); XCTAssertTrue(value.isXSTUSD(WalletAssetId.xstusd.rawValue))
+        XCTAssertFalse(value.isXSTUSD(WalletAssetId.xor.rawValue)); value.setMarketSources([]); XCTAssertTrue(value.isEmpty())
+        value.forceAddSmartMarketSourceIfNecessary(); XCTAssertEqual(value.getMarketSources(), [.smart])
+    }
+    func testAddingSmartBeforeServerLoadingDoesNotPretendSourcesHaveLoaded() {
+        let value = source(); value.addSmartIfNotEmpty(); value.add(.xyk)
+        XCTAssertFalse(value.isLoaded()); XCTAssertTrue(value.isEmpty())
+    }
+}
+
+final class StartupDiagnosticBoundaryTests: XCTestCase {
+    private func diagnostic(_ error: Error) throws -> WalletStartupDiagnostic {
+        let settings = InMemorySettingsManager(); settings.setWalletMigrationRecovery(reason: "diagnostic fixture")
+        WalletStartupDiagnostic.record(error, phase: .networkSnapshot, settings: settings)
+        return try XCTUnwrap(WalletStartupDiagnostic.current(settings))
+    }
+    func testKeychainFailuresKeepTheirDistinctSafeDiagnosticCodes() throws {
+        let values: [(KeystoreError, WalletStartupDiagnostic.Cause)] = [(.invalidIdentifierFormat, .keychainIdentifier), (.noKeyFound, .keychainMissing), (.duplicatedItem, .keychainDuplicate), (.unexpectedFail, .keychainResult)]
+        for (error, cause) in values {
+            let d = try diagnostic(error); XCTAssertEqual(d.cause, cause); XCTAssertNil(d.systemCode)
+            XCTAssertEqual(d.phase, .networkSnapshot); XCTAssertNotNil(d.recordedAt)
+        }
+    }
+    func testAmbiguousAccountInventoryIsNotMisclassifiedAsMissingKeys() throws {
+        let values: [(SelectedWalletSettingsError, WalletStartupDiagnostic.Cause)] = [(.duplicateAccountIdentifiers, .duplicateAccounts), (.multipleSelectedAccounts, .multipleSelections), (.missingSelectedAccount, .missingSelection)]
+        for (error, cause) in values { XCTAssertEqual(try diagnostic(error).cause, cause) }
+    }
+    func testInvalidDerivationAndRemovalFailuresRetainOnlyFixedCodes() throws {
+        let values: [(WalletNetworkMigrationError, WalletStartupDiagnostic.Cause)] = [(.invalidDerivationPath, .invalidDerivation), (.nonHardenedDerivationComponent, .invalidDerivation), (.invalidDerivationIndex, .invalidDerivation), (.explicitRemovalTargetMissing("private-address-fixture"), .removalMismatch), (.explicitRemovalInventoryMismatch, .removalMismatch), (.explicitRemovalSelectionMismatch, .removalMismatch), (.legacyIdentityMismatch("private-address-fixture"), .legacyIdentityMismatch)]
+        for (error, cause) in values {
+            let d = try diagnostic(error); XCTAssertEqual(d.cause, cause)
+            XCTAssertFalse(d.summary.contains("private-address-fixture"))
+            XCTAssertFalse(String(decoding: try JSONEncoder().encode(d), as: UTF8.self).contains("private-address-fixture"))
+        }
+    }
+    func testEmptySigningMaterialIsExplainedWithoutClaimingTheWalletWasDeleted() throws {
+        let d = try diagnostic(UserStorageMigrationError.emptyWalletSecret("private-tag-fixture"))
+        XCTAssertEqual(d.userMessage, WalletUX.text("A matching wallet key record was found, but it was empty. Existing account data and other keys have been preserved."))
+        XCTAssertFalse(d.summary.contains("private-tag-fixture"))
+    }
+    func testKeychainEntitlementFailureIsDistinguishedFromAMissingSecret() throws {
+        let d = try diagnostic(KeystoreSystemError(status: -34018))
+        XCTAssertEqual(d.cause, .keychainSystem); XCTAssertEqual(d.systemCode, -34018)
+        XCTAssertEqual(d.userMessage, WalletUX.text("iOS rejected this app’s Keychain access. The error details include the system status; no wallet data was replaced."))
+    }
+    func testUnknownKeychainSystemFailureDoesNotClaimAKeyWasMissing() throws {
+        let d = try diagnostic(KeystoreSystemError(status: -50))
+        XCTAssertEqual(d.systemCode, -50)
+        XCTAssertEqual(d.userMessage, WalletUX.text("iOS returned an error while SORA was checking a wallet key. No missing-key conclusion was made for that failed operation."))
+    }
+    func testUnavailableStoreAndModelUseTheDatabaseRecoveryMessage() throws {
+        let values: [UserStorageMigrationError] = [.missingWalletStore, .unknownStoreVersion, .unavailableModel("private-model-fixture")]
+        for e in values {
+            let d = try diagnostic(e)
+            XCTAssertEqual(d.userMessage, WalletUX.text("SORA could not verify the saved wallet database. Existing files and recovery copies have been preserved."))
+            XCTAssertFalse(d.summary.contains("private-model-fixture"))
+        }
+    }
+    func testRecoveryExportErrorsDescribeWhatWasPreservedAndWhetherAnythingWasPublished() {
+        let values: [(WalletRecoveryExportError, String)] = [
+            (.unavailableStore, "The preserved wallet database is unavailable."),
+            (.unsafeSource("wallet.sqlite"), "The preserved wallet file wallet.sqlite could not be verified."),
+            (.sourceChanged("wallet.sqlite"), "The preserved wallet file wallet.sqlite changed while it was being exported. Nothing was published."),
+            (.invalidSettings, "The protected wallet settings could not be safely exported."),
+            (.exportTooLarge, "The preserved wallet data exceeds the bounded recovery export size."),
+            (.publicationFailed, "The protected recovery package could not be published."),
+            (.publicationWithdrawalFailed, "The recovery package could not be safely withdrawn after publication verification failed.")]
+        for (error, text) in values { XCTAssertEqual(error.localizedDescription, text) }
+    }
+    func testAccountSelectionErrorsDescribeTheBrokenInventoryInvariant() {
+        let values: [(SelectedWalletSettingsError, String)] = [
+            (.duplicateAccountIdentifiers, "The wallet database contains duplicate account identifiers."),
+            (.multipleSelectedAccounts, "The wallet database contains more than one selected account."),
+            (.missingSelectedAccount, "Existing wallet accounts were found, but no verified selected account is available.")]
+        for (error, text) in values { XCTAssertEqual(error.localizedDescription, text) }
+    }
+}
+
+@MainActor
+final class AppEventLifecycleBoundaryTests: XCTestCase {
+    private var services = [AppEventService]()
+    private var priorWindow: UIWindow?
+    override func setUp() {
+        super.setUp(); priorWindow = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first { $0.isKeyWindow }
+    }
+    override func tearDown() async throws {
+        for service in services {
+            await withCheckedContinuation { continuation in service.stop { continuation.resume() } }
+        }
+        services = []; priorWindow?.makeKeyAndVisible(); priorWindow = nil
+        try await super.tearDown()
+    }
+    private func subject(_ mode: AppEventService.HideMode = .never) -> AppEventService {
+        let s = AppEventService(hideMode: mode); services.append(s); return s
+    }
+    private func waitFor(_ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
+        for _ in 0..<200 { if condition() { return }; try? await Task.sleep(nanoseconds: 10_000_000) }
+        XCTFail("Toast lifecycle did not settle", file: file, line: line)
+    }
+    func testShowingAToastAttachesItToAPassthroughWindow() async {
+        let s = subject(), view = BoundaryToastController(); s.showToasterIfNeeded(viewController: view)
+        await waitFor { view.shows == 1 }; XCTAssertTrue(view.view.window is SilentWindow)
+        XCTAssertFalse(view.view.window?.point(inside: .zero, with: nil) ?? true)
+    }
+    func testRepeatedShowDoesNotCreateADuplicateVisibleToast() async {
+        let s = subject(), a = BoundaryToastController(), b = BoundaryToastController()
+        s.showToasterIfNeeded(viewController: a); await waitFor { a.shows == 1 }
+        s.showToasterIfNeeded(viewController: b); try? await Task.sleep(nanoseconds: 400_000_000)
+        XCTAssertEqual(a.shows, 1); XCTAssertEqual(b.shows, 0); XCTAssertNil(b.viewIfLoaded?.window)
+    }
+    func testImmediateHideCompletionReleasesTheToastWindowBeforeReportingCompletion() async {
+        let s = subject(), view = BoundaryToastController(); s.showToasterIfNeeded(viewController: view)
+        await waitFor { view.shows == 1 }; var flag: Bool?
+        s.hideToasterIfNeeded(with: false) { flag = $0; XCTAssertNil(view.view.window) }
+        await waitFor { flag != nil }; XCTAssertEqual(flag, false); XCTAssertEqual(view.hides, 1)
+    }
+    func testHideBeforeAnyShowStillCallsItsCompletion() async {
+        let s = subject(); var completed = false
+        s.hideToasterIfNeeded { value in XCTAssertTrue(value); completed = true }
+        await waitFor { completed }
+    }
+    func testStopReportsCompletionAndPreventsSubsequentShowUntilRestarted() async {
+        let s = subject(), view = BoundaryToastController(); s.showToasterIfNeeded(viewController: view)
+        await waitFor { view.shows == 1 }; var stopped = false
+        s.stop { stopped = true }; await waitFor { stopped }
+        s.showToasterIfNeeded(viewController: view); try? await Task.sleep(nanoseconds: 400_000_000)
+        XCTAssertEqual(view.shows, 1); XCTAssertNil(view.view.window)
+        s.start(); await waitFor { view.shows == 2 }
+    }
+    func testStopCancelsAQueuedFirstShow() async {
+        let s = subject(), view = BoundaryToastController(); s.showToasterIfNeeded(viewController: view)
+        var stopped = false; s.stop { stopped = true }; await waitFor { stopped }
+        XCTAssertEqual(view.shows, 0); XCTAssertNil(view.viewIfLoaded?.window)
+    }
+    func testConfiguredAutomaticHideDelayIsHonored() async {
+        let s = subject(.after(delay: 0.05)), view = BoundaryToastController()
+        s.showToasterIfNeeded(viewController: view); await waitFor { view.hides == 1 }
+        XCTAssertEqual(view.shows, 1); XCTAssertNil(view.view.window)
+    }
+    func testExplicitPersistentShowDisablesAutomaticHide() async {
+        let s = subject(.after(delay: 0.01)), view = BoundaryToastController()
+        s.showToasterIfNeeded(viewController: view, isNeedHide: false); await waitFor { view.shows == 1 }
+        try? await Task.sleep(nanoseconds: 400_000_000); XCTAssertEqual(view.hides, 0)
+    }
+    func testForcedUpdateHidesThePreviousToastAndShowsTheReplacement() async {
+        let s = subject(), a = BoundaryToastController(), b = BoundaryToastController()
+        s.showToasterIfNeeded(viewController: a); await waitFor { a.shows == 1 }
+        s.showToasterIfNeeded(viewController: b, isNeedHide: false, isNeedForceUpdate: true)
+        await waitFor { b.shows == 1 }; XCTAssertEqual(a.hides, 1); XCTAssertNil(a.view.window)
+        XCTAssertNotNil(b.view.window)
+    }
+    func testForcedFirstShowWorksWithoutAnExistingToast() async {
+        let s = subject(), view = BoundaryToastController()
+        s.showToasterIfNeeded(viewController: view, isNeedForceUpdate: true)
+        await waitFor { view.shows == 1 }; XCTAssertEqual(view.hides, 0)
+    }
+    func testStartWithoutAnyPreviousToastDoesNotCreateAWindow() {
+        let s = subject(); s.start()
+        XCTAssertTrue(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).allSatisfy { !($0.rootViewController is BoundaryToastController) })
+    }
+    func testSilentWindowAcceptsOnlyTouchesInsideItsExplicitTappableView() {
+        let view = BoundaryToastController(); view.target = UIView(frame: CGRect(x: 20, y: 30, width: 60, height: 70))
+        view.view.addSubview(view.target!); let window = SilentWindow(root: view)
+        defer { window.isHidden = true; window.rootViewController = nil }
+        window.frame = CGRect(x: 0, y: 0, width: 300, height: 400); view.view.frame = window.bounds
+        XCTAssertTrue(window.point(inside: CGPoint(x: 30, y: 40), with: nil))
+        XCTAssertFalse(window.point(inside: CGPoint(x: 10, y: 10), with: nil))
+    }
+}
+private final class BoundaryToastController: UIViewController, AppEventDisplayLogic {
+    var shows = 0, hides = 0; var target: UIView?
+    var deferredHide = false, finishHide: (() -> Void)?
+    var tappableView: UIView? { target }
+    func show() { shows += 1 }
+    func hide(completion: @escaping () -> Void) { hides += 1; if deferredHide { finishHide = completion } else { completion() } }
+}
+
+
+extension AppEventLifecycleBoundaryTests {
+    func testAnOlderHideAnimationCannotRemoveANewerToastWindow() async {
+        let s = subject(), old = BoundaryToastController(), current = BoundaryToastController()
+        old.deferredHide = true; s.showToasterIfNeeded(viewController: old)
+        await waitFor { old.shows == 1 }; s.hideToasterIfNeeded()
+        await waitFor { old.hides == 1 }; s.showToasterIfNeeded(viewController: current)
+        await waitFor { current.shows == 1 }; old.finishHide?(); old.finishHide = nil
+        XCTAssertNotNil(current.view.window); XCTAssertNil(old.view.window)
+    }
+}
+
+@MainActor
+final class AttributedWalletFormattingTests: XCTestCase {
+    func testDecimalCurrencyKeepsItsExactTextAndShrinksOnlyFractionDigits() throws {
+        let text = "1234.000000001", font = UIFont.systemFont(ofSize: 20)
+        let result = text.prettyCurrency(baseFont: font, smallSize: 11, locale: Locale(identifier: "en_US"))
+        XCTAssertEqual(result.string, text)
+        XCTAssertEqual((result.attribute(.font, at: 4, effectiveRange: nil) as? UIFont)?.pointSize, 20)
+        XCTAssertEqual((result.attribute(.font, at: 5, effectiveRange: nil) as? UIFont)?.pointSize, 11)
+        XCTAssertEqual((result.attribute(.font, at: result.length - 1, effectiveRange: nil) as? UIFont)?.pointSize, 11)
+        let paragraph = try XCTUnwrap(result.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)
+        XCTAssertEqual(paragraph.alignment, .right); XCTAssertEqual(paragraph.lineBreakMode, .byCharWrapping)
+    }
+    func testCommaDecimalLocaleKeepsGroupingAtTheOriginalFontSize() {
+        let result = "1.234,56".prettyCurrency(baseFont: .systemFont(ofSize: 20), smallSize: 10, locale: Locale(identifier: "de_DE"))
+        XCTAssertEqual((result.attribute(.font, at: 1, effectiveRange: nil) as? UIFont)?.pointSize, 20)
+        XCTAssertEqual((result.attribute(.font, at: 6, effectiveRange: nil) as? UIFont)?.pointSize, 10)
+        XCTAssertEqual(result.string, "1.234,56")
+    }
+    func testIntegerCurrencyDoesNotInventADecimalPart() {
+        let result = "12".prettyCurrency(baseFont: .systemFont(ofSize: 19), locale: Locale(identifier: "en_US"))
+        XCTAssertEqual(result.string, "12")
+        for index in 0..<result.length { XCTAssertEqual((result.attribute(.font, at: index, effectiveRange: nil) as? UIFont)?.pointSize, 19) }
+    }
+    func testEmptyCurrencyFormattingIsSafeAndRemainsEmpty() {
+        let result = "".prettyCurrency(baseFont: .systemFont(ofSize: 19), locale: Locale(identifier: "ja_JP"))
+        XCTAssertEqual(result.length, 0)
+    }
+    func testCurrencyWithTrailingSeparatorPreservesTheDraftText() {
+        let result = "1.".prettyCurrency(baseFont: .systemFont(ofSize: 20), locale: Locale(identifier: "en_US"))
+        XCTAssertEqual(result.string, "1."); XCTAssertEqual((result.attribute(.font, at: 1, effectiveRange: nil) as? UIFont)?.pointSize, 20)
+    }
+    func testSubstringDecorationUsesUTF16RangesAfterEmoji() {
+        let result = "🦊 Wallet".decoratedWith([.foregroundColor: UIColor.black], adding: [.foregroundColor: UIColor.red], to: ["Wallet"])
+        XCTAssertEqual(result.string, "🦊 Wallet")
+        XCTAssertEqual(result.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor, .black)
+        XCTAssertEqual(result.attribute(.foregroundColor, at: 3, effectiveRange: nil) as? UIColor, .red)
+    }
+    func testMissingSubstringLeavesBaseAttributesIntact() {
+        let result = "Wallet".decoratedWith([.kern: 2], adding: [.underlineStyle: 1], to: ["missing"])
+        XCTAssertEqual(result.attribute(.kern, at: 0, effectiveRange: nil) as? Int, 2)
+        XCTAssertNil(result.attribute(.underlineStyle, at: 0, effectiveRange: nil))
+    }
+    func testExplicitRangeDecorationKeepsCombinedUnicodeCharactersWhole() {
+        let text = "日本🦊語", start = text.index(text.startIndex, offsetBy: 2), end = text.index(start, offsetBy: 1)
+        let result = text.decoratedWith([.kern: 1], adding: [.underlineStyle: 1], to: start..<end)
+        XCTAssertEqual(result.string, text)
+        XCTAssertNil(result.attribute(.underlineStyle, at: 1, effectiveRange: nil))
+        XCTAssertEqual(result.attribute(.underlineStyle, at: 2, effectiveRange: nil) as? Int, 1)
+        XCTAssertEqual(result.attribute(.underlineStyle, at: 3, effectiveRange: nil) as? Int, 1)
+        XCTAssertNil(result.attribute(.underlineStyle, at: 4, effectiveRange: nil))
+    }
+    func testAlignmentReturnsACopyAndRetainsTextFormatting() {
+        let source = NSAttributedString(string: "Wallet", attributes: [.kern: 2, .foregroundColor: UIColor.blue])
+        let result = source.aligned(.center)
+        XCTAssertEqual(result.string, source.string)
+        XCTAssertEqual((result.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)?.alignment, .center)
+        XCTAssertEqual(result.attribute(.kern, at: 0, effectiveRange: nil) as? Int, 2)
+        XCTAssertEqual(result.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor, .blue)
+        XCTAssertNil(source.attribute(.paragraphStyle, at: 0, effectiveRange: nil))
+    }
+    func testWholeAttributedRangeCoversUTF16TextIncludingEmoji() {
+        XCTAssertEqual(NSAttributedString(string: "🦊a").wholeRange, NSRange(location: 0, length: 3))
+        XCTAssertEqual(NSAttributedString.space.string, " ")
+        XCTAssertEqual(NSAttributedString(string: "").aligned(.right).length, 0)
+    }
+    func testBundledDesignFontsResolveForEverySupportedWeightWithoutExceedingTheirCaps() throws {
+        let styles: [SoraTextStyle] = [.display1, .display2, .title1, .title2, .title3, .title4, .paragraph1, .paragraph2, .paragraph3, .paragraph4, .uppercase1, .uppercase2, .uppercase3, .button]
+        for style in styles {
+            for bold in [false, true] {
+                XCTAssertNotNil(UIFont(name: style.fontName(isBold: bold), size: style.fontSize.base))
+                let font = try XCTUnwrap(UIFont.styled(for: style, isBold: bold))
+                XCTAssertGreaterThan(font.pointSize, 0)
+                if let cap = style.fontSize.max { XCTAssertLessThanOrEqual(font.pointSize, cap) }
+            }
+        }
+    }
+}
+
+final class WalletEventDispatchBoundaryTests: XCTestCase {
+    func testObserverReceivesOrderedEventsOnTheRequestedQueue() {
+        let center = WalletEventCenter()
+        let destination = DispatchQueue(label: "wallet-event-fixture-destination")
+        let key = DispatchSpecificKey<String>()
+        destination.setSpecific(key: key, value: "destination")
+        let done = expectation(description: "Both events arrived")
+        done.expectedFulfillmentCount = 2
+        let observer = EventBoundaryObserver {
+            XCTAssertEqual(DispatchQueue.getSpecific(key: key), "destination")
+            done.fulfill()
+        }
+        center.add(observer: observer, dispatchIn: destination)
+        center.notify(with: AccountUpdateEvent())
+        center.notify(with: AccountUpdateEvent())
+        wait(for: [done], timeout: 3)
+        withExtendedLifetime(observer) {}
+    }
+
+    func testObserverWithoutDestinationReceivesEventsOnTheCentersSerialQueue() {
+        let queue = DispatchQueue(label: "wallet-event-fixture-sync")
+        let key = DispatchSpecificKey<String>()
+        queue.setSpecific(key: key, value: "event-center")
+        let center = WalletEventCenter(syncQueue: queue)
+        var received = 0
+        let observer = EventBoundaryObserver { received += 1; XCTAssertEqual(DispatchQueue.getSpecific(key: key), "event-center") }
+        center.add(observer: observer)
+        center.notify(with: AccountUpdateEvent())
+        queue.sync {}
+        XCTAssertEqual(received, 1)
+    }
+
+    func testDuplicateRegistrationDoesNotDeliverAnEventTwice() {
+        let queue = DispatchQueue(label: "wallet-event-fixture-dedup")
+        let center = WalletEventCenter(syncQueue: queue)
+        var received = 0
+        let observer = EventBoundaryObserver { received += 1 }
+        center.add(observer: observer); center.add(observer: observer)
+        center.notify(with: AccountUpdateEvent())
+        queue.sync {}
+        XCTAssertEqual(received, 1)
+    }
+
+    func testRemovingOneObserverPreservesOtherObservers() {
+        let queue = DispatchQueue(label: "wallet-event-fixture-remove")
+        let center = WalletEventCenter(syncQueue: queue)
+        var removedCount = 0, retainedCount = 0
+        let removed = EventBoundaryObserver { removedCount += 1 }
+        let retained = EventBoundaryObserver { retainedCount += 1 }
+        center.add(observer: removed); center.add(observer: retained)
+        center.remove(observer: removed); center.notify(with: AccountUpdateEvent())
+        queue.sync {}
+        XCTAssertEqual(removedCount, 0); XCTAssertEqual(retainedCount, 1)
+    }
+
+    func testRegistrationDoesNotRetainObserversAndExpiredObserversArePruned() {
+        let queue = DispatchQueue(label: "wallet-event-fixture-release")
+        let center = WalletEventCenter(syncQueue: queue)
+        weak var released: EventBoundaryObserver?
+        autoreleasepool {
+            let observer = EventBoundaryObserver { XCTFail("Released observer must not receive an event") }
+            released = observer; center.add(observer: observer); queue.sync {}
+        }
+        XCTAssertNil(released)
+        center.notify(with: AccountUpdateEvent()); queue.sync {}
+        var received = 0
+        let next = EventBoundaryObserver { received += 1 }
+        center.add(observer: next); center.notify(with: AccountUpdateEvent()); queue.sync {}
+        XCTAssertEqual(received, 1)
+    }
+
+    func testRemovedObserverCanRegisterAgainForLaterEvents() {
+        let queue = DispatchQueue(label: "wallet-event-fixture-reregister")
+        let center = WalletEventCenter(syncQueue: queue)
+        var received = 0
+        let observer = EventBoundaryObserver { received += 1 }
+        center.add(observer: observer); center.remove(observer: observer)
+        center.notify(with: AccountUpdateEvent()); center.add(observer: observer)
+        center.notify(with: AccountUpdateEvent()); queue.sync {}
+        XCTAssertEqual(received, 1)
+    }
+}
+
+private final class EventBoundaryObserver: WalletEventVisitorProtocol {
+    private let update: () -> Void
+    init(_ update: @escaping () -> Void) { self.update = update }
+    func processAccountUpdate(event: AccountUpdateEvent) { update() }
+}
+
+final class LegacyTransferWireBoundaryTests: XCTestCase {
+    func testSoraAddressWireRoundTripPreservesAllThirtyTwoPublicKeyBytes() throws {
+        let address = SoraAddress.address32(Data(0..<32))
+        let encoded = try JSONEncoder().encode(address)
+        XCTAssertEqual(try JSONDecoder().decode(SoraAddress.self, from: encoded), address)
+        let container = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String])
+        XCTAssertEqual(container, [Data(0..<32).base64EncodedString()])
+    }
+    func testSoraAddressRejectsTruncatedOrMalformedAddressContainers() {
+        for text in ["[]", "{}", "[false]", "[\"not base64!\"]"] {
+            XCTAssertThrowsError(try JSONDecoder().decode(SoraAddress.self, from: Data(text.utf8)))
+        }
+    }
+    func testEverySupportedMultiAddressExposesTheExactDestinationBytes() {
+        let bytes = Data([0, 1, 15, 255])
+        let values: [MultiAddress] = [.accoundId(bytes), .accountTo(bytes), .raw(bytes), .address32(bytes), .address20(bytes), .indexedString(bytes), .rawString(bytes)]
+        for value in values { XCTAssertEqual(value.data, bytes) }
+        XCTAssertEqual(MultiAddress.accountIndex(BigUInt(0x0102)).data, Data([1, 2]))
+        XCTAssertEqual(MultiAddress.accountIndex(.zero).data, Data())
+    }
+    func testArrayCodableCanonicalizesBytesAndPreservesLeadingZeroes() throws {
+        let value = try JSONDecoder().decode(SoraPassport.ArrayCodable.self, from: Data(#"["0","15","16","255"]"#.utf8))
+        XCTAssertEqual(value.wrappedValue, "0x000f10ff")
+        let encoded = try JSONEncoder().encode(value)
+        XCTAssertEqual(try JSONDecoder().decode(SoraPassport.ArrayCodable.self, from: encoded), value)
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: encoded) as? [String], ["0", "15", "16", "255"])
+    }
+    func testArrayCodableRejectsOutOfRangeBytesAndInvalidHexWithoutTruncation() {
+        for text in [#"["256"]"#, #"["-1"]"#, #"["not a byte"]"#] {
+            XCTAssertThrowsError(try JSONDecoder().decode(SoraPassport.ArrayCodable.self, from: Data(text.utf8)))
+        }
+        XCTAssertThrowsError(try JSONEncoder().encode(SoraPassport.ArrayCodable(wrappedValue: "0xgg")))
+        XCTAssertThrowsError(try JSONEncoder().encode(AssetId(wrappedValue: "0xgg")))
+    }
+    func testEmptyArrayCodableRoundTripsWithoutInventingAZeroByte() throws {
+        let value = try JSONDecoder().decode(SoraPassport.ArrayCodable.self, from: Data("[]".utf8))
+        XCTAssertEqual(value.wrappedValue, "0x")
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String], [])
+    }
+}
+
+final class LegacyAmountDisplayBoundaryTests: XCTestCase {
+    private func render(_ value: String, with formatter: NumberFormatter) -> String? {
+        formatter.locale = Locale(identifier: "en_US")
+        return formatter.string(from: NSDecimalNumber(string: value, locale: Locale(identifier: "en_US_POSIX")))
+    }
+    func testVoteAndIntegerCountsNeverRoundFractionalUnitsUp() {
+        for formatter in [NumberFormatter.vote, NumberFormatter.anyInteger] {
+            XCTAssertEqual(render("12345.999", with: formatter), "12,345")
+            XCTAssertEqual(render("0.999", with: formatter), "0")
+            XCTAssertEqual(render("-1.01", with: formatter), "-2")
+        }
+    }
+    func testPoolShareDisplayTruncatesAtTwoPlacesAndOmitsZeroFraction() {
+        let formatter = NumberFormatter.poolShare
+        XCTAssertEqual(render("99.999", with: formatter), "99.99")
+        XCTAssertEqual(render("12.5", with: formatter), "12.5")
+        XCTAssertEqual(render("0", with: formatter), "0")
+    }
+    func testRewardCurrencyDisplayNeverOverstatesTheAvailableAmount() {
+        let formatter = NumberFormatter.reward
+        formatter.currencyCode = "USD"
+        XCTAssertEqual(render("12.999", with: formatter), "$12.99")
+        XCTAssertEqual(render("0", with: formatter), "$0")
+        XCTAssertEqual(render("12.5", with: formatter), "$12.5")
+    }
+    func testIndependentDisplayFormattersDoNotLeakCustomizationAcrossScreens() {
+        let custom = NumberFormatter.poolShare
+        custom.maximumFractionDigits = 8
+        XCTAssertEqual(render("1.12345678", with: custom), "1.12345678")
+        XCTAssertEqual(render("1.12345678", with: .poolShare), "1.12")
+    }
+}
+
+final class StorageMigrationLifecycleBoundaryTests: XCTestCase {
+    func testMissingCredentialInventoryReturnsOnlyAccountsWithoutAnyScopedSource() throws {
+        let entropy = Data(repeating: 16, count: 16)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        for source in ["missing", "entropy", "secret", "seed", "watch-only"] {
+            try withRetainedEntropyDatabase(accounts: [account], version: .version2,
+                entropy: entropy, recovering: true) { directory, keys, settings in
+                switch source {
+                case "entropy": try keys.saveEntropy(entropy, address: account.address)
+                case "secret": try keys.saveSecretKey(Data(repeating: 1, count: 32), address: account.address)
+                case "seed": try keys.saveSeed(Data(repeating: 2, count: 32), address: account.address)
+                case "watch-only": settings.set(value: true, for: "wallet.watchOnly.\(account.address)")
+                default: break
+                }
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                let originalKeys = try retainedEntropyKeyBytes(keys)
+                let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+                let migrator = missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                let rows = try migrator.accountsForMissingKeyRecovery(baseURL: directory, lifecycleCoordinator: coordinator)
+                XCTAssertEqual(rows.map(\.address), source == "missing" ? [account.address] : [])
+                XCTAssertEqual(try retainedEntropyKeyBytes(keys), originalKeys)
+                XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                let lease = coordinator.tryAcquire()
+                XCTAssertNotNil(lease)
+                lease?.release()
+            }
+        }
+    }
+
+    func testMissingCredentialInventoryAcceptsRetainedOlderDatabaseSchemasWithoutMigrating() throws {
+        let entropy = Data(repeating: 17, count: 16)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        for version in [UserStorageVersion.version1] {
+            try withRetainedEntropyDatabase(accounts: [account], version: version,
+                entropy: entropy, recovering: true) { directory, keys, settings in
+                let migrator = missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                let coordinator = WalletLifecycleCoordinator(recoveryGate:
+                    legacyActivationRecoveryGate(at: directory, settings: settings))
+                let rows = try migrator.accountsForMissingKeyRecovery(baseURL: directory, lifecycleCoordinator: coordinator)
+                XCTAssertEqual(rows.map(\.address), [account.address])
+                XCTAssertTrue(migrator.requiresMigration())
+                XCTAssertFalse(FileManager.default.fileExists(atPath:
+                    directory.appendingPathComponent("WalletMigrationSafety").path))
+            }
+        }
+    }
+
+    func testMissingCredentialInventoryRequiresAnExistingRecoveryMarker() throws {
+        let entropy = Data(repeating: 18, count: 16)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        try withRetainedEntropyDatabase(accounts: [account], version: .version2,
+            entropy: entropy, recovering: false) { directory, keys, settings in
+            let migrator = missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+            let coordinator = WalletLifecycleCoordinator(recoveryGate:
+                legacyActivationRecoveryGate(at: directory, settings: settings))
+            XCTAssertThrowsError(try migrator.accountsForMissingKeyRecovery(baseURL: directory,
+                lifecycleCoordinator: coordinator))
+            XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+            let lease = coordinator.tryAcquire()
+            XCTAssertNotNil(lease)
+            lease?.release()
+        }
+    }
+
+    func testAsynchronousStorageMigrationCompletesOnMainWithoutCreatingAnEmptyWallet() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = root.appendingPathComponent("UserDataModel.sqlite")
+        let settings = InMemorySettingsManager()
+        let migrator = makeUserStorageMigrator(targetVersion: .version2, storeURL: store,
+            modelDirectory: UserStorageParams.modelDirectory, keystore: InMemoryKeychain(),
+            settings: settings, fileManager: .default)
+        let completion = expectation(description: "Migration completion on main")
+        migrator.migrate {
+            XCTAssertTrue(Thread.isMainThread)
+            completion.fulfill()
+        }
+        await fulfillment(of: [completion], timeout: 10)
+        XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.path))
+    }
+
+    func testAsynchronousStorageMigrationRetainsUnknownDatabaseAndRecordsPrivacySafeFailure() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = root.appendingPathComponent("UserDataModel.sqlite")
+        let original = Data("synthetic unsupported retained database".utf8)
+        try original.write(to: store)
+        let settings = InMemorySettingsManager()
+        let migrator = makeUserStorageMigrator(targetVersion: .version2, storeURL: store,
+            modelDirectory: UserStorageParams.modelDirectory, keystore: InMemoryKeychain(),
+            settings: settings, fileManager: .default)
+        let completion = expectation(description: "Failed migration still completes")
+        migrator.migrate {
+            XCTAssertTrue(Thread.isMainThread)
+            completion.fulfill()
+        }
+        await fulfillment(of: [completion], timeout: 10)
+        XCTAssertTrue(settings.walletMigrationRecoveryRequired)
+        XCTAssertEqual(try Data(contentsOf: store), original)
+        XCTAssertFalse(settings.walletMigrationRecoveryReason?.contains(root.path) ?? true)
+    }
+
+    private func makeIsolatedRecoveryGate(
+        settings: SettingsManagerProtocol = InMemorySettingsManager()
+    ) -> WalletRecoveryCapabilityGate {
+        WalletRecoveryCapabilityGate(
+            settings: settings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+    }
+
+    private func makeUserStorageMigrator(
+        targetVersion: UserStorageVersion,
+        storeURL: URL,
+        modelDirectory: String,
+        keystore: KeystoreProtocol,
+        settings: SettingsManagerProtocol,
+        fileManager: FileManager,
+        recoveryGate: WalletRecoveryCapabilityGate? = nil,
+        availableCapacity: @escaping (URL) -> Int64? = { _ in Int64.max },
+        loadWalletNetworkSnapshot:
+            @escaping () throws -> WalletNetworkSnapshot? = { nil },
+        afterLegacyStoreCopyBeforeVerification:
+            ((URL) throws -> Void)? = nil,
+        beforeSafetyActivationVerification:
+            ((URL) throws -> Void)? = nil
+    ) -> UserStorageMigrator {
+        UserStorageMigrator(
+            targetVersion: targetVersion,
+            storeURL: storeURL,
+            modelDirectory: modelDirectory,
+            keystore: keystore,
+            settings: settings,
+            fileManager: fileManager,
+            recoveryGate: recoveryGate ??
+                makeIsolatedRecoveryGate(settings: settings),
+            availableCapacity: availableCapacity,
+            loadWalletNetworkSnapshot: loadWalletNetworkSnapshot,
+            afterLegacyStoreCopyBeforeVerification:
+                afterLegacyStoreCopyBeforeVerification,
+            beforeSafetyActivationVerification:
+                beforeSafetyActivationVerification
+        )
+    }
+
+    private func legacyActivationRecoveryGate(
+        at directory: URL, settings: InMemorySettingsManager
+    ) -> WalletRecoveryCapabilityGate {
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        return WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL) },
+            unresolvedWalletCommitJournal: { try !WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty })
+    }
+
+    private func missingKeyRecoveryMigrator(directory: URL, keys: InMemoryKeychain,
+        settings: InMemorySettingsManager) -> UserStorageMigrator {
+        UserStorageMigrator(targetVersion: .version2, storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+            modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+            fileManager: .default, recoveryGate: legacyActivationRecoveryGate(at: directory, settings: settings),
+            availableCapacity: { _ in Int64.max },
+            loadWalletNetworkSnapshot: { try WalletNetworkStore(baseURL: directory,
+                recoveryGate: self.makeIsolatedRecoveryGate(settings: settings)).load() })
+    }
+
+    private func retainedEntropySeed(_ entropy: Data) throws -> Data {
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
+        return try SeedFactory().deriveSeed(from: mnemonic.toString(), password: "").seed.miniSeed
+    }
+
+    private func retainedEntropyAccount(entropy: Data) throws -> AccountItem {
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(retainedEntropySeed(entropy), chaincodeList: [])
+        let publicKey = pair.publicKey().rawData()
+        return AccountItem(address: try SS58AddressFactory().address(fromAccountId: publicKey,
+            type: Chain.sora.addressType()), cryptoType: .sr25519, networkType: Chain.sora.addressType(),
+            username: "Retained global mnemonic", publicKeyData: publicKey,
+            settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 17, isSelected: true)
+    }
+
+    private func retainedEntropyKeyBytes(_ keys: InMemoryKeychain) throws -> [String: Data] {
+        try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map { ($0, try keys.fetchKey(for: $0)) })
+    }
+
+    private func withRetainedEntropyDatabase(
+        accounts: [AccountItem], version: UserStorageVersion, entropy: Data, recovering: Bool,
+        body: (URL, InMemoryKeychain, InMemorySettingsManager) throws -> Void
+    ) throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try writeAccounts(accounts, to: directory.appendingPathComponent("UserDataModel.sqlite"),
+            model: userStorageModel(named: version.rawValue), includesSelection: version == .version2)
+        let keys = InMemoryKeychain()
+        try keys.addKey(entropy, with: KeystoreTag.legacyEntropy.rawValue)
+        try keys.addKey(Data("Retained account name".utf8), with: KeystoreTag.legacyUsername.rawValue)
+        let settings = InMemorySettingsManager()
+        settings.set(value: try XCTUnwrap(accounts.first { $0.isSelected }), for: SettingsKey.selectedAccount.rawValue)
+        if recovering {
+            settings.setWalletMigrationRecovery(reason: UserStorageMigrationError.privacySafeRecoveryDescription(
+                for: DurableFileWriter.Failure.fileSystemFailure))
+            XCTAssertTrue(WalletMigrationRecoveryMarker.capture(settings).isStartupVerificationFailure)
+        }
+        try body(directory, keys, settings)
+    }
+
+    private func userStorageModel(named name: String) throws -> NSManagedObjectModel {
+        let modelURL =
+            Bundle.main.url(
+                forResource: name,
+                withExtension: "omo",
+                subdirectory: UserStorageParams.modelDirectory
+            ) ??
+            Bundle.main.url(
+                forResource: name,
+                withExtension: "mom",
+                subdirectory: UserStorageParams.modelDirectory
+            )
+        let unwrappedURL = try XCTUnwrap(modelURL)
+        return try XCTUnwrap(NSManagedObjectModel(contentsOf: unwrappedURL))
+    }
+
+    private func writeAccounts(
+        _ accounts: [AccountItem],
+        to storeURL: URL,
+        model: NSManagedObjectModel,
+        includesSelection: Bool
+    ) throws {
+        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+        let store = try coordinator.addPersistentStore(
+            ofType: NSSQLiteStoreType,
+            configurationName: nil,
+            at: storeURL,
+            options: nil
+        )
+        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        context.persistentStoreCoordinator = coordinator
+        try context.performAndWait {
+            for account in accounts {
+                let stored = NSEntityDescription.insertNewObject(
+                    forEntityName: "CDAccountItem",
+                    into: context
+                )
+                stored.setValue(account.address, forKey: "identifier")
+                stored.setValue(account.username, forKey: "username")
+                stored.setValue(account.publicKeyData, forKey: "publicKey")
+                stored.setValue(
+                    account.cryptoType.rawValue,
+                    forKey: "cryptoType"
+                )
+                stored.setValue(
+                    account.networkType,
+                    forKey: "networkType"
+                )
+                stored.setValue(account.order, forKey: "order")
+                if includesSelection {
+                    stored.setValue(
+                        account.isSelected,
+                        forKey: "isSelected"
+                    )
+                }
+            }
+            try context.save()
+        }
+        try coordinator.remove(store)
+    }
 }

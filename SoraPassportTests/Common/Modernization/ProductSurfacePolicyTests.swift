@@ -70,23 +70,43 @@ final class ProductSurfacePolicyTests: XCTestCase {
     }
 }
 
-/// Old Akkadian and Middle Egyptian are tester-only locales. The 3.9.x App
-/// Store line packages the same locales as App Store 3.8.6; the Nexus line
-/// keeps both for its testers. A stored choice of a locale a build does not
-/// package falls back to a shipped one.
+/// Middle Egyptian stays selectable using app-owned resources. Apple sees
+/// only supported .lproj directories; stored language choices are retained.
 final class ShippedLocalizationTests: XCTestCase {
     func testNexusLinePackagesItsTesterLocales() {
         let shipped = Set(Bundle.main.localizations)
         XCTAssertTrue(shipped.contains("akk"))
-        XCTAssertTrue(shipped.contains("egy-Egyp"))
+        XCTAssertFalse(shipped.contains("egy-Egyp"))
         XCTAssertTrue(shipped.contains("en"))
         XCTAssertTrue(shipped.contains("ja"))
         XCTAssertNotNil(Bundle.main.path(forResource: "akk", ofType: "lproj"))
-        XCTAssertNotNil(Bundle.main.path(forResource: "egy-Egyp", ofType: "lproj"))
+        XCTAssertNil(Bundle.main.path(forResource: "egy-Egyp", ofType: "lproj"))
+        XCTAssertNotNil(R.languageBundle("egy-Egyp"))
+        XCTAssertTrue(LocalizationManager.shared.availableLocalizations.contains("egy-Egyp"))
         let fonts = Bundle.main.object(forInfoDictionaryKey: "UIAppFonts")
             as? [String] ?? []
         XCTAssertTrue(fonts.contains("NotoSansEgyptianHieroglyphs-Regular.ttf"))
         XCTAssertNotNil(UIFont(name: "NotoSansEgyptianHieroglyphs-Regular", size: 12))
+    }
+
+    func testMiddleEgyptianTranslationsAndStoredSelectionSurvivePackaging() throws {
+        let bundle = try XCTUnwrap(R.languageBundle("egy-Egyp"))
+        let key = "change.language"
+        let expected = bundle.localizedString(forKey: key, value: nil, table: "Localizable")
+        XCTAssertNotEqual(expected, key)
+        XCTAssertNotEqual(expected, R.string.localizable.changeLanguage(preferredLanguages: ["en"]))
+        XCTAssertEqual(R.string.localizable.changeLanguage(preferredLanguages: ["egy-Egyp"]), expected)
+        XCTAssertEqual(WalletUX.text(key, language: "egy-Egyp"), expected)
+        XCTAssertEqual(L10n.getFormat(for: key, localization: "egy-Egyp", bundle: .main), expected)
+        XCTAssertEqual(R.string.localizable.inviteCodeLeftMinutes(preferredLanguages: ["egy-Egyp"]), "m")
+
+        let settings = InMemorySettingsManager()
+        settings.set(value: "egy-Egyp", for: "language")
+        let manager = LocalizationManager(settings: settings, key: "language",
+                                          availableLocalizations: LocalizationManager.appLanguages)
+        manager.replaceUnavailableSelection(preferredLanguages: ["en"])
+        XCTAssertEqual(manager.selectedLocalization, "egy-Egyp")
+        XCTAssertEqual(settings.string(for: "language"), "egy-Egyp")
     }
 
     func testStoredRemovedLocaleFallsBackToAShippedOne() throws {
@@ -185,47 +205,30 @@ final class PrivacyDeclarationTests: XCTestCase {
         )
         XCTAssertEqual(app["NSPrivacyTracking"] as? Bool, false)
         let collected = (app["NSPrivacyCollectedDataTypes"] as? [[String: Any]] ?? [])
+        // No analytics or crash SDK is linked, so only data the wallet itself
+        // needs is collected (Google Drive backup, indexer requests).
         let linkedTypes: Set<String> = [
-            "NSPrivacyCollectedDataTypeProductInteraction",
-            "NSPrivacyCollectedDataTypeDeviceID",
             "NSPrivacyCollectedDataTypeUserID",
             "NSPrivacyCollectedDataTypeOtherUserContent",
-            "NSPrivacyCollectedDataTypeOtherFinancialInfo",
-            "NSPrivacyCollectedDataTypeCoarseLocation"
+            "NSPrivacyCollectedDataTypeOtherFinancialInfo"
         ]
-        let diagnosticTypes: Set<String> = [
-            "NSPrivacyCollectedDataTypeCrashData",
-            "NSPrivacyCollectedDataTypeOtherDiagnosticData"
-        ]
-        let analyticsTypes: Set<String> = [
-            "NSPrivacyCollectedDataTypeProductInteraction",
-            "NSPrivacyCollectedDataTypeDeviceID",
-            "NSPrivacyCollectedDataTypeCoarseLocation"
-        ]
-        XCTAssertEqual(Set(collected.compactMap { $0["NSPrivacyCollectedDataType"] as? String }),
-                       linkedTypes.union(diagnosticTypes))
-        XCTAssertEqual(collected.count, linkedTypes.count + diagnosticTypes.count)
+        XCTAssertEqual(Set(collected.compactMap { $0["NSPrivacyCollectedDataType"] as? String }), linkedTypes)
+        XCTAssertEqual(collected.count, linkedTypes.count)
         for item in collected {
-            let category = try XCTUnwrap(item["NSPrivacyCollectedDataType"] as? String)
             XCTAssertEqual(item["NSPrivacyCollectedDataTypeTracking"] as? Bool, false)
-            XCTAssertEqual(item["NSPrivacyCollectedDataTypeLinked"] as? Bool, linkedTypes.contains(category))
+            XCTAssertEqual(item["NSPrivacyCollectedDataTypeLinked"] as? Bool, true)
             XCTAssertEqual(item["NSPrivacyCollectedDataTypePurposes"] as? [String],
-                           [analyticsTypes.contains(category) ? "NSPrivacyCollectedDataTypePurposeAnalytics"
-                            : "NSPrivacyCollectedDataTypePurposeAppFunctionality"])
+                           ["NSPrivacyCollectedDataTypePurposeAppFunctionality"])
         }
     }
 
-    func testEmbeddedWalletFrameworkHasItsOwnManifest() throws {
-        let url = try XCTUnwrap(Bundle.main.privateFrameworksURL)
-            .appendingPathComponent("sorawallet.framework/PrivacyInfo.xcprivacy")
-        let framework = try manifest(at: url)
-        XCTAssertEqual(
-            accessedCategories(framework),
-            [
-                "NSPrivacyAccessedAPICategoryUserDefaults",
-                "NSPrivacyAccessedAPICategorySystemBootTime"
-            ]
-        )
+    func testNoPrebuiltWalletFrameworkIsEmbedded() throws {
+        // The indexer models used to come from a prebuilt Kotlin/Native
+        // sorawallet.framework; they are Swift source in VendorPackages now.
+        let frameworks = try XCTUnwrap(Bundle.main.privateFrameworksURL)
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: frameworks.appendingPathComponent("sorawallet.framework").path))
+        XCTAssertNil(NSClassFromString("SorawalletBase"))
     }
 
     func testPermissionStringsMatchWhatTheAppUses() {

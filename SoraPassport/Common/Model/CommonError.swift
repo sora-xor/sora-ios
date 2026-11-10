@@ -28,10 +28,8 @@ extension CommonError: ErrorContentConvertible {
 
         switch self {
         case .undefined:
-            title = R.string.localizable.commonErrorGeneralTitle()
-//                .commonUndefinedErrorTitle(preferredLanguages: locale?.rLanguages)
-            message = "commonUndefinedErrorMessage"//R.string.localizable
-//                .commonUndefinedErrorMessage(preferredLanguages: locale?.rLanguages)
+            title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.commonErrorGeneralMessage(preferredLanguages: locale?.rLanguages)
         }
 
         return ErrorContent(title: title, message: message)

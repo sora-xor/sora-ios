@@ -16,6 +16,7 @@ import json
 import os
 import plistlib
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -1948,32 +1949,48 @@ def run_gate(
     should_succeed: bool,
     expected_fragment: str,
 ) -> None:
+    # A retained 100% chain does substantially more work than a 1% gate.
+    # Give each case the remaining shared budget instead of an arbitrary
+    # three-minute cutoff that can fail valid chains on a busy build host.
+    bounded_timeout(HARNESS_TIMEOUT_SECONDS)
     try:
-        result = subprocess.run(
+        with subprocess.Popen(
             [str(SHELL), str(shell_path)],
-            check=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             env=environment,
-            # The 100% chain authenticates all four retained rollout stages and
-            # can exceed 45 seconds on a cold Apple-Python process. Keep the
-            # per-case bound finite while leaving the aggregate 1,200-second
-            # harness deadline authoritative.
-            timeout=bounded_timeout(180),
-        )
+            start_new_session=True,
+        ) as process:
+            try:
+                timeout = bounded_timeout(HARNESS_TIMEOUT_SECONDS)
+                stdout, stderr = process.communicate(timeout=timeout)
+            except BaseException:
+                # Killing only /bin/sh leaves its validators running with the
+                # output pipes open. Reap the entire owned process group so a
+                # timed-out build cannot accumulate orphaned validation work.
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.communicate()
+                raise
+            returncode = process.returncode
     except subprocess.TimeoutExpired as error:
-        raise HarnessFailure(f"{name}: rollout validator timed out") from error
-    combined = result.stdout + result.stderr
+        raise HarnessFailure(
+            f"{name}: rollout validator exceeded the shared "
+            f"{HARNESS_TIMEOUT_SECONDS}-second harness deadline"
+        ) from error
+    combined = stdout + stderr
     if should_succeed:
-        if result.returncode != 0 or expected_fragment not in combined:
+        if returncode != 0 or expected_fragment not in combined:
             raise HarnessFailure(
-                f"{name}: expected success, exit={result.returncode}, output={combined.strip()}"
+                f"{name}: expected success, exit={returncode}, output={combined.strip()}"
             )
-    elif result.returncode == 0 or expected_fragment not in combined:
+    elif returncode == 0 or expected_fragment not in combined:
         raise HarnessFailure(
             f"{name}: expected failure containing {expected_fragment!r}, "
-            f"exit={result.returncode}, output={combined.strip()}"
+            f"exit={returncode}, output={combined.strip()}"
         )
 
 
@@ -1987,7 +2004,9 @@ class GateCheckRunner:
     """
 
     def __init__(self) -> None:
-        self.executor = ThreadPoolExecutor(max_workers=2)
+        # Four isolated gates overlap short-lived validator processes while
+        # bounding host load and retaining the shared aggregate deadline.
+        self.executor = ThreadPoolExecutor(max_workers=4)
         self.pending = []
         self.names: set[str] = set()
 

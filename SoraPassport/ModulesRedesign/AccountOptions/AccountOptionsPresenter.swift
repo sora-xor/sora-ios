@@ -56,7 +56,7 @@ final class AccountOptionsPresenter {
         self.backupState = backupState
     }
     
-    private func handle(_ account: OpenBackupAccount?) {
+    private func handle(_ account: OpenBackupAccount?, authorization: AccountOptionsCloudBackupAuthorization?) {
         Task {
             let isCurrentAccountBackedup = await interactor.checkCurrentAccountBackedup()
             view?.hideLoading()
@@ -67,39 +67,110 @@ final class AccountOptionsPresenter {
                 ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
                 
                 backupState = .backedUp
-                showAlert(about: account)
+                showAlert(about: account, authorization: authorization)
                 return
             }
             
             DispatchQueue.main.async {
-                self.showPasswordScreen(with: account)
+                self.showPasswordScreen(with: account, authorization: authorization)
             }
         }
     }
     
-    private func showPasswordScreen(with account: OpenBackupAccount?) {
-        guard let account else { return }
+    private func showPasswordScreen(with account: OpenBackupAccount?,
+                                    authorization: AccountOptionsCloudBackupAuthorization?) {
+        guard let account, let authorization else { return }
         wireframe?.setupBackupAccountPassword(on: view,
                                               account: account,
-                                              completion: { [weak self] in
+                                              authorization: authorization,
+                                              reauthorize: { [weak self] completion in
+            guard let self else { return completion(nil) }
+            self.reauthorizeCloudBackup(completion: completion)
+        }, completion: { [weak self] in
             guard let self = self else { return }
             self.backupState = ApplicationConfig.shared.backupedAccountAddresses.contains(account.address) ? .backedUp : .notBackedUp
             self.view?.setupOptions(with: self.backupState, hasEntropy: self.interactor.accountHasEntropy)
         })
     }
     
-    private func showAlert(about account: OpenBackupAccount?) {
+    /// The backup password screen asks again through the same authorization
+    /// as creating the backup did.
+    private func reauthorizeCloudBackup(completion: @escaping (AccountOptionsCloudBackupAuthorization?) -> Void) {
+        wireframe.authorizeCloudBackup(from: view) { [weak self] isAuthorized in
+            completion(isAuthorized ? self?.interactor.makeCloudBackupAuthorization() : nil)
+        }
+    }
+
+    private func showAlert(about account: OpenBackupAccount?, authorization: AccountOptionsCloudBackupAuthorization?) {
         let title = R.string.localizable.backupAccountAlreadyExist(preferredLanguages: .currentLocale)
         let closeActionTitle = R.string.localizable.commonClose(preferredLanguages: .currentLocale)
         let reviewTitle = R.string.localizable.review(preferredLanguages: .currentLocale)
         
         let reviewAction = AlertPresentableAction(title: reviewTitle, style: .normal) { [weak self] in
-            self?.showPasswordScreen(with: account)
+            self?.showPasswordScreen(with: account, authorization: authorization)
         }
         let viewModel = AlertPresentableViewModel(title: title, message: nil, actions: [reviewAction], closeAction: closeActionTitle)
         
         DispatchQueue.main.async {
             self.view?.present(viewModel: viewModel, style: .alert, from: self.view)
+        }
+    }
+
+    /// Creating or deleting the Google Drive backup starts only after the
+    /// same fresh wallet authorization as the local exports, so cancelling
+    /// or failing it changes nothing. The authorization is bound to this
+    /// account; if it lapses before the operation runs, it is asked for
+    /// once more.
+    private func authorizeCloudBackup(then operation: @escaping (AccountOptionsCloudBackupAuthorization) -> Void) {
+        wireframe.authorizeCloudBackup(from: view) { [weak self] isAuthorized in
+            guard let self, isAuthorized else { return }
+            operation(self.interactor.makeCloudBackupAuthorization())
+        }
+    }
+
+    private func createBackup(askingAgainIfLapsed: Bool) {
+        authorizeCloudBackup { [weak self] authorization in
+            guard let self else { return }
+            self.view?.showLoading()
+            ApplicationConfig.shared.updateAvailableBackupedAccounts(account: self.interactor.currentAccount)
+            self.interactor.signInToGoogleIfNeeded(authorization: authorization) { [weak self] preparation in
+                guard let self else { return }
+                switch preparation {
+                case let .ready(account, passwordAuthorization):
+                    self.handle(account, authorization: passwordAuthorization)
+                case .unavailable:
+                    self.handle(nil, authorization: nil)
+                case .authorizationRequired:
+                    self.view?.hideLoading()
+                    if askingAgainIfLapsed {
+                        self.createBackup(askingAgainIfLapsed: false)
+                    }
+                }
+            }
+        }
+    }
+
+    private func deleteBackup(askingAgainIfLapsed: Bool) {
+        authorizeCloudBackup { [weak self] authorization in
+            guard let self else { return }
+            self.view?.showLoading()
+            self.interactor.deleteBackup(authorization: authorization) { [weak self] error in
+                self?.view?.hideLoading()
+                guard let error = error else {
+                    self?.backupState = .notBackedUp
+                    return
+                }
+                if (error as? AccountOptionsCloudBackupError) == .authorizationRequired {
+                    if askingAgainIfLapsed {
+                        self?.deleteBackup(askingAgainIfLapsed: false)
+                    }
+                    return
+                }
+                self?.view?.present(message: nil,
+                                    title: error.localizedDescription,
+                                    closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+                                    from: self?.view)
+            }
         }
     }
 }
@@ -134,26 +205,11 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     }
     
     func deleteBackup() {
-        view?.showLoading()
-        interactor.deleteBackup { [weak self] error in
-            self?.view?.hideLoading()
-            guard let error = error else {
-                self?.backupState = .notBackedUp
-                return
-            }
-            self?.view?.present(message: nil,
-                                title: error.localizedDescription,
-                                closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
-                                from: self?.view)
-        }
+        deleteBackup(askingAgainIfLapsed: true)
     }
     
     func createBackup() {
-        view?.showLoading()
-        ApplicationConfig.shared.updateAvailableBackupedAccounts(account: interactor.currentAccount)
-        interactor.signInToGoogleIfNeeded { [weak self] account in
-            self?.handle(account)
-        }
+        createBackup(askingAgainIfLapsed: true)
     }
     
     func doLogout() {

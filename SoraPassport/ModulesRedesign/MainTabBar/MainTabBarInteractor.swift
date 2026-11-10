@@ -27,13 +27,17 @@ final class MainTabBarInteractor {
     let eventCenter: EventCenterProtocol
     let serviceCoordinator: ServiceCoordinatorProtocol
     let keystoreImportService: KeystoreImportServiceProtocol
+    /// Wallets made from a 3-, 6- or 9-word phrase that were never warned. Runs on a background queue.
+    let unwarnedShortPhraseWallets: () -> [AccountItem]
 
     init(eventCenter: EventCenterProtocol,
          serviceCoordinator: ServiceCoordinatorProtocol,
-         keystoreImportService: KeystoreImportServiceProtocol) {
+         keystoreImportService: KeystoreImportServiceProtocol,
+         unwarnedShortPhraseWallets: @escaping () -> [AccountItem] = WalletShortPhraseWarning.unwarnedWalletsOnThisPhone) {
         self.eventCenter = eventCenter
         self.keystoreImportService = keystoreImportService
         self.serviceCoordinator = serviceCoordinator
+        self.unwarnedShortPhraseWallets = unwarnedShortPhraseWallets
         serviceCoordinator.setup()
     }
 }
@@ -68,6 +72,15 @@ extension MainTabBarInteractor: MainTabBarInteractorInputProtocol {
         // first asset list can have arrived after the tabs were built and
         // before this: its one event was then posted to nobody.
         presenter?.didReceiveWalletAssetList()
+
+        // Wallets kept from App Store 3.8.6 with a 3-, 6- or 9-word phrase were
+        // never warned when they were restored. Each launch warns those still unwarned.
+        let findWallets = unwarnedShortPhraseWallets
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let wallets = findWallets()
+            guard !wallets.isEmpty else { return }
+            DispatchQueue.main.async { self?.presenter?.didFindUnwarnedShortPhraseWallets(wallets) }
+        }
     }
 }
 

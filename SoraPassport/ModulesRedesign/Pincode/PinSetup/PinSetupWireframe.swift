@@ -151,14 +151,15 @@ final class WalletOpeningViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = WalletUX.page
-        title = WalletUX.text("Opening wallet")
         status.font = .preferredFont(forTextStyle: .body)
         status.textColor = WalletUX.foreground
         status.numberOfLines = 0
         status.textAlignment = .center
         status.accessibilityIdentifier = "wallet-opening-status"
         progress.hidesWhenStopped = true
-        networksButton.isHidden = true
+        // Empty until an attempt fails: a wallet that opens at once replaces this screen during its
+        // fade, and the title and buttons would otherwise flash through after every PIN.
+        [networksButton, retryButton, nodesButton, recheckButton].forEach { $0.isHidden = true }
         for (button, title, identifier, action) in [
             (networksButton, "Networks", "wallet-opening-networks", #selector(selectNetwork)),
             (retryButton, "Try again", "wallet-opening-retry", #selector(retry)),
@@ -214,6 +215,7 @@ final class WalletOpeningViewController: UIViewController {
             progress.stopAnimating()
             opened(wallet)
         } catch {
+            title = WalletUX.text("Opening wallet")
             let reason = (error as? WalletOpeningError) ?? .contextNotReady
             // Log only a fixed stage code, never account or remote error data.
             Logger.shared.warning("Wallet opening deferred: \(reason.rawValue); attempt=\(attempts)")

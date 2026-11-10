@@ -84,9 +84,12 @@ protocol GenerateQRWireframeProtocol: AnyObject {
 final class GenerateQRWireframe: GenerateQRWireframeProtocol {
     
     weak var controller: UIViewController?
-    
-    init(controller: UIViewController?) {
+    private let sendPreflight: WalletAccountCapability.SendPreflight
+
+    init(controller: UIViewController?,
+         sendPreflight: @escaping WalletAccountCapability.SendPreflight = WalletAccountCapability.liveSendPreflight) {
         self.controller = controller
+        self.sendPreflight = sendPreflight
     }
     
     @MainActor
@@ -187,7 +190,7 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
                                  firstAssetAmount: Decimal,
                                  fee: Decimal,
                                  assetsProvider: AssetProviderProtocol?) {
-        WalletAccountCapability.preflightSend(from: controller) { [self] in
+        sendPreflight(controller, nil) { [self] in
             let viewModel = ConfirmSendingViewModel(wireframe: ConfirmWireframe(),
                                                     fiatService: fiatService,
                                                     assetManager: assetManager,
@@ -258,7 +261,7 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
                   qrEncoder: WalletQREncoderProtocol,
                   sharingFactory: AccountShareFactoryProtocol,
                   marketCapService: MarketCapServiceProtocol) {
-        WalletAccountCapability.preflightSend(from: controller) { [self] in
+        sendPreflight(controller, nil) { [self] in
             let viewModel = InputAssetAmountViewModel(selectedTokenId: selectedTokenId,
                                                       selectedAddress: selectedAddress,
                                                       fiatService: fiatService,

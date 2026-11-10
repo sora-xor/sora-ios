@@ -851,6 +851,11 @@
 "backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
 "backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
 "backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.policy.requirements" = "Use at least 12 characters, not a single repeated character, a simple sequence such as 123456789012 or abcdefghijkl, or a common password.";
+"backup.password.policy.repeated" = "A single repeated character is too easy to guess. Choose a less predictable password.";
+"backup.password.policy.sequence" = "Simple sequences such as 123456789012 or abcdefghijkl are too easy to guess. Choose a less predictable password.";
+"backup.password.policy.common" = "This is one of the most common passwords and is too easy to guess. Choose a less predictable password.";
+"backup.password.policy.fulfilled" = "Meets the minimum requirements. A longer, less predictable password is stronger.";
 "edit.view" = "Edit view";
 "common.enabled" = "Enabled";
 "common.disabled" = "Disabled";
@@ -973,6 +978,11 @@
 "Done" = "Done";
 "Edit details" = "Edit details";
 "Enter a recipient address and the amount you want to send." = "Enter a recipient address and the amount you want to send.";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Enter your PIN. SORA needs it once to protect the wallets on this iPhone.";
+"%@ changed on this iPhone" = "%@ changed on this iPhone";
+"A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off." = "A face or fingerprint was added or removed on this iPhone since %@ last unlocked SORA. Anyone whose face or fingerprint is on this iPhone can unlock your wallet. If you didn't make this change, turn %@ off.";
+"Keep %@" = "Keep %@";
+"Turn %@ off" = "Turn %@ off";
 "Expanded" = "Expanded";
 "Expired" = "Expired";
 "Finalized network history" = "Finalized network history";
@@ -1096,6 +1106,8 @@
 "The faucet request was not completed. Please try again." = "The faucet request was not completed. Please try again.";
 "The faucet limit has been reached. Please try again later." = "The faucet limit has been reached. Please try again later.";
 "Could not get test XOR. Check your connection and try again." = "Could not get test XOR. Check your connection and try again.";
+"Preparing your test XOR… %@\nThis can take a few minutes." = "Preparing your test XOR… %@\nThis can take a few minutes.";
+"Your test XOR could not be prepared on this device. Please try again later." = "Your test XOR could not be prepared on this device. Please try again later.";
 "The SORA network was just upgraded. The app is updating its network data. Please try again in a few seconds." = "The SORA network was just upgraded. The app is updating its network data. Please try again in a few seconds.";
 "The app could not confirm the SORA network version, so nothing was signed. Please try again in a moment." = "The app could not confirm the SORA network version, so nothing was signed. Please try again in a moment.";
 
@@ -1241,6 +1253,12 @@
 "Restore a historical wallet" = "Restore a historical wallet";
 
 "For a 3-, 6-, or 9-word phrase, enter the SORA address of the wallet you want to restore. The phrase and derivation path must match this address before any keys are saved." = "For a 3-, 6-, or 9-word phrase, enter the SORA address of the wallet you want to restore. The phrase and derivation path must match this address before any keys are saved.";
+
+"A phrase with fewer than 12 words is much easier to guess. After restoring, create a new wallet with a 24-word phrase and move your funds to it." = "A phrase with fewer than 12 words is much easier to guess. After restoring, create a new wallet with a 24-word phrase and move your funds to it.";
+
+"Move your funds to a new wallet" = "Move your funds to a new wallet";
+
+"This wallet's recovery phrase has fewer than 12 words, which makes it much easier to guess. Create a new wallet with a 24-word phrase and move your funds to it." = "This wallet's recovery phrase has fewer than 12 words, which makes it much easier to guess. Create a new wallet with a 24-word phrase and move your funds to it.";
 
 "SORA wallet address" = "SORA wallet address";
 
@@ -1433,6 +1451,7 @@
 /* Portfolio view (portfolioView). English keys; other languages fall back to English. */
 "%@ could not be reached on the last try. Its numbers are the last ones read." = "%@ could not be reached on the last try. Its numbers are the last ones read.";
 "%@ could not be reached. Its value is not in the total until it is read again." = "%@ could not be reached. Its value is not in the total until it is read again.";
+"Receive to which wallet?" = "Receive to which wallet?";
 "%@ from which wallet?" = "%@ from which wallet?";
 "%@ is not available for this wallet right now." = "%@ is not available for this wallet right now.";
 "%@ is not live yet." = "%@ is not live yet.";
@@ -1473,7 +1492,6 @@
 "Move %@" = "Move %@";
 "Moves between your own wallets use Send. You review the fee and sign there." = "Moves between your own wallets use Send. You review the fee and sign there.";
 "No balance yet" = "No balance yet";
-"No price" = "No price";
 "Not yet" = "Not yet";
 "Nothing here can do that right now." = "Nothing here can do that right now.";
 "Nothing here can move right now." = "Nothing here can move right now.";
@@ -1525,3 +1543,12 @@
 "Your wallet is ready." = "Your wallet is ready.";
 
 "Manage selected wallet's assets" = "Manage selected wallet's assets";
+
+/* XOR on Taira and SORA Nexus, on SORA2's screens */
+"%@ units" = "%@ units";
+"Could not load more activity. Retry, or pull down to refresh if new transfers arrived." = "Could not load more activity. Retry, or pull down to refresh if new transfers arrived.";
+"Loading…" = "Loading…";
+"Pending asset recovery" = "Pending asset recovery";
+"Production address" = "Production address";
+"Sending is paused for this network. Check that Taira Testnet is enabled in Settings." = "Sending is paused for this network. Check that Taira Testnet is enabled in Settings.";
+"Your production address is ready to copy or share. Balances, activity, and transfers will be available when the SORA Nexus production network launches." = "Your production address is ready to copy or share. Balances, activity, and transfers will be available when the SORA Nexus production network launches.";

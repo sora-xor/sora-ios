@@ -136,7 +136,10 @@ final class PinViewFactory {
         return pinView
     }
     
-    static func createRedesignScreenAuthorizationView(with wireframe: ScreenAuthorizationWireframeProtocol, cancellable: Bool)
+    /// `allowsBiometry: false` shows the PIN pad only. Screens that reveal or
+    /// export the phrase, seed or JSON use it.
+    static func createRedesignScreenAuthorizationView(with wireframe: ScreenAuthorizationWireframeProtocol, cancellable: Bool,
+                                                      allowsBiometry: Bool = true)
     -> PinSetupViewProtocol? {
         let pinView = PincodeViewController()
         pinView.cancellable = cancellable
@@ -148,7 +151,8 @@ final class PinViewFactory {
             secretManager: KeychainManager.shared,
             settingsManager: SettingsManager.shared,
             biometryAuth: BiometryAuth(),
-            locale: LocalizationManager.shared.selectedLocale
+            locale: LocalizationManager.shared.selectedLocale,
+            allowsBiometry: allowsBiometry
         )
         
         pinView.presenter = presenter

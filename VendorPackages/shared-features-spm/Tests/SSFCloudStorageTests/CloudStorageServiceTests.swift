@@ -90,7 +90,8 @@ final class CloudStorageServiceTests: XCTestCase {
 
         // act
         do {
-            let state = try await service?.signInIfNeeded()
+            _ = try await service?.signInIfNeeded()
+            XCTFail("signInIfNeeded must throw")
         } catch {
             // assert
             XCTAssertEqual(
@@ -139,6 +140,9 @@ final class CloudStorageServiceTests: XCTestCase {
         // arrange
         signInProvider?._currentUser = TestData.user
         googleService?.account = TestData.encryptedAccount
+        // The mock returns this for every field; the key verifier must decrypt
+        // to the backup address.
+        encryptionService?.getDecryptedReturnValue = TestData.account.address
 
         // act
         let account = try await service?.importBackup(account: TestData.account, password: "1")
@@ -159,10 +163,11 @@ final class CloudStorageServiceTests: XCTestCase {
 
         // act
         do {
-            let account = try await service?.importBackup(
+            _ = try await service?.importBackup(
                 account: TestData.emptyAccount,
                 password: "1"
             )
+            XCTFail("importBackup must throw")
         } catch {
             // assert
             XCTAssertEqual(
@@ -194,6 +199,7 @@ final class CloudStorageServiceTests: XCTestCase {
         // act
         do {
             try await service?.deleteBackup(account: TestData.emptyAccount)
+            XCTFail("deleteBackup must throw")
         } catch {
             // assert
             XCTAssertEqual(

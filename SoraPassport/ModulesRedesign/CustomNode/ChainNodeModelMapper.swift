@@ -32,10 +32,17 @@ final class ChainNodeModelMapper: CoreDataMapperProtocol {
             throw ChainNodeMapperError.missedRequiredFields
         }
 
+        let apiKey: ChainNodeModel.ApiKey?
+        if let queryName = entity.apiQueryName, let keyName = entity.apiKeyName {
+            apiKey = .init(queryName: queryName, keyName: keyName)
+        } else {
+            apiKey = nil
+        }
+
         return ChainNodeModel(
             url: url,
             name: name,
-            apikey: nil
+            apikey: apiKey
         )
     }
 

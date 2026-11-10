@@ -90,19 +90,20 @@ final class PortfolioCoordinator {
         let snapshot = viewModel.snapshot
         let now = Date()
         let all = PortfolioAggregator.summary(snapshot, scope: .allWallets)
-        var entries: [PortfolioWalletsSheet.Entry] = [
-            .init(scope: .allWallets, icon: .allWallets, title: PortfolioStrings.allWallets,
-                  subtitle: PortfolioStrings.format("%d wallets together", snapshot.wallets.count),
-                  value: PortfolioFormat.fiat(all.total),
-                  detail: all.changePercent.map { PortfolioFormat.signedPercent($0) + " " + PortfolioStrings.hours24 } ?? "")
-        ]
+        var entries: [PortfolioWalletsSheet.Entry] = []
+        if snapshot.wallets.count >= 2 {
+            entries.append(.init(scope: .allWallets, icon: .allWallets, title: PortfolioStrings.allWallets,
+                                 subtitle: PortfolioStrings.format("%d wallets together", snapshot.wallets.count),
+                                 value: PortfolioPresenter.totalText(snapshot, scope: .allWallets),
+                                 detail: all.changePercent.map { PortfolioFormat.signedPercent($0) + " " + PortfolioStrings.hours24 } ?? ""))
+        }
         for wallet in snapshot.wallets.sorted(by: { $0.order < $1.order }) {
             let summary = PortfolioAggregator.summary(snapshot, scope: .wallet(wallet.id))
             let freshness = PortfolioPresenter.chip(wallet.freshness, now: now).text
             entries.append(.init(scope: .wallet(wallet.id), icon: .wallet(id: wallet.id, name: wallet.name),
                                  title: wallet.name,
                                  subtitle: PortfolioStrings.networksCount(wallet.networks.count) + " · " + freshness,
-                                 value: PortfolioFormat.fiat(summary.total),
+                                 value: PortfolioPresenter.totalText(snapshot, scope: .wallet(wallet.id)),
                                  detail: summary.changePercent.map {
                                      PortfolioFormat.signedPercent($0) + " " + PortfolioStrings.hours24
                                  } ?? ""))
@@ -246,13 +247,13 @@ final class PortfolioCoordinator {
 
     private func showWalletPicker(for action: PortfolioQuickAction, wallets: [PortfolioWallet]) {
         guard let presenter else { return }
-        let title = action == .send ? PortfolioStrings.send : PortfolioStrings.receive
-        let sheet = PortfolioPickerSheet(title: PortfolioStrings.whichWallet(for: title))
+        let sheet = PortfolioPickerSheet(title: action == .send ? PortfolioStrings.sendFromWhichWallet
+                                                                : PortfolioStrings.receiveToWhichWallet)
         let snapshot = viewModel.snapshot
         sheet.options = wallets.map { wallet in
-            let total = PortfolioAggregator.walletTotal(wallet.id, in: snapshot)
             return .init(id: wallet.id, icon: .wallet(id: wallet.id, name: wallet.name), title: wallet.name,
-                         subtitle: PortfolioFormat.shortAddress(wallet.id), value: PortfolioFormat.fiat(total), detail: nil)
+                         subtitle: PortfolioFormat.shortAddress(wallet.id),
+                         value: PortfolioPresenter.totalText(snapshot, scope: .wallet(wallet.id)), detail: nil)
         }
         sheet.onPick = { [weak self, weak sheet] walletId in
             sheet?.dismiss(animated: true) {
@@ -274,13 +275,13 @@ final class PortfolioCoordinator {
         if holdings.isEmpty {
             sheet.note = PortfolioStrings.text("Nothing here can do that right now.")
         }
-        sheet.options = holdings.prefix(12).map { holding in
+        sheet.options = holdings.map { holding in
             let wallet = snapshot.wallet(holding.walletId)?.name ?? ""
             return .init(id: holding.id,
                          icon: .token(id: holding.token.id, symbol: holding.token.symbol, icon: holding.token.icon),
                          title: holding.token.symbol,
                          subtitle: PortfolioStrings.networkName(holding.network) + " · " + wallet,
-                         value: PortfolioPresenter.holdingValueText(holding),
+                         value: PortfolioPresenter.pickerValue(holding),
                          detail: PortfolioFormat.amount(holding.transferable, symbol: holding.token.symbol))
         }
         sheet.onPick = { [weak sheet] id in

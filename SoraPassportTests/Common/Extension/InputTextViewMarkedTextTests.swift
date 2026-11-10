@@ -58,11 +58,13 @@ final class InputTextViewMarkedTextTests: XCTestCase {
 
     /// Marked text is drawn with the typing attributes, before `sora.text` restyles the text. It
     /// must already have the field's font and colour: in an empty field, after committed text, after
-    /// the field was emptied and after a theme change, in both themes.
+    /// the field was emptied and after a theme change, in both theme modes. The classic design is
+    /// light only, so a dark choice keeps the light colours.
     @MainActor
     func testMarkedTextHasTheFieldsFontAndColourInBothThemes() {
         let previous = SoramitsuUI.shared.themeMode
         defer { SoramitsuUI.shared.themeMode = previous }
+        let primary = SoramitsuThemeType.light.palette.color(.fgPrimary)
 
         for theme in [SoramitsuThemeType.light, .dark] {
             for dynamicTextStyle in [nil, UIFont.TextStyle.body] {
@@ -72,7 +74,7 @@ final class InputTextViewMarkedTextTests: XCTestCase {
                 let textView = host.field.textView
                 let context = "\(theme), dynamicTextStyle \(String(describing: dynamicTextStyle))"
                 let expected = host.committedAttributes(of: "a")
-                XCTAssertEqual(expected.color, theme.palette.color(.fgPrimary), context)
+                XCTAssertEqual(expected.color, primary, context)
 
                 compose("a", in: textView)
                 assertMarkedText(in: textView, has: expected, "empty field, \(context)")
@@ -94,7 +96,7 @@ final class InputTextViewMarkedTextTests: XCTestCase {
                 SoramitsuUI.shared.themeMode = .manual(other)
                 compose("d", in: textView)
                 assertMarkedText(in: textView,
-                                 has: Attributes(font: expected.font, color: other.palette.color(.fgPrimary)),
+                                 has: Attributes(font: expected.font, color: primary),
                                  "empty field after switching to \(other), \(context)")
                 textView.unmarkText()
             }

@@ -20,9 +20,16 @@ import Foundation
 import SoraKeystore
 
 public final class SubqueryConfigInfoOperation<ResultType>: PIAsyncOperation<ResultType> {
-    private let client = PIIndexerClient()
+    private let client: PIIndexerClient
+    private let settings: SettingsManagerProtocol
 
-    public override init() {
+    public override convenience init() {
+        self.init(client: PIIndexerClient(), settings: SettingsManager.shared)
+    }
+
+    init(client: PIIndexerClient, settings: SettingsManagerProtocol) {
+        self.client = client
+        self.settings = settings
         super.init()
     }
 
@@ -83,7 +90,7 @@ public final class SubqueryConfigInfoOperation<ResultType>: PIAsyncOperation<Res
         }
         // This publishes session-local mutation authority only after the full
         // live response and its legacy projection are accepted.
-        guard SettingsManager.shared.applyPIMobileConfig(
+        guard settings.applyPIMobileConfig(
             config,
             refreshToken: refreshToken
         ) else {

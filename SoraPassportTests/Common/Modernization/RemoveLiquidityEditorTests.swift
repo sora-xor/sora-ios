@@ -267,6 +267,7 @@ import XCTest
   }
 }
 @MainActor private final class RemovalEditorFixture {
+  var initialPool = RemovalEditorFixture.pool()
   let xor = WalletAssetId.xor.rawValue, val = WalletAssetId.val.rawValue
   let assets = RemovalEditorAssets(), balances = RemovalEditorBalances(),
     routes = RemovalEditorRoutes(), view = RemovalEditorView(), fiat = RemovalEditorFiat(),
@@ -274,7 +275,7 @@ import XCTest
     network = WalletNetworkOperationFactoryProtocolMock(), farms = RemovalEditorFarms()
   lazy var model: RemoveLiquidityViewModel = {
     let m = RemoveLiquidityViewModel(
-      wireframe: routes, poolInfo: Self.pool(), farms: [], apyService: nil, fiatService: fiat,
+      wireframe: routes, poolInfo: initialPool, farms: [], apyService: nil, fiatService: fiat,
       poolsService: pools, assetManager: assets,
       detailsFactory: DetailViewModelFactory(assetManager: assets),
       providerFactory: BalanceProviderFactory(
@@ -320,7 +321,9 @@ private final class RemovalEditorBalances: AssetProviderProtocol {
 }
 
 private actor RemovalEditorFiat: FiatServiceProtocol {
-  func getFiat() async -> [PIExactFiatData] { [] }
+  var values = [PIExactFiatData]()
+  func set(_ values: [PIExactFiatData]) { self.values = values }
+  func getFiat() async -> [PIExactFiatData] { values }
 }
 private final class RemovalEditorMarket: MarketCapServiceProtocol {
   func getMarketCap(for assets: [String]) async -> Set<MarketCapInfo> { [] }
@@ -358,6 +361,14 @@ private final class RemovalEditorView: UIViewController, LiquidityViewProtocol {
 }
 
 private final class RemovalEditorRoutes: LiquidityWireframeProtocol {
+  var alerts = [(String?, String?, String?, ControllerBackedProtocol?)]()
+  var slippage: PolkaswapSlippage?, slippageNavigation: UINavigationController?
+  var slippageCompletion: ((PolkaswapSlippage) -> Void)?
+  var feeChanged: (() -> Void)?, submittedType: TransactionType?
+  func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) {
+    alerts.append((message, title, closeAction, view))
+  }
+
   var assetLists = [[String]](), assetCompletion: ((String) -> Void)?,
     reviews = [(String, String, Decimal, Decimal, Decimal)](),
     supplyReviews = [(String, String, Decimal, Decimal, Decimal)](),
@@ -380,7 +391,7 @@ private final class RemovalEditorRoutes: LiquidityWireframeProtocol {
     on controller: UINavigationController?,
     currentLocale: PolkaswapSlippage,
     completion: @escaping (PolkaswapSlippage) -> Void
-  ) {}
+  ) { slippage = currentLocale; slippageNavigation = controller; slippageCompletion = completion }
 
   func showChoiсeMarket(
     on controller: UINavigationController?,
@@ -404,7 +415,7 @@ private final class RemovalEditorRoutes: LiquidityWireframeProtocol {
     fee: Decimal,
     operationFactory: WalletNetworkOperationFactoryProtocol,
     feeChangeHandler: @escaping () -> Void
-  ) { supplyReviews.append((baseAssetId, targetAssetId, firstAssetAmount, secondAssetAmount, fee)) }
+  ) { supplyReviews.append((baseAssetId, targetAssetId, firstAssetAmount, secondAssetAmount, fee)); feeChanged = feeChangeHandler; submittedType = transactionType }
 
   func showRemoveLiquidityConfirmation(
     on controller: UINavigationController?,
@@ -420,6 +431,7 @@ private final class RemovalEditorRoutes: LiquidityWireframeProtocol {
     feeChangeHandler: @escaping () -> Void,
     completionHandler: (() -> Void)?
   ) {
+    feeChanged = feeChangeHandler
     removalReviews.append(
       (poolInfo.baseAssetId, poolInfo.targetAssetId, firstAssetAmount, secondAssetAmount, fee))
   }
@@ -512,4 +524,87 @@ private final class RemovalEditorFarms: DemeterFarmingServiceProtocol {
   func getSingleSidedXorFarmedPools(completion: @escaping ([UserFarmInfo]) -> Void) {
     completion([])
   }
+}
+
+@MainActor final class RemoveLiquidityBoundaryCoverageTests: XCTestCase {
+    private func wait(_ condition: () -> Bool) async {
+        for _ in 0..<200 { if condition() { return }; try? await Task.sleep(nanoseconds: 5_000_000) }
+        XCTAssertTrue(condition())
+    }
+    private func make(base: String = WalletAssetId.xor.rawValue, target: String = WalletAssetId.val.rawValue) -> RemovalEditorFixture {
+        let f = RemovalEditorFixture()
+        f.initialPool = PoolInfo(baseAssetId: base, targetAssetId: target, poolId: "public-pool", accountId: "public-account",
+            baseAssetPooledByAccount: 50, targetAssetPooledByAccount: 100, baseAssetPooledTotal: 100, targetAssetPooledTotal: 200,
+            totalIssuances: 10, baseAssetReserves: 100, targetAssetReserves: 200, accountPoolBalance: 5)
+        f.pools.pool = f.initialPool
+        f.balances.values[WalletAssetId.xstusd.rawValue] = 20
+        return f
+    }
+    private func ready(_ f: RemovalEditorFixture) async {
+        f.model.viewDidLoad(); await wait { f.model.poolInfo != nil }
+        f.model.inputedFirstAmount = 2; f.model.inputedSecondAmount = 4
+        f.model.updateDetails(); await wait { f.view.enabled }
+    }
+    func testInformationActionPresentsRemovalExplanation() {
+        let f = make(); f.model.infoButtonTapped()
+        XCTAssertEqual(f.routes.alerts.first?.0, R.string.localizable.removeLiquidityInfoText())
+        XCTAssertEqual(f.routes.alerts.first?.1, R.string.localizable.removeLiquidityTitle())
+        XCTAssertTrue(f.routes.alerts.first?.3?.controller === f.view)
+    }
+    func testAPYInformationExplainsTheEstimate() {
+        let f = make(); f.model.apyInfoButtonTapped()
+        XCTAssertEqual(f.routes.alerts.first?.0, R.string.localizable.polkaswapSbApyInfo())
+        XCTAssertEqual(f.routes.alerts.first?.2, R.string.localizable.commonOk())
+    }
+    func testSlippagePickerAppliesSelectionAndInvalidatesFee() async {
+        let f = make(); await ready(f)
+        let nav = UINavigationController(rootViewController: f.view)
+        f.model.changeSlippageTolerance()
+        XCTAssertTrue(f.routes.slippageNavigation === nav)
+        XCTAssertEqual(f.routes.slippage, .defaultValue)
+        f.routes.slippageCompletion?(PolkaswapSlippage(basisPoints: 125)!)
+        XCTAssertEqual(f.model.slippageTolerance.basisPoints, 125)
+        f.model.reviewButtonTapped(); XCTAssertTrue(f.routes.removalReviews.isEmpty)
+    }
+    func testNonXORPairUsesSeparateFeeBalanceAtExactBoundary() async {
+        let f = make(base: WalletAssetId.xstusd.rawValue); await ready(f)
+        f.balances.values[f.xor] = 1
+        f.model.reviewButtonTapped(); XCTAssertEqual(f.routes.removalReviews.count, 1)
+    }
+    func testNonXORPairMissingFeeBalanceCannotReview() async {
+        let f = make(base: WalletAssetId.xstusd.rawValue); await ready(f)
+        f.balances.values.removeValue(forKey: f.xor)
+        f.model.reviewButtonTapped(); XCTAssertTrue(f.routes.removalReviews.isEmpty)
+    }
+    func testNonXORPairInsufficientFeeBalanceCannotReview() async {
+        let f = make(base: WalletAssetId.xstusd.rawValue); await ready(f)
+        f.balances.values[f.xor] = Decimal(string: "0.99")!
+        f.model.reviewButtonTapped(); XCTAssertTrue(f.routes.removalReviews.isEmpty)
+    }
+    func testXORAsTargetRequiresOnlyTheFeeBeforeWithdrawal() async {
+        let f = make(base: WalletAssetId.xstusd.rawValue, target: WalletAssetId.xor.rawValue); await ready(f)
+        f.balances.values[f.xor] = 1
+        f.model.reviewButtonTapped(); XCTAssertEqual(f.routes.removalReviews.count, 1)
+        XCTAssertEqual(f.routes.removalReviews.first?.3, 4)
+    }
+    func testXORAsTargetCannotUseFutureWithdrawalToPayTheFee() async {
+        let f = make(base: WalletAssetId.xstusd.rawValue, target: WalletAssetId.xor.rawValue); await ready(f)
+        f.balances.values[f.xor] = 0
+        f.model.reviewButtonTapped(); XCTAssertTrue(f.routes.removalReviews.isEmpty)
+    }
+    func testConfirmationFeeChangeRebuildsTheReview() async {
+        let f = make(); await ready(f)
+        f.model.reviewButtonTapped(); XCTAssertNotNil(f.routes.feeChanged)
+        f.network.liquidityFeeClosure = { _ in 2 }
+        f.routes.feeChanged?(); await wait { f.view.enabled }
+        f.model.reviewButtonTapped(); XCTAssertEqual(f.routes.removalReviews.last?.4, 2)
+    }
+    func testQuotedFiatKeepsExactMultiplicationForInput() async throws {
+        let f = make()
+        await f.fiat.set([PIExactFiatData(id: f.xor, priceUsd: try PIQuantity("2.5"))])
+        await ready(f)
+        var shown = ""
+        await wait { f.model.setupInputedFiatText(from: 3, assetId: f.xor) { shown = $0 }; return !shown.isEmpty }
+        XCTAssertEqual(shown, "$" + (NumberFormatter.fiat.stringFromDecimal(Decimal(string: "7.5")!) ?? ""))
+    }
 }

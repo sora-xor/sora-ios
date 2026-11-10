@@ -84,10 +84,10 @@ final class AccountOptionsScreenTests: XCTestCase {
         route.confirmation?(); XCTAssertEqual(source.logouts, 1)
     }
     func testPresenterSuccessfulBackupDeletionUpdatesTheVisibleState() async {
-        let presenter = AccountOptionsPresenter(backupState: .backedUp); let source = OptionsInteractor(); let view = OptionsViewSpy()
-        presenter.interactor = source; presenter.view = view; presenter.deleteBackup()
+        let presenter = AccountOptionsPresenter(backupState: .backedUp); let source = OptionsInteractor(); let route = OptionsRoute(); let view = OptionsViewSpy()
+        presenter.interactor = source; presenter.wireframe = route; presenter.view = view; presenter.deleteBackup()
         try? await Task.sleep(nanoseconds: 20_000_000)
-        XCTAssertEqual(source.deletions, 1); XCTAssertEqual(view.loading, 1); XCTAssertEqual(view.hidden, 1)
+        XCTAssertEqual(route.authorizationRequests, 1); XCTAssertEqual(source.deletions, 1); XCTAssertEqual(view.loading, 1); XCTAssertEqual(view.hidden, 1)
         XCTAssertTrue(view.states.last?.0 == .notBackedUp)
     }
     func testPresenterCloseAndRestartUseDistinctRoutes() {
@@ -115,10 +115,28 @@ private final class OptionsInteractor: AccountOptionsInteractorInputProtocol {
     func isLastAccountWithCustomNodes(completion: @escaping (Bool) -> Void) { completion(lastWithNodes) }
     func logoutAndClean() { logouts += 1 }
     func updateUsername(_ username: String) { names.append(username) }
-    var backedUp = false, deferCloud = false; var deleteError: Error?; var cloudAccount: OpenBackupAccount?; var cloudCompletion: ((OpenBackupAccount?) -> Void)?
+    var backedUp = false, deferCloud = false; var deleteError: Error?; var cloudAccount: OpenBackupAccount?; var cloudCompletion: ((AccountOptionsCloudBackupPreparation) -> Void)?
+    // `lapses` makes that many operations report a lapsed authorization first.
+    var signIns = 0, lapses = 0; var grants: [AccountOptionsCloudBackupAuthorization] = [], authorizations: [AccountOptionsCloudBackupAuthorization] = []
+    // What a prepared backup hands to the backup password screen.
+    var passwordGrants: [AccountOptionsCloudBackupAuthorization] = []
+    func makeCloudBackupAuthorization() -> AccountOptionsCloudBackupAuthorization {
+        let grant = AccountOptionsCloudBackupAuthorization(accountAddress: currentAccount.address, selectedAddress: { nil }, eventCenter: EventCenter(), notificationCenter: NotificationCenter())
+        grants.append(grant); return grant
+    }
+    func passwordGrant() -> AccountOptionsCloudBackupAuthorization {
+        let grant = AccountOptionsCloudBackupAuthorization(accountAddress: currentAccount.address, selectedAddress: { nil }, eventCenter: EventCenter(), notificationCenter: NotificationCenter())
+        passwordGrants.append(grant); return grant
+    }
     func checkCurrentAccountBackedup() async -> Bool { backedUp }
-    func deleteBackup(completion: @escaping (Error?) -> Void) { deletions += 1; completion(deleteError) }
-    func signInToGoogleIfNeeded(completion: ((OpenBackupAccount?) -> Void)?) { cloudCompletion = completion; if !deferCloud { completion?(cloudAccount) } }
+    func deleteBackup(authorization: AccountOptionsCloudBackupAuthorization, completion: @escaping (Error?) -> Void) {
+        deletions += 1; authorizations.append(authorization)
+        if lapses > 0 { lapses -= 1; completion(AccountOptionsCloudBackupError.authorizationRequired) } else { completion(deleteError) }
+    }
+    func signInToGoogleIfNeeded(authorization: AccountOptionsCloudBackupAuthorization, completion: ((AccountOptionsCloudBackupPreparation) -> Void)?) {
+        signIns += 1; authorizations.append(authorization); cloudCompletion = completion
+        if lapses > 0 { lapses -= 1; completion?(.authorizationRequired) } else if !deferCloud { completion?(cloudAccount.map { .ready($0, passwordGrant()) } ?? .unavailable) }
+    }
 }
 private final class OptionsViewSpy: UIViewController, AccountOptionsViewProtocol {
     var alertModels: [AlertPresentableViewModel] = [], alertTitles: [String] = [], alertMessages: [String] = []
@@ -142,7 +160,14 @@ private final class OptionsRoute: AccountOptionsWireframeProtocol {
     func back(from view: AccountOptionsViewProtocol?) { routes.append("back") }
     func dismissAfterDeletion(from view: AccountOptionsViewProtocol?) { routes.append("dismissAfterDeletion") }
     func showLogout(from view: AccountOptionsViewProtocol?, isNeedCustomNodeText: Bool, completionBlock: (() -> Void)?) { customNodeWarnings.append(isNeedCustomNodeText); confirmation = completionBlock }
-    func setupBackupAccountPassword(on controller: AccountOptionsViewProtocol?, account: OpenBackupAccount, completion: @escaping () -> Void) { routes.append("backup"); backupAccounts.append(account); backupCompletion = completion }
+    var backupAuthorizations: [AccountOptionsCloudBackupAuthorization] = []; var reauthorize: AccountOptionsCloudBackupReauthorization?
+    func setupBackupAccountPassword(on controller: AccountOptionsViewProtocol?, account: OpenBackupAccount, authorization: AccountOptionsCloudBackupAuthorization, reauthorize: @escaping AccountOptionsCloudBackupReauthorization, completion: @escaping () -> Void) { routes.append("backup"); backupAccounts.append(account); backupAuthorizations.append(authorization); self.reauthorize = reauthorize; backupCompletion = completion }
+    // Answers at once unless `authorizationResult` is nil; then the owner has not answered yet.
+    var authorizationResult: Bool? = true; var authorizationRequests = 0; var pendingAuthorization: AuthorizationCompletionBlock?
+    func authorizeCloudBackup(from view: AccountOptionsViewProtocol?, completion: @escaping AuthorizationCompletionBlock) {
+        authorizationRequests += 1
+        if let authorizationResult { completion(authorizationResult) } else { pendingAuthorization = completion }
+    }
 }
 
 @MainActor
@@ -165,8 +190,9 @@ final class AccountOptionsPresenterLifecycleTests: XCTestCase {
     func testCloudBackupStartsLoadingBeforeAuthorizationCompletes() async {
         let (p, i, v, r) = fixture(); i.deferCloud = true
         p.createBackup(); XCTAssertEqual(v.loading, 1); XCTAssertEqual(v.hidden, 0); XCTAssertTrue(r.routes.isEmpty)
-        i.cloudCompletion?(OpenBackupAccount(address: i.currentAccount.address)); await settle()
+        i.cloudCompletion?(.ready(OpenBackupAccount(address: i.currentAccount.address), i.passwordGrant())); await settle()
         XCTAssertEqual(v.hidden, 1); XCTAssertEqual(r.routes, ["backup"]); XCTAssertEqual(r.backupAccounts.map(\.address), [i.currentAccount.address])
+        XCTAssertTrue(r.backupAuthorizations.first === i.passwordGrants.first)
     }
     func testCancelledCloudAuthorizationStopsLoadingWithoutAPasswordScreen() async {
         let (p, _, v, r) = fixture(); p.createBackup(); await settle()
@@ -179,6 +205,24 @@ final class AccountOptionsPresenterLifecycleTests: XCTestCase {
         XCTAssertTrue(ApplicationConfig.shared.backupedAccountAddresses.contains(i.currentAccount.address))
         let alert = try XCTUnwrap(v.alertModels.first); XCTAssertEqual(alert.actions.count, 1); XCTAssertNotNil(alert.closeAction)
         alert.actions[0].handler?(); XCTAssertEqual(r.routes, ["backup"])
+        XCTAssertEqual(i.passwordGrants.count, 1); XCTAssertTrue(r.backupAuthorizations.first === i.passwordGrants.first)
+    }
+    func testPasswordScreenReadsUnderThePreparedAuthorizationAndAsksAgainThroughTheWalletAuthorization() async throws {
+        let (p, i, _, r) = fixture(); i.cloudAccount = OpenBackupAccount(address: i.currentAccount.address)
+        p.createBackup(); await settle()
+        XCTAssertEqual(r.routes, ["backup"]); XCTAssertEqual(r.authorizationRequests, 1); XCTAssertEqual(i.grants.count, 1)
+        XCTAssertEqual(i.passwordGrants.count, 1); XCTAssertTrue(r.backupAuthorizations.first === i.passwordGrants.first)
+        let reauthorize = try XCTUnwrap(r.reauthorize)
+        var renewed: [AccountOptionsCloudBackupAuthorization?] = []
+        reauthorize { renewed.append($0) }
+        XCTAssertEqual(r.authorizationRequests, 2); XCTAssertEqual(i.grants.count, 2)
+        XCTAssertEqual(renewed.count, 1); XCTAssertTrue(renewed.first.flatMap { $0 } === i.grants.last)
+        XCTAssertEqual(i.grants.last?.accountAddress, i.currentAccount.address)
+        r.authorizationResult = false
+        reauthorize { renewed.append($0) }
+        XCTAssertEqual(r.authorizationRequests, 3); XCTAssertEqual(i.grants.count, 2, "A refused PIN binds nothing")
+        XCTAssertEqual(renewed.count, 2); XCTAssertNil(renewed.last.flatMap { $0 })
+        XCTAssertEqual(i.signIns, 1, "Asking again never repeats Google sign-in or the phrase read")
     }
     func testPasswordCompletionReflectsTheActualSavedBackupMarker() async {
         for saved in [false, true] {
@@ -194,6 +238,70 @@ final class AccountOptionsPresenterLifecycleTests: XCTestCase {
         let (p, i, v, _) = fixture(.backedUp); i.deleteError = NSError(domain: "backup-test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Backup unavailable"])
         p.setup(); p.deleteBackup(); await settle()
         XCTAssertTrue(v.states.last?.0 == .backedUp); XCTAssertEqual(v.hidden, 1); XCTAssertEqual(v.alertTitles.last, "Backup unavailable")
+    }
+    func testCloudBackupReadsNothingUntilTheWalletAuthorizationSucceeds() {
+        let (p, i, v, r) = fixture(); r.authorizationResult = nil; i.cloudAccount = OpenBackupAccount(address: i.currentAccount.address)
+        p.createBackup()
+        XCTAssertEqual(r.authorizationRequests, 1); XCTAssertEqual(i.signIns, 0); XCTAssertTrue(i.grants.isEmpty)
+        XCTAssertEqual(v.loading, 0); XCTAssertTrue(r.routes.isEmpty)
+        XCTAssertEqual(UserDefaults.standard.array(forKey: "savedAddresses") as? [String], [])
+    }
+    func testCancelledWalletAuthorizationLeavesTheCloudBackupFlowUntouched() async {
+        let (p, i, v, r) = fixture(); r.authorizationResult = nil; i.cloudAccount = OpenBackupAccount(address: i.currentAccount.address)
+        p.createBackup(); r.pendingAuthorization?(false); await settle()
+        XCTAssertEqual(i.signIns, 0); XCTAssertTrue(i.grants.isEmpty); XCTAssertEqual(v.loading, 0); XCTAssertEqual(v.hidden, 0)
+        XCTAssertTrue(r.routes.isEmpty); XCTAssertTrue(v.states.isEmpty); XCTAssertTrue(v.alertModels.isEmpty)
+        XCTAssertEqual(UserDefaults.standard.array(forKey: "savedAddresses") as? [String], [])
+    }
+    func testSuccessfulWalletAuthorizationStartsTheBackupWithItsOwnAuthorization() async {
+        let (p, i, v, r) = fixture(); r.authorizationResult = nil; i.cloudAccount = OpenBackupAccount(address: i.currentAccount.address)
+        p.createBackup(); r.pendingAuthorization?(true); await settle()
+        XCTAssertEqual(i.signIns, 1); XCTAssertEqual(i.grants.count, 1); XCTAssertTrue(i.authorizations.first === i.grants.first)
+        XCTAssertEqual(i.grants.first?.accountAddress, i.currentAccount.address)
+        XCTAssertEqual(v.loading, 1); XCTAssertEqual(v.hidden, 1); XCTAssertEqual(r.routes, ["backup"])
+        XCTAssertEqual(UserDefaults.standard.array(forKey: "savedAddresses") as? [String], [i.currentAccount.address])
+    }
+    func testBackupDeletionReachesNothingUntilTheWalletAuthorizationSucceeds() {
+        let (p, i, v, r) = fixture(.backedUp); r.authorizationResult = nil
+        p.deleteBackup()
+        XCTAssertEqual(r.authorizationRequests, 1); XCTAssertEqual(i.deletions, 0); XCTAssertTrue(i.grants.isEmpty); XCTAssertEqual(v.loading, 0)
+    }
+    func testCancelledWalletAuthorizationKeepsTheCloudBackup() async {
+        let (p, i, v, r) = fixture(.backedUp); r.authorizationResult = nil
+        p.deleteBackup(); r.pendingAuthorization?(false); await settle()
+        XCTAssertEqual(i.deletions, 0); XCTAssertTrue(i.grants.isEmpty); XCTAssertEqual(v.loading, 0); XCTAssertEqual(v.hidden, 0)
+        XCTAssertTrue(v.states.isEmpty); XCTAssertTrue(v.alertTitles.isEmpty)
+    }
+    func testSuccessfulWalletAuthorizationDeletesTheBackupWithItsOwnAuthorization() async {
+        let (p, i, v, r) = fixture(.backedUp); r.authorizationResult = nil
+        p.deleteBackup(); r.pendingAuthorization?(true); await settle()
+        XCTAssertEqual(i.deletions, 1); XCTAssertEqual(i.grants.count, 1); XCTAssertTrue(i.authorizations.first === i.grants.first)
+        XCTAssertEqual(v.loading, 1); XCTAssertEqual(v.hidden, 1); XCTAssertTrue(v.states.last?.0 == .notBackedUp)
+    }
+    func testLapsedAuthorizationIsAskedForAgainBeforeTheBackupIsRead() async {
+        let (p, i, _, r) = fixture(); i.lapses = 1; i.cloudAccount = OpenBackupAccount(address: i.currentAccount.address)
+        p.createBackup(); await settle()
+        XCTAssertEqual(r.authorizationRequests, 2); XCTAssertEqual(i.signIns, 2)
+        XCTAssertEqual(Set(i.authorizations.map { ObjectIdentifier($0) }).count, 2); XCTAssertEqual(r.routes, ["backup"])
+    }
+    func testAuthorizationThatLapsesAgainStopsWithoutAPasswordScreen() async {
+        let (p, i, v, r) = fixture(); i.lapses = 2; i.cloudAccount = OpenBackupAccount(address: i.currentAccount.address)
+        p.createBackup(); await settle()
+        XCTAssertEqual(r.authorizationRequests, 2); XCTAssertEqual(i.signIns, 2); XCTAssertTrue(r.routes.isEmpty)
+        XCTAssertEqual(v.loading, 2); XCTAssertEqual(v.hidden, 2); XCTAssertTrue(v.alertModels.isEmpty)
+    }
+    func testLapsedDeletionAuthorizationIsAskedForAgainBeforeDeleting() async {
+        let (p, i, v, r) = fixture(.backedUp); i.lapses = 1
+        p.deleteBackup(); await settle()
+        XCTAssertEqual(r.authorizationRequests, 2); XCTAssertEqual(i.deletions, 2)
+        XCTAssertEqual(Set(i.authorizations.map { ObjectIdentifier($0) }).count, 2)
+        XCTAssertTrue(v.alertTitles.isEmpty); XCTAssertTrue(v.states.last?.0 == .notBackedUp)
+    }
+    func testDeletionAuthorizationThatLapsesAgainKeepsTheBackup() async {
+        let (p, i, v, r) = fixture(.backedUp); i.lapses = 2
+        p.deleteBackup(); await settle()
+        XCTAssertEqual(r.authorizationRequests, 2); XCTAssertEqual(i.deletions, 2)
+        XCTAssertTrue(v.alertTitles.isEmpty); XCTAssertTrue(v.states.isEmpty); XCTAssertEqual(v.hidden, 2)
     }
     func testBlockedDeletionStopsLoadingAndExplainsTheRecoveryReason() {
         let (p, _, v, _) = fixture(); p.accountDeletionBlocked(message: "Pending transaction")

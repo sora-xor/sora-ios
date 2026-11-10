@@ -12,6 +12,10 @@
 static const unsigned char BITS_PER_BYTE = 8;
 static const unsigned char STRENGTH_STEP = 32;
 static const unsigned char BITS_PER_WORD = 11;
+// 320 bits of entropy and a 10-bit checksum: the longest phrase the creator
+// makes. A longer list would size the stack parse buffer by its length and,
+// past 768 words, read beyond the 32-byte checksum hash.
+static const unsigned char MAX_WORDS_COUNT = 30;
 
 @interface IRMnemonic: NSObject<IRMnemonicProtocol>
 
@@ -169,7 +173,8 @@ static const unsigned char BITS_PER_WORD = 11;
 #pragma mark - Helpers
 
 + (BOOL)isValidWordsCount:(NSUInteger)count {
-    return ((count * STRENGTH_STEP * BITS_PER_WORD) % ((STRENGTH_STEP + 1) * BITS_PER_BYTE)) == 0;
+    return count <= MAX_WORDS_COUNT &&
+        ((count * STRENGTH_STEP * BITS_PER_WORD) % ((STRENGTH_STEP + 1) * BITS_PER_BYTE)) == 0;
 }
 
 + (BOOL)isValidEntropyLength:(NSUInteger)length {

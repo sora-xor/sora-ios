@@ -37,22 +37,33 @@ actor UserFarmsService {
     weak var poolsService: PoolsServiceInputProtocol?
     private let operationManager = OperationManager()
     
-    private var subscriptionIds: [UInt16] = []
-    
+    private let selectedAccount: () -> AccountItem?
+    private let connection: () -> JSONRPCEngine?
+    private let runtimeOperation: () -> BaseOperation<RuntimeCoderFactoryProtocol>?
+    private var subscriptions: [(engine: JSONRPCEngine, identifier: UInt16)] = []
+
+    init(selectedAccount: @escaping () -> AccountItem? = { SelectedWalletSettings.shared.currentAccount },
+         connection: @escaping () -> JSONRPCEngine? = {
+             ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash())
+         },
+         runtimeOperation: @escaping () -> BaseOperation<RuntimeCoderFactoryProtocol>? = {
+             ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())?.fetchCoderFactoryOperation()
+         }) {
+        self.selectedAccount = selectedAccount
+        self.connection = connection
+        self.runtimeOperation = runtimeOperation
+    }
+
     deinit {
         print("deinited " + String(describing: type(of: self)))
-        subscriptionIds.forEach({
-            let chainId = Chain.sora.genesisHash()
-            try? ChainRegistryFacade.sharedRegistry.getConnection(for: chainId)?.cancelForIdentifier($0)
-        })
-        subscriptionIds = []
+        subscriptions.forEach { $0.engine.cancelForIdentifier($0.identifier) }
     }
 }
 
 extension UserFarmsService: UserFarmsServiceProtocol {
     
     func subscribeUserFarms(to baseAssetId: String, targetAssetId: String) async throws {
-        guard let account = SelectedWalletSettings.shared.currentAccount,
+        guard let account = selectedAccount(),
               let accountId = try? SS58AddressFactory().accountId(fromAddress: account.address, type: account.networkType) else {
             return
         }
@@ -61,27 +72,31 @@ extension UserFarmsService: UserFarmsServiceProtocol {
         
         let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = { [weak self] update in
             Task { [weak self] in
-                guard let self else { return }
-                let userFarms = try await self.decodeUserFarms(with: update)
-                let filteredUserFarms = userFarms.filter { baseAssetId == $0.baseAssetId && targetAssetId == $0.poolAssetId && $0.isFarm }
-                self.userFarmsSubject.send(filteredUserFarms)
+                await self?.publishUserFarms(with: update, baseAssetId: baseAssetId, targetAssetId: targetAssetId)
             }
         }
         
         let failureClosure: (Swift.Error, Bool) -> Void = { error, _ in
         }
         
-        let chainId = Chain.sora.genesisHash()
-        let subscriptionId = try ChainRegistryFacade.sharedRegistry.getConnection(for: chainId)?.subscribe(RPCMethod.storageSubscribe,
-                                                                                                           params: [[storageKey]],
-                                                                                                           updateClosure: updateClosure,
-                                                                                                           failureClosure: failureClosure)
-        subscriptionIds.append(subscriptionId ?? 0)
+        guard let engine = connection() else { throw ChainRegistryError.connectionUnavailable }
+        let subscriptionId = try engine.subscribe(RPCMethod.storageSubscribe,
+                                                  params: [[storageKey]],
+                                                  updateClosure: updateClosure,
+                                                  failureClosure: failureClosure)
+        subscriptions.append((engine, subscriptionId))
     }
     
+    private func publishUserFarms(with update: JSONRPCSubscriptionUpdate<StorageUpdate>, baseAssetId: String, targetAssetId: String) async {
+        guard let userFarms = try? await decodeUserFarms(with: update) else { return }
+        let filtered = userFarms.filter { baseAssetId == $0.baseAssetId && targetAssetId == $0.poolAssetId && $0.isFarm }
+        userFarmsSubject.send(filtered)
+    }
+
     private func decodeUserFarms(with update: JSONRPCSubscriptionUpdate<StorageUpdate>) async throws -> [UserFarm] {
-        let runtimeService = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())
-        let fetchCoderFactoryOperation = runtimeService!.fetchCoderFactoryOperation()
+        guard let fetchCoderFactoryOperation = runtimeOperation() else {
+            throw ChainRegistryError.runtimeMetadaUnavailable
+        }
         
         let decodingOperation = StorageFallbackDecodingListOperation<[UserFarmInfo]>(path: .demeterFarmingUserInfo)
         decodingOperation.addDependency(fetchCoderFactoryOperation)

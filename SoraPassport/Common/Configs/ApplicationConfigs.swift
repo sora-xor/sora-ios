@@ -108,6 +108,7 @@ final class ApplicationConfig {
         static let enabledCards = "enabledCardIdentifiers"
         static let backupedAddresses = "backupedAccountAddresses"
         static let savedAddresses = "savedAddresses"
+        static let shortPhraseWarnedAddresses = "shortPhraseWarnedAddresses"
     }
 
     private var config: InternalConfig
@@ -336,15 +337,31 @@ extension ApplicationConfig: ApplicationConfigProtocol {
             UserDefaults.standard.set(newValue, forKey: Constants.backupedAddresses)
         }
     }
+
+    /// Wallets whose 3-, 6- or 9-word phrase warning was closed (`WalletShortPhraseWarning`).
+    var shortPhraseWarnedAddresses: [String] {
+        get {
+            return UserDefaults.standard.array(forKey: Constants.shortPhraseWarnedAddresses) as? [String] ?? []
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Constants.shortPhraseWarnedAddresses)
+        }
+    }
     
+    /// The cards the Wallet home shows for the selected account. A card that
+    /// cannot be turned off (Assets) is always included: the 3.9 portfolio
+    /// builds had no Assets card and stored lists without it, which would
+    /// otherwise hide it for good, as Edit view cannot turn it back on.
     func getAvailableApplicationSections() -> [Int] {
         let defaultIdentifiers = Cards.allCases.filter { $0.defaultState != .disabled }.map { $0.id }
-        
+        let lockedIdentifiers = Cards.allCases.filter { $0.defaultState == .unselected }.map { $0.id }
+
         if let address = SelectedWalletSettings.shared.currentAccount?.address,
-           let allAccountConfig = UserDefaults.standard.object(forKey: Constants.enabledCards) as? [String : [Int]] {
-            return allAccountConfig[address] ?? defaultIdentifiers
+           let allAccountConfig = UserDefaults.standard.object(forKey: Constants.enabledCards) as? [String : [Int]],
+           let stored = allAccountConfig[address] {
+            return stored + lockedIdentifiers.filter { !stored.contains($0) }
         }
-        
+
         return defaultIdentifiers
     }
     

@@ -19,6 +19,7 @@ import Foundation
 import SSFUtils
 
 protocol RuntimeCoderFactoryProtocol {
+    var catalog: TypeRegistryCatalogProtocol { get }
     var specVersion: UInt32 { get }
     var txVersion: UInt32 { get }
     var metadata: RuntimeMetadata { get }

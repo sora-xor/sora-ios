@@ -32,10 +32,8 @@ let package = Package(
         .library(name: "keccak", targets: ["keccak"]), //TODO: generate xcframework
         .library(name: "RobinHood", targets: ["RobinHood"]), //TODO: get from github
         .library(name: "SoraKeystore", targets: ["SoraKeystore"]), //TODO: get from github
-        .library(name: "SSFQRService", targets: ["SSFQRService"]),
         .library(name: "SSFTransferService", targets: ["SSFTransferService"]),
         .library(name: "SSFSingleValueCache", targets: ["SSFSingleValueCache"]),
-        .library(name: "SSFPolkaswap", targets: ["SSFPolkaswap"]),
         .library(name: "SSFPools", targets: ["SSFPools"]),
         .library(name: "SSFPoolsStorage", targets: ["SSFPoolsStorage"]),
         .library(name: "SSFIndexers", targets: ["SSFIndexers"]),
@@ -49,14 +47,13 @@ let package = Package(
         .library(name: "SSFZetaIndexer", targets: ["SSFZetaIndexer"]),
         .library(name: "SSFBalances", targets: ["SSFBalances"]),
         .library(name: "SSFBalancesStorage", targets: ["SSFBalancesStorage"]),
-        .library(name: "SSFSubstrateBalances", targets: ["SSFSubstrateBalances"]),
-        .library(name: "SSFTransactionHistory", targets: ["SSFTransactionHistory"])
+        .library(name: "SSFSubstrateBalances", targets: ["SSFSubstrateBalances"])
     ],
     dependencies: [
         .package(url: "https://github.com/Boilertalk/secp256k1.swift.git", exact: "0.1.7"),
         .package(url: "https://github.com/bitmark-inc/tweetnacl-swiftwrap", exact: "1.1.0"),
         .package(url: "https://github.com/ashleymills/Reachability.swift", exact: "5.2.3"),
-        .package(url: "https://github.com/soramitsu/fearless-starscream", exact: "4.0.12"),
+        .package(path: "../fearless-starscream"),
         .package(path: "../GoogleSignIn-iOS"),
         .package(path: "../google-api-objectivec-client-for-rest"),
         .package(url: "https://github.com/attaswift/BigInt.git", exact: "5.7.0"),
@@ -66,15 +63,22 @@ let package = Package(
         .package(url: "https://github.com/soramitsu/web3-swift", exact: "7.7.7")
     ],
     targets: [
-        .binaryTarget(name: "blake2lib", path: "Binaries/blake2lib.xcframework"),
-        .binaryTarget(name: "libed25519", path: "Binaries/libed25519.xcframework"),
-        .binaryTarget(name: "sr25519lib", path: "Binaries/sr25519lib.xcframework"),
-        .binaryTarget(name: "sorawallet", path: "Binaries/sorawallet.xcframework"),
-        .binaryTarget(name: "MPQRCoreSDK", path: "Binaries/MPQRCoreSDK.xcframework"),
-        .binaryTarget(
-            name: "XNetworking",
-            url: "https://github.com/soramitsu/x-networking/releases/download/ios-xcframework-1.0.10-rebuild.1/XNetworking-1.0.10.xcframework.zip",
-            checksum: "43319ac6f215e95edc215366116264205902a18d480b87aa4a8c40d381a3b61a"
+        // Crypto primitives built from the vendored sources (see each README.md);
+        // they replace prebuilt binaries with the same C API and outputs.
+        // Tests/CryptoCompatibility/run.sh checks them against those binaries.
+        .target(
+            name: "blake2lib",
+            exclude: ["README.md", "LICENSE"],
+            cSettings: [.headerSearchPath("include/blake2lib")]
+        ),
+        .target(
+            name: "libed25519",
+            exclude: ["README.md", "orlp/LICENSE", "iroha/LICENSE", "iroha/ref10/README"],
+            cSettings: [.headerSearchPath("iroha/include")]
+        ),
+        .target(
+            name: "sr25519lib",
+            exclude: ["README.md", "donna/LICENSE"]
         ),
         .target(
             name: "scrypt",
@@ -121,10 +125,6 @@ let package = Package(
                 "SSFCrypto"
             ]
         ),
-        .target(
-            name: "SSFTransactionHistory",
-            dependencies: [ "XNetworking", "SSFUtils" ]
-        ),
         .testTarget(
             name: "SSFKeyPairTests",
             dependencies: [
@@ -164,20 +164,6 @@ let package = Package(
                 "SSFCrypto" ]
         ),
         .target(
-            name: "SSFQRService",
-            dependencies: [
-                .byName(name: "MPQRCoreSDK"),
-                "SSFCrypto",
-                "SSFModels"
-            ]),
-        .testTarget(
-            name: "SSFQRServiceTests",
-            dependencies: [
-                "SSFQRService",
-                "MocksBasket"
-            ]
-        ),
-        .target(
             name: "IrohaCrypto",
             dependencies: [
                 .byName(name: "libed25519"),
@@ -187,10 +173,7 @@ let package = Package(
                 "scrypt"
             ],
             publicHeadersPath: "include",
-            cSettings: [ .headerSearchPath(".") ],
-            linkerSettings: [
-                .linkedFramework("sorawallet")
-            ]
+            cSettings: [ .headerSearchPath(".") ]
         ),
         .target(
             name: "SSFCloudStorage",
@@ -373,25 +356,6 @@ let package = Package(
                 "SSFChainRegistry",
                 "SSFAssetManagment",
                 "SSFAssetManagmentStorage"
-            ]
-        ),
-        .target(
-            name: "SSFPolkaswap",
-            dependencies: [
-                "SSFUtils",
-                "SSFChainRegistry",
-                "RobinHood",
-                "SSFModels",
-                "SSFStorageQueryKit",
-                "SSFPools",
-                "sorawallet",
-                "SSFPoolsStorage",
-                "SSFExtrinsicKit",
-                "SSFSigner",
-                "SSFEraKit",
-                "SoraKeystore",
-                "SwiftyBeaver",
-                .product(name: "Reachability", package: "Reachability.swift")
             ]
         ),
         .target(

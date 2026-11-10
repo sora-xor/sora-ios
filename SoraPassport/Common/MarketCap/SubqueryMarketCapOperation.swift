@@ -123,7 +123,7 @@ public final class SubqueryMarketCapInfoOperation<ResultType>: PIAsyncOperation<
                 liquidity: try PIMarketCapLiquidityValidator
                     .validatedWireValue(asset.liquidity),
                 hourDelta: asset.priceChangeDay.map {
-                    KotlinDouble(value: $0)
+                    NSNumber(value: $0)
                 }
             )
         }

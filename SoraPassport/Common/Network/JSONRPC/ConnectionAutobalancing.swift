@@ -77,7 +77,17 @@ enum SoraNodeConnectionPolicy {
 
     static func isCompromisedEndpoint(_ url: URL) -> Bool {
         let host = url.host?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
-        return ["ws.mof.sora.org", "mof.sora.org", "mof3.sora.org", "207.254.29.218"].contains(host ?? "")
+        // On 2026-11-07 the three hostnames resolved to 141.94.30.127.
+        return ["ws.mof.sora.org", "mof.sora.org", "mof3.sora.org", "207.254.29.218", "141.94.30.127"]
+            .contains(host ?? "")
+    }
+
+    /// Mainnet connects only to the bundled nodes and nodes the user added.
+    /// Remote configuration is unsigned, so a node it supplied, including one
+    /// an earlier build saved, is never used: the node decides what the app
+    /// shows and what it signs.
+    static func isTrustedMainnetNode(_ url: URL, customNodes: Set<ChainNodeModel>?) -> Bool {
+        bundledMainnetNodes.contains { $0.url == url } || (customNodes ?? []).contains { $0.url == url }
     }
 
     static func isMainnet(chainId: String, addressPrefix: UInt16) -> Bool {
@@ -85,12 +95,15 @@ enum SoraNodeConnectionPolicy {
     }
 
     static func candidates(for chain: ChainModel) -> [ChainNodeModel] {
-        let bundled = isMainnet(chainId: chain.chainId, addressPrefix: chain.addressPrefix)
-            ? bundledMainnetNodes : []
-        let defaults = chain.nodes.sorted { $0.url.absoluteString < $1.url.absoluteString }
+        let mainnet = isMainnet(chainId: chain.chainId, addressPrefix: chain.addressPrefix)
+        let bundled = mainnet ? bundledMainnetNodes : []
+        let defaults = mainnet ? [] : chain.nodes.sorted { $0.url.absoluteString < $1.url.absoluteString }
         let custom = (chain.customNodes ?? []).sorted { $0.url.absoluteString < $1.url.absoluteString }
+        let selected = chain.selectedNode.flatMap { node in
+            !mainnet || isTrustedMainnetNode(node.url, customNodes: chain.customNodes) ? node : nil
+        }
         var seen: Set<URL> = []
-        return ([chain.selectedNode].compactMap { $0 } + bundled + defaults + custom).filter {
+        return ([selected].compactMap { $0 } + bundled + defaults + custom).filter {
             guard isAllowedEndpoint($0.url) else { return false }
             return seen.insert($0.url).inserted
         }

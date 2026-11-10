@@ -48,6 +48,11 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     private var createdAccountForBackup: AccountItem?
     private let lifecycleCoordinator: WalletLifecycleCoordinator
     private let recoveryGate: WalletRecoveryCapabilityGate
+    /// For an existing wallet (`.profile`): the Account Options authorization
+    /// its secret is read under, and how to ask the owner again once that
+    /// lapsed or was used.
+    private var cloudBackupAuthorization: AccountOptionsCloudBackupAuthorization?
+    private let reauthorizeCloudBackup: AccountOptionsCloudBackupReauthorization?
 
     init(account: OpenBackupAccount,
          cloudStorageService: CloudStorageServiceProtocol,
@@ -56,6 +61,8 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
          mnemonic: IRMnemonicProtocol? = nil,
          entryPoint: EntryPoint,
          keystore: KeystoreProtocol,
+         cloudBackupAuthorization: AccountOptionsCloudBackupAuthorization? = nil,
+         reauthorizeCloudBackup: AccountOptionsCloudBackupReauthorization? = nil,
          completion: (() -> Void)? = nil,
          currentAccount: @escaping () -> AccountItem? = { SelectedWalletSettings.shared.currentAccount },
          lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
@@ -67,6 +74,8 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
         self.mnemonic = mnemonic
         self.entryPoint = entryPoint
         self.keystore = keystore
+        self.cloudBackupAuthorization = cloudBackupAuthorization
+        self.reauthorizeCloudBackup = reauthorizeCloudBackup
         self.cloudStorageService = cloudStorageService
         self.currentAccount = currentAccount
         self.lifecycleCoordinator = lifecycleCoordinator
@@ -92,7 +101,12 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
                 self.view?.hideLoading()
             }
             do {
+                // A leaked Drive backup can be guessed offline, so refuse a
+                // weak password before any wallet is created or encrypted,
+                // whatever the screen allowed.
+                try BackupPasswordPolicy.validate(password)
                 let account: AccountItem
+                var authorization: AccountOptionsCloudBackupAuthorization?
                 if self.entryPoint == .profile {
                     guard let current = self.currentAccount() else {
                         throw WalletCloudBackupWriteError.invalidBackup
@@ -101,6 +115,8 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
                         throw WalletCloudBackupWriteError.invalidBackup
                     }
                     account = current
+                    // Asked for, if needed, before the wallet lease is held.
+                    authorization = try await self.authorizationForSecretRead(of: current)
                 } else if let created = self.createdAccountForBackup {
                     account = created
                 } else {
@@ -119,7 +135,8 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
                 }
                 let lease = try await self.lifecycleCoordinator.acquireForMutableWalletAccessAsync()
                 do {
-                    self.backupAccount = try self.prepareBackup(with: account, password: password)
+                    self.backupAccount = try self.prepareBackup(with: account, password: password,
+                                                                authorization: authorization)
                     lease.release()
                 } catch {
                     lease.release()
@@ -136,8 +153,15 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
                 } else {
                     self.wireframe?.showSetupPinCode()
                 }
+            } catch AccountOptionsCloudBackupError.authorizationRequired {
+                // The owner refused the PIN, or the authorization lapsed again
+                // before the read. Nothing was read or saved, and saving again
+                // asks once more.
             } catch {
-                self.wireframe?.present(message: WalletCloudBackupWriteError.userMessage(for: error),
+                let message = (error as? BackupPasswordPolicy.Violation).map {
+                    BackupPasswordPolicy.guidance(for: $0, preferredLanguages: .currentLocale)
+                } ?? WalletCloudBackupWriteError.userMessage(for: error)
+                self.wireframe?.present(message: message,
                     title: "Backup not saved",
                     closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
                     from: self.view)
@@ -163,7 +187,31 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
         return SetupPasswordSection(items: [ .setupPassword(item) ])
     }
     
-    private func prepareBackup(with account: AccountItem, password: String) throws -> OpenBackupAccount {
+    /// The authorization for one read of `account`'s wallet secret: the one
+    /// Account Options handed over while it holds, otherwise one the owner
+    /// gives now. Throws `AccountOptionsCloudBackupError.authorizationRequired`
+    /// when the owner refuses or nothing can ask.
+    @MainActor
+    private func authorizationForSecretRead(of account: AccountItem) async throws -> AccountOptionsCloudBackupAuthorization {
+        if let authorization = cloudBackupAuthorization, (try? authorization.require(for: account.address)) != nil {
+            return authorization
+        }
+        cloudBackupAuthorization = nil
+        guard let reauthorize = reauthorizeCloudBackup else {
+            throw AccountOptionsCloudBackupError.authorizationRequired
+        }
+        let renewed = await withCheckedContinuation { continuation in
+            reauthorize { continuation.resume(returning: $0) }
+        }
+        guard let renewed else {
+            throw AccountOptionsCloudBackupError.authorizationRequired
+        }
+        cloudBackupAuthorization = renewed
+        return renewed
+    }
+
+    private func prepareBackup(with account: AccountItem, password: String,
+                               authorization: AccountOptionsCloudBackupAuthorization?) throws -> OpenBackupAccount {
         try recoveryGate.requireAuthorizedLifecycleContinuation()
         guard backupAccount.address == account.address || (entryPoint == .onboarding && backupAccount.address.isEmpty) else {
             throw WalletCloudBackupWriteError.invalidBackup
@@ -171,6 +219,13 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
         if let crypto = backupAccount.cryptoType, !crypto.isEmpty {
             guard crypto.lowercased() == account.cryptoType.typeString.lowercased() ||
                 crypto == String(account.cryptoType.rawValue) else { throw WalletCloudBackupWriteError.invalidBackup }
+        }
+        // An existing wallet's secret is read only while the owner's
+        // authorization holds, and each read uses one up. The onboarding
+        // wallet was created in this flow and needs none.
+        if entryPoint == .profile {
+            guard let authorization else { throw AccountOptionsCloudBackupError.authorizationRequired }
+            try authorization.redeem(for: account.address)
         }
         var backup = try WalletBackupMaterial.load(for: account, keystore: keystore, recoveryGate: recoveryGate)
         defer { backup.wipe() }

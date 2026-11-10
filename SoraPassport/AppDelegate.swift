@@ -16,10 +16,6 @@
 // limitations under the License.
 
 import UIKit
-#if !NO_FIREBASE
-import FirebaseCore
-import FirebaseAnalytics
-#endif
 import GoogleSignIn
 import SoraUIKit
 import SoraFoundation
@@ -58,22 +54,29 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         }
 
         if !isUnitTesting {
-            #if !NO_FIREBASE
-            FirebaseApp.configure()
-            // Metrics remain available, but wallet activity is never eligible for ads.
-            // Repeat at startup because persisted SDK consent overrides plist defaults.
-            Analytics.setConsent([
-                .adStorage: .denied,
-                .adUserData: .denied,
-                .adPersonalization: .denied
-            ])
-            Analytics.setUserProperty("false", forName: AnalyticsUserPropertyAllowAdPersonalizationSignals)
-            #endif
-
             setupLanguage()
+            protectLegacyAccountExports(application)
         }
 
         return true
+    }
+
+    /// JSON exports from before 3.9.2 stay in Documents but get complete file
+    /// protection and no device backup (`LegacyAccountExportFiles`). That
+    /// needs the device unlocked; a launch while it is locked leaves them for
+    /// the next launch.
+    private func protectLegacyAccountExports(_ application: UIApplication) {
+        guard application.isProtectedDataAvailable,
+              let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return
+        }
+        DispatchQueue.global(qos: .utility).async {
+            let unprotected = LegacyAccountExportFiles.protect(in: documents)
+            if !unprotected.isEmpty {
+                // A count only: the file names contain account addresses.
+                Logger.shared.warning("Could not protect \(unprotected.count) legacy JSON export file(s)")
+            }
+        }
     }
 
     /// A missing theme key also means an existing user's System choice.
@@ -254,6 +257,15 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         UIView.appearance().semanticContentAttribute = semanticContentAttribute
     }
 
+    /// Third-party keyboards can send every key typed into them to their
+    /// developer, and with Full Access they can read the pasteboard. The
+    /// recovery phrase, raw seed, JSON and its password are typed in this
+    /// app, so only Apple's keyboards are allowed anywhere in it.
+    func application(_ application: UIApplication,
+                     shouldAllowExtensionPointIdentifier extensionPointIdentifier: UIApplication.ExtensionPointIdentifier) -> Bool {
+        AppKeyboardPolicy.allows(extensionPointIdentifier)
+    }
+
     private func resumePendingNexusTransactions() {
         Task { @MainActor in
             // Reconcile every network journal entry regardless of selected
@@ -298,5 +310,12 @@ fileprivate extension Array {
             return nil
         }
         return self[index]
+    }
+}
+
+/// Which app extension points SORA accepts. Only custom keyboards are refused.
+enum AppKeyboardPolicy {
+    static func allows(_ extensionPointIdentifier: UIApplication.ExtensionPointIdentifier) -> Bool {
+        extensionPointIdentifier != .keyboard
     }
 }

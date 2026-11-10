@@ -519,7 +519,7 @@ run_ios_migration_release_source_gate() {
     run_exact_ios_migration_suite "${ios_gate_taira_deployment_suite}" 15 taira-deployment-admission || return 1
     run_exact_ios_migration_suite "${ios_gate_vendored_binary_suite}" 10 vendored-binary-qualification || return 1
     run_exact_ios_migration_suite "${ios_gate_signing_identity_suite}" 10 production-signing-identity || return 1
-    run_exact_ios_migration_suite "${ios_gate_production_promotion_suite}" 25 production-promotion-controller || return 1
+    run_exact_ios_migration_suite "${ios_gate_production_promotion_suite}" 30 production-promotion-controller || return 1
 
     for ios_gate_shell in \
         "${root}/SoraPassport/Scripts/archive-ios-migration-candidate.sh" \
@@ -716,7 +716,7 @@ run_ios_migration_release_source_gate() {
     fi
 
     /usr/bin/printf \
-        'iOS migration Release source gate: OK (94 migration tests + 8 internal-TestFlight tests + 17 Release-package tests + 15 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 25 production-promotion tests, 13 lints, shell/Swift parse)\n'
+        'iOS migration Release source gate: OK (94 migration tests + 8 internal-TestFlight tests + 17 Release-package tests + 15 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 30 production-promotion tests, 13 lints, shell/Swift parse)\n'
 }
 
 if [ "$#" -eq 2 ] && [ "$1" = "--lint-ios-google-signin-phase-dependencies" ]; then
@@ -1070,6 +1070,7 @@ if [ -n "${CONFIGURATION:-}" ] && [ "${CONFIGURATION}" != "Release" ]; then
     /bin/sh "${migration_promotion_admission}" --lint-contract >/dev/null
     /usr/bin/python3 -I -S "${migration_release_boundary_harness}" >/dev/null
     /bin/sh "${vendored_binary_qualification_validator}" --lint-templates >/dev/null
+    /bin/sh "${vendored_binary_qualification_validator}" --scan-repository >/dev/null
     /bin/sh "${signing_identity_qualification_validator}" --lint-templates >/dev/null
     /usr/bin/python3 -I -S "${rollout_regression_harness}" >/dev/null
     exit 0
@@ -1100,7 +1101,7 @@ production_scheme="${root}/SoraPassport.xcodeproj/xcshareddata/xcschemes/SoraPas
 unit_test_scheme="${root}/SoraPassport.xcodeproj/xcshareddata/xcschemes/SoraPassportTests.xcscheme"
 release_xcconfig="${root}/SoraPassport/Configs/SoraPassport.release.xcconfig"
 production_info_plist="${root}/SoraPassport/Info.plist"
-xnetworking_manifest="${root}/VendorPackages/shared-features-spm/Package.swift"
+shared_features_manifest="${root}/VendorPackages/shared-features-spm/Package.swift"
 rswift_manifest="${root}/VendorPackages/Rswift/Package.swift"
 google_signin_manifest="${root}/VendorPackages/GoogleSignIn-iOS/Package.swift"
 google_api_manifest="${root}/VendorPackages/google-api-objectivec-client-for-rest/Package.swift"
@@ -1111,11 +1112,8 @@ wallet_derivation_fixture="${root}/Fixtures/Modernization/wallet-derivation-v1.j
 release_probe="${root}/Fixtures/Modernization/release-probe-evidence-2026-08-02.json"
 iroha_readiness="${root}/Fixtures/Modernization/iroha-production-send-readiness.json"
 native_canary_qualification="${root}/Fixtures/Modernization/iroha-native-canary-qualification-v1.json"
-vendored_binary_readiness="${root}/Fixtures/Modernization/ios-vendored-binary-readiness.json"
 vendored_binary_qualification="${root}/Fixtures/Modernization/ios-vendored-binary-qualification.json"
 vendored_binary_qualification_blocked="${root}/Fixtures/Modernization/ios-vendored-binary-qualification.blocked.json"
-vendored_binary_evidence_blocked="${root}/Fixtures/Modernization/ios-vendored-binary-qualification-evidence.blocked.json"
-vendored_binary_trust_blocked="${root}/Fixtures/Modernization/ios-vendored-binary-qualification-trust.blocked.json"
 vendored_binary_documentation="${root}/Fixtures/Modernization/ios-vendored-binary-qualification-README.md"
 vendored_binary_qualification_validator="${root}/SoraPassport/Scripts/verify-ios-vendored-binary-qualification.sh"
 vendored_binary_qualification_json_validator="${root}/SoraPassport/Scripts/verify-ios-vendored-binary-qualification.py"
@@ -2003,21 +2001,17 @@ if [ "${NORITO_BRIDGE_OBSERVED_MUTABLE_ARCHIVE_SHA256:-}" != "475035c7173fa6a3ea
     exit 1
 fi
 
-if [ "${XNETWORKING_UPSTREAM_COMMIT:-}" != "b7657d4dad68dd3afee6b29b8b2909848afd38a2" ] ||
-   [ "${XNETWORKING_ARCHIVE_SHA256:-}" != "43319ac6f215e95edc215366116264205902a18d480b87aa4a8c40d381a3b61a" ]; then
-    echo "error: XNetworking source-rebuild provenance is not the reviewed identity"
-    exit 1
-fi
-
-if [ ! -f "${xnetworking_manifest}" ] ||
-   ! /usr/bin/grep -Fq "${XNETWORKING_URL}" "${xnetworking_manifest}" ||
-   ! /usr/bin/grep -Fq "${XNETWORKING_ARCHIVE_SHA256}" "${xnetworking_manifest}"; then
-    echo "error: XNetworking package does not pin the reviewed immutable archive"
+# The shared-features package links no prebuilt binary (XNetworking, sorawallet,
+# MPQRCoreSDK and the crypto xcframeworks were removed or rebuilt from source).
+if [ ! -f "${shared_features_manifest}" ] ||
+   /usr/bin/grep -Fq '.binaryTarget(' "${shared_features_manifest}" ||
+   /usr/bin/grep -Fq 'XNetworking' "${shared_features_manifest}"; then
+    echo "error: shared-features package declares a prebuilt binary target"
     exit 1
 fi
 
 for swiftpm_manifest in \
-    "${xnetworking_manifest}" \
+    "${shared_features_manifest}" \
     "${rswift_manifest}" \
     "${google_signin_manifest}" \
     "${google_api_manifest}"
@@ -2031,7 +2025,7 @@ done
 
 if /usr/bin/grep -E \
     'from:|upToNextMajor|upToNextMinor|\.branch\(|\.range\(|\.\.<' \
-    "${xnetworking_manifest}" \
+    "${shared_features_manifest}" \
     "${rswift_manifest}" \
     "${google_signin_manifest}" \
     "${google_api_manifest}" >/dev/null; then
@@ -2049,16 +2043,18 @@ if [ -e "${jose_manifest}" ] ||
     exit 1
 fi
 
-if [ "$(/usr/bin/grep -Fc 'exact: "' "${xnetworking_manifest}")" != "9" ] ||
-   ! /usr/bin/grep -Fq '.package(url: "https://github.com/Boilertalk/secp256k1.swift.git", exact: "0.1.7")' "${xnetworking_manifest}" ||
-   ! /usr/bin/grep -Fq '.package(url: "https://github.com/bitmark-inc/tweetnacl-swiftwrap", exact: "1.1.0")' "${xnetworking_manifest}" ||
-   ! /usr/bin/grep -Fq '.package(url: "https://github.com/ashleymills/Reachability.swift", exact: "5.2.3")' "${xnetworking_manifest}" ||
-   ! /usr/bin/grep -Fq '.package(url: "https://github.com/soramitsu/fearless-starscream", exact: "4.0.12")' "${xnetworking_manifest}" ||
-   ! /usr/bin/grep -Fq '.package(url: "https://github.com/attaswift/BigInt.git", exact: "5.7.0")' "${xnetworking_manifest}" ||
-   ! /usr/bin/grep -Fq '.package(url: "https://github.com/daisuke-t-jp/xxHash-Swift", exact: "1.1.1")' "${xnetworking_manifest}" ||
-   ! /usr/bin/grep -Fq '.package(url: "https://github.com/SwiftyBeaver/SwiftyBeaver.git", exact: "2.1.1")' "${xnetworking_manifest}" ||
-   ! /usr/bin/grep -Fq '.package(url: "https://github.com/nicklockwood/SwiftFormat", exact: "0.50.4")' "${xnetworking_manifest}" ||
-   ! /usr/bin/grep -Fq '.package(url: "https://github.com/soramitsu/web3-swift", exact: "7.7.7")' "${xnetworking_manifest}"; then
+if [ "$(/usr/bin/grep -Fc 'exact: "' "${shared_features_manifest}")" != "8" ] ||
+   ! /usr/bin/grep -Fq '.package(url: "https://github.com/Boilertalk/secp256k1.swift.git", exact: "0.1.7")' "${shared_features_manifest}" ||
+   ! /usr/bin/grep -Fq '.package(url: "https://github.com/bitmark-inc/tweetnacl-swiftwrap", exact: "1.1.0")' "${shared_features_manifest}" ||
+   ! /usr/bin/grep -Fq '.package(url: "https://github.com/ashleymills/Reachability.swift", exact: "5.2.3")' "${shared_features_manifest}" ||
+   ! /usr/bin/grep -Fq '.package(path: "../fearless-starscream")' "${shared_features_manifest}" ||
+   [ ! -f "${root}/VendorPackages/fearless-starscream/UPSTREAM.json" ] ||
+   [ -L "${root}/VendorPackages/fearless-starscream" ] ||
+   ! /usr/bin/grep -Fq '.package(url: "https://github.com/attaswift/BigInt.git", exact: "5.7.0")' "${shared_features_manifest}" ||
+   ! /usr/bin/grep -Fq '.package(url: "https://github.com/daisuke-t-jp/xxHash-Swift", exact: "1.1.1")' "${shared_features_manifest}" ||
+   ! /usr/bin/grep -Fq '.package(url: "https://github.com/SwiftyBeaver/SwiftyBeaver.git", exact: "2.1.1")' "${shared_features_manifest}" ||
+   ! /usr/bin/grep -Fq '.package(url: "https://github.com/nicklockwood/SwiftFormat", exact: "0.50.4")' "${shared_features_manifest}" ||
+   ! /usr/bin/grep -Fq '.package(url: "https://github.com/soramitsu/web3-swift", exact: "7.7.7")' "${shared_features_manifest}"; then
     echo "error: shared-features SwiftPM requirements drifted from the reviewed exact versions"
     exit 1
 fi
@@ -2184,9 +2180,9 @@ project_local_package_count="$(
 project_vendored_local_count="$(
     /usr/bin/grep -c 'relativePath = .*VendorPackages/' "${project}"
 )"
-if [ "${project_remote_package_count}" != "14" ] ||
+if [ "${project_remote_package_count}" != "12" ] ||
    [ "${project_exact_requirement_count}" != "${project_remote_package_count}" ] ||
-   [ "${project_local_package_count}" != "10" ] ||
+   [ "${project_local_package_count}" != "11" ] ||
    [ "${project_vendored_local_count}" != "${project_local_package_count}" ] ||
    ! /usr/bin/grep -Fq 'relativePath = VendorPackages/NexusTransferCodec;' "${project}" ||
    ! /usr/bin/grep -Fq 'relativePath = "VendorPackages/google-api-objectivec-client-for-rest";' "${project}" ||
@@ -2197,7 +2193,8 @@ if [ "${project_remote_package_count}" != "14" ] ||
    ! /usr/bin/grep -Fq 'relativePath = VendorPackages/FireMock;' "${project}" ||
    ! /usr/bin/grep -Fq 'relativePath = VendorPackages/SoraFoundation;' "${project}" ||
    ! /usr/bin/grep -Fq 'relativePath = "VendorPackages/GoogleSignIn-iOS";' "${project}" ||
-   ! /usr/bin/grep -Fq 'relativePath = "VendorPackages/shared-features-spm";' "${project}"; then
+   ! /usr/bin/grep -Fq 'relativePath = "VendorPackages/shared-features-spm";' "${project}" ||
+   ! /usr/bin/grep -Fq 'relativePath = VendorPackages/fearless-starscream;' "${project}"; then
     echo "error: Xcode package references contain a dynamic requirement or local substitution"
     exit 1
 fi
@@ -2212,7 +2209,8 @@ for reviewed_local_package in \
     VendorPackages/FireMock \
     VendorPackages/SoraFoundation \
     VendorPackages/GoogleSignIn-iOS \
-    VendorPackages/shared-features-spm
+    VendorPackages/shared-features-spm \
+    VendorPackages/fearless-starscream
 do
     if [ ! -d "${root}/${reviewed_local_package}" ] ||
        [ -L "${root}/${reviewed_local_package}" ]; then
@@ -2221,14 +2219,8 @@ do
     fi
 done
 
-if [ ! -f "${vendored_binary_readiness}" ] ||
-   [ -L "${vendored_binary_readiness}" ] ||
-   [ ! -f "${vendored_binary_qualification_blocked}" ] ||
+if [ ! -f "${vendored_binary_qualification_blocked}" ] ||
    [ -L "${vendored_binary_qualification_blocked}" ] ||
-   [ ! -f "${vendored_binary_evidence_blocked}" ] ||
-   [ -L "${vendored_binary_evidence_blocked}" ] ||
-   [ ! -f "${vendored_binary_trust_blocked}" ] ||
-   [ -L "${vendored_binary_trust_blocked}" ] ||
    [ ! -f "${vendored_binary_documentation}" ] ||
    [ -L "${vendored_binary_documentation}" ] ||
    [ ! -f "${vendored_binary_qualification_validator}" ] ||
@@ -2237,34 +2229,28 @@ if [ ! -f "${vendored_binary_readiness}" ] ||
    [ -L "${vendored_binary_qualification_json_validator}" ] ||
    [ ! -f "${vendored_binary_qualification_harness}" ] ||
    [ -L "${vendored_binary_qualification_harness}" ] ||
-   ! /bin/sh "${vendored_binary_qualification_validator}" --lint-templates >/dev/null; then
+   ! /bin/sh "${vendored_binary_qualification_validator}" --lint-templates >/dev/null ||
+   ! /bin/sh "${vendored_binary_qualification_validator}" --scan-repository >/dev/null; then
     echo "error: authenticated iOS vendored-binary qualification contract is absent or malformed"
     exit 1
 fi
 
+# No prebuilt binary may come back: --scan-repository (above, and in the suite
+# the release source gate runs) checks every tracked file for frameworks,
+# libraries and Mach-O/ELF/ar images, SwiftPM binary targets and closed-source
+# package pins, and production promotion fails closed.
 if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${vendored_binary_qualification_validator}" ||
-   ! /usr/bin/grep -Fq 'IOS_VENDORED_BINARY_QUALIFICATION_TRUST_SHA256' "${vendored_binary_qualification_json_validator}" ||
-   ! /usr/bin/grep -Fq 'IOS_VENDORED_BINARY_QUALIFICATION_ARTIFACT_PRODUCER_PUBLIC_KEY_SHA256' "${vendored_binary_qualification_json_validator}" ||
-   ! /usr/bin/grep -Fq 'IOS_VENDORED_BINARY_QUALIFICATION_REVIEWER_PUBLIC_KEY_SHA256' "${vendored_binary_qualification_json_validator}" ||
-   ! /usr/bin/grep -Fq 'duplicate_rejecting_object' "${vendored_binary_qualification_json_validator}" ||
-   ! /usr/bin/grep -Fq 'parse_json_integer' "${vendored_binary_qualification_json_validator}" ||
-   ! /usr/bin/grep -Fq 'reject_json_float' "${vendored_binary_qualification_json_validator}" ||
-   ! /usr/bin/grep -Fq 'exact_typed_equal' "${vendored_binary_qualification_json_validator}" ||
-   ! /usr/bin/grep -Fq 'inventory_tree' "${vendored_binary_qualification_json_validator}" ||
-   ! /usr/bin/grep -Fq 'verify_signature' "${vendored_binary_qualification_json_validator}" ||
-   ! /usr/bin/grep -Fq 'SAFE_OPENSSL_ENV' "${vendored_binary_qualification_json_validator}" ||
-   [ "$(/usr/bin/grep -Fc 'env=SAFE_OPENSSL_ENV' "${vendored_binary_qualification_json_validator}")" -ne 3 ] ||
-   ! /usr/bin/grep -Fq 'sora-ios-vendored-binary-provenance-v2' "${vendored_binary_qualification_json_validator}" ||
-   ! /usr/bin/grep -Fq 'inputs.recheck_all()' "${vendored_binary_qualification_json_validator}" ||
-   ! /usr/bin/grep -Fq 'test_qualified_dual_signature_and_six_tree_path_succeeds' "${vendored_binary_qualification_harness}" ||
-   ! /usr/bin/grep -Fq 'test_repository_sorawallet_trees_are_currently_byte_identical' "${vendored_binary_qualification_harness}" ||
+   ! /usr/bin/grep -Fq 'def binary_findings' "${vendored_binary_qualification_json_validator}" ||
+   ! /usr/bin/grep -Fq 'BINARY_TARGET_RE' "${vendored_binary_qualification_json_validator}" ||
+   ! /usr/bin/grep -Fq 'CLOSED_PACKAGE_IDENTITIES' "${vendored_binary_qualification_json_validator}" ||
+   ! /usr/bin/grep -Fq 'sora-ios-vendored-binary-qualification-v2' "${vendored_binary_qualification_json_validator}" ||
+   ! /usr/bin/grep -Fq 'test_repository_has_no_prebuilt_binaries' "${vendored_binary_qualification_harness}" ||
+   ! /usr/bin/grep -Fq 'test_production_promotion_fails_closed_without_a_receipt' "${vendored_binary_qualification_harness}" ||
    ! /usr/bin/grep -Fq 'values inside repository JSON cannot authorize themselves' "${vendored_binary_documentation}" ||
    ! /usr/bin/grep -Fq 'Boolean review claims and self-referential' "${vendored_binary_documentation}" ||
    [ "$(/usr/bin/grep -Fc '/bin/sh "${vendored_binary_qualification_validator}" --lint-templates >/dev/null' "${dependency_verifier}")" -lt 3 ] ||
    [ "$(/usr/bin/grep -Fc '/bin/sh "${vendored_binary_qualification_validator}" --verify-qualified' "${dependency_verifier}")" -ne 2 ] ||
    [ "$(/usr/bin/grep -Fc 'Fixtures/Modernization/ios-vendored-binary-qualification.blocked.json' "${project}")" -lt 2 ] ||
-   [ "$(/usr/bin/grep -Fc 'Fixtures/Modernization/ios-vendored-binary-qualification-evidence.blocked.json' "${project}")" -lt 2 ] ||
-   [ "$(/usr/bin/grep -Fc 'Fixtures/Modernization/ios-vendored-binary-qualification-trust.blocked.json' "${project}")" -lt 2 ] ||
    [ "$(/usr/bin/grep -Fc 'Fixtures/Modernization/ios-vendored-binary-qualification-README.md' "${project}")" -lt 2 ] ||
    [ "$(/usr/bin/grep -Fc 'SoraPassport/Scripts/verify-ios-vendored-binary-qualification.sh' "${project}")" -lt 2 ] ||
    [ "$(/usr/bin/grep -Fc 'SoraPassport/Scripts/verify-ios-vendored-binary-qualification.py' "${project}")" -lt 2 ]; then
@@ -3710,7 +3696,9 @@ if [ ! -f "${rollout_candidate_template}" ] ||
    ! /usr/bin/grep -Fq '"historyBlockHeightContractDeployed=true"' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'legacy-rollout-v2-replay' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'HARNESS_TIMEOUT_SECONDS = 1200' "${rollout_regression_harness}" ||
-   ! /usr/bin/grep -Fq 'timeout=bounded_timeout(180)' "${rollout_regression_harness}" ||
+   ! /usr/bin/grep -Fq 'timeout = bounded_timeout(HARNESS_TIMEOUT_SECONDS)' "${rollout_regression_harness}" ||
+   ! /usr/bin/grep -Fq 'start_new_session=True' "${rollout_regression_harness}" ||
+   ! /usr/bin/grep -Fq 'os.killpg(process.pid, signal.SIGKILL)' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'SAFE_TOOL_ENV' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'env=SAFE_TOOL_ENV' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'SORA_ROLLOUT_REGRESSION_CURRENT_EPOCH_SECONDS' "${rollout_regression_harness}" ||
@@ -6442,7 +6430,7 @@ if ! /usr/bin/grep -Fq "override func viewWillAppear" "${more_menu_view}" ||
 	   /usr/bin/grep -Fq "guard let coordinator, let pendingStore else" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "if access.mutationSurfaceAvailable" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "static func mutationIsReady(" "${nexus_ui}" ||
-	   ! /usr/bin/grep -Fq "sendButton.isEnabled = false" "${nexus_ui}" ||
+	   ! /usr/bin/grep -Fq "sendEntry.isEnabled = false" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "private var mutationReady = false" "${nexus_ui}" ||
 	   [ "$(/usr/bin/grep -Fc 'setMutationReady(false)' "${nexus_ui}")" -lt 3 ] ||
 	   ! /usr/bin/grep -Fq "guard mutationReady, coordinator != nil else" "${nexus_ui}" ||
@@ -6503,7 +6491,7 @@ if [ ! -f "${wallet_network_directory}" ] ||
    ! /usr/bin/grep -Fq "configuration.validate(address: receiver)" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq '$0.walletId == self.account.walletId' "${nexus_ui}" ||
    ! /usr/bin/grep -Fq '$0.networkId == self.account.networkId' "${nexus_ui}" ||
-   ! /usr/bin/grep -Fq "UIImageView(image: qrImage(account.address))" "${nexus_ui}" ||
+   ! /usr/bin/grep -Fq "NexusReceiveViewModel(address: account.address" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq "UIPasteboard.general.string = account.address" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq "UIApplication.shared.open(configuration.explorerURL)" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq "The transaction was not retried." "${nexus_service}" ||

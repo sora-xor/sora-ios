@@ -48,9 +48,9 @@ final class SoraNavigationController: UINavigationController, UINavigationContro
     }
 
     private func setupBackButtonItem(for viewController: UIViewController) {
-        let backButtonItem = viewController.navigationItem.backBarButtonItem ?? UIBarButtonItem()
-        backButtonItem.title = " "
-        viewController.navigationItem.backBarButtonItem = backButtonItem
+        // The chevron alone. A blank title would still widen the button's capsule on iOS 26 and later.
+        viewController.navigationItem.backBarButtonItem = nil
+        viewController.navigationItem.backButtonDisplayMode = .minimal
     }
 }
 

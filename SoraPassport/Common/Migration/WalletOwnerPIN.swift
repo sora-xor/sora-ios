@@ -262,6 +262,24 @@ final class WalletOwnerPIN {
         }
     }
 
+    /// SORA 1.x kept its PIN under `pincode`, next to `seedEntropy`. The
+    /// upgrade that turns that entropy into a wallet checks it first, with the
+    /// lock screen's attempt limit; otherwise anyone holding the iPhone could
+    /// upgrade, choose a new PIN and read the recovery phrase.
+    func verifyLegacyUpgradePIN(_ pin: String) throws {
+        try Self.synchronized {
+            guard Self.validPIN(pin) else { throw Failure.authenticationRequired }
+            try reserveCurrentPINAttempt()
+            var entered = Data(pin.utf8)
+            var stored = try keystore.fetchKey(for: KeystoreTag.pincode.rawValue)
+            defer { entered.resetBytes(in: 0..<entered.count); stored.resetBytes(in: 0..<stored.count) }
+            guard LegacySoraIdentityValidator.constantTimeEqual(entered, stored) else {
+                throw WalletRetainedPinGate.Failure.incorrectPin(attemptsBeforeWait: 0)
+            }
+            try keystore.deleteKey(for: Self.appThrottleTag)
+        }
+    }
+
     private func reserveCurrentPINAttempt() throws {
         let currentUptime = uptime(), currentBoot = boot()
         var value = try read(Throttle.self, tag: Self.appThrottleTag) ?? Throttle(
@@ -307,6 +325,19 @@ final class WalletOwnerPIN {
 
     func requiresInitialSetup(accounts: [AccountItem]) throws -> Bool {
         try Self.synchronized { try !pendingSetupIntents(accounts: accounts).isEmpty }
+    }
+
+    /// Read-only. Biometry never binds; a typed PIN binds every proven account
+    /// (authenticateCurrent). False while one has no binding record at all.
+    /// Any record counts: a malformed one is authenticateCurrent's to reject,
+    /// and a typed PIN cannot replace it. Unproven rows never count; Keychain
+    /// read errors are thrown.
+    func hasBindings(accounts: [AccountItem]) throws -> Bool {
+        try Self.synchronized {
+            let unbound = try accounts.filter { try !keystore.checkKey(for: $0.address + Self.bindingSuffix) }
+            guard !unbound.isEmpty else { return true }
+            return try proven(unbound).isEmpty
+        }
     }
 
     /// Routing-only preflight. A missing app PIN does not prove ownership of

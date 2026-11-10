@@ -61,7 +61,9 @@ public class BackupFileFactory: NSObject, BackupFileFactoryProtocol {
         )
 
         let data = try JSONEncoder().encode(ecryptedBackupAccount)
-        try data.write(to: url)
+        // Readable only while the iPhone is unlocked. The caller deletes it
+        // once it has read it.
+        try data.write(to: url, options: [.atomic, .completeFileProtection])
 
         return url
     }

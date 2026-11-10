@@ -356,12 +356,18 @@ final class ChainSyncService {
         // "SORA Ministry of Finance 2" and PI's "Sora" for mof2). Saving both
         // failed every chain sync with a constraint conflict. Bundled names win.
         var nodesByURL: [URL: ChainNodeModel] = [:]
-        if SoraNodeConnectionPolicy.isMainnet(chainId: chainId, addressPrefix: addressPrefix) {
+        let isMainnet = SoraNodeConnectionPolicy.isMainnet(chainId: chainId, addressPrefix: addressPrefix)
+        if isMainnet {
             for node in SoraNodeConnectionPolicy.bundledMainnetNodes {
                 nodesByURL[node.url] = node
             }
         }
-        let orderedNodes = nodes.filter { SoraNodeConnectionPolicy.isAllowedEndpoint($0.url) }.sorted {
+        // Mainnet keeps only its bundled nodes: other default nodes came from
+        // unsigned remote configuration.
+        let orderedNodes = nodes.filter {
+            SoraNodeConnectionPolicy.isAllowedEndpoint($0.url) &&
+                (!isMainnet || SoraNodeConnectionPolicy.isTrustedMainnetNode($0.url, customNodes: nil))
+        }.sorted {
             ($0.url.absoluteString, $0.name) < ($1.url.absoluteString, $1.name)
         }
         for node in orderedNodes where nodesByURL[node.url] == nil {
@@ -388,7 +394,9 @@ final class ChainSyncService {
         // rename the row (for example back to PI's "Sora" for mof2) and the
         // next sync does not see a changed chain again.
         let selectedNode = matchingLocal?.selectedNode.flatMap { selected -> ChainNodeModel? in
-            guard SoraNodeConnectionPolicy.isAllowedEndpoint(selected.url) else { return nil }
+            guard SoraNodeConnectionPolicy.isAllowedEndpoint(selected.url),
+                  !isMainnet || SoraNodeConnectionPolicy.isTrustedMainnetNode(
+                      selected.url, customNodes: customNodes) else { return nil }
             return availableNodes.first { $0.url == selected.url }
                 ?? customNodes?.first { $0.url == selected.url }
                 ?? selected

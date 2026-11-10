@@ -10,7 +10,7 @@ import SoraFoundation
 import CoreData
 import CryptoKit
 import Darwin
-import NexusTransferCodec
+@testable import NexusTransferCodec
 import SSFUtils
 import IrohaCrypto
 @testable import SoraPassport
@@ -32,7 +32,7 @@ final class AnalyticsPriceAdmissionTests: XCTestCase {
 }
 
 final class TairaFaucetAppTests: XCTestCase {
-    private let receiveAddress = "testuﾛ1PﾍeｸﾊVZeｸYjﾛABRiﾕLｱｦｺjMﾀMAdYqﾊﾊCﾇｿﾓfreﾙ9M8GPH"
+    private let receiveAddress = "testuﾛ1NhｶﾅmVﾛFnｽﾔSvaWﾉﾇ9ｹLBﾛhmMﾙｸHﾈﾁﾍｺoﾀpbHjｵ7S9LE9"
 
     private func account(network: NetworkId = .taira, key: Data? = nil) throws -> NetworkAccount {
         let parsed = try IrohaAddressCodec.parse(receiveAddress, expectedDiscriminant: 369)
@@ -97,12 +97,14 @@ final class TairaFaucetAppTests: XCTestCase {
             detail.loadViewIfNeeded()
             detail.view.frame = CGRect(x: 0, y: 0, width: 375, height: 812)
             detail.view.layoutIfNeeded()
-            func find(_ view: UIView) -> UIButton? {
-                if view.accessibilityIdentifier == "taira.faucet.request" { return view as? UIButton }
+            detail.tableView.layoutIfNeeded()
+            func find(_ view: UIView) -> UIControl? {
+                if view.accessibilityIdentifier == "taira.faucet.request", !view.isHidden { return view as? UIControl }
                 return view.subviews.compactMap(find).first
             }
-            let button = detail.tableView.tableHeaderView.flatMap(find)
+            let button = find(detail.tableView)
             if configuration.networkId == .taira {
+                XCTAssertNotNil(detail.balanceItem?.faucet)
                 let button = try XCTUnwrap(button)
                 XCTAssertTrue(button.isEnabled)
                 XCTAssertGreaterThanOrEqual(button.bounds.height, 48)
@@ -114,7 +116,10 @@ final class TairaFaucetAppTests: XCTestCase {
                 attachment.name = "Taira faucet screen"
                 attachment.lifetime = .keepAlways
                 add(attachment)
-            } else { XCTAssertNil(button) }
+            } else {
+                XCTAssertNil(detail.balanceItem?.faucet)
+                XCTAssertNil(button)
+            }
         }
     }
 }
@@ -461,15 +466,13 @@ final class WalletUXTests: XCTestCase {
     }
 
     @MainActor
-    func testNeonBodyFontsAreActuallyRegisteredInTheApp() throws {
-        XCTAssertEqual(try XCTUnwrap(UIFont(name: "Inter-Regular", size: 16)).familyName, "Inter")
-        XCTAssertNotNil(UIFont(name: "Inter-SemiBold", size: 16))
-        XCTAssertNotNil(UIFont(name: "Inter-Bold", size: 16))
+    func testClassicBodyTextIsDrawnInTheSystemFont() throws {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textM
         label.sora.text = "Body font"
         let renderedFont = try XCTUnwrap(label.attributedText?.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
-        XCTAssertEqual(renderedFont.fontName, "Inter-Regular")
+        XCTAssertEqual(renderedFont.familyName, UIFont.systemFont(ofSize: 16).familyName)
+        XCTAssertEqual(renderedFont.pointSize, 16)
     }
 
     /// Store media uses production controllers; only their presentation data is synthetic.
@@ -524,11 +527,17 @@ final class WalletUXTests: XCTestCase {
     }
 
     @MainActor
-    func testLaunchScreenStaysDarkBeforeAppAppearancePreferencesLoad() throws {
+    func testLaunchScreenIsTheClassicLightPage() throws {
         let launch = try XCTUnwrap(Bundle.main.loadNibNamed("LaunchScreen", owner: nil)?.compactMap { $0 as? UIView }.first)
         for style in [UIUserInterfaceStyle.light, .dark] {
             let color = try XCTUnwrap(launch.backgroundColor).resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
-            XCTAssertEqual(color, NeonTokens.dark.canvas, "The system launch screen cannot read the app's saved dark preference")
+            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+            XCTAssertTrue(color.getRed(&red, green: &green, blue: &blue, alpha: &alpha))
+            // 3.8.6's launch page: the light page the splash animation continues on.
+            // Calibrated (0.965, 0.949, 0.949) in the xib, a warm near-white in sRGB.
+            XCTAssertEqual(red, 0.965, accuracy: 0.01)
+            XCTAssertEqual(green, 0.959, accuracy: 0.01)
+            XCTAssertEqual(blue, 0.959, accuracy: 0.01)
         }
     }
 
@@ -558,7 +567,8 @@ final class WalletUXTests: XCTestCase {
         XCTAssertTrue(animation.isAnimationPlaying)
         XCTAssertLessThan(animation.realtimeAnimationProgress, 0.8, "Fast readiness must not skip the ring introduction")
         XCTAssertEqual(completions, 0)
-        XCTAssertEqual(controller.view.backgroundColor, NeonTokens.dark.canvas)
+        XCTAssertEqual(controller.view.backgroundColor, SoramitsuThemeType.light.palette.color(.bgPage),
+                       "The splash is the classic light page whatever theme was stored")
         await fulfillment(of: [finished], timeout: 6)
         XCTAssertGreaterThan(CACurrentMediaTime() - start, 2.5)
         XCTAssertEqual(completions, 1)
@@ -639,7 +649,7 @@ final class WalletUXTests: XCTestCase {
     }
 
     @MainActor
-    func testLoadingShimmerFollowsThemeWithoutFlashingLoadedContent() async throws {
+    func testLoadingShimmerIsTheSameInEveryStoredThemeWithoutFlashingLoadedContent() async throws {
         let previous = SoramitsuUI.shared.themeMode
         defer { SoramitsuUI.shared.themeMode = previous }
         let owner = SoramitsuLabel()
@@ -647,7 +657,7 @@ final class WalletUXTests: XCTestCase {
         owner.sora.text = "Loaded public content"
         let placeholder = owner.sora.loadingPlaceholder
         placeholder.type = .shimmer
-        var firstDarkColors: [CGColor] = []
+        var firstColors: [CGColor] = []
         for theme in [SoramitsuThemeType.dark, .light, .dark] {
             SoramitsuUI.shared.themeMode = .manual(theme)
             try await Task.sleep(nanoseconds: 50_000_000)
@@ -657,23 +667,9 @@ final class WalletUXTests: XCTestCase {
             let gradient = try XCTUnwrap(shimmer.layer.sublayers?.compactMap { $0 as? CAGradientLayer }.first)
             let colors = try XCTUnwrap(gradient.colors as? [CGColor])
             XCTAssertEqual(colors.count, 3)
-            func components(_ color: UIColor) -> [CGFloat] {
-                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-                XCTAssertTrue(color.getRed(&r, green: &g, blue: &b, alpha: &a))
-                return [r, g, b, a]
-            }
-            if theme == .dark {
-                let background = components(try XCTUnwrap(shimmer.backgroundColor))
-                for color in colors {
-                    let foreground = components(UIColor(cgColor: color))
-                    for index in 0..<3 {
-                        let displayed = foreground[index] * foreground[3] + background[index] * (1 - foreground[3])
-                        XCTAssertLessThan(displayed, 0.3, "Dark loading placeholders must stay subdued, not white")
-                    }
-                }
-                if firstDarkColors.isEmpty { firstDarkColors = colors }
-                else { XCTAssertEqual(colors, firstDarkColors) }
-            } else { XCTAssertNotEqual(colors, firstDarkColors) }
+            // The classic design is light only: a stored theme changes nothing.
+            if firstColors.isEmpty { firstColors = colors }
+            else { XCTAssertEqual(colors, firstColors, "\(theme)") }
         }
         placeholder.type = .none
         try await Task.sleep(nanoseconds: 50_000_000)
@@ -725,7 +721,7 @@ final class WalletUXTests: XCTestCase {
     }
 
     @MainActor
-    func testSwapWordmarkFollowsAppThemeWhileOpen() async throws {
+    func testSwapWordmarkStaysTheClassicOneWhateverThemeIsStored() async throws {
         let previous = SoramitsuUI.shared.themeMode
         defer { SoramitsuUI.shared.themeMode = previous }
         SoramitsuUI.shared.themeMode = .manual(.light)
@@ -738,7 +734,7 @@ final class WalletUXTests: XCTestCase {
         SoramitsuUI.shared.themeMode = .manual(.dark)
         try await Task.sleep(nanoseconds: 100_000_000)
         let dark = try XCTUnwrap(view.image?.pngData())
-        XCTAssertNotEqual(dark, light, "Dark appearance needs the high-contrast wordmark variant")
+        XCTAssertEqual(dark, light, "The classic design is light only")
         SoramitsuUI.shared.themeMode = .manual(.light)
         try await Task.sleep(nanoseconds: 100_000_000)
         XCTAssertEqual(view.image?.pngData(), light, "An open swap screen must follow app appearance changes")
@@ -771,6 +767,81 @@ final class WalletUXTests: XCTestCase {
         window.isHidden = true; window.rootViewController = nil
     }
 
+    @MainActor
+    func testLongAssetBalanceKeepsTokenNameReadable() async throws {
+        let previousTheme = SoramitsuUI.shared.themeMode
+        let previousWindow = UIApplication.shared.keyWindow
+        defer { SoramitsuUI.shared.themeMode = previousTheme; previousWindow?.makeKeyAndVisible() }
+        SoramitsuUI.shared.themeMode = .manual(.light)
+        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("AssetLayoutDiagnostics", isDirectory: true)
+        if ProcessInfo.processInfo.environment["SORA_CAPTURE_APP_STORE"] == "1" {
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        }
+        for category in [UIContentSizeCategory.large, .accessibilityExtraExtraExtraLarge] {
+            for width in [CGFloat(320), 393, 428] {
+                let row = MainScreenAssetView()
+                row.titleLabel.sora.text = "SORA Validator Token with a long name"
+                row.subtitleLabel.sora.text = "VAL"
+                row.amountUpLabel.sora.text = "123,456,789,012,345.678901234567890123"
+                row.amountDownLabel.sora.text = "$123,456,789,012,345.67"
+                if let icon = R.image.wallet.emptyToken() { row.assetImageView.sora.picture = .logo(image: icon) }
+                row.assetImageView.sora.loadingPlaceholder.type = .none
+                for label in [row.titleLabel, row.subtitleLabel, row.amountUpLabel, row.amountDownLabel] { label.sora.loadingPlaceholder.type = .none }
+                let controller = UIViewController()
+                controller.view.backgroundColor = WalletUX.page
+                controller.view.addSubview(row)
+                NSLayoutConstraint.activate([
+                    row.widthAnchor.constraint(equalToConstant: width),
+                    row.centerXAnchor.constraint(equalTo: controller.view.centerXAnchor),
+                    row.topAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.topAnchor, constant: 24)
+                ])
+                let window = makeSceneHostedWindow(frame: UIScreen.main.bounds)
+                let host = UIViewController()
+                host.addChild(controller)
+                host.view.addSubview(controller.view)
+                controller.view.translatesAutoresizingMaskIntoConstraints = false
+                NSLayoutConstraint.activate([
+                    controller.view.leadingAnchor.constraint(equalTo: host.view.leadingAnchor),
+                    controller.view.trailingAnchor.constraint(equalTo: host.view.trailingAnchor),
+                    controller.view.topAnchor.constraint(equalTo: host.view.topAnchor),
+                    controller.view.bottomAnchor.constraint(equalTo: host.view.bottomAnchor)
+                ])
+                controller.didMove(toParent: host)
+                host.setOverrideTraitCollection(UITraitCollection(preferredContentSizeCategory: category), forChild: controller)
+                window.rootViewController = host
+                window.makeKeyAndVisible()
+                host.view.layoutIfNeeded(); controller.view.layoutIfNeeded(); row.layoutIfNeeded(); controller.view.layoutIfNeeded()
+                try await Task.sleep(nanoseconds: 300_000_000)
+                controller.view.layoutIfNeeded(); row.layoutIfNeeded()
+                XCTAssertEqual(row.traitCollection.preferredContentSizeCategory, category)
+                if category.isAccessibilityCategory { XCTAssertGreaterThan(row.titleLabel.font.pointSize, 24) }
+                for label in [row.titleLabel, row.subtitleLabel, row.amountUpLabel, row.amountDownLabel] {
+                    let text = label.text ?? ""
+                    let attributed = label.attributedText ?? NSAttributedString(string: text, attributes: [.font: label.font as Any])
+                    let needed = attributed.boundingRect(with: CGSize(width: label.bounds.width, height: 10_000),
+                        options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil).height
+                    XCTAssertGreaterThanOrEqual(label.bounds.height + 1, needed, "Full label must be visible at width \(width): \(text)")
+                }
+                XCTAssertGreaterThanOrEqual(row.titleLabel.bounds.width, 80, "Token name must remain readable at width \(width)")
+                XCTAssertGreaterThan(row.titleLabel.bounds.height, 10)
+                for target in [row.titleLabel, row.amountUpLabel, row.assetImageView] as [UIView] {
+                    let point = target.convert(CGPoint(x: target.bounds.midX, y: target.bounds.midY), to: row)
+                    XCTAssertTrue(row.hitTest(point, with: nil) === row, "Tapping name, amount, or icon must activate the asset row")
+                }
+                let amountFrame = row.amountUpLabel.convert(row.amountUpLabel.bounds, to: row)
+                XCTAssertLessThanOrEqual(amountFrame.maxX, row.bounds.width + 0.5)
+                XCTAssertGreaterThanOrEqual(amountFrame.minX, -0.5)
+                if ProcessInfo.processInfo.environment["SORA_CAPTURE_APP_STORE"] == "1" {
+                    let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+                        window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+                    }
+                    try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent("synthetic-large-balance-\(Int(width))-\(category.isAccessibilityCategory ? "AXXXL" : "normal").png"))
+                }
+                window.isHidden = true; window.rootViewController = nil
+            }
+        }
+    }
 
     @MainActor
     func testCaptureAppStoreScreenshots() async throws {
@@ -894,9 +965,9 @@ final class WalletUXTests: XCTestCase {
                     for count in [4, 6, 0, -1, -2, -3, -4, -5] {
                         let controller: UIViewController
                         if count == -5 {
-                            let account = PortfolioNoticeItem()
-                            account.setCapability(.missingKeys)
-                            controller = PortfolioNoticeVisualController(item: account)
+                            let account = AccountTableViewItem(accountName: "Public fixture")
+                            account.capability = .missingKeys
+                            controller = RecoveryHeaderVisualController(item: account)
                         } else if count <= -3 {
                             let seed = AccountExportRawSeedViewController()
                             seed.localizationManager = LocalizationManager.shared
@@ -1046,9 +1117,9 @@ final class WalletUXTests: XCTestCase {
                     try await capture(prefix + "-repair", UINavigationController(rootViewController: repair), category: category)
                     for (label, state) in [("missing", WalletAccountCapability.State.missingKeys),
                                            ("invalid", .invalidKeys), ("watch-only", .watchOnly)] {
-                        let item = PortfolioNoticeItem()
-                        item.setCapability(state)
-                        try await capture(prefix + "-header-" + label, PortfolioNoticeVisualController(item: item), category: category)
+                        let item = AccountTableViewItem(accountName: "Public preview")
+                        item.capability = state
+                        try await capture(prefix + "-header-" + label, RecoveryHeaderVisualController(item: item), category: category)
                     }
                     do {
                         let onboarding = WelcomeViewController()
@@ -1407,13 +1478,13 @@ final class WalletUXTests: XCTestCase {
                 wireframe.authorizationWindow?.isHidden = true
                 wireframe.authorizationWindow?.rootViewController = nil
             }
-            var date = Date(timeIntervalSince1970: 1_000)
+            var uptime: TimeInterval = 1_000
             let lifecycle = SecurityLayerInteractor(applicationHandler: ApplicationHandler(), settings: settings,
-                keystore: store.keychain, pincodeDelay: 300, currentDate: { date })
+                keystore: store.keychain, pincodeDelay: 300, uptime: { uptime })
             let presenter = SecurityLayerPresenter()
             presenter.wireframe = wireframe; presenter.interactor = lifecycle; lifecycle.presenter = presenter
             lifecycle.didReceiveWillResignActive(notification: Notification(name: UIApplication.willResignActiveNotification))
-            date.addTimeInterval(301)
+            uptime += 301
             lifecycle.didReceiveWillEnterForeground(notification: Notification(name: UIApplication.willEnterForegroundNotification))
             lifecycle.didReceiveDidBecomeActive(notification: Notification(name: UIApplication.didBecomeActiveNotification))
             await drainPINCallbacks()
@@ -2203,67 +2274,86 @@ final class WalletUXTests: XCTestCase {
     }
 
     @MainActor
+    private func sendFlow() throws -> (NexusSendFlow, UINavigationController) {
+        let flow = NexusSendFlow(network: "Taira · TESTNET", balance: "100",
+                                 configuration: try XCTUnwrap(NexusNetworkConfiguration.taira),
+                                 ownAddress: "own-address", xorAsset: nil)
+        let navigation = flow.makeNavigation()
+        navigation.loadViewIfNeeded()
+        try XCTUnwrap(flow.amountController).loadViewIfNeeded()
+        return (flow, navigation)
+    }
+
+    @MainActor
+    private func enterAmount(_ amount: String, in flow: NexusSendFlow) throws {
+        try XCTUnwrap(flow.amountController).assetView.textField.text = amount
+        flow.amountViewModel.inputedFirstAmount = Decimal(string: amount) ?? 0
+    }
+
+    @MainActor
     func testBusySendCannotStartAnotherReview() throws {
-        let view = NexusSendViewController(network: "Taira · TESTNET", balance: "100")
-        view.loadViewIfNeeded()
-        try XCTUnwrap(descendants(view.view).compactMap { $0 as? UITextView }.first).text = "recipient"
-        try XCTUnwrap(descendants(view.view).compactMap { $0 as? UITextField }.first).text = "1"
+        let (flow, navigation) = try sendFlow()
+        defer { _ = navigation }
+        flow.amountViewModel.set(recipient: "recipient")
+        try enterAmount("1", in: flow)
         var reviews = 0
-        view.onReview = { _, _ in reviews += 1; view.setBusy(true) }
-        let primary = try XCTUnwrap(button("Review send", in: view.view))
-        primary.sendActions(for: .touchUpInside)
-        primary.sendActions(for: .touchUpInside)
+        flow.onReview = { _, _ in reviews += 1; flow.setBusy(true) }
+        flow.amountViewModel.reviewButtonTapped()
+        flow.amountViewModel.reviewButtonTapped()
         XCTAssertEqual(reviews, 1)
+        flow.setBusy(false)
     }
 
     @MainActor
     func testEditingReviewPreservesDraftAndRequiresAnotherQuote() throws {
-        let view = NexusSendViewController(network: "Taira · TESTNET", balance: "100")
-        view.loadViewIfNeeded()
-        let recipient = try XCTUnwrap(descendants(view.view).compactMap { $0 as? UITextView }.first)
-        let amount = try XCTUnwrap(descendants(view.view).compactMap { $0 as? UITextField }.first)
-        recipient.text = "test-recipient-address"
-        amount.text = "12.5"
+        let (flow, navigation) = try sendFlow()
+        flow.amountViewModel.set(recipient: "test-recipient-address")
+        try enterAmount("12.5", in: flow)
         let quantity = try PIQuantity("12.5")
         let request = NexusTransferRequest(walletId: "test-wallet", networkId: .taira,
-            sender: "test-sender", receiver: recipient.text, amount: quantity)
-        let quote = NexusTransferFeeQuote(networkId: .taira, authority: "test-sender", receiver: recipient.text,
+            sender: "test-sender", receiver: "test-recipient-address", amount: quantity)
+        let quote = NexusTransferFeeQuote(networkId: .taira, authority: "test-sender", receiver: "test-recipient-address",
             assetDefinitionId: "test-asset", amount: quantity, fee: try PIQuantity("0.01"), quoteIdentity: "test-quote", validUntilBlock: 100)
-        let prepared = NexusPreparedTransfer(request: request, canonicalReceiver: recipient.text,
+        let prepared = NexusPreparedTransfer(request: request, canonicalReceiver: "test-recipient-address",
             assetDefinitionID: "test-asset", availableBalance: try PIQuantity("100"), quote: quote)
         XCTAssertFalse(prepared.submissionMayHaveStarted)
-        view.showReview(prepared)
-        XCTAssertTrue(descendants(view.view).compactMap { ($0 as? UILabel)?.text }.contains("12.51 XOR"))
-        let edit = try XCTUnwrap(button("Edit details", in: view.view))
-        edit.sendActions(for: .touchUpInside)
-        XCTAssertEqual(recipient.text, "test-recipient-address")
-        XCTAssertEqual(amount.text, "12.5")
+        flow.showReview(prepared)
+        let review = try XCTUnwrap(flow.confirmViewModel)
+        XCTAssertEqual(review.total, "12.51")
+        XCTAssertTrue(navigation.topViewController is ConfirmViewController)
+        // Back to Enter amount: the draft is kept and a new review asks for a new quote.
+        navigation.popViewController(animated: false)
+        XCTAssertEqual(flow.amountViewModel.recipient, "test-recipient-address")
+        XCTAssertEqual(flow.amountViewModel.amountText, "12.5")
         var reviewedDraft: (String, String)?
-        view.onReview = { reviewedDraft = ($0, $1) }
-        view.onConfirm = { _ in XCTFail("Editing must invalidate the prepared quote") }
-        try XCTUnwrap(button("Review send", in: view.view)).sendActions(for: .touchUpInside)
+        flow.onReview = { reviewedDraft = ($0, $1) }
+        flow.onConfirm = { _ in XCTFail("Editing must invalidate the prepared quote") }
+        flow.amountViewModel.reviewButtonTapped()
         XCTAssertEqual(reviewedDraft?.0, "test-recipient-address")
         XCTAssertEqual(reviewedDraft?.1, "12.5")
 
-        view.showReview(prepared)
-        view.setBusy(true)
-        view.showUnsentError(WalletUX.sendError(NexusToriiError.quoteExpired))
+        flow.showReview(prepared)
+        flow.setBusy(true)
+        flow.showUnsentError(WalletUX.sendError(NexusToriiError.quoteExpired))
+        XCTAssertNil(flow.confirmViewModel, "Nothing was sent: back to the draft")
+        XCTAssertNotNil(flow.amountViewModel.warning)
         reviewedDraft = nil
-        try XCTUnwrap(button("Review send", in: view.view)).sendActions(for: .touchUpInside)
+        flow.amountViewModel.reviewButtonTapped()
         XCTAssertEqual(reviewedDraft?.0, "test-recipient-address")
         XCTAssertEqual(reviewedDraft?.1, "12.5")
 
-        view.showReview(prepared)
+        flow.showReview(prepared)
         var submissions = 0
-        view.onConfirm = { _ in submissions += 1; view.setBusy(true) }
-        let confirm = try XCTUnwrap(button("Confirm and send", in: view.view))
-        confirm.sendActions(for: .touchUpInside)
-        confirm.sendActions(for: .touchUpInside)
+        flow.onConfirm = { _ in submissions += 1; flow.setBusy(true) }
+        let confirm = try XCTUnwrap(flow.confirmViewModel)
+        confirm.confirm()
+        confirm.confirm()
         XCTAssertEqual(submissions, 1, "A busy confirmation must not submit twice")
+        XCTAssertEqual(confirm.confirmItem?.isEnable, false)
         prepared.markTransportStarted()
         XCTAssertTrue(prepared.submissionMayHaveStarted)
+        flow.setBusy(false)
     }
-
     func testAmbiguousSendNeverLooksCompletedOrInvitesResubmission() {
         XCTAssertNotEqual(WalletUX.status(.submissionUnknown), WalletUX.status(.committed))
         XCTAssertTrue(WalletUX.statusDetail(.submissionUnknown).contains("do not send it again"))
@@ -2286,19 +2376,20 @@ final class WalletUXTests: XCTestCase {
 
     @MainActor
     func testUncertainSubmissionOnlyOffersActivity() throws {
-        let view = NexusSendViewController(network: "Taira · TESTNET", balance: "100")
-        view.loadViewIfNeeded()
-        view.onConfirm = { _ in XCTFail("An uncertain submission must not be sent again") }
-        view.onReview = { _, _ in XCTFail("An uncertain submission must not be reviewed again") }
-        view.showUncertainSubmission(WalletUX.sendError(NexusToriiError.ambiguousSubmission))
-        let primary = try XCTUnwrap(button("Review send", in: view.view))
-        let edit = try XCTUnwrap(button("Edit details", in: view.view))
-        XCTAssertTrue(primary.isHidden)
-        XCTAssertTrue(edit.isHidden)
-        XCTAssertFalse(try XCTUnwrap(button("View Activity", in: view.view)).isHidden)
-        primary.sendActions(for: .touchUpInside)
-        edit.sendActions(for: .touchUpInside)
-        XCTAssertTrue(primary.isHidden)
+        let (flow, navigation) = try sendFlow()
+        defer { _ = navigation }
+        flow.amountViewModel.set(recipient: "recipient")
+        try enterAmount("1", in: flow)
+        flow.onConfirm = { _ in XCTFail("An uncertain submission must not be sent again") }
+        flow.onReview = { _, _ in XCTFail("An uncertain submission must not be reviewed again") }
+        let message = WalletUX.sendError(NexusToriiError.ambiguousSubmission)
+        flow.showUncertainSubmission(message)
+        XCTAssertTrue(flow.completed)
+        XCTAssertEqual(flow.resultViewModel?.model.note, message)
+        XCTAssertEqual(flow.resultViewModel?.model.statusText, WalletUX.status(.submissionUnknown))
+        flow.amountViewModel.reviewButtonTapped()
+        flow.showRecipientSearch()
+        XCTAssertNil(flow.recipientViewModel)
     }
 
     func testDurableAncestorSynchronizationStopsAtContainerBeforeSandboxDeniedParent() throws {
@@ -2374,10 +2465,10 @@ final class WalletUXTests: XCTestCase {
     }
 }
 
-/// Uses the production self-sizing portfolio notice cell for opt-in visual QA.
-final class PortfolioNoticeVisualController: UITableViewController {
-    let item: PortfolioNoticeItem
-    init(item: PortfolioNoticeItem) { self.item = item; super.init(style: .plain) }
+/// Uses the production self-sizing wallet-header cell for opt-in visual QA.
+final class RecoveryHeaderVisualController: UITableViewController {
+    let item: AccountTableViewItem
+    init(item: AccountTableViewItem) { self.item = item; super.init(style: .plain) }
     required init?(coder: NSCoder) { nil }
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -2388,7 +2479,7 @@ final class PortfolioNoticeVisualController: UITableViewController {
     }
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { 1 }
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = PortfolioNoticeCell(style: .default, reuseIdentifier: nil)
+        let cell = AccountCell(style: .default, reuseIdentifier: nil)
         cell.backgroundColor = .clear
         cell.set(item: item, context: nil)
         return cell
@@ -2519,97 +2610,86 @@ final class SoraNeonDesignTests: XCTestCase {
         super.tearDown()
     }
 
-    func testBundledSoraFontLoads() {
-        // Before 3.9.0 the font name was built from enum case names
-        // ("headline-one") and every style fell back to the system font.
+    func testClassicStylesDrawInTheSystemFont() {
+        // Up to 3.8.6 the font name was built from enum case names
+        // ("headline-one"), so every style drew in the system font, Regular or
+        // Bold. The classic design keeps that look.
         XCTAssertEqual(FontType.headline1.postScriptName, "Sora-Bold")
-        XCTAssertEqual(FontType.headline1.font.fontName, "Sora-Bold")
-        XCTAssertEqual(FontType.buttonM.font.fontName, "Sora-SemiBold")
-        XCTAssertEqual(FontType.headline4.font.fontName, "Sora-SemiBold")
-        XCTAssertEqual(FontType.pinDigit.font.fontName, "Sora-Regular")
-        XCTAssertEqual(FontType.textM.postScriptName, "Inter-Regular")
-        XCTAssertEqual(FontType.textM.font.familyName, "Inter")
+        let system = UIFont.systemFont(ofSize: 16).familyName
+        for style in [FontType.headline1, FontType.buttonM, FontType.headline4, FontType.pinDigit, FontType.textM,
+                      FontType.textBoldM] {
+            XCTAssertEqual(style.font.familyName, system)
+        }
+        // Classic metrics: textM sets 16 on 16 and buttons are not tracked.
+        XCTAssertEqual((FontType.textM.attributes[.paragraphStyle] as? NSParagraphStyle)?.lineSpacing, 0)
+        XCTAssertEqual(FontType.buttonM.attributes[.kern] as? CGFloat, 0)
         XCTAssertTrue(FontType.mono.font.fontDescriptor.symbolicTraits.contains(.traitMonoSpace))
         // Fonts are cached.
         XCTAssertTrue(FontType.textS.font === FontType.textS.font)
     }
 
-    func testNeonPalettesKeepTextReadable() {
-        for theme in [SoramitsuThemeType.light, .dark] {
-            let palette = theme.palette
-            func check(_ foreground: SoramitsuColor, _ background: SoramitsuColor, line: UInt = #line) {
-                let ratio = WalletUX.contrast(palette.color(foreground), palette.color(background))
-                XCTAssertGreaterThanOrEqual(ratio, 4.5, "\(theme) \(foreground) on \(background)", line: line)
-            }
-            check(.fgPrimary, .bgPage)
-            check(.fgPrimary, .bgSurface)
-            check(.fgSecondary, .bgPage)
-            check(.fgSecondary, .bgSurface)
-            check(.fgTertiary, .bgSurface)
-            check(.fgPrimary, .bgSurfaceVariant)
-            // Dark containers used to be light pastels behind light text (1.09:1).
-            check(.fgPrimary, .statusWarningContainer)
-            check(.statusWarning, .statusWarningContainer)
-            check(.fgPrimary, .statusSuccessContainer)
-            check(.statusSuccess, .statusSuccessContainer)
-            check(.fgPrimary, .statusErrorContainer)
-            check(.statusError, .statusErrorContainer)
-            check(.statusInfo, .statusInfoContainer)
-            check(.accentPrimary, .accentPrimaryContainer)
-            check(.accentTertiary, .accentTertiaryContainer)
-            // Ink on neon in dark, white on accent in light.
-            check(.fgInverted, .accentPrimary)
-            check(.fgInverted, .additionalPolkaswap)
-            // The Polkaswap brand fill is 4.33:1 as text on its light
-            // container; labels there use the text token.
-            check(.additionalPolkaswapText, .additionalPolkaswapContainer)
-            check(.additionalPolkaswapText, .bgSurface)
+    /// The classic palette (3.8.6 and earlier), light only: primary text is
+    /// readable on every surface and the accent meets 3:1 for controls.
+    /// Secondary and tertiary text are the classic lighter browns, below
+    /// 4.5:1 as they were in 3.8.6.
+    func testClassicPaletteKeepsPrimaryTextReadable() {
+        let palette = SoramitsuThemeType.light.palette
+        func check(_ foreground: SoramitsuColor, _ background: SoramitsuColor, _ minimum: CGFloat,
+                   line: UInt = #line) {
+            let ratio = WalletUX.contrast(palette.color(foreground), palette.color(background))
+            XCTAssertGreaterThanOrEqual(ratio, minimum, "\(foreground) on \(background)", line: line)
         }
+        for background in [SoramitsuColor.bgPage, .bgSurface, .bgSurfaceVariant] {
+            check(.fgPrimary, background, 4.5)
+            check(.accentPrimary, background, 3)
+        }
+        check(.fgPrimary, .statusWarningContainer, 4.5)
+        check(.fgPrimary, .statusSuccessContainer, 4.5)
+        check(.fgPrimary, .statusErrorContainer, 4.5)
+        check(.bgSurface, .accentPrimary, 3)
+        // The dark palette is not used: the classic design is light only.
+        XCTAssertEqual(SoramitsuUI.shared.theme, .light)
     }
 
+    /// The 3.8.6 palettes had no skeleton or Polkaswap-text slots, so those
+    /// fell back to black: loading rows were black bars and pool titles black.
+    func testLoadingRowsAndPolkaswapTextUseClassicColours() {
+        let palette = SoramitsuUI.shared.theme.palette
+        XCTAssertEqual(palette.color(.skeletonBase), Colors.brown10)
+        XCTAssertEqual(palette.color(.skeletonHighlight), Colors.white100.withAlphaComponent(0.7))
+        XCTAssertEqual(palette.color(.additionalPolkaswapText), palette.color(.additionalPolkaswap))
+    }
+
+    /// The classic CTA is a solid SORA red fill. A background the caller
+    /// chose used to be reset to the type's colour whenever the button was
+    /// enabled or disabled.
     @MainActor
-    func testButtonKeepsCallerBackgroundAndDrawsNeonCTA() {
-        let previous = SoramitsuUI.shared.themeMode
-        defer { SoramitsuUI.shared.themeMode = previous }
-        SoramitsuUI.shared.themeMode = .manual(.light)
+    func testButtonKeepsCallerBackground() {
+        let palette = SoramitsuThemeType.light.palette
         let custom = SoramitsuButton()
         custom.sora.backgroundColor = .bgSurface
         let clear = SoramitsuButton()
         clear.sora.backgroundColor = .custom(uiColor: .clear)
         let cta = SoramitsuButton()
-        let icon = SoramitsuButton()
-        icon.sora.backgroundColor = .bgSurface
-        icon.sora.tintColor = .accentTertiary
-        icon.sora.rightImage = UIImage(systemName: "arrow.right")
-        for theme in [SoramitsuThemeType.dark, .light] {
-            SoramitsuUI.shared.themeMode = .manual(theme)
-            // A chosen image tint survives theme changes.
-            XCTAssertEqual(icon.rightImageView.tintColor, theme.palette.color(.accentTertiary))
-            // A theme change used to reset a chosen background to the type colour.
-            XCTAssertEqual(custom.backgroundColor, theme.palette.color(.bgSurface))
-            XCTAssertEqual(clear.backgroundColor, .clear)
-            XCTAssertFalse(clear.layer.sublayers?.contains { $0 is CAGradientLayer } ?? false)
-            // The primary CTA is a gradient fill with an ink (dark) or white (light) label.
-            XCTAssertEqual(cta.backgroundColor, .clear)
-            XCTAssertTrue(cta.layer.sublayers?.contains { $0 is CAGradientLayer } ?? false)
+        for button in [custom, clear, cta] {
+            button.sora.isEnabled = false
+            button.sora.isEnabled = true
         }
-        cta.sora.isEnabled = false
-        XCTAssertEqual(cta.backgroundColor, NeonTokens.light.ctaDisabled)
+        XCTAssertEqual(custom.backgroundColor, palette.color(.bgSurface))
+        XCTAssertEqual(clear.backgroundColor?.cgColor.alpha, 0)
+        XCTAssertEqual(cta.backgroundColor, palette.color(.accentPrimary))
         XCTAssertFalse(cta.layer.sublayers?.contains { $0 is CAGradientLayer } ?? false)
-        custom.sora.isEnabled = false
-        custom.sora.isEnabled = true
-        XCTAssertEqual(custom.backgroundColor, SoramitsuThemeType.light.palette.color(.bgSurface))
     }
 
     @MainActor
-    func testWindowsFollowTheInAppTheme() {
+    func testWindowsStayLightWhateverThemeWasStored() {
         let previous = SoramitsuUI.shared.themeMode
         defer { SoramitsuUI.shared.themeMode = previous }
         let window = UIWindow.makeSoraSceneWindow()
         defer { window.isHidden = true }
         let detached = UIWindow(frame: .zero)
-        for (mode, style) in [(SoramitsuThemeMode.manual(.dark), UIUserInterfaceStyle.dark),
-                              (.manual(.light), .light), (.system, .unspecified)] {
+        for (mode, style) in [(SoramitsuThemeMode.manual(.dark), UIUserInterfaceStyle.light),
+                              (.manual(.light), .light), (.system, .light)] {
             SoramitsuUI.shared.themeMode = mode
             XCTAssertEqual(SoramitsuUI.shared.userInterfaceStyle, style)
             SoramitsuUI.shared.applyInterfaceStyle(to: detached)
@@ -2621,31 +2701,22 @@ final class SoraNeonDesignTests: XCTestCase {
         }
     }
 
+    /// Classic cards are opaque white with the classic corner radius and no
+    /// outline; a border the caller sets still wins.
     @MainActor
-    func testLegacyCardsAreOpaqueWithOneHairline() {
-        let previous = SoramitsuUI.shared.themeMode
-        defer { SoramitsuUI.shared.themeMode = previous }
-        SoramitsuUI.shared.themeMode = .manual(.dark)
+    func testClassicCardsAreOpaqueWithoutAnOutline() {
         let card = SoramitsuView()
         card.sora.backgroundColor = .bgSurface
         card.sora.cornerRadius = .max
-        let row = SoramitsuView()
-        row.sora.backgroundColor = .bgSurface
-        row.sora.cornerRadius = .max
-        card.addSubview(row)
         card.bounds = CGRect(x: 0, y: 0, width: 300, height: 200)
-        row.bounds = CGRect(x: 0, y: 0, width: 300, height: 60)
-        XCTAssertEqual(card.backgroundColor, SoramitsuThemeType.dark.palette.color(.bgSurface))
-        XCTAssertGreaterThanOrEqual(card.layer.borderWidth, 1)
-        XCTAssertEqual(card.layer.cornerRadius, 24)
-        XCTAssertEqual(row.layer.borderWidth, 0, "a card inside a card gets no second outline")
+        XCTAssertEqual(card.backgroundColor, SoramitsuThemeType.light.palette.color(.bgSurface))
+        XCTAssertEqual(card.layer.borderWidth, 0)
+        XCTAssertEqual(card.layer.cornerRadius, 32)
         let outlined = SoramitsuView()
         outlined.sora.backgroundColor = .bgSurface
         outlined.sora.cornerRadius = .max
         outlined.sora.borderWidth = 2
         XCTAssertEqual(outlined.layer.borderWidth, 2, "a caller's border wins")
-        card.sora.backgroundColor = .bgPage
-        XCTAssertEqual(card.layer.borderWidth, 0, "not a card any more")
     }
 
     @MainActor
@@ -2687,7 +2758,8 @@ final class SoraNeonDesignTests: XCTestCase {
         // Worst-case bars of spec §3: the bar tint over white content (dark
         // theme) or black content (light theme).
         let worstBar: [SoramitsuThemeType: UIColor] = [.dark: UIColor(hex: "#3B3B41"), .light: UIColor(hex: "#C2C2C6")]
-        for theme in [SoramitsuThemeType.dark, .light] {
+        // The classic design is light only.
+        for theme in [SoramitsuThemeType.light] {
             let tokens = NeonTokens.tokens(for: theme)
             let bar = try XCTUnwrap(worstBar[theme])
             let (standard, scrollEdge) = NeonChrome.navigationBarAppearances(tokens: tokens)
@@ -2748,85 +2820,6 @@ final class SoraNeonDesignTests: XCTestCase {
         XCTAssertNil(pushed.navigationItem.leftBarButtonItem)
     }
 
-    /// The glow is opt-in for the one screen-level CTA, is never drawn in a
-    /// table or collection cell, and becomes a ring under "Reduce effects".
-    /// Before, every filled primary button glowed, also in lists.
-    @MainActor
-    func testButtonGlowIsOptInNeverInListsAndARingInTheMinimalTier() throws {
-        try requireDefaultEffectTier()
-        let previous = SoramitsuUI.shared.themeMode
-        defer { SoramitsuUI.shared.themeMode = previous }
-        SoramitsuUI.shared.themeMode = .manual(.dark)
-        func glows(_ view: UIView) -> Int { view.layer.sublayers?.filter { $0.shadowOpacity > 0 }.count ?? 0 }
-        func rings(_ view: UIView) -> Int { view.layer.sublayers?.filter { $0 is NeonRingLayer }.count ?? 0 }
-
-        let plain = SoramitsuButton()
-        XCTAssertEqual(glows(plain), 0, "off unless the screen asks for it")
-        XCTAssertTrue(plain.layer.sublayers?.contains { $0 is CAGradientLayer } ?? false,
-                      "the neon fill does not depend on the glow")
-
-        let cta = SoramitsuButton()
-        cta.sora.glows = true
-        XCTAssertEqual(glows(cta), 1)
-        XCTAssertFalse(cta.clipsToBounds, "a clipped button would hide its glow")
-
-        // Whether a button sits in a cell is known once it is in a window.
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
-        let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-        let inCell = SoramitsuButton()
-        inCell.sora.glows = true
-        cell.contentView.addSubview(inCell)
-        window.addSubview(cell)
-        XCTAssertEqual(glows(inCell), 0, "never in a table cell")
-        let item = UICollectionViewCell(frame: CGRect(x: 0, y: 0, width: 200, height: 60))
-        let inItem = SoramitsuButton()
-        inItem.sora.glows = true
-        item.contentView.addSubview(inItem)
-        window.addSubview(item)
-        XCTAssertEqual(glows(inItem), 0, "never in a collection cell")
-
-        // The Safe Mode and onboarding buttons follow the same rules.
-        let host = UIViewController()
-        let scene = UIWindow.makeSoraSceneWindow()
-        scene.rootViewController = host
-        scene.isHidden = false
-        defer { scene.isHidden = true; scene.rootViewController = nil }
-        let neon = WalletNeonButton(style: .primary)
-        neon.frame = CGRect(x: 20, y: 80, width: 240, height: 56)
-        host.view.addSubview(neon)
-        let neonCell = UITableViewCell(style: .default, reuseIdentifier: nil)
-        neonCell.frame = CGRect(x: 0, y: 200, width: 300, height: 60)
-        let neonInCell = WalletNeonButton(style: .primary)
-        neonInCell.frame = CGRect(x: 20, y: 2, width: 240, height: 56)
-        neonCell.contentView.addSubview(neonInCell)
-        host.view.addSubview(neonCell)
-        settle()
-        XCTAssertGreaterThan(neon.layer.shadowOpacity, 0)
-        XCTAssertEqual(neonInCell.layer.shadowOpacity, 0, "never in a table cell")
-
-        // MINIMAL tier: a 1.5 pt ring in the glow colour, no blur.
-        setReduceEffects(true)
-        settle()
-        XCTAssertEqual(FxPolicy.current.tier, .minimal)
-        XCTAssertEqual(glows(cta), 0)
-        XCTAssertEqual(rings(cta), 1)
-        XCTAssertEqual(glows(inCell), 0)
-        XCTAssertEqual(rings(inCell), 0)
-        XCTAssertEqual(neon.layer.shadowOpacity, 0)
-        XCTAssertEqual(rings(neon), 1)
-        XCTAssertEqual(rings(neonInCell), 0)
-        let ring = try XCTUnwrap(cta.layer.sublayers?.compactMap { $0 as? NeonRingLayer }.first)
-        XCTAssertEqual(ring.borderWidth, 1.5)
-        XCTAssertEqual(ring.borderColor, NeonTokens.dark.glowPrimary.color.withAlphaComponent(0.8).cgColor)
-
-        setReduceEffects(false)
-        settle()
-        XCTAssertEqual(glows(cta), 1)
-        XCTAssertEqual(rings(cta), 0)
-        XCTAssertGreaterThan(neon.layer.shadowOpacity, 0)
-        XCTAssertEqual(rings(neon), 0)
-    }
-
     /// An accessibility or power change used to re-apply the whole palette,
     /// rebuilding every label. It now sends one effects-only update, and
     /// nothing when the resulting policy did not change.
@@ -2853,102 +2846,55 @@ final class SoraNeonDesignTests: XCTestCase {
         XCTAssertEqual(spy.received.map(\.rawValue), [UpdateOptions.effects.rawValue, UpdateOptions.effects.rawValue])
     }
 
-    /// A caller's attributed title kept its own colour on the neon fill:
-    /// white on the dark swap gradient (3.6:1). It now takes the label
-    /// colour of the fill and of the disabled state.
-    @MainActor
-    func testAttributedButtonTitlesFollowTheFillAndTheDisabledState() throws {
-        let previous = SoramitsuUI.shared.themeMode
-        defer { SoramitsuUI.shared.themeMode = previous }
-        func titleColor(_ button: SoramitsuButton) -> UIColor? {
-            let label = descendants(button).compactMap { $0 as? UILabel }.first { ($0.attributedText?.length ?? 0) > 0 }
-            return label?.attributedText?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
-        }
-        SoramitsuUI.shared.themeMode = .manual(.light)
-        let swap = SoramitsuButton()
-        swap.sora.backgroundColor = .additionalPolkaswap
-        swap.sora.attributedText = SoramitsuTextItem(text: "Start staking", fontData: FontType.buttonM,
-                                                     textColor: .custom(uiColor: .white), alignment: .center)
-        let remove = SoramitsuButton()
-        remove.sora.backgroundColor = .additionalPolkaswapContainer
-        remove.sora.attributedText = SoramitsuTextItem(text: "Remove", fontData: FontType.buttonM,
-                                                       textColor: .additionalPolkaswapText, alignment: .center)
-        for theme in [SoramitsuThemeType.dark, .light] {
-            SoramitsuUI.shared.themeMode = .manual(theme)
-            let tokens = NeonTokens.tokens(for: theme)
-            XCTAssertEqual(titleColor(swap), tokens.onAccent, "ink on neon in dark, white in light")
-            swap.sora.isEnabled = false
-            XCTAssertEqual(titleColor(swap), tokens.textDisabled)
-            swap.sora.isEnabled = true
-            XCTAssertEqual(titleColor(swap), tokens.onAccent)
-            // Off the neon fill the caller's colour is kept.
-            XCTAssertEqual(titleColor(remove), tokens.polkaswapText)
-        }
-    }
-
-    /// The custom bar draws its notch and active-item pill only before
-    /// Liquid Glass, and the whole swap disc (glow and fill included) can
-    /// move to the system bar if the custom bar cannot be installed.
+    /// The classic bar draws its notched white chrome wherever the system
+    /// bar is not Liquid Glass, marks the selected tab by its tint only, and
+    /// the whole Polkaswap disc can move to the system bar if the custom bar
+    /// cannot be installed.
     @MainActor
     func testTabBarChromeAndSwapDisc() throws {
         let frame = CGRect(x: 0, y: 0, width: 390, height: 83)
         XCTAssertEqual(TabBar(frame: frame).drawsLegacyChrome, !NeonChrome.usesLiquidGlass)
         // The bar's own drawing: plain layers, not the layers of UIKit's views.
-        func pill(_ bar: TabBar) -> CALayer? {
-            bar.layer.sublayers?.first { !($0 is CAShapeLayer) && $0.cornerRadius == 1.5 && $0.delegate == nil }
+        func chromeShapes(_ bar: TabBar) -> [CAShapeLayer] {
+            bar.layer.sublayers?.compactMap { $0 as? CAShapeLayer }.filter { $0.delegate == nil } ?? []
         }
-        func chromeShapes(_ bar: TabBar) -> Int {
-            bar.layer.sublayers?.filter { $0 is CAShapeLayer && $0.delegate == nil }.count ?? 0
+        func pills(_ bar: TabBar) -> Int {
+            bar.layer.sublayers?.filter { !($0 is CAShapeLayer) && $0.cornerRadius == 1.5 && $0.delegate == nil }.count ?? 0
         }
         func items() -> [UITabBarItem] {
             (0 ..< 5).map { UITabBarItem(title: "Tab \($0)", image: UIImage(systemName: "circle.fill"), tag: $0) }
         }
 
-        // iOS 26+: nothing is painted over the system Liquid Glass bar.
+        // Liquid Glass: nothing is painted over the system bar.
         let glass = TabBar(frame: frame, drawsLegacyChrome: false)
         glass.items = items()
         glass.selectedItem = glass.items?.first
         glass.draw(glass.bounds)
         glass.layoutIfNeeded()
-        XCTAssertEqual(chromeShapes(glass), 0)
-        XCTAssertNil(pill(glass))
+        XCTAssertEqual(chromeShapes(glass).count, 0)
+        XCTAssertEqual(pills(glass), 0)
 
-        // iOS 16–25: notch, hairline and a 16 × 3 pill over the selected item.
+        // Elsewhere: one notched fill in the surface colour, and no pill.
         let legacy = TabBar(frame: frame, drawsLegacyChrome: true)
         legacy.items = items()
         legacy.selectedItem = legacy.items?.first
         legacy.draw(legacy.bounds)
         legacy.layoutIfNeeded()
-        XCTAssertEqual(chromeShapes(legacy), 2, "the notched fill and its top hairline")
-        let indicator = try XCTUnwrap(pill(legacy))
-        let itemViews = legacy.subviews
-            .filter { $0 is UIControl && $0 !== legacy.coverButton && $0 !== legacy.middleButton }
-            .sorted { $0.frame.minX < $1.frame.minX }
-        if itemViews.count == 5 {
-            XCTAssertFalse(indicator.isHidden)
-            XCTAssertEqual(indicator.frame.size, CGSize(width: 16, height: 3))
-            XCTAssertEqual(indicator.frame.midX, itemViews[0].frame.midX, accuracy: 0.5)
-            XCTAssertGreaterThanOrEqual(indicator.frame.minY, 0)
-            legacy.selectedItem = legacy.items?[3]
-            legacy.updateSelectionIndicator(animated: false)
-            XCTAssertEqual(indicator.frame.midX, itemViews[3].frame.midX, accuracy: 0.5)
-            // The centre item is the swap disc, not a tab.
-            legacy.selectedItem = legacy.items?[2]
-            legacy.updateSelectionIndicator(animated: false)
-            XCTAssertTrue(indicator.isHidden)
-        } else {
-            // On a Liquid Glass runtime the item views are not the bar's own
-            // subviews: the pill stays hidden instead of guessing a place.
-            XCTAssertTrue(indicator.isHidden)
-        }
+        let shapes = chromeShapes(legacy)
+        XCTAssertEqual(shapes.count, 1, "the notched fill")
+        XCTAssertEqual(shapes.first?.fillColor, SoramitsuUI.shared.theme.palette.color(.bgSurface).cgColor)
+        XCTAssertEqual(pills(legacy), 0)
 
         // The swap-in itself (key-value coding on `_tabBar`) works on this
         // system. If a future iOS renames that storage this fails here
         // first; the app then keeps the system bar and moves the disc onto it.
         let controller = MainTabBarViewController()
         controller.loadViewIfNeeded()
-        XCTAssertTrue(controller.tabBar is TabBar)
-        XCTAssertEqual((controller.tabBar as? TabBar)?.drawsLegacyChrome, !NeonChrome.usesLiquidGlass)
+        let bar = try XCTUnwrap(controller.tabBar as? TabBar)
+        XCTAssertEqual(bar.drawsLegacyChrome, !NeonChrome.usesLiquidGlass)
+        // The classic disc: white, with the Polkaswap mark in its own colours.
+        XCTAssertEqual(bar.middleButton.backgroundColor, .white)
+        XCTAssertEqual(bar.tintColor, SoramitsuUI.shared.theme.palette.color(.accentPrimary))
 
         // Fallback: the disc moves as a whole.
         let system = UITabBar(frame: frame)
@@ -2956,13 +2902,110 @@ final class SoraNeonDesignTests: XCTestCase {
         for view in [glass.coverButton, glass.middleButton, glass.middleButtonTitleLabel] as [UIView] {
             XCTAssertTrue(view.superview === system)
         }
-        XCTAssertEqual(system.subviews.filter { $0 is GlowHostView }.count, 1)
-        XCTAssertEqual(system.subviews.filter { $0 is NeonGradientView }.count, 1)
-        XCTAssertFalse(glass.subviews.contains { $0 is GlowHostView || $0 is NeonGradientView })
         system.layoutIfNeeded()
         XCTAssertEqual(glass.middleButton.frame.midX, system.bounds.midX, accuracy: 0.5)
-        let fill = try XCTUnwrap(system.subviews.first { $0 is NeonGradientView })
-        XCTAssertEqual(fill.frame, glass.middleButton.frame)
+    }
+
+    /// On a Liquid Glass system (iOS 27 ignores the request for the pre-26
+    /// bars) the classic bar is drawn over the system one: four tabs around
+    /// the Polkaswap disc's gap, the selected one marked, taps reported.
+    @MainActor
+    func testClassicCoverDrawsTheTabsAndReportsTaps() {
+        let cover = ClassicTabBarCover(frame: CGRect(x: 0, y: 0, width: 390, height: 83))
+        let items = (0 ..< 5).map { UITabBarItem(title: "Tab \($0)", image: UIImage(systemName: "circle.fill"), tag: $0) }
+        var selected: [Int] = []
+        cover.onSelect = { selected.append($0) }
+        cover.update(items: items, selectedIndex: 3)
+        cover.layoutIfNeeded()
+        XCTAssertEqual(cover.itemControls.count, 5)
+        XCTAssertTrue(cover.itemControls[2].isHidden, "the centre is the Polkaswap disc")
+        XCTAssertTrue(cover.itemControls[3].isSelected)
+        XCTAssertFalse(cover.itemControls[0].isSelected)
+        XCTAssertEqual(cover.itemControls[1].frame.minX, 78, accuracy: 0.5)
+        XCTAssertEqual(cover.itemControls[1].accessibilityLabel, "Tab 1")
+        cover.itemControls[4].sendActions(for: .touchUpInside)
+        XCTAssertEqual(selected, [4])
+        // The same items keep their controls; new items rebuild them.
+        let controls = cover.itemControls
+        cover.update(items: items, selectedIndex: 4)
+        XCTAssertTrue(cover.itemControls.elementsEqual(controls, by: ===))
+        XCTAssertTrue(cover.itemControls[4].isSelected)
+    }
+
+    /// A tap on the cover does what a tap on a system tab does.
+    @MainActor
+    func testCoverTabSelectionMatchesTheSystemTabBar() {
+        let controller = MainTabBarViewController()
+        // The window makes the controller appear, which starts its presenter.
+        controller.presenter = PortfolioCaptureTabPresenter()
+        let navigation = UINavigationController(rootViewController: UIViewController())
+        navigation.pushViewController(UIViewController(), animated: false)
+        let swap = UIViewController()
+        swap.tabBarItem.isEnabled = false
+        controller.viewControllers = [navigation, UIViewController(), swap, UIViewController(), UIViewController()]
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        controller.selectedIndex = 0
+        controller.selectTab(at: 0)
+        // The pop is animated, as a tap on a system tab's selected item.
+        let deadline = Date().addingTimeInterval(3)
+        while navigation.viewControllers.count > 1, Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+        XCTAssertEqual(navigation.viewControllers.count, 1, "a selected tab goes back to its root")
+        controller.selectTab(at: 2)
+        XCTAssertEqual(controller.selectedIndex, 0, "the centre tab is the Polkaswap disc")
+        controller.selectTab(at: 3)
+        XCTAssertEqual(controller.selectedIndex, 3)
+        // The cover is only drawn where the system bar is Liquid Glass.
+        XCTAssertEqual(controller.classicCover != nil, NeonChrome.usesLiquidGlass)
+    }
+
+    /// iOS 26+ hosts the bar in a container that covers only the bar, so the
+    /// top of the swap disc, which rises above it, sent taps to the tab
+    /// behind (Account options or Edit view on the Wallet tab). The hit area
+    /// gives the whole visible disc to its button, and nothing else.
+    @MainActor
+    func testSwapDiscTakesTapsAboveTheBarContainer() throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 440, height: 956))
+        let root = UIView(frame: window.bounds)
+        window.addSubview(root)
+        let content = UIView(frame: root.bounds)
+        root.addSubview(content)
+        let bar = TabBar(frame: CGRect(x: 0, y: 0, width: 440, height: 83), drawsLegacyChrome: false)
+        let container = UIView(frame: CGRect(x: 0, y: 873, width: 440, height: 83))
+        container.addSubview(bar)
+        root.addSubview(container)
+        bar.layoutIfNeeded()
+        // The container starts at the disc's centre, as the system one starts
+        // at the top of the bar while the disc rises above it.
+        let centre = bar.middleButton.frame.midY
+        container.frame = CGRect(x: 0, y: 873 + centre, width: 440, height: 83 - centre)
+        bar.frame.origin.y = -centre
+        let disc = bar.middleButton.convert(bar.middleButton.bounds, to: root)
+        let raised = CGPoint(x: disc.midX, y: disc.minY + disc.height / 4)
+        let lower = CGPoint(x: disc.midX, y: disc.maxY - disc.height / 4)
+        XCTAssertLessThan(raised.y, container.frame.minY)
+        XCTAssertTrue(root.hitTest(raised, with: nil) === content, "without the hit area the tap goes behind")
+
+        let hitArea = SwapDiscHitArea(frame: root.bounds)
+        hitArea.disc = bar.middleButton
+        root.addSubview(hitArea)
+        XCTAssertTrue(root.hitTest(raised, with: nil) === bar.middleButton)
+        XCTAssertTrue(root.hitTest(lower, with: nil) === bar.middleButton)
+        // Beside the disc and outside its circle the content keeps its taps.
+        XCTAssertTrue(root.hitTest(CGPoint(x: disc.minX - 40, y: raised.y), with: nil) === content)
+        XCTAssertTrue(root.hitTest(CGPoint(x: disc.minX + 2, y: disc.minY + 2), with: nil) === content)
+        XCTAssertTrue(root.hitTest(CGPoint(x: 220, y: 300), with: nil) === content)
+
+        // A hidden bar, or one moved off screen for a pushed screen, claims nothing.
+        bar.isHidden = true
+        XCTAssertTrue(root.hitTest(raised, with: nil) === content)
+        bar.isHidden = false
+        container.frame.origin.y = window.bounds.maxY
+        XCTAssertTrue(root.hitTest(raised, with: nil) === content)
     }
 
     /// On a small screen or at a large text size the 1.x upgrade screen
@@ -3039,262 +3082,20 @@ final class SoraNeonDesignTests: XCTestCase {
         XCTAssertEqual(stack.frame.midY, roomyScroll.bounds.height / 2, accuracy: 1)
     }
 
-    /// The amount card on Send and Swap was a Soramitsu view with a
-    /// configuration of its own, while the field drew the input chrome
-    /// (fill, border, focus glow) on the same layer. A style update reaches
-    /// the two in no defined order. When the card's came second it put back
-    /// its palette fill, cleared the border colour and removed the focus
-    /// glow until the field was focused again. One writer draws it now, from
-    /// the first display on.
+    /// Terms links are SORA red and underlined, so colour is never the only
+    /// signal; the rest of the terms is secondary text.
     @MainActor
-    func testAmountCardChromeSurvivesStyleUpdatesInAnyOrder() throws {
-        try requireDefaultEffectTier()
-        let previous = SoramitsuUI.shared.themeMode
-        defer { SoramitsuUI.shared.themeMode = previous }
-        SoramitsuUI.shared.themeMode = .manual(.dark)
-
-        let host = UIViewController()
-        let window = UIWindow.makeSoraSceneWindow()
-        window.rootViewController = host
-        window.isHidden = false
-        defer { window.isHidden = true; window.rootViewController = nil }
-        let field = InputAssetField()
-        host.view.addSubview(field)
-        let width = field.widthAnchor.constraint(equalToConstant: 320)
-        NSLayoutConstraint.activate([
-            field.topAnchor.constraint(equalTo: host.view.topAnchor, constant: 120),
-            field.leadingAnchor.constraint(equalTo: host.view.leadingAnchor, constant: 16),
-            width
-        ])
-        host.view.layoutIfNeeded()
-        let card = try XCTUnwrap(field.subviews.first)
-        XCTAssertEqual(card.frame, field.bounds)
-        XCTAssertGreaterThan(card.bounds.height, 0)
-        XCTAssertFalse(field.clipsToBounds, "the card fills the control: a clipping control leaves only the glow's corners")
-
-        func assertChrome(_ tokens: NeonTokens, focused: Bool, glow: Bool, _ message: String,
-                          file: StaticString = #filePath, line: UInt = #line) {
-            XCTAssertEqual(card.backgroundColor, tokens.inputFill, message, file: file, line: line)
-            XCTAssertEqual(card.layer.borderColor, (focused ? tokens.cyan : tokens.borderInput).cgColor, message,
-                           file: file, line: line)
-            XCTAssertEqual(card.layer.borderWidth, focused ? 1.5 : 1, message, file: file, line: line)
-            XCTAssertEqual(card.layer.cornerRadius, 24, message, file: file, line: line)
-            XCTAssertFalse(card.clipsToBounds, "a clipped card would hide its glow", file: file, line: line)
-            if glow {
-                XCTAssertEqual(card.layer.shadowOpacity, tokens.glowFocus.rest, message, file: file, line: line)
-                XCTAssertEqual(card.layer.shadowColor, tokens.glowFocus.color.cgColor, message, file: file, line: line)
-                // An explicit path the size of the card (spec §10.3).
-                let path = card.layer.shadowPath?.boundingBoxOfPath ?? .zero
-                XCTAssertEqual(path.width, card.bounds.width, accuracy: 0.5, message, file: file, line: line)
-                XCTAssertEqual(path.height, card.bounds.height, accuracy: 0.5, message, file: file, line: line)
-            } else {
-                XCTAssertEqual(card.layer.shadowOpacity, 0, message, file: file, line: line)
-            }
-        }
-        /// The style keeps its observers in a hash table and notifies them in
-        /// no defined order. This replays the worst one: the field first,
-        /// then the card, if the card has a configuration of its own.
-        func notifyFieldThenCard(_ options: UpdateOptions) {
-            field.sora.styleDidChange(options: options)
-            (card as? SoramitsuView)?.sora.styleDidChange(options: options)
-        }
-        let dark = NeonTokens.dark
-        let light = NeonTokens.light
-
-        // Before the first focus: the input chrome, not a bare palette card.
-        assertChrome(dark, focused: false, glow: false, "at rest, never focused")
-
-        field.sora.state = .focused
-        assertChrome(dark, focused: true, glow: true, "focused")
-
-        // The reported case: Low Power Mode off, Reduce Motion toggled.
-        notifyFieldThenCard(.effects)
-        assertChrome(dark, focused: true, glow: true, "after an effects update")
-        notifyFieldThenCard(.palette)
-        assertChrome(dark, focused: true, glow: true, "after a palette update")
-
-        // The same through the real notifications, in whatever order.
-        setReduceEffects(true)
-        settle()
-        assertChrome(dark, focused: true, glow: false, "MINIMAL tier: border only")
-        setReduceEffects(false)
-        settle()
-        assertChrome(dark, focused: true, glow: true, "back in the FULL tier, without focusing again")
-        SoramitsuUI.shared.themeMode = .manual(.light)
-        assertChrome(light, focused: true, glow: false, "light: no focus glow")
-        notifyFieldThenCard(.palette)
-        assertChrome(light, focused: true, glow: false, "light, after a palette update")
-        SoramitsuUI.shared.themeMode = .manual(.dark)
-        assertChrome(dark, focused: true, glow: true, "dark again")
-
-        // The glow follows the card when its size changes.
-        width.constant = 280
-        host.view.setNeedsLayout()
-        host.view.layoutIfNeeded()
-        settle()
-        XCTAssertEqual(card.bounds.width, 280)
-        assertChrome(dark, focused: true, glow: true, "after a size change")
-
-        field.sora.state = .default
-        assertChrome(dark, focused: false, glow: false, "at rest again")
-        notifyFieldThenCard(.effects)
-        notifyFieldThenCard(.palette)
-        assertChrome(dark, focused: false, glow: false, "at rest, after style updates")
-    }
-
-    /// The focus glow of a field was cut by the field itself: `InputField`
-    /// showed a strip of it under the field, the amount card only its four
-    /// corners. It is now drawn whole or not at all: never around a secret,
-    /// never in a list cell, and not where an ancestor would cut it. The
-    /// focused border is always there.
-    @MainActor
-    func testFocusGlowIsDrawnWholeOrNotAtAll() throws {
-        try requireDefaultEffectTier()
-        let previous = SoramitsuUI.shared.themeMode
-        defer { SoramitsuUI.shared.themeMode = previous }
-        SoramitsuUI.shared.themeMode = .manual(.dark)
-        let tokens = NeonTokens.dark
-
-        let host = UIViewController()
-        let window = UIWindow.makeSoraSceneWindow()
-        window.rootViewController = host
-        window.isHidden = false
-        defer { window.isHidden = true; window.rootViewController = nil }
-        let width = host.view.bounds.width
-        XCTAssertGreaterThan(width, 300)
-
-        func place(_ view: UIView, in container: UIView, top: CGFloat, inset: CGFloat) {
-            container.addSubview(view)
-            NSLayoutConstraint.activate([
-                view.topAnchor.constraint(equalTo: container.topAnchor, constant: top),
-                view.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: inset),
-                view.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -inset)
-            ])
-        }
-        func box(at y: CGFloat, height: CGFloat, inset: CGFloat, clips: Bool) -> UIView {
-            let view = UIView(frame: CGRect(x: inset, y: y, width: width - 2 * inset, height: height))
-            view.clipsToBounds = clips
-            host.view.addSubview(view)
-            return view
-        }
-        /// The focused border is there with or without the glow.
-        func assertGlow(_ field: UIView, _ expected: Bool, _ message: String,
-                        file: StaticString = #filePath, line: UInt = #line) {
-            guard let chrome = field.subviews.first else { return XCTFail("no chrome view", file: file, line: line) }
-            XCTAssertEqual(chrome.layer.borderColor, tokens.cyan.cgColor, message, file: file, line: line)
-            XCTAssertEqual(chrome.layer.borderWidth, 1.5, message, file: file, line: line)
-            guard expected else {
-                return XCTAssertEqual(chrome.layer.shadowOpacity, 0, message, file: file, line: line)
-            }
-            XCTAssertEqual(chrome.layer.shadowOpacity, tokens.glowFocus.rest, message, file: file, line: line)
-            XCTAssertEqual(chrome.layer.shadowColor, tokens.glowFocus.color.cgColor, message, file: file, line: line)
-            let path = chrome.layer.shadowPath?.boundingBoxOfPath ?? .zero
-            XCTAssertGreaterThan(chrome.bounds.height, 0, message, file: file, line: line)
-            XCTAssertEqual(path.width, chrome.bounds.width, accuracy: 0.5, message, file: file, line: line)
-            XCTAssertEqual(path.height, chrome.bounds.height, accuracy: 0.5, message, file: file, line: line)
-            // Nothing between the field and the window cuts it.
-            let reach = chrome.layer.shadowRadius * 2
-            XCTAssertEqual(reach, 12, message, file: file, line: line)
-            var ancestor = chrome.superview
-            while let current = ancestor {
-                if current.clipsToBounds {
-                    let glow = chrome.convert(chrome.bounds.insetBy(dx: -reach, dy: -reach), to: current)
-                    XCTAssertTrue(current.bounds.insetBy(dx: -0.5, dy: -0.5).contains(glow),
-                                  "\(message): cut by \(type(of: current))", file: file, line: line)
-                }
-                ancestor = current.superview
-            }
-        }
-
-        // On a screen, 24 pt from the edges: the whole glow.
-        let name = InputField()
-        place(name, in: host.view, top: 80, inset: 24)
-        // A password and the field the recovery phrase is typed into: none.
-        let password = InputField()
-        password.textField.isSecureTextEntry = true
-        place(password, in: host.view, top: 170, inset: 24)
-        let phrase = InputTextView()
-        place(phrase, in: host.view, top: 260, inset: 24)
-        // In a list cell: none.
-        let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-        cell.frame = CGRect(x: 0, y: 350, width: width, height: 100)
-        host.view.addSubview(cell)
-        let inCell = InputField()
-        place(inCell, in: cell.contentView, top: 20, inset: 24)
-        // In a container that clips at the edges of the field: none.
-        let tight = box(at: 470, height: 60, inset: 24, clips: true)
-        let inTight = InputField()
-        place(inTight, in: tight, top: 0, inset: 0)
-        // In a clipping container that leaves the glow its 12 pt: whole.
-        let roomy = box(at: 550, height: 84, inset: 12, clips: true)
-        let inRoomy = InputField()
-        place(inRoomy, in: roomy, top: 12, inset: 12)
-        // The swap cards reach the edges of their host view.
-        let cards = InputAssetsView()
-        place(cards, in: host.view, top: 650, inset: 16)
-        host.view.layoutIfNeeded()
-
-        for field in [name, password, inCell, inTight, inRoomy] {
-            XCTAssertFalse(field.clipsToBounds, "a clipping field cuts its own glow")
-            field.sora.state = .focused
-        }
-        phrase.sora.state = .focused
-        XCTAssertFalse(cards.clipsToBounds)
-        XCTAssertFalse(cards.firstAsset.clipsToBounds)
-        cards.firstAsset.sora.state = .focused
-
-        assertGlow(name, true, "on a screen")
-        assertGlow(password, false, "a password never glows")
-        assertGlow(phrase, false, "the phrase field never glows")
-        assertGlow(inCell, false, "never in a list cell")
-        assertGlow(inTight, false, "no room: border only")
-        assertGlow(inRoomy, true, "12 pt of room")
-        assertGlow(cards.firstAsset, true, "swap card")
-
-        // The surroundings can change while a field is focused.
-        tight.clipsToBounds = false
-        inTight.setNeedsLayout()
-        host.view.layoutIfNeeded()
-        assertGlow(inTight, true, "the container stopped clipping")
-        tight.clipsToBounds = true
-        inTight.setNeedsLayout()
-        host.view.layoutIfNeeded()
-        assertGlow(inTight, false, "the container clips again")
-
-        // A style update keeps each answer.
-        setReduceEffects(true)
-        settle()
-        assertGlow(name, false, "MINIMAL tier")
-        setReduceEffects(false)
-        settle()
-        assertGlow(name, true, "FULL tier again")
-        assertGlow(password, false, "a password, after an effects update")
-        assertGlow(phrase, false, "the phrase field, after an effects update")
-        assertGlow(inCell, false, "in a cell, after an effects update")
-        assertGlow(inTight, false, "no room, after an effects update")
-
-        name.sora.state = .default
-        XCTAssertEqual(name.subviews.first?.layer.shadowOpacity, 0)
-        XCTAssertEqual(name.subviews.first?.layer.borderColor, tokens.borderInput.cgColor)
-    }
-
-    /// Links in the Welcome terms were red and told apart by colour only.
-    @MainActor
-    func testWelcomeTermsLinksAreCyanAndUnderlined() throws {
-        let previous = SoramitsuUI.shared.themeMode
-        defer { SoramitsuUI.shared.themeMode = previous }
+    func testWelcomeTermsLinksAreRedAndUnderlined() throws {
         let welcome = WelcomeViewController()
-        for theme in [SoramitsuThemeType.dark, .light] {
-            SoramitsuUI.shared.themeMode = .manual(theme)
-            let tokens = NeonTokens.tokens(for: theme)
-            welcome.decorate(label: welcome.termsLabel)
-            let attributes = try XCTUnwrap(welcome.termsLabel.linkAttributes)
-            XCTAssertEqual(attributes[.foregroundColor] as? UIColor, tokens.link)
-            XCTAssertEqual(attributes[.underlineStyle] as? Int, NSUnderlineStyle.single.rawValue)
-            XCTAssertGreaterThanOrEqual(WalletUX.contrast(tokens.link, tokens.surface), 4.5)
-            let text = try XCTUnwrap(welcome.termsLabel.attributedText)
-            XCTAssertEqual(text.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor, tokens.textSecondary)
-        }
+        let tokens = NeonTokens.current
+        welcome.decorate(label: welcome.termsLabel)
+        let attributes = try XCTUnwrap(welcome.termsLabel.linkAttributes)
+        XCTAssertEqual(attributes[.foregroundColor] as? UIColor, tokens.link)
+        XCTAssertEqual(tokens.link, SoramitsuThemeType.light.palette.color(.accentPrimary))
+        XCTAssertEqual(attributes[.underlineStyle] as? Int, NSUnderlineStyle.single.rawValue)
+        XCTAssertGreaterThanOrEqual(WalletUX.contrast(tokens.link, tokens.surface), 3)
+        let text = try XCTUnwrap(welcome.termsLabel.attributedText)
+        XCTAssertEqual(text.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor, tokens.textSecondary)
     }
 
     /// Sets the app's "Reduce effects" preference and waits until the
@@ -3333,7 +3134,8 @@ final class SoraNeonDesignTests: XCTestCase {
         XCTAssertNil(UserDefaults.standard.object(forKey: FxPolicy.reduceEffectsKey),
                      "the app's own Reduce effects preference is cleared before every test")
         XCTAssertEqual(FxPolicy.current.tier, .full)
-        XCTAssertTrue(FxPolicy.current.glows)
+        // The classic design draws no glow on any tier.
+        XCTAssertFalse(FxPolicy.current.glows)
     }
 
     /// Lets pending button configuration updates and layout run.
@@ -3502,4 +3304,410 @@ private final class StoreAmountPresentation: InputAssetAmountViewModelProtocol {
     func reviewButtonTapped() {}
     func selectAddress() {}
     func didSelect(variant: Decimal) {}
+}
+
+@MainActor
+final class WalletPresentationBoundaryTests: XCTestCase {
+    private var window: UIWindow?, priorWindow: UIWindow?, host: UIViewController?
+    private var animations = true
+    override func setUp() {
+        super.setUp(); animations = UIView.areAnimationsEnabled; UIView.setAnimationsEnabled(false)
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        priorWindow = scene?.windows.first { $0.isKeyWindow }
+        window = scene.map(UIWindow.init(windowScene:)) ?? UIWindow(frame: UIScreen.main.bounds)
+        host = UIViewController(); window?.rootViewController = host; window?.makeKeyAndVisible()
+    }
+    override func tearDown() {
+        host?.dismiss(animated: false); window?.isHidden = true; window?.rootViewController = nil; host = nil; window = nil
+        priorWindow?.makeKeyAndVisible(); priorWindow = nil; UIView.setAnimationsEnabled(animations); super.tearDown()
+    }
+    private func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+    private func wait(_ condition: () -> Bool) async {
+        for _ in 0..<150 { if condition() { return }; try? await Task.sleep(nanoseconds: 10_000_000) }; XCTFail("Local screen did not finish")
+    }
+    private func present(_ view: UIViewController) async {
+        let nav = UINavigationController(rootViewController: view)
+        await withCheckedContinuation { continuation in host!.present(nav, animated: false) { continuation.resume() } }
+        view.loadViewIfNeeded()
+    }
+    private func labels(_ view: UIViewController) -> [String] { descendants(view.view).compactMap { ($0 as? UILabel)?.text } }
+    func testScannerRequestsCameraAdmissionOnlyOnceAndShowsReadableDenial() async {
+        var requests = 0; var reply: ((Bool) -> Void)?
+        let scanner = WalletAddressScanner(requestCameraAccess: { requests += 1; reply = $0 }, makeCameraInput: { XCTFail("Denied permission cannot open a camera"); return nil }, completion: { _ in XCTFail("Denial must not fill a draft") })
+        await present(scanner); scanner.loadViewIfNeeded(); XCTAssertEqual(requests, 1)
+        reply?(false); await wait { self.labels(scanner).contains(WalletUX.text("Camera access is unavailable. Close this screen to paste the address, or enable Camera in Settings.")) }
+        XCTAssertEqual(scanner.title, WalletUX.text("Scan receive address")); XCTAssertNotNil(scanner.navigationItem.leftBarButtonItem)
+    }
+    func testApprovedCameraWithoutAnInputShowsTheSameRecoverableFallback() async {
+        var reply: ((Bool) -> Void)?, attempts = 0
+        let scanner = WalletAddressScanner(requestCameraAccess: { reply = $0 }, makeCameraInput: { attempts += 1; return nil }, completion: { _ in XCTFail() })
+        await present(scanner); reply?(true)
+        await wait { attempts == 1 && !self.labels(scanner).isEmpty }; scanner.viewDidLayoutSubviews()
+        XCTAssertTrue(labels(scanner).contains(WalletUX.text("Camera access is unavailable. Close this screen to paste the address, or enable Camera in Settings.")))
+    }
+    func testCameraPermissionReturningAfterDismissalDoesNotStartCapture() async {
+        var reply: ((Bool) -> Void)?, attempts = 0
+        let scanner = WalletAddressScanner(requestCameraAccess: { reply = $0 }, makeCameraInput: { attempts += 1; return nil }, completion: { _ in XCTFail() })
+        await present(scanner)
+        await withCheckedContinuation { continuation in host!.dismiss(animated: false) { continuation.resume() } }
+        reply?(true); try? await Task.sleep(nanoseconds: 30_000_000); XCTAssertEqual(attempts, 0)
+    }
+    func testCameraPermissionCallbackDoesNotRetainTheDismissedScanner() async {
+        var reply: ((Bool) -> Void)?, scanner: WalletAddressScanner? = WalletAddressScanner(requestCameraAccess: { reply = $0 }, makeCameraInput: { XCTFail(); return nil }, completion: { _ in XCTFail() })
+        weak var released = scanner; scanner?.loadViewIfNeeded(); scanner = nil; XCTAssertNil(released)
+        reply?(false); try? await Task.sleep(nanoseconds: 30_000_000)
+    }
+    func testMissingDecodedQRValueDoesNotCloseTheScreenOrFillTheDraft() async {
+        let scanner = WalletAddressScanner(requestCameraAccess: { _ in }, makeCameraInput: { nil }, completion: { _ in XCTFail() })
+        await present(scanner); scanner.acceptScannedAddress(nil)
+        XCTAssertNotNil(host?.presentedViewController); XCTAssertNotNil(scanner.view.window)
+    }
+    func testScannerReturnsOnlyTheFirstDecodedValueWithoutChangingItsNetworkSyntax() async {
+        var values = [String]()
+        let scanner = WalletAddressScanner(requestCameraAccess: { _ in }, makeCameraInput: { nil }, completion: { values.append($0) })
+        await present(scanner); scanner.acceptScannedAddress("exact-public-address?network=taira")
+        scanner.acceptScannedAddress("second-address"); await wait { values.count == 1 }
+        XCTAssertEqual(values, ["exact-public-address?network=taira"]); XCTAssertNil(host?.presentedViewController)
+    }
+    func testInlineNoticeUsesTheAccessibleMultilineLabelAndExactMessage() throws {
+        let item = WalletInlineNoticeItem("Price unavailable\nTry again later"), cell = WalletInlineNoticeCell(style: .default, reuseIdentifier: "notice")
+        XCTAssertTrue(item.cellType == WalletInlineNoticeCell.self); cell.set(item: item, context: nil)
+        let label = try XCTUnwrap(descendants(cell.contentView).compactMap { $0 as? UILabel }.first)
+        XCTAssertEqual(label.text, item.message); XCTAssertEqual(label.numberOfLines, 0); XCTAssertTrue(label.adjustsFontForContentSizeCategory)
+    }
+    func testReusedNoticeCellReplacesItsPreviousMessage() throws {
+        let cell = WalletInlineNoticeCell(style: .default, reuseIdentifier: "notice")
+        cell.set(item: WalletInlineNoticeItem("Previous"), context: nil); cell.set(item: WalletInlineNoticeItem("Current"), context: nil)
+        XCTAssertEqual(descendants(cell.contentView).compactMap { ($0 as? UILabel)?.text }, ["Current"])
+    }
+    func testReadableAttributedTextRepairsOnlyTheLowContrastRunAndKeepsOtherFormatting() throws {
+        let input = NSMutableAttributedString(string: "ab")
+        input.addAttributes([.foregroundColor: WalletUX.page, .underlineStyle: NSUnderlineStyle.single.rawValue], range: NSRange(location: 0, length: 1))
+        input.addAttribute(.foregroundColor, value: WalletUX.foreground, range: NSRange(location: 1, length: 1))
+        let output = WalletUX.readableAttributedText(input)
+        XCTAssertEqual(output.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor, WalletUX.foreground)
+        XCTAssertEqual(output.attribute(.foregroundColor, at: 1, effectiveRange: nil) as? UIColor, WalletUX.foreground)
+        XCTAssertEqual(output.attribute(.underlineStyle, at: 0, effectiveRange: nil) as? Int, NSUnderlineStyle.single.rawValue)
+        XCTAssertEqual(input.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor, WalletUX.page)
+    }
+    func testAttributedTextWithoutAnExplicitColorKeepsItsAttributesAndString() {
+        let input = NSAttributedString(string: "Wallet", attributes: [.kern: 2])
+        XCTAssertEqual(WalletUX.readableAttributedText(input), input)
+    }
+}
+
+@MainActor
+final class AccountBackupActionBoundaryTests: RootActionFixtureTests {
+    private let words = ["public", "synthetic", "backup", "fixture"]
+    private func make(_ mode: AccountCreateViewController.Mode = .view)
+        -> (AccountCreateViewController, BackupActionPresenter) {
+        let view = AccountCreateViewController()
+        let presenter = BackupActionPresenter()
+        view.mode = mode
+        view.presenter = presenter
+        view.localizationManager = LocalizationManager.shared
+        mount(UINavigationController(rootViewController: view))
+        view.set(mnemonic: words)
+        view.set(backupDerivationPath: "//public-fixture")
+        XCTAssertEqual(presenter.setups, 1)
+        return (view, presenter)
+    }
+    private func renderedWords(_ view: AccountCreateViewController) -> [String] {
+        all(UILabel.self, view.view).compactMap(\.text).filter { words.contains($0) }
+    }
+    private func soraButton(_ title: String, in view: AccountCreateViewController) throws -> SoramitsuButton {
+        try XCTUnwrap(all(SoramitsuButton.self, view.view).first {
+            $0.sora.title == title || $0.sora.attributedText?.attributedString.string == title
+        })
+    }
+    private func tapBarAction(_ view: AccountCreateViewController) throws {
+        let item = try XCTUnwrap(view.navigationItem.rightBarButtonItem)
+        UIApplication.shared.sendAction(try XCTUnwrap(item.action), to: item.target, from: item, for: nil)
+    }
+
+    func testContinuingRegistrationClearsTheRevealedPhraseBeforeRouting() throws {
+        let (view, presenter) = make(.registration)
+        try tap("wallet-backup-reveal", view)
+        XCTAssertEqual(renderedWords(view).count, words.count)
+        try soraButton(view.mode.nextButtonTitle, in: view).sendActions(for: .touchUpInside)
+        XCTAssertEqual(presenter.proceeds, 1)
+        XCTAssertTrue(renderedWords(view).isEmpty)
+    }
+
+    func testCopyingThePhraseRequiresRevealAndCallsThePresenterOnce() throws {
+        let (view, presenter) = make()
+        let copy = try soraButton(R.string.localizable.commonCopy(preferredLanguages: .currentLocale), in: view)
+        XCTAssertFalse(copy.isEnabled)
+        copy.sendActions(for: .touchUpInside)
+        XCTAssertEqual(presenter.shares, 0)
+        try tap("wallet-backup-reveal", view)
+        XCTAssertTrue(copy.isEnabled)
+        copy.sendActions(for: .touchUpInside)
+        XCTAssertEqual(presenter.shares, 1)
+        XCTAssertEqual(copy.sora.title, R.string.localizable.commonCopied(preferredLanguages: .currentLocale))
+    }
+
+    func testCopyingTheDerivationPathRequiresARevealedNonemptyPath() throws {
+        let (view, _) = make()
+        UIPasteboard.general.string = "untouched fixture"
+        let copy = try button("Copy derivation path", view)
+        XCTAssertTrue(copy.isHidden)
+        copy.sendActions(for: .touchUpInside)
+        XCTAssertEqual(UIPasteboard.general.string, "untouched fixture")
+        try tap("wallet-backup-reveal", view)
+        XCTAssertFalse(copy.isHidden)
+        copy.sendActions(for: .touchUpInside)
+        XCTAssertEqual(UIPasteboard.general.string, "//public-fixture")
+        view.set(backupDerivationPath: "")
+        copy.sendActions(for: .touchUpInside)
+        XCTAssertEqual(UIPasteboard.general.string, "//public-fixture")
+    }
+
+    func testGoogleBackupHidesThePhraseAndDisablesDuplicateRequestsUntilLoadingEnds() throws {
+        let (view, presenter) = make(.registrationWithoutAccessToGoogle)
+        try tap("wallet-backup-reveal", view)
+        let google = try soraButton(R.string.localizable.onboardingContinueWithGoogle(preferredLanguages: .currentLocale), in: view)
+        XCTAssertFalse(google.isHidden)
+        google.sendActions(for: .touchUpInside)
+        XCTAssertEqual(presenter.googleBackups, 1)
+        XCTAssertTrue(renderedWords(view).isEmpty)
+        XCTAssertFalse(google.isUserInteractionEnabled)
+        XCTAssertFalse(view.loadingView.isHidden)
+        view.hideLoading()
+        XCTAssertTrue(google.isUserInteractionEnabled)
+        XCTAssertTrue(view.loadingView.isHidden)
+        view.showLoading()
+        XCTAssertFalse(view.loadingView.isHidden)
+    }
+
+    func testCancellingTheSkipWarningKeepsTheBackupFlowOpen() async throws {
+        let (view, presenter) = make(.registrationWithoutAccessToGoogle)
+        try tapBarAction(view)
+        await wait { view.presentedViewController is UIAlertController }
+        let warning = try alert(view)
+        XCTAssertEqual(warning.actions.filter { $0.style == .destructive }.count, 1)
+        try await choose(R.string.localizable.commonCancel(preferredLanguages: .currentLocale), view)
+        XCTAssertEqual(presenter.skips, 0)
+        XCTAssertTrue(view.navigationController?.topViewController === view)
+    }
+
+    func testSkipRequiresConfirmationBeforeThePresenterProceeds() async throws {
+        let (view, presenter) = make(.registrationWithoutAccessToGoogle)
+        try tapBarAction(view)
+        await wait { view.presentedViewController is UIAlertController }
+        XCTAssertEqual(presenter.skips, 0)
+        try await choose(R.string.localizable.importAccountNotBackedUpAlertActionTitle(preferredLanguages: .currentLocale), view)
+        XCTAssertEqual(presenter.skips, 1)
+    }
+
+    func testRetainedBackupInfoAndForegroundActionsReachThePresenter() throws {
+        let (view, presenter) = make()
+        try tapBarAction(view)
+        XCTAssertEqual(presenter.infos, 1)
+        NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: nil)
+        XCTAssertEqual(presenter.foregrounds, 1)
+        XCTAssertTrue(renderedWords(view).isEmpty)
+    }
+
+    func testLeavingTheScreenClearsThePhraseAndTraitChangesDoNotRevealItAgain() throws {
+        let (view, _) = make()
+        try tap("wallet-backup-reveal", view)
+        XCTAssertEqual(renderedWords(view).count, words.count)
+        view.viewWillDisappear(false)
+        XCTAssertTrue(renderedWords(view).isEmpty)
+        view.traitCollectionDidChange(UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraLarge))
+        XCTAssertTrue(renderedWords(view).isEmpty)
+    }
+}
+
+private final class BackupActionPresenter: AccountCreatePresenterProtocol {
+    var setups = 0, infos = 0, proceeds = 0, shares = 0, foregrounds = 0, skips = 0, googleBackups = 0
+    func setup() { setups += 1 }
+    func activateInfo() { infos += 1 }
+    func proceed() { proceeds += 1 }
+    func share() { shares += 1 }
+    func restoredApp() { foregrounds += 1 }
+    func skip() { skips += 1 }
+    func backupToGoogle() { googleBackups += 1 }
+}
+
+extension TairaFaucetAppTests {
+    private func journalURL(_ directory: URL, account: String) -> URL {
+        let name = SHA256.hash(data: Data((TairaClient.networkLiteral + "\n" + account).utf8)).map { String(format: "%02x", $0) }.joined()
+        return directory.appendingPathComponent(name + ".json")
+    }
+    private func savePending(_ directory: URL, account: String, network: String = TairaClient.networkLiteral,
+                             hash: String = String(repeating: "b", count: 64), amount: String = "25000") throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let value = TairaFaucetService.PendingClaim(network: network, account: account, transactionHash: hash, amount: amount)
+        try JSONEncoder().encode(value).write(to: journalURL(directory, account: account))
+    }
+    private func claimFixture(mode: FaucetPersistenceFixture.Mode = .applied) throws -> FaucetPersistenceFixture {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let data = try Data(contentsOf: root.appendingPathComponent("VendorPackages/NexusTransferCodec/Tests/NexusTransferCodecTests/faucet-prepared.json"))
+        return try FaucetPersistenceFixture(data: data, mode: mode)
+    }
+    func testFreshFaucetClaimPersistsBeforeDispatchAndClearsAfterApplied() async throws {
+        let fixture = try claimFixture(), account = try account()
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        let outcome = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira),
+            contextIsCurrent: { true }, progress: { await fixture.record($0) })
+        XCTAssertEqual(outcome.state, .applied(blockHeight: 73))
+        let pending = try await service.hasPending(account: account.address)
+        XCTAssertFalse(pending)
+        let requests = await fixture.requests(), phases = await fixture.phases()
+        XCTAssertEqual(phases, ["preparing", "submitting", "checking"])
+        XCTAssertEqual(requests.filter { $0.url?.path == "/v1/accounts/faucet" }.count, 1)
+        XCTAssertEqual(requests.last?.httpMethod, "GET")
+    }
+    func testFreshRejectedFaucetClaimClearsItsPendingRecord() async throws {
+        let fixture = try claimFixture(mode: .rejected), account = try account()
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        let result = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira),
+            contextIsCurrent: { true }, progress: { _ in })
+        guard case .rejected = result.state else { return XCTFail("Rejected claim was not terminal") }
+        let pending = try await service.hasPending(account: account.address); XCTAssertFalse(pending)
+    }
+    func testFaucetRateLimitClearsOnlyTheUndispatchedPendingClaim() async throws {
+        let fixture = try claimFixture(mode: .rateLimited), account = try account()
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        do { _ = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira), contextIsCurrent: { true }, progress: { _ in }); XCTFail("Rate limit ignored") }
+        catch { XCTAssertEqual(error as? TairaFaucetClient.Failure, .rateLimited(retryAfterSeconds: 75)) }
+        let pending = try await service.hasPending(account: account.address); XCTAssertFalse(pending)
+    }
+    func testFaucetExpiredPreparedClaimIsRemovedWithoutDispatch() async throws {
+        let fixture = try claimFixture(), account = try account()
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        do { _ = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira), contextIsCurrent: { true }, progress: { phase in
+            if case .submitting = phase { fixture.clock.advance() }
+        }); XCTFail("Expired claim dispatched") }
+        catch { XCTAssertEqual(error as? TairaFaucetClient.Failure, .expired) }
+        let pending = try await service.hasPending(account: account.address); XCTAssertFalse(pending)
+        let requests = await fixture.requests(); XCTAssertFalse(requests.contains { $0.url?.path == "/v1/accounts/faucet" })
+    }
+    func testFaucetInvalidStatusKeepsThePersistedHashForReadOnlyRecovery() async throws {
+        let fixture = try claimFixture(mode: .invalidStatus), account = try account()
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        do { _ = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira), contextIsCurrent: { true }, progress: { _ in }); XCTFail("Invalid status accepted") }
+        catch { XCTAssertEqual(error as? TairaFaucetClient.Failure, .invalidResponse) }
+        let pending = try await service.hasPending(account: account.address); XCTAssertTrue(pending)
+        let record = try JSONDecoder().decode(TairaFaucetService.PendingClaim.self, from: Data(contentsOf: journalURL(fixture.directory, account: account.address)))
+        XCTAssertEqual(record.transactionHash, fixture.hash)
+    }
+    func testFaucetContextChangedAfterPreparationCannotPersistOrSubmit() async throws {
+        let fixture = try claimFixture(), account = try account(), checks = FaucetContextChecks()
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        do { _ = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira), contextIsCurrent: { await checks.firstOnly() }, progress: { _ in }); XCTFail("Stale wallet submitted") }
+        catch { guard case TairaFaucetService.Failure.wrongAccount = error else { return XCTFail("Unexpected error: \(error)") } }
+        let pending = try await service.hasPending(account: account.address); XCTAssertFalse(pending)
+        let requests = await fixture.requests(); XCTAssertFalse(requests.contains { $0.url?.path == "/v1/accounts/faucet" })
+    }
+    func testFaucetContextAlreadyStaleMakesNoNetworkRequests() async throws {
+        let fixture = try claimFixture(), account = try account()
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        do { _ = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira), contextIsCurrent: { false }, progress: { _ in XCTFail("Unexpected progress") }); XCTFail("Stale wallet admitted") }
+        catch { guard case TairaFaucetService.Failure.wrongAccount = error else { return XCTFail("Unexpected error: \(error)") } }
+        let requests = await fixture.requests(); XCTAssertTrue(requests.isEmpty)
+    }
+    func testFaucetCancellationAfterPreparationDoesNotPersistOrSubmit() async throws {
+        let fixture = try claimFixture(), account = try account(), config = try XCTUnwrap(NexusNetworkConfiguration.taira)
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        let task = Task {
+            try await service.request(account: account, configuration: config, contextIsCurrent: { true }, progress: { phase in
+                if case .submitting = phase { withUnsafeCurrentTask { $0?.cancel() } }
+            })
+        }
+        do { _ = try await task.value; XCTFail("Cancelled claim submitted") } catch is CancellationError { }
+        let pending = try await service.hasPending(account: account.address); XCTAssertFalse(pending)
+        let requests = await fixture.requests(); XCTAssertFalse(requests.contains { $0.url?.path == "/v1/accounts/faucet" })
+    }
+    func testFaucetCorruptAndOversizedJournalCannotStartAnotherClaim() async throws {
+        let fixture = try claimFixture(), account = try account()
+        defer { fixture.remove() }
+        try FileManager.default.createDirectory(at: fixture.directory, withIntermediateDirectories: true)
+        for bytes in [Data("invalid".utf8), Data(repeating: 32, count: 4097)] {
+            try bytes.write(to: journalURL(fixture.directory, account: account.address))
+            let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+            do { _ = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira), contextIsCurrent: { true }, progress: { _ in XCTFail("Damaged journal must not prepare") }); XCTFail("Damaged journal ignored") }
+            catch { guard case TairaFaucetService.Failure.unreadableRequest = error else { return XCTFail("Unexpected error: \(error)") } }
+        }
+        let requests = await fixture.requests(); XCTAssertTrue(requests.isEmpty)
+    }
+    func testFaucetJournalRejectsWrongNetworkAmountAndHash() async throws {
+        let fixture = try claimFixture(), account = try account()
+        defer { fixture.remove() }
+        for values in [("wrong", "25000", String(repeating: "b", count: 64)), (TairaClient.networkLiteral, "1", String(repeating: "b", count: 64)), (TairaClient.networkLiteral, "25000", "invalid")] {
+            try savePending(fixture.directory, account: account.address, network: values.0, hash: values.2, amount: values.1)
+            let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+            do { _ = try await service.hasPending(account: account.address); XCTFail("Invalid claim accepted") }
+            catch { guard case TairaFaucetService.Failure.unreadableRequest = error else { return XCTFail("Unexpected error: \(error)") } }
+        }
+    }
+}
+private actor FaucetContextChecks {
+    private var count = 0
+    func firstOnly() -> Bool { count += 1; return count == 1 }
+}
+private final class FaucetFixtureClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var expired = false
+    func advance() { lock.lock(); expired = true; lock.unlock() }
+    func now() -> UInt64 { lock.lock(); defer { lock.unlock() }; return expired ? 1_793_579_085_193 : 1_793_578_885_193 }
+}
+private actor FaucetFixtureRecords {
+    var requests: [URLRequest] = [], phases: [String] = []
+    func append(_ request: URLRequest) { requests.append(request) }
+    func append(_ phase: TairaFaucetService.Phase) { switch phase { case .preparing: phases.append("preparing"); case .submitting: phases.append("submitting"); case .checking: phases.append("checking") } }
+}
+private final class FaucetPersistenceFixture: @unchecked Sendable {
+    enum Mode { case applied, rejected, rateLimited, invalidStatus }
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let clock = FaucetFixtureClock()
+    let hash: String, prepared: Data, policy: Data, puzzle: Data, status: Data
+    let mode: Mode
+    private let records = FaucetFixtureRecords()
+    init(data: Data, mode: Mode) throws {
+        prepared = data; self.mode = mode
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        hash = try XCTUnwrap(root["transaction_hash_hex"] as? String)
+        policy = try JSONSerialization.data(withJSONObject: ["schema_version": 1, "network_id": TairaClient.networkLiteral,
+            "network_prefix": 369, "authority": TairaFaucetClient.authority, "asset_definition_id": TairaClient.xorDefinition, "amount": TairaFaucetClient.amount])
+        puzzle = try JSONSerialization.data(withJSONObject: ["algorithm": "scrypt-leading-zero-bits-v1", "network_id": TairaClient.networkLiteral,
+            "chain_discriminant": 369, "difficulty_bits": 8, "anchor_height": 10085, "anchor_block_hash_hex": String(repeating: "01", count: 32),
+            "challenge_salt_hex": NSNull(), "scrypt_log_n": 13, "scrypt_r": 8, "scrypt_p": 1, "max_anchor_age_blocks": 6])
+        status = try JSONSerialization.data(withJSONObject: ["hash": hash, "scope": "global", "resolved_from": mode == .invalidStatus ? "cache" : "state",
+            "status": ["kind": mode == .rejected ? "Rejected" : "Applied", "block_height": 73]])
+    }
+    func remove() { try? FileManager.default.removeItem(at: directory) }
+    func requests() async -> [URLRequest] { await records.requests }
+    func phases() async -> [String] { await records.phases }
+    func record(_ phase: TairaFaucetService.Phase) async { await records.append(phase) }
+    func client() -> TairaFaucetClient {
+        TairaFaucetClient(scrypt: { nonce, _, _, _, _ in Data(repeating: nonce == Data([0x38, 0, 0, 0, 0, 0, 0, 0]) ? 0 : 255, count: 32) }, transport: { [self] request, _ in
+            await records.append(request)
+            switch request.url?.path {
+            case "/v1/accounts/faucet/policy": return .init(data: policy)
+            case "/v1/accounts/faucet/puzzle": return .init(data: puzzle)
+            case "/v1/accounts/faucet/prepare": return .init(data: prepared)
+            case "/v1/accounts/faucet":
+                XCTAssertEqual(request.httpBody, prepared)
+                let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+                XCTAssertEqual(files.count, 1, "Persist the exact claim before dispatch")
+                let saved = try JSONDecoder().decode(TairaFaucetService.PendingClaim.self, from: Data(contentsOf: XCTUnwrap(files.first)))
+                XCTAssertEqual(saved.transactionHash, hash)
+                if mode == .rateLimited { return .init(data: Data(), statusCode: 429, retryAfterSeconds: 75) }
+                return .init(data: Data("{}".utf8), statusCode: 202)
+            case "/v1/pipeline/transactions/status": return .init(data: status)
+            default: XCTFail("Unexpected request"); throw URLError(.badURL)
+            }
+        }, clock: { [clock] in clock.now() }, requestID: { "6ddfcc7d143e4c88a6232812ab8de1d45038167b3baf4aedae245d6f534824f4" })
+    }
 }

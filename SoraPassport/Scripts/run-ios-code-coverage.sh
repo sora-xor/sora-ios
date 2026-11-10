@@ -1,9 +1,10 @@
 #!/bin/sh
 set -eu
 
-# Run on a disposable, caller-selected simulator. The unit suite contains the
-# functional UIKit tests; the ordinary UI launch test verifies the built app host.
-# Opt-in live/funded/evidence tests retain their existing admission checks.
+# Run all ordinary app, integration, and UI tests on a disposable simulator.
+# The scheme retains its historical funded-account pool exclusions; explicit
+# fixture/device opt-ins retain their admission checks. Enabled integration
+# tests include read-only requests to wss://mof2.sora.org and require that node.
 if [ "$#" -ne 4 ]; then
     printf '%s\n' 'usage: run-ios-code-coverage.sh SIMULATOR_UDID DERIVED_DATA SOURCE_PACKAGES NEW_OUTPUT_DIRECTORY' >&2
     exit 2
@@ -29,7 +30,7 @@ xcodebuild test -project SoraPassport.xcodeproj -scheme SoraPassport -configurat
     -destination "platform=iOS Simulator,id=$coverage_simulator" \
     -derivedDataPath "$coverage_derived" -clonedSourcePackagesDirPath "$coverage_packages" \
     -onlyUsePackageVersionsFromResolvedFile -only-testing:SoraPassportTests \
-    -only-testing:SoraPassportUITests/SoraPassportUITests \
+    -only-testing:SoraPassportIntegrationTests -only-testing:SoraPassportUITests \
     -parallel-testing-enabled NO -enableCodeCoverage YES -collect-test-diagnostics never -jobs 4 \
     -resultBundlePath "$coverage_output/application.xcresult" \
     CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES ONLY_ACTIVE_ARCH=YES \

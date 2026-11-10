@@ -246,3 +246,101 @@ private final class UsernameRouteSpy: UsernameSetupWireframeProtocol {
     func present(error: Swift.Error, from view: ControllerBackedProtocol?, locale: Locale?) -> Bool { false }
     func present(error: Swift.Error, from view: ControllerBackedProtocol?, locale: Locale?, completion: @escaping () -> Void) -> Bool { false }
 }
+
+@MainActor final class OnboardingActionBoundaryTests: XCTestCase {
+    private func make() -> (OnboardingMainPresenter, OnboardingActionHost, OnboardingActionInput, OnboardingActionRoute) {
+        let presenter = OnboardingMainPresenter(locale: Locale(identifier: "en")), host = OnboardingActionHost(), input = OnboardingActionInput(), route = OnboardingActionRoute()
+        presenter.view = host; presenter.interactor = input; presenter.wireframe = route
+        return (presenter, host, input, route)
+    }
+    private func action(_ route: OnboardingActionRoute, _ index: Int) throws -> AlertPresentableAction {
+        try XCTUnwrap(route.sheets.last?.actions[index])
+    }
+    func testSignupStartsTheLocalCreationFlowFromTheCurrentScreen() {
+        let (p, host, input, route) = make(); p.activateSignup()
+        XCTAssertEqual(route.signups, [false]); XCTAssertTrue(route.source === host); XCTAssertEqual(input.reads, 0)
+    }
+    func testKeystoreSuggestionRoutesTheCurrentScreenWithoutReadingCloudBackups() {
+        let (p, host, input, route) = make(); p.didSuggestKeystoreImport()
+        XCTAssertEqual(route.keystoreCount, 1); XCTAssertTrue(route.source === host); XCTAssertEqual(input.reads, 0)
+    }
+    func testRestoreSheetOffersCloudMnemonicAndSeedWithoutStartingAnImport() throws {
+        let (p, host, input, route) = make(); p.activateAccountRestore()
+        let sheet = try XCTUnwrap(route.sheets.last)
+        XCTAssertEqual(route.styles, [.actionSheet]); XCTAssertTrue(route.source === host)
+        XCTAssertEqual(sheet.title, R.string.localizable.recoveryTitleV2(preferredLanguages: .currentLocale))
+        XCTAssertEqual(sheet.message, R.string.localizable.importAccountMessage(preferredLanguages: .currentLocale))
+        XCTAssertEqual(sheet.closeAction, R.string.localizable.commonCancel(preferredLanguages: .currentLocale))
+        XCTAssertEqual(sheet.actions.map(\.title), ["Google", R.string.localizable.recoveryPassphrase(preferredLanguages: .currentLocale), R.string.localizable.commonRawSeed(preferredLanguages: .currentLocale)])
+        XCTAssertEqual(input.reads, 0); XCTAssertTrue(route.restore.isEmpty); XCTAssertTrue(route.signups.isEmpty)
+    }
+    func testMnemonicChoicePreservesItsSourceAndDoesNotOpenSeedImport() throws {
+        let (p, host, _, route) = make(); p.activateAccountRestore(); try action(route, 1).handler?()
+        XCTAssertEqual(route.restore, [.mnemonic]); XCTAssertTrue(route.source === host)
+    }
+    func testRawSeedChoicePreservesItsSourceAndDoesNotOpenMnemonicImport() throws {
+        let (p, host, _, route) = make(); p.activateAccountRestore(); try action(route, 2).handler?()
+        XCTAssertEqual(route.restore, [.seed]); XCTAssertTrue(route.source === host)
+    }
+    func testCloudChoiceRunsOneRequestAndUsesCloudSignupForAnEmptyAccountList() async throws {
+        let (p, host, input, route) = make(); let finished = expectation(description: "cloud route")
+        route.didFinish = { finished.fulfill() }; p.activateAccountRestore(); try action(route, 0).handler?()
+        await fulfillment(of: [finished], timeout: 2)
+        XCTAssertEqual(input.reads, 1); XCTAssertEqual(host.loading, [true, false]); XCTAssertEqual(route.signups, [true])
+    }
+    func testRetainedRestoreActionsDoNothingAfterPresenterRelease() throws {
+        var p: OnboardingMainPresenter? = OnboardingMainPresenter(locale: Locale(identifier: "en"))
+        let host = OnboardingActionHost(), input = OnboardingActionInput(), route = OnboardingActionRoute()
+        p?.view = host; p?.interactor = input; p?.wireframe = route; p?.activateAccountRestore()
+        let actions = try XCTUnwrap(route.sheets.last).actions; weak var released = p; p = nil
+        XCTAssertNil(released); actions.forEach { $0.handler?() }
+        XCTAssertTrue(route.restore.isEmpty); XCTAssertTrue(route.signups.isEmpty); XCTAssertEqual(input.reads, 0)
+    }
+    func testRetainedMnemonicActionUsesTheCurrentViewAfterRebinding() throws {
+        let (p, first, _, route) = make(); p.activateAccountRestore(); let action = try action(route, 1)
+        let replacement = OnboardingActionHost(); p.view = replacement; action.handler?()
+        XCTAssertTrue(route.source === replacement); XCTAssertFalse(route.source === first)
+    }
+    func testRepeatedRestoreSheetsDoNotStartCloudAuthorization() {
+        let (p, _, input, route) = make(); p.activateAccountRestore(); p.activateAccountRestore()
+        XCTAssertEqual(route.sheets.count, 2); XCTAssertEqual(input.reads, 0); XCTAssertTrue(route.restore.isEmpty)
+    }
+    func testSetupInitializesTheInteractorBeforeAnyChoice() {
+        let (p, _, input, route) = make(); p.setup(); XCTAssertEqual(input.setups, 1)
+        XCTAssertTrue(route.sheets.isEmpty); XCTAssertTrue(route.signups.isEmpty)
+    }
+    func testReappearingWithoutACloudRequestResetsThePreviousSignInState() {
+        let (p, _, input, _) = make(); p.viewWillAppear(); p.viewWillAppear(); XCTAssertEqual(input.resets, 2)
+    }
+    func testCloudFailureFromTheRestoreSheetStopsLoadingAndCanBeSelectedAgain() async throws {
+        let (p, host, input, route) = make(); input.failure = CloudStorageServiceError.notFound
+        let first = expectation(description: "first cloud failure"); route.didFinish = { first.fulfill() }
+        p.activateAccountRestore(); let cloud = try action(route, 0); cloud.handler?(); await fulfillment(of: [first], timeout: 2)
+        XCTAssertEqual(route.messages.count, 1); XCTAssertEqual(host.loading, [true, false]); XCTAssertTrue(route.signups.isEmpty)
+        let second = expectation(description: "retry cloud failure"); route.didFinish = { second.fulfill() }
+        cloud.handler?(); await fulfillment(of: [second], timeout: 2)
+        XCTAssertEqual(input.reads, 2); XCTAssertEqual(route.messages.count, 2)
+    }
+}
+private final class OnboardingActionHost: UIViewController, OnboardingMainViewProtocol {
+    var loading = [Bool]()
+    func showLoading() { loading.append(true) }
+    func hideLoading() { loading.append(false) }
+}
+private final class OnboardingActionInput: OnboardingMainInteractorInputProtocol {
+    var setups = 0, resets = 0, reads = 0; var failure: Error?
+    func setup() { setups += 1 }
+    func resetGoogleState() { resets += 1 }
+    func getBackupedAccounts() async throws -> [OpenBackupAccount] { reads += 1; if let failure { throw failure }; return [] }
+}
+private final class OnboardingActionRoute: OnboardingMainWireframeProtocol {
+    var activityIndicatorWindow: UIWindow?
+    var source: ControllerBackedProtocol?, sheets = [AlertPresentableViewModel](), styles = [UIAlertController.Style](), restore = [AccountImportSource](), signups = [Bool](), messages = [String?](), keystoreCount = 0
+    var didFinish: (() -> Void)?
+    func showSignup(from view: OnboardingMainViewProtocol?, isGoogleBackupSelected: Bool) { source = view; signups.append(isGoogleBackupSelected); didFinish?() }
+    func showAccountRestoreRedesign(from view: OnboardingMainViewProtocol?, sourceType: AccountImportSource) { source = view; restore.append(sourceType) }
+    func showKeystoreImport(from view: OnboardingMainViewProtocol?) { source = view; keystoreCount += 1 }
+    func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount]) { XCTFail("No cloud account expected") }
+    func present(viewModel: AlertPresentableViewModel, style: UIAlertController.Style, from view: ControllerBackedProtocol?) { source = view; sheets.append(viewModel); styles.append(style) }
+    func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) { source = view; messages.append(message); didFinish?() }
+}

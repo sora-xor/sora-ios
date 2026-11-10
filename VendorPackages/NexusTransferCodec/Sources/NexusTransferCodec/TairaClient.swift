@@ -6,8 +6,8 @@ import Foundation
 /// this is deliberately not an independently verified consensus light client.
 public final class TairaClient {
     public static let origin = URL(string: "https://taira.sora.org")!
-    public static let networkLiteral = "hash:5C3E66C94E079079FF4FC46F59810B9C4EC7B2646DD45CE937831C0FDCE20C9B#44D9"
-    public static let networkBytes = Data(hexadecimal: "5c3e66c94e079079ff4fc46f59810b9c4ec7b2646dd45ce937831c0fdce20c9b")!
+    public static let networkLiteral = "hash:4978D0BD15FC32B834672B27BBD8A03653B1DF060A1EEE7E9374D29AF3886D91#6774"
+    public static let networkBytes = Data(hexadecimal: "4978d0bd15fc32b834672b27bbd8a03653b1df060a1eee7e9374d29af3886d91")!
     public static let xorDefinition = "6TEAJqbb8oEPmLncoNiMRbLEK6tw"
     public enum Failure: Error { case invalidResponse, quoteExpired, rejected(Int), wrongNetwork }
     public typealias Transport = (URLRequest, Int) async throws -> Data
@@ -131,12 +131,22 @@ public final class TairaClient {
     }
 
     public struct Checkpoint { public let height: Int64; public let hash: String }
+    /// The block the node has applied. The node's attested head comes first. For minutes after
+    /// each block it cannot attest its tip (409 ConflictingState, 153 s after block 12472 on
+    /// 2026-11-08) and its status can lag the tip (503). A transfer it already reports as applied
+    /// must not wait for that, so the head of its block list answers instead: the same HTTPS
+    /// node, and only ever compared with a height that node reported.
     public func checkpoint() async throws -> Checkpoint {
         let challenge = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
             + UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         var request = URLRequest(url: Self.origin.appendingPathComponent("v1/bridge/finality/attestation/latest"))
         request.setValue(challenge, forHTTPHeaderField: "X-Iroha-Finality-Challenge")
-        let data = try await transport(request, 8 * 1024 * 1024)
+        let data: Data
+        do {
+            data = try await transport(request, 8 * 1024 * 1024)
+        } catch Failure.rejected(let status) where status == 409 || status == 503 {
+            return try await latestBlock()
+        }
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let body = root["body"] as? [String: Any],
               body["challenge"] as? String == challenge.uppercased(),
@@ -151,6 +161,19 @@ public final class TairaClient {
         guard let block = try JSONSerialization.jsonObject(with: blockData) as? [String: Any],
               Self.integer(block["height"]) == height,
               let literal = block["hash"] as? String,
+              let hash = Self.hashLiteral(literal)
+        else { throw Failure.invalidResponse }
+        return Checkpoint(height: Int64(height), hash: hash)
+    }
+
+    private func latestBlock() async throws -> Checkpoint {
+        var components = URLComponents(url: Self.origin.appendingPathComponent("v1/explorer/blocks"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "limit", value: "1")]
+        let data = try await transport(URLRequest(url: components.url!), 65_536)
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let items = root["items"] as? [[String: Any]], items.count == 1,
+              let height = Self.integer(items[0]["height"]), height > 0, height <= UInt64(Int64.max),
+              let literal = items[0]["hash"] as? String,
               let hash = Self.hashLiteral(literal)
         else { throw Failure.invalidResponse }
         return Checkpoint(height: Int64(height), hash: hash)

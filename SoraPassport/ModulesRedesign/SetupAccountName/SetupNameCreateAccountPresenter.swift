@@ -26,7 +26,7 @@ final class SetupNameCreateAccountPresenter {
     var interactor: AccountImportInteractorInputProtocol!
     var viewModel: InputViewModel!
     var completion: (() -> Void)?
-    let settingsManager = SelectedWalletSettings.shared
+    let settingsManager: SelectedWalletSettingsProtocol
     var mode: UsernameSetupMode = .onboarding
     var userName: String?
 
@@ -36,7 +36,9 @@ final class SetupNameCreateAccountPresenter {
     
     init(accountRepository: AnyDataProviderRepository<AccountItem>,
          eventCenter: EventCenterProtocol,
-         operationManager: OperationManagerProtocol) {
+         operationManager: OperationManagerProtocol,
+         selectedSettings: SelectedWalletSettingsProtocol = SelectedWalletSettings.shared) {
+        self.settingsManager = selectedSettings
         self.accountRepository = accountRepository
         self.eventCenter = eventCenter
         self.operationManager = operationManager

@@ -1,5 +1,6 @@
 // This file is part of the SORA network and Polkaswap app.
 // SPDX-License-Identifier: Apache-2.0
+import Combine
 import Foundation
 import IrohaCrypto
 import RobinHood
@@ -519,4 +520,173 @@ private final class DemeterFlowAssets: AssetManagerProtocol {
   func sortedAssets(_ list: [WalletAsset], onlyVisible: Bool) -> [WalletAsset] { list }
   func visibleCount() -> UInt { UInt(assets.count) }
   func setup(for accountSettings: SelectedWalletSettings) {}
+}
+
+@MainActor
+final class UserFarmsSubscriptionCoverageTests: XCTestCase {
+    private static let coder: Result<RuntimeCoderFactory, Error> = Result {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let snapshot = try RuntimeSnapshotFactory.makeOwnTypesSnapshot(chainId: PIIndexerClient.soraMainnetGenesis,
+            runtimeMetadataItem: SoraPassport.RuntimeMetadataItem(chain: PIIndexerClient.soraMainnetGenesis, version: 133, txVersion: 131,
+                metadata: Data(contentsOf: root.appendingPathComponent("Fixtures/Modernization/sora2-metadata-spec133.scale")), resolver: nil),
+            ownTypes: Data(contentsOf: root.appendingPathComponent("SoraPassport/Resources/runtime-sora.json")), dataHasher: .twox256)
+        return RuntimeCoderFactory(catalog: snapshot.typeRegistryCatalog, specVersion: 133, txVersion: 131, metadata: snapshot.metadata)
+    }
+    private var fixtures = [UserFarmSubscriptionFixture]()
+    override func tearDown() { fixtures.forEach { $0.close() }; fixtures = []; super.tearDown() }
+    private func make() throws -> UserFarmSubscriptionFixture {
+        let f = try UserFarmSubscriptionFixture(coder: Self.coder.get()); fixtures.append(f); return f
+    }
+    private func wait(_ predicate: () -> Bool) async {
+        for _ in 0..<200 { if predicate() { return }; try? await Task.sleep(nanoseconds: 10_000_000) }; XCTAssertTrue(predicate())
+    }
+    private func listen(_ f: UserFarmSubscriptionFixture) async {
+        let stream = await f.subject!.userFarms
+        f.token = stream.receive(on: DispatchQueue.main).sink { [weak f] in f?.snapshots.append($0) }
+    }
+    func testNoSelectedAccountDoesNotOpenAStorageSubscription() async throws {
+        let f = try make(); f.account = nil
+        try await f.subscribe(); XCTAssertTrue(f.engine.params.isEmpty); XCTAssertEqual(f.connectionReads, 0)
+    }
+    func testMalformedSelectedAddressDoesNotOpenAStorageSubscription() async throws {
+        let f = try make(); let account = try XCTUnwrap(f.account)
+        f.account = AccountItem(address: "invalid address", cryptoType: account.cryptoType, networkType: account.networkType,
+                               username: account.username, publicKeyData: account.publicKeyData, settings: account.settings,
+                               order: account.order, isSelected: account.isSelected)
+        try await f.subscribe(); XCTAssertTrue(f.engine.params.isEmpty); XCTAssertEqual(f.connectionReads, 0)
+    }
+    func testSubscriptionUsesTheExactSelectedAccountStorageKey() async throws {
+        let f = try make(); try await f.subscribe()
+        let expected = try StorageKeyFactory().demeterFarmingUserInfo(identifier: f.storage.account).toHex(includePrefix: true)
+        XCTAssertEqual(f.engine.methods, [SoraPassport.RPCMethod.storageSubscribe]); XCTAssertEqual(f.engine.params, [[[expected]]])
+    }
+    func testUnavailableConnectionReturnsAnErrorInsteadOfAFakeSubscription() async throws {
+        let f = try make(); f.connectionAvailable = false
+        do { try await f.subscribe(); XCTFail("Expected unavailable connection") }
+        catch { guard case ChainRegistryError.connectionUnavailable = error else { return XCTFail("Unexpected error: \(error)") } }
+        f.subject = nil; XCTAssertTrue(f.engine.cancelled.isEmpty)
+    }
+    func testFailedSubscribePreservesTheTransportErrorWithoutRecordingAnId() async throws {
+        let f = try make(); f.engine.failure = DemeterFlowFailure.offline
+        do { try await f.subscribe(); XCTFail("Expected transport failure") }
+        catch { XCTAssertTrue(error is DemeterFlowFailure) }
+        f.subject = nil; XCTAssertTrue(f.engine.cancelled.isEmpty)
+    }
+    func testReleaseCancelsOnTheConnectionThatCreatedTheSubscription() async throws {
+        let f = try make(); try await f.subscribe(); let original = f.engine
+        let replacement = UserFarmSubscriptionEngine(); f.engine = replacement; f.subject = nil
+        await wait { original.cancelled == [1] }
+        XCTAssertTrue(replacement.cancelled.isEmpty)
+    }
+    func testSubscriptionsOnDifferentConnectionsAreEachCancelledOnce() async throws {
+        let f = try make(); try await f.subscribe(); let first = f.engine
+        let second = UserFarmSubscriptionEngine(); f.engine = second; try await f.subscribe()
+        f.subject = nil; await wait { first.cancelled == [1] && second.cancelled == [1] }
+    }
+    func testRuntimeDecodingPreservesExactPooledAndRewardAmounts() async throws {
+        let f = try make(); await listen(f); try await f.subscribe()
+        try f.emit([f.storage.user()]); await wait { f.snapshots.count == 1 }
+        let farm = try XCTUnwrap(f.snapshots.first?.first)
+        XCTAssertEqual(farm.baseAssetId, WalletAssetId.xor.rawValue); XCTAssertEqual(farm.poolAssetId, WalletAssetId.val.rawValue)
+        XCTAssertEqual(farm.rewardAssetId, WalletAssetId.pswap.rawValue); XCTAssertTrue(farm.isFarm)
+        XCTAssertEqual(farm.pooledTokens, Decimal(string: "1.000000000000000001")); XCTAssertEqual(farm.rewards, 2)
+        XCTAssertEqual(farm.id, "\(WalletAssetId.xor.rawValue)-\(WalletAssetId.val.rawValue)-\(WalletAssetId.pswap.rawValue)")
+    }
+    func testOnlyTheRequestedBasePoolPairAndFarmRowsArePublished() async throws {
+        let f = try make(); await listen(f); try await f.subscribe()
+        try f.emit([f.storage.user(), f.storage.user(base: WalletAssetId.val.rawValue), f.storage.user(pool: WalletAssetId.pswap.rawValue), f.storage.user(isFarm: false)])
+        await wait { f.snapshots.count == 1 }; XCTAssertEqual(f.snapshots[0].count, 1)
+        XCTAssertEqual(f.snapshots[0][0].poolAssetId, WalletAssetId.val.rawValue)
+    }
+    func testAnEmptyOnChainFarmListPublishesAnEmptySnapshot() async throws {
+        let f = try make(); await listen(f); try await f.subscribe(); try f.emit([])
+        await wait { f.snapshots.count == 1 }; XCTAssertTrue(f.snapshots[0].isEmpty)
+    }
+    func testAbsentStorageValueDecodesTheRuntimeFallback() async throws {
+        let f = try make(); await listen(f); try await f.subscribe(); try f.engine.emit(value: nil)
+        await wait { f.snapshots.count == 1 }; XCTAssertTrue(f.snapshots[0].isEmpty)
+    }
+    func testAnUpdateWithoutChangesPublishesNoInventedFarms() async throws {
+        let f = try make(); await listen(f); try await f.subscribe(); try f.engine.emit(changes: [])
+        await wait { f.snapshots.count == 1 }; XCTAssertTrue(f.snapshots[0].isEmpty)
+    }
+    func testMissingRuntimeCannotCrashOrPublishAnInventedSnapshot() async throws {
+        let f = try make(); f.runtimeAvailable = false; await listen(f); try await f.subscribe(); try f.emit([f.storage.user()])
+        await wait { f.runtimeReads == 1 }; try? await Task.sleep(nanoseconds: 50_000_000); XCTAssertTrue(f.snapshots.isEmpty)
+        f.runtimeAvailable = true; try f.emit([f.storage.user()]); await wait { f.snapshots.count == 1 }
+    }
+    func testRuntimeFactoryFailureCanRecoverOnTheNextValidUpdate() async throws {
+        let f = try make(); f.runtimeFailure = DemeterFlowFailure.offline; await listen(f); try await f.subscribe(); try f.emit([f.storage.user()])
+        await wait { f.runtimeReads == 1 }; try? await Task.sleep(nanoseconds: 50_000_000); XCTAssertTrue(f.snapshots.isEmpty)
+        f.runtimeFailure = nil; try f.emit([f.storage.user()]); await wait { f.snapshots.count == 1 }
+    }
+    func testMalformedScaleCannotReplaceTheLastValidFarmSnapshot() async throws {
+        let f = try make(); await listen(f); try await f.subscribe(); try f.emit([f.storage.user()]); await wait { f.snapshots.count == 1 }
+        try f.engine.emit(value: "0xffff"); await wait { f.runtimeReads == 2 }; try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(f.snapshots.count, 1); XCTAssertEqual(f.snapshots[0].count, 1)
+        try f.emit([]); await wait { f.snapshots.count == 2 }; XCTAssertTrue(f.snapshots[1].isEmpty)
+    }
+    func testTransportFailureDoesNotInventAnEmptyPortfolioAndNextUpdateStillWorks() async throws {
+        let f = try make(); await listen(f); try await f.subscribe(); f.engine.failures[1]?(DemeterFlowFailure.offline, false)
+        XCTAssertTrue(f.snapshots.isEmpty); try f.emit([f.storage.user()]); await wait { f.snapshots.count == 1 }
+    }
+}
+
+@MainActor
+private final class UserFarmSubscriptionFixture {
+    let storage: DemeterFlowFixture
+    var engine = UserFarmSubscriptionEngine()
+    var account: AccountItem?
+    var subject: UserFarmsService?
+    var token: AnyCancellable?
+    var snapshots = [[UserFarm]]()
+    var runtimeAvailable = true, connectionAvailable = true
+    var runtimeFailure: Error?
+    var runtimeReads = 0, connectionReads = 0
+    init(coder: RuntimeCoderFactory) throws {
+        storage = try DemeterFlowFixture(coder: coder, prices: [:])
+        let address = try SS58AddressFactory().address(fromAccountId: storage.account, type: 69)
+        account = AccountItem(address: address, cryptoType: .sr25519, networkType: 69, username: "Public farm fixture", publicKeyData: storage.account,
+                              settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
+        subject = UserFarmsService(selectedAccount: { [weak self] in self?.account }, connection: { [weak self] in
+            guard let self else { return nil }; self.connectionReads += 1
+            return self.connectionAvailable ? self.engine : nil
+        }, runtimeOperation: { [weak self] in
+            guard let self else { return nil }; self.runtimeReads += 1; guard self.runtimeAvailable else { return nil }
+            let op = BaseOperation<RuntimeCoderFactoryProtocol>()
+            if let failure = self.runtimeFailure { op.result = .failure(failure) } else { op.result = .success(self.storage.coder) }
+            return op
+        })
+    }
+    func subscribe() async throws { try await subject!.subscribeUserFarms(to: WalletAssetId.xor.rawValue, targetAssetId: WalletAssetId.val.rawValue) }
+    func emit(_ rows: [[String: Any]]) throws { try engine.emit(value: storage.encode(rows, at: .demeterFarmingUserInfo)) }
+    func close() { token = nil; subject = nil }
+}
+private final class UserFarmSubscriptionEngine: JSONRPCEngine {
+    var url: URL?
+    var pendingEngineRequests: [JSONRPCRequest] { [] }
+    var methods = [String](), params = [[[String]]](), cancelled = [UInt16]()
+    var callbacks = [UInt16: (Data) throws -> Void](), failures = [UInt16: (Error, Bool) -> Void]()
+    var failure: Error?
+    func callMethod<P: Codable, T: Decodable>(_ method: String, params: P?, options: JSONRPCOptions, completion closure: ((Result<T, Error>) -> Void)?) throws -> UInt16 {
+        XCTFail("Unexpected RPC instead of storage subscription"); throw DemeterFlowFailure.offline
+    }
+    func subscribe<P: Codable, T: Decodable>(_ method: String, params: P?, updateClosure: @escaping (T) -> Void, failureClosure: @escaping (Error, Bool) -> Void) throws -> UInt16 {
+        if let failure { throw failure }; methods.append(method)
+        self.params.append(try JSONDecoder().decode([[String]].self, from: JSONEncoder().encode(params)))
+        let id = UInt16(methods.count); callbacks[id] = { try updateClosure(JSONDecoder().decode(T.self, from: $0)) }; failures[id] = failureClosure
+        return id
+    }
+    func emit(value: String?) throws { try emit(changes: [[params[0][0][0], value ?? NSNull()]]) }
+    func emit(changes: [[Any]]) throws {
+        let data = try JSONSerialization.data(withJSONObject: ["jsonrpc": "2.0", "method": "state_storage", "params": ["subscription": "1", "result": ["block": "0x00", "changes": changes]]])
+        try callbacks[1]?(data)
+    }
+    func cancelForIdentifier(_ identifier: UInt16) { cancelled.append(identifier) }
+    func generateRequestId() -> UInt16 { 1 }
+    func addSubscription(_ subscription: JSONRPCSubscribing) {}
+    func reconnect(url: URL) {}
+    func connectIfNeeded() {}
+    func disconnectIfNeeded() {}
+    func unsubsribe(_ subscriptionId: UInt16) throws { cancelForIdentifier(subscriptionId) }
 }

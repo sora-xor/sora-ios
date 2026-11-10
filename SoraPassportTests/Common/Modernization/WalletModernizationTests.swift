@@ -36,6 +36,9 @@ private final class PreservedBackupDriveFixture: GoogleService {
     var head = "original"
     var version: Int64 = 1
     var revisions: [String: Data] = [:]
+    /// Revisions in the order Drive lists them, oldest first.
+    var revisionOrder = ["original"]
+    var deletedRevisions: [String] = []
     var pinned = Set<String>()
     var queries: [GTLRQueryProtocol] = []
     var failure: String?
@@ -105,18 +108,33 @@ private final class PreservedBackupDriveFixture: GoogleService {
             if let upload = create.uploadParameters {
                 try fail("create")
                 XCTAssertTrue(create.keepRevisionForever)
-                head = "created"; version += 1; revisions[head] = try XCTUnwrap(upload.data)
+                head = "created"; version += 1; revisionOrder.append(head); revisions[head] = try XCTUnwrap(upload.data)
                 pinned.insert(head); result = file()
             } else {
                 folderExists = true
                 let folder = GTLRDrive_File(); folder.identifier = "synthetic-folder"; result = folder
             }
+        } else if let list = query as? GTLRDriveQuery_RevisionsList {
+            XCTAssertEqual(list.fileId, "synthetic-wallet-file")
+            let value = GTLRDrive_RevisionList()
+            value.revisions = revisionOrder.enumerated().filter { revisions[$0.element] != nil }.map { index, identifier in
+                let revision = GTLRDrive_Revision(); revision.identifier = identifier
+                revision.modifiedTime = GTLRDateTime(date: Date(timeIntervalSince1970: TimeInterval(1_800_000_000 + index)))
+                return revision
+            }
+            result = value
+        } else if let delete = query as? GTLRDriveQuery_RevisionsDelete {
+            let revision = try XCTUnwrap(delete.revisionId)
+            XCTAssertEqual(delete.fileId, "synthetic-wallet-file")
+            XCTAssertNotEqual(revision, head, "The verified backup is never deleted")
+            revisions[revision] = nil; pinned.remove(revision); deletedRevisions.append(revision)
+            result = NSNull()
         } else if let update = query as? GTLRDriveQuery_FilesUpdate {
             try fail("update")
             XCTAssertTrue(pinned.contains(head), "Existing head must be pinned before replacement")
             XCTAssertTrue(update.keepRevisionForever)
             XCTAssertEqual(update.fileId, "synthetic-wallet-file")
-            head = "updated-\(version)"; version += 1
+            head = "updated-\(version)"; version += 1; revisionOrder.append(head)
             revisions[head] = try XCTUnwrap(update.uploadParameters?.data)
             pinned.insert(head)
             try fail("lost-update-response")
@@ -7285,6 +7303,13 @@ final class WalletModernizationTests: XCTestCase {
             wordCount: 15, entropyBytes: 20, corruptCommitJournal: false,
             retainsIrohaPrivateKey: true
         )
+        // SORA 1.x kept its PIN beside `seedEntropy`. The upgrade imports
+        // nothing until that PIN is typed, so whoever holds the iPhone cannot
+        // upgrade, choose a new PIN and read the phrase.
+        try exerciseFullLegacyWalletUpgrade(wordCount: 12, entropyBytes: 16, corruptCommitJournal: false,
+                                            legacyPIN: "1234")
+        try exerciseFullLegacyWalletUpgrade(wordCount: 24, entropyBytes: 32, corruptCommitJournal: false,
+                                            legacyPIN: "123456")
     }
 
     func testRetainedVersionOneCoreDataMigratesCopyOnWriteWithoutLosingWallet() throws {
@@ -11356,8 +11381,11 @@ final class WalletModernizationTests: XCTestCase {
             // already have installed the new head; preserve it and verify the retry.
             drive.failure = nil
             _ = try await WalletBackupPreservingGoogleService(base: drive).executeQuery(upload())
-            XCTAssertEqual(drive.revisions["original"], original)
-            XCTAssertTrue(drive.pinned.contains("original"))
+            // Once the replacement is verified, the earlier versions (the old
+            // password's ciphertext) are removed and only the new one stays.
+            XCTAssertNil(drive.revisions["original"])
+            XCTAssertTrue(drive.deletedRevisions.contains("original"))
+            XCTAssertEqual(Array(drive.revisions.keys), [drive.head])
             XCTAssertEqual(drive.revisions[drive.head], replacement)
             XCTAssertTrue(drive.pinned.contains(drive.head))
         }
@@ -11439,6 +11467,8 @@ final class WalletModernizationTests: XCTestCase {
                 passphrase: scenario == "wrong-phrase" ? otherPhrase : phrase, cryptoType: "sr25519",
                 substrateDerivationPath: scenario == "wrong-path" ? "//other" : ""), cloudStorageService: cloud,
                 entryPoint: .profile, keystore: keys,
+                cloudBackupAuthorization: AccountOptionsCloudBackupAuthorization(accountAddress: account.address,
+                    selectedAddress: { account.address }, eventCenter: EventCenter(), notificationCenter: NotificationCenter()),
                 currentAccount: { scenario == "switched-account" ? otherAccount : account },
                 lifecycleCoordinator: coordinator, recoveryGate: gate)
             presenter.view = view; presenter.wireframe = wireframe
@@ -11492,7 +11522,10 @@ final class WalletModernizationTests: XCTestCase {
             defer { cloud.complete(.failure(WalletCloudBackupWriteError.verificationFailed)) }
             let presenter = SetupPasswordPresenter(account: OpenBackupAccount(address: edAccount.address,
                 cryptoType: "ed25519", substrateDerivationPath: ""), cloudStorageService: cloud,
-                entryPoint: .profile, keystore: retainedKeys, currentAccount: { edAccount },
+                entryPoint: .profile, keystore: retainedKeys,
+                cloudBackupAuthorization: AccountOptionsCloudBackupAuthorization(accountAddress: edAccount.address,
+                    selectedAddress: { edAccount.address }, eventCenter: EventCenter(), notificationCenter: NotificationCenter()),
+                currentAccount: { edAccount },
                 lifecycleCoordinator: coordinator, recoveryGate: gate)
             presenter.view = view; presenter.wireframe = wireframe
             let ended = expectation(description: "retained Ed25519 backup completes")
@@ -20426,7 +20459,8 @@ final class WalletModernizationTests: XCTestCase {
         wordCount: Int,
         entropyBytes: Int,
         corruptCommitJournal: Bool,
-        retainsIrohaPrivateKey: Bool = false
+        retainsIrohaPrivateKey: Bool = false,
+        legacyPIN: String? = nil
     ) throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -20472,6 +20506,9 @@ final class WalletModernizationTests: XCTestCase {
             try keychain.addKey(try Data(hexStringSSF:
                 "e6ede78853ee2a5ede2d25f51d624e46270a9cb4d492a95c4742a3ca52f65f84"),
                 with: "privateKey")
+        }
+        if let legacyPIN {
+            try keychain.addKey(Data(legacyPIN.utf8), with: KeystoreTag.pincode.rawValue)
         }
         try keychain.addKey(
             Data(displayName.utf8),
@@ -20639,7 +20676,8 @@ final class WalletModernizationTests: XCTestCase {
                 "retained \(wordCount)-word async upgrade terminal decision"
         )
         presenter.onDecision = { decision in
-            if decision == .pincodeSetup || decision == .broken {
+            if decision == .pincodeSetup || decision == .broken ||
+                (legacyPIN != nil && decision == .localAuthentication) {
                 terminalDecision.fulfill()
             }
         }
@@ -20647,9 +20685,24 @@ final class WalletModernizationTests: XCTestCase {
 
         root.decideModuleSynchroniously()
         XCTAssertEqual(presenter.decisions, [.legacyWalletUpgrade])
-        root.performLegacyWalletUpgrade()
+        XCTAssertEqual(root.legacyUpgradeRequiresPIN, legacyPIN != nil)
+        if let legacyPIN {
+            root.performLegacyWalletUpgrade(pin: nil)
+            root.performLegacyWalletUpgrade(pin: legacyPIN == "1234" ? "4321" : "654321")
+            XCTAssertEqual(presenter.rejections, 2)
+            XCTAssertFalse(importFactoryCalled.value, "A missing or wrong 1.x PIN imports nothing")
+            XCTAssertFalse(legacySettings.walletMigrationRecoveryRequired, "A wrong PIN is not a broken wallet")
+            XCTAssertEqual(presenter.decisions, [.legacyWalletUpgrade])
+            XCTAssertEqual(try keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data(legacyPIN.utf8))
+        }
+        root.performLegacyWalletUpgrade(pin: legacyPIN)
         wait(for: [terminalDecision], timeout: 5)
         XCTAssertTrue(importFactoryCalled.value)
+        if legacyPIN != nil {
+            XCTAssertFalse(presenter.decisions.contains(.broken))
+            XCTAssertFalse(try keychain.checkKey(for: WalletOwnerPIN.appThrottleTag),
+                           "The correct PIN clears the attempt counter")
+        }
 
         let storedAccounts = try fetchAll(
             from: AnyDataProviderRepository(accountRepository),
@@ -20866,7 +20919,8 @@ final class WalletModernizationTests: XCTestCase {
             from: Data(contentsOf: commitURL))
         XCTAssertEqual(setupIntent.operationID, setupCommit.id)
         XCTAssertEqual(setupIntent.account.address, setupCommit.walletId)
-        XCTAssertFalse(try keychain.checkKey(for: KeystoreTag.pincode.rawValue))
+        XCTAssertEqual(try keychain.checkKey(for: KeystoreTag.pincode.rawValue), legacyPIN != nil,
+                       "A 1.x PIN stays until the new PIN replaces it")
         XCTAssertFalse(try keychain.checkKey(for: expectedAddress + WalletOwnerPIN.bindingSuffix))
         XCTAssertEqual(
             Set(try keychain.allKeyIdentifiers()),
@@ -21141,12 +21195,25 @@ private final class LegacyUpgradeRootPresenterSpy:
 
     private let lock = NSLock()
     private var storedDecisions: [Decision] = []
+    private var storedRejections = 0
     var onDecision: ((Decision) -> Void)?
 
     var decisions: [Decision] {
         lock.lock()
         defer { lock.unlock() }
         return storedDecisions
+    }
+
+    var rejections: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedRejections
+    }
+
+    func didRejectLegacyWalletUpgradePIN(_ error: Error) {
+        lock.lock()
+        storedRejections += 1
+        lock.unlock()
     }
 
     func didDecideOnboarding() {

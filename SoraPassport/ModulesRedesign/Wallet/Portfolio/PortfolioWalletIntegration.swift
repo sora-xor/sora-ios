@@ -18,13 +18,19 @@ final class PortfolioHome {
     let listItem = PortfolioListItem()
     let otherNetworksItem = PortfolioOtherNetworksItem()
     private(set) var coordinator: PortfolioCoordinator?
+    /// A read found a different amount on a network other than SORA2: "XOR on other networks" reads again.
+    var onOtherNetworksChange: (() -> Void)?
+    /// "XOR on other networks" appeared, stepped aside or changed its title with the scope.
+    var reloadOtherNetworks: (() -> Void)?
+    private var otherNetworkAmounts: [String: Decimal]?
     private let dataSource: PortfolioDataSource
 
     /// The top of the Wallet tab, above its other cards: the hero, the selected account's key
-    /// warning while it cannot sign, the lens and list, then XOR on other networks.
+    /// warning while it cannot sign, the assets, then XOR on other networks. The home has no
+    /// Tokens / Networks / Wallets switch; it always lists tokens.
     var items: [SoramitsuTableViewItemProtocol] {
         let notice: [SoramitsuTableViewItemProtocol] = noticeItem.isShown ? [noticeItem] : []
-        return [heroItem] + notice + [lensItem, listItem, otherNetworksItem]
+        return [heroItem] + notice + [listItem, otherNetworksItem]
     }
 
     init(dataSource: PortfolioDataSource, preferences: PortfolioPreferences = PortfolioPreferences()) {
@@ -101,6 +107,31 @@ final class PortfolioHome {
         lensItem.selected = render.list.lens
         listItem.model = render.list
         coordinator?.renderDidChange()
+        let holdings = viewModel.snapshot.holdings.filter { $0.network != .sora2 }
+        let amounts = Dictionary(holdings.map { ($0.id, $0.amount) }, uniquingKeysWith: { first, _ in first })
+        if let known = otherNetworkAmounts, known != amounts { onOtherNetworksChange?() }
+        otherNetworkAmounts = amounts
+        applyScopeToOtherNetworks()
+    }
+
+    /// These rows are always the selected wallet's: its network pages are the ones they open.
+    private func applyScopeToOtherNetworks() {
+        let wallets = viewModel.snapshot.wallets
+        let selected = wallets.first(where: \.isSelected)
+        let isShown: Bool
+        let name: String?
+        switch viewModel.state.scope {
+        case .allWallets:
+            isShown = true
+            name = wallets.count >= 2 ? selected?.name : nil
+        case let .wallet(id):
+            isShown = id == selected?.id
+            name = nil
+        }
+        guard isShown != otherNetworksItem.isShown || name != otherNetworksItem.walletName else { return }
+        otherNetworksItem.isShown = isShown
+        otherNetworksItem.walletName = name
+        reloadOtherNetworks?()
     }
 
     // MARK: Lifecycle
@@ -251,17 +282,27 @@ extension PortfolioStatusBackdrop: SoramitsuObserver {
 @MainActor
 final class PortfolioAccountSwitcher: PortfolioAccountSwitching {
     private let repository: AnyDataProviderRepository<AccountItem>
+    private let settings: SelectedWalletSettingsProtocol
+    private let eventCenter: EventCenterProtocol
+    private let operationQueue: OperationQueue
 
     init(repository: AnyDataProviderRepository<AccountItem> = AnyDataProviderRepository(
         UserDataStorageFacade.shared.createRepository(filter: nil, sortDescriptors: [],
-                                                      mapper: AnyCoreDataMapper(AccountItemMapper())))) {
+                                                      mapper: AnyCoreDataMapper(AccountItemMapper()))),
+         settings: SelectedWalletSettingsProtocol = SelectedWalletSettings.shared,
+         eventCenter: EventCenterProtocol = EventCenter.shared,
+         operationQueue: OperationQueue = OperationManagerFacade.sharedDefaultQueue) {
         self.repository = repository
+        self.settings = settings
+        self.eventCenter = eventCenter
+        self.operationQueue = operationQueue
     }
 
-    var selectedWalletId: String? { SelectedWalletSettings.shared.currentAccount?.address }
+    var selectedWalletId: String? { settings.currentAccount?.address }
 
     func switchTo(walletId: String, completion: @escaping (Bool) -> Void) {
         let operation = repository.fetchAllOperation(with: RepositoryFetchOptions())
+        let settings = self.settings, eventCenter = self.eventCenter
         operation.completionBlock = {
             let accounts = (try? operation.extractNoCancellableResultData()) ?? []
             DispatchQueue.main.async {
@@ -269,11 +310,11 @@ final class PortfolioAccountSwitcher: PortfolioAccountSwitching {
                     completion(false)
                     return
                 }
-                SelectedWalletSettings.shared.performSave(value: account) { result in
+                settings.performSave(value: account) { result in
                     DispatchQueue.main.async {
                         switch result {
                         case .success:
-                            EventCenter.shared.notify(with: SelectedAccountChanged(), completionOnMain: {
+                            eventCenter.notify(with: SelectedAccountChanged(), completionOnMain: {
                                 completion(true)
                             })
                         case .failure:
@@ -283,7 +324,7 @@ final class PortfolioAccountSwitcher: PortfolioAccountSwitching {
                 }
             }
         }
-        OperationManagerFacade.sharedDefaultQueue.addOperation(operation)
+        operationQueue.addOperation(operation)
     }
 }
 
@@ -445,6 +486,11 @@ extension RedesignWalletViewModel {
         }
         home.otherNetworksItem.onOpen = { [weak self] account in
             Task { @MainActor in self?.openNetwork(account: account) }
+        }
+        home.onOtherNetworksChange = { [weak self] in self?.refreshNetworkRows() }
+        home.reloadOtherNetworks = { [weak self] in
+            guard let self else { return }
+            self.reloadItem?([self.portfolioHome.otherNetworksItem])
         }
     }
 }

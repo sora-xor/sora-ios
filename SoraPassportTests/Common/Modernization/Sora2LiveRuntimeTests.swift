@@ -2220,6 +2220,253 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         XCTAssertEqual(try store.all().first?.terminalResolution?.kind, .finalizedSuccess)
     }
 
+    func testReviewedCallTableMatchesEffectiveMainnetEncoders() throws {
+        let factory = try factory()
+        for pin in Sora2CallTable.pinned {
+            if let actual = try Sora2CallTable.shape(of: pin, factory: factory) {
+                XCTAssertEqual(actual, pin.shape, pin.identifier)
+            }
+        }
+        XCTAssertNoThrow(try Sora2CallTable.validate(factory: factory))
+    }
+
+    func testNodeCannotSwapReviewedPalletOrCallIndices() throws {
+        let pallet = try factory(editingMetadata: { _, modules, _ in
+            let index = try XCTUnwrap(modules.firstIndex { $0.name == "Assets" })
+            let encoder = ScaleEncoder()
+            try modules[index].encode(scaleEncoder: encoder)
+            var bytes = encoder.encode()
+            bytes[bytes.count - 1] = 25 // disguise a PoolXYK call as an Assets transfer
+            modules[index] = try RuntimeMetadataV14.ModuleMetadata(scaleDecoder: ScaleDecoder(data: bytes))
+        })
+        try assertCallLayoutRejected(pallet)
+
+        for path in [["assets", "pallet", "Call"], ["pool_xyk", "pallet", "Call"], ["pallet_utility", "pallet", "Call"]] {
+            let swapped = try factory(editingMetadata: { types, _, _ in
+                let index = try XCTUnwrap(types.firstIndex { $0.type.path == path })
+                types[index] = try self.replacingVariants(in: types[index]) { variant, encoder in
+                    try variant.name.encode(scaleEncoder: encoder)
+                    try variant.fields.encode(scaleEncoder: encoder)
+                    try (variant.index ^ 1).encode(scaleEncoder: encoder)
+                    try variant.docs.encode(scaleEncoder: encoder)
+                }
+            })
+            try assertCallLayoutRejected(swapped)
+        }
+    }
+
+    func testNodeCannotSubstituteBatchRuntimeCallIndices() throws {
+        let changed = try factory(editingMetadata: { types, _, _ in
+            let index = try XCTUnwrap(types.firstIndex { $0.type.path == ["framenode_runtime", "RuntimeCall"] })
+            types[index] = try self.replacingVariants(in: types[index]) { variant, encoder in
+                try variant.name.encode(scaleEncoder: encoder)
+                try variant.fields.encode(scaleEncoder: encoder)
+                try (variant.name == "Assets" ? UInt8(25) : variant.index).encode(scaleEncoder: encoder)
+                try variant.docs.encode(scaleEncoder: encoder)
+            }
+        })
+        try assertCallLayoutRejected(changed)
+    }
+
+    func testNodeCannotReorderArgumentsOrChangeTheirWidth() throws {
+        let reordered = try factory(editingMetadata: { types, _, _ in
+            let index = try XCTUnwrap(types.firstIndex { $0.type.path == ["pool_xyk", "pallet", "Call"] })
+            types[index] = try self.replacingVariants(in: types[index]) { variant, encoder in
+                try variant.name.encode(scaleEncoder: encoder)
+                var fields = variant.fields
+                if variant.name == "withdraw_liquidity" { fields.swapAt(1, 2) }
+                try fields.encode(scaleEncoder: encoder)
+                try variant.index.encode(scaleEncoder: encoder)
+                try variant.docs.encode(scaleEncoder: encoder)
+            }
+        })
+        try assertCallLayoutRejected(reordered)
+
+        let narrower = try factory(editingMetadata: { types, _, _ in
+            let index = try XCTUnwrap(types.firstIndex {
+                if case .primitive(.u128) = $0.type.def { return true }; return false
+            })
+            types[index] = try self.replacingType(types[index]) { encoder in
+                try TypeMetadata.Def.primitive(.u64).encode(scaleEncoder: encoder)
+            }
+        })
+        try assertCallLayoutRejected(narrower)
+    }
+
+    func testNodeCannotChangeNestedSwapEnumEncoding() throws {
+        let swapped = try factory(editingMetadata: { types, _, _ in
+            let index = try XCTUnwrap(types.firstIndex { $0.type.path == ["common", "swap_amount", "SwapAmount"] })
+            types[index] = try self.replacingVariants(in: types[index]) { variant, encoder in
+                try variant.name.encode(scaleEncoder: encoder)
+                try variant.fields.encode(scaleEncoder: encoder)
+                try (variant.index ^ 1).encode(scaleEncoder: encoder)
+                try variant.docs.encode(scaleEncoder: encoder)
+            }
+        })
+        try assertCallLayoutRejected(swapped)
+    }
+
+    func testNodeCannotPoisonEncoderWithTypePathAliases() throws {
+        // The portable definition remains an AccountId32. The name alone makes
+        // the catalog select the built-in u128 encoder. Raw schema-shape
+        // checking would miss this change in the bytes actually signed.
+        let aliased = try factory(editingMetadata: { types, _, _ in
+            let index = try XCTUnwrap(types.firstIndex { $0.type.path == ["sp_core", "crypto", "AccountId32"] })
+            types[index] = try self.replacingType(types[index], path: ["u128"]) { encoder in
+                try types[index].type.def.encode(scaleEncoder: encoder)
+            }
+        })
+        try assertCallLayoutRejected(aliased)
+    }
+
+    func testDuplicateSchemaNameCannotShadowAReviewedArgumentType() throws {
+        let shadowed = try factory(editingMetadata: { types, _, _ in
+            let original = try XCTUnwrap(types.first { $0.type.path == ["common", "swap_amount", "SwapAmount"] })
+            let replacement = try self.replacingVariants(in: original) { variant, encoder in
+                try variant.name.encode(scaleEncoder: encoder)
+                try variant.fields.reversed().map { $0 }.encode(scaleEncoder: encoder)
+                try variant.index.encode(scaleEncoder: encoder)
+                try variant.docs.encode(scaleEncoder: encoder)
+            }
+            let encoder = ScaleEncoder()
+            try ((types.map(\.id).max() ?? 0) + 1).encode(scaleEncoder: encoder)
+            try replacement.type.encode(scaleEncoder: encoder)
+            // Calls still reference the original id, whose portable shape is
+            // unchanged. Named lookup would pick this earlier duplicate.
+            types.insert(try SchemaItem(scaleDecoder: ScaleDecoder(data: encoder.encode())), at: 0)
+        })
+        try assertCallLayoutRejected(shadowed)
+    }
+
+    func testASecondDefinitionUnderAReviewedNameIsRefusedWhereverItIsListed() throws {
+        // The first item under the name stays honest, so it is what a lookup by
+        // name finds first. Building a type that refers to the second item by id
+        // would register that one under the same name for the encoder's next use.
+        for atStart in [false, true] {
+            let duplicated = try factory(editingMetadata: { types, _, _ in
+                let original = try XCTUnwrap(types.first { $0.type.path == ["common", "primitives", "AssetId32"] })
+                let u64 = try self.typeId(in: types) {
+                    if case .primitive(.u64) = $0.def { return true }
+                    return false
+                }
+                // Still a composite, because only composites and variants take their
+                // name from the path. This one keeps the name with a narrower code.
+                let narrower = try self.replacingType(original) { encoder in
+                    try UInt8(0).encode(scaleEncoder: encoder) // composite
+                    try BigUInt(1).encode(scaleEncoder: encoder)
+                    try ScaleOption<String>.some(value: "code").encode(scaleEncoder: encoder)
+                    try u64.encode(scaleEncoder: encoder)
+                    try ScaleOption<String>.none.encode(scaleEncoder: encoder)
+                    try [String]().encode(scaleEncoder: encoder)
+                }
+                let encoder = ScaleEncoder()
+                try ((types.map(\.id).max() ?? 0) + 1).encode(scaleEncoder: encoder)
+                try narrower.type.encode(scaleEncoder: encoder)
+                types.insert(try SchemaItem(scaleDecoder: ScaleDecoder(data: encoder.encode())), at: atStart ? 0 : types.count)
+            })
+            try assertCallLayoutRejected(duplicated)
+        }
+    }
+
+    func testRepeatingANameWithTheSameDefinitionStaysValid() throws {
+        // Honest runtimes list some types more than once under one name.
+        let repeated = try factory(editingMetadata: { types, _, _ in
+            let original = try XCTUnwrap(types.first { $0.type.path == ["common", "primitives", "AssetId32"] })
+            let encoder = ScaleEncoder()
+            try ((types.map(\.id).max() ?? 0) + 1).encode(scaleEncoder: encoder)
+            try original.type.encode(scaleEncoder: encoder)
+            types.append(try SchemaItem(scaleDecoder: ScaleDecoder(data: encoder.encode())))
+        })
+        XCTAssertNoThrow(try Sora2CallTable.validate(factory: repeated))
+    }
+
+    func testASchemaTypeCannotTakeThePrimitiveNameTheNonceIsEncodedThrough() throws {
+        let shadowed = try factory(editingMetadata: { types, _, _ in
+            let string = try self.typeId(in: types) {
+                if case .primitive(.string) = $0.def { return true }
+                return false
+            }
+            let next = (types.map(\.id).max() ?? 0) + 1
+            let item = try self.schemaItem(id: next, path: ["u32"]) { encoder in
+                try UInt8(0).encode(scaleEncoder: encoder) // composite
+                try BigUInt(1).encode(scaleEncoder: encoder)
+                try ScaleOption<String>.some(value: "x").encode(scaleEncoder: encoder)
+                try string.encode(scaleEncoder: encoder)
+                try ScaleOption<String>.none.encode(scaleEncoder: encoder)
+                try [String]().encode(scaleEncoder: encoder)
+            }
+            types.insert(item, at: 0)
+        })
+        try assertCallLayoutRejected(shadowed)
+    }
+
+    func testTheNonceAndTipEncodersAreThePinnedOnes() throws {
+        let original = try factory()
+        for (name, wrong) in [(KnownType.index.name, "u64"), (KnownType.balance.name, "u64")] {
+            let catalog = CallTableCatalog(base: original.catalog)
+            let factory = RuntimeCoderFactory(catalog: catalog, specVersion: original.specVersion, txVersion: original.txVersion, metadata: original.metadata)
+            XCTAssertNoThrow(try Sora2CallTable.validate(factory: factory))
+            catalog.overrides[name] = AliasNode(typeName: name, underlyingTypeName: wrong)
+            XCTAssertThrowsError(try Sora2CallTable.validate(factory: factory), name)
+        }
+    }
+
+    func testEncoderAliasesAreFollowedAndAliasCyclesFailClosed() throws {
+        let original = try factory()
+        let catalog = CallTableCatalog(base: original.catalog)
+        let factory = RuntimeCoderFactory(catalog: catalog, specVersion: original.specVersion, txVersion: original.txVersion, metadata: original.metadata)
+        catalog.overrides["u128"] = AliasNode(typeName: "u128", underlyingTypeName: "reviewedBalance")
+        catalog.overrides["reviewedBalance"] = U128Node()
+        XCTAssertNoThrow(try Sora2CallTable.validate(factory: factory))
+        catalog.overrides["reviewedBalance"] = AliasNode(typeName: "reviewedBalance", underlyingTypeName: "u128")
+        XCTAssertThrowsError(try Sora2CallTable.validate(factory: factory))
+        catalog.overrides["reviewedBalance"] = U64Node()
+        XCTAssertThrowsError(try Sora2CallTable.validate(factory: factory))
+    }
+
+    private func assertCallLayoutRejected(_ factory: RuntimeCoderFactory, file: StaticString = #filePath, line: UInt = #line) throws {
+        // A compromised node reports exactly the hash of the substituted
+        // metadata. Version/hash self-consistency alone used to accept it.
+        let live = try liveIdentity(of: factory)
+        XCTAssertNoThrow(try Sora2RuntimeIdentity.requireDeclaredIdentity(of: factory.metadata, specVersion: live.specVersion, transactionVersion: live.transactionVersion), file: file, line: line)
+        XCTAssertThrowsError(try Sora2LiveRuntimeValidator.validate(factory: factory, live: live), file: file, line: line) { error in
+            guard case ExtrinsicServiceError.unsupportedCallLayout = error else {
+                return XCTFail("Unexpected rejection: \(error)", file: file, line: line)
+            }
+            XCTAssertEqual(Sora2SigningNotice.kind(for: error, nodeURL: nil), .appUpdateRequired, file: file, line: line)
+        }
+    }
+
+    private func replacingType(_ item: SchemaItem, path: [String]? = nil, definition: (ScaleEncoder) throws -> Void) throws -> SchemaItem {
+        let encoder = ScaleEncoder()
+        try item.id.encode(scaleEncoder: encoder)
+        try (path ?? item.type.path).encode(scaleEncoder: encoder)
+        try item.type.params.encode(scaleEncoder: encoder)
+        try definition(encoder)
+        try item.type.docs.encode(scaleEncoder: encoder)
+        return try SchemaItem(scaleDecoder: ScaleDecoder(data: encoder.encode()))
+    }
+
+    private func replacingVariants(in item: SchemaItem, encode: (TypeMetadata.Def.Variant.Item, ScaleEncoder) throws -> Void) throws -> SchemaItem {
+        guard case let .variant(variant) = item.type.def else { throw Schema.Resolver.Error.wrongData }
+        return try replacingType(item) { encoder in
+            try UInt8(1).encode(scaleEncoder: encoder)
+            try BigUInt(variant.variants.count).encode(scaleEncoder: encoder)
+            for value in variant.variants { try encode(value, encoder) }
+        }
+    }
+
+    private final class CallTableCatalog: TypeRegistryCatalogProtocol {
+        let base: TypeRegistryCatalogProtocol
+        var overrides: [String: Node] = [:]
+        init(base: TypeRegistryCatalogProtocol) { self.base = base }
+        func node(for typeName: String, version: UInt64) -> Node? { overrides[typeName] ?? base.node(for: typeName, version: version) }
+        func override(for moduleName: String, constantName: String, version: UInt64) -> String? { base.override(for: moduleName, constantName: constantName, version: version) }
+        func replacingRuntimeMetadata(_ newMetadata: RuntimeMetadata, usedRuntimePaths: [String: [String]]) throws -> TypeRegistryCatalogProtocol {
+            try base.replacingRuntimeMetadata(newMetadata, usedRuntimePaths: usedRuntimePaths)
+        }
+    }
+
     // MARK: - Signed extensions (S-3, LIVE-12)
 
     private typealias SignedExtension = RuntimeMetadataV14.ExtrinsicMetadata.SignedExtension
@@ -2230,11 +2477,19 @@ final class Sora2LiveRuntimeTests: XCTestCase {
     private func factory(
         editingSignedExtensions edit: (inout [SignedExtension], [SchemaItem]) throws -> [SchemaItem]
     ) throws -> RuntimeCoderFactory {
+        try factory(editingMetadata: { types, _, extensions in
+            types += try edit(&extensions, types)
+        })
+    }
+
+    private func factory(
+        editingMetadata edit: (inout [SchemaItem], inout [RuntimeMetadataV14.ModuleMetadata], inout [SignedExtension]) throws -> Void
+    ) throws -> RuntimeCoderFactory {
         let original = try fixtureMetadata()
         let base = try RuntimeMetadata(scaleDecoder: ScaleDecoder(data: original))
-        let types = try XCTUnwrap(base.schema).types
+        var types = try XCTUnwrap(base.schema).types
         let extrinsic = try XCTUnwrap(base.extrinsic as? RuntimeMetadataV14.ExtrinsicMetadata)
-        let modules = base.modules.compactMap { $0 as? RuntimeMetadataV14.ModuleMetadata }
+        var modules = base.modules.compactMap { $0 as? RuntimeMetadataV14.ModuleMetadata }
         XCTAssertEqual(modules.count, base.modules.count)
 
         // The runtime type id that follows the extrinsic metadata is the
@@ -2246,11 +2501,11 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         let tail = original[position.upperBound...]
 
         var extensions = extrinsic.signedExtensions
-        let added = try edit(&extensions, types)
+        try edit(&types, &modules, &extensions)
         let encoder = ScaleEncoder()
         try base.metaReserved.encode(scaleEncoder: encoder)
         try base.version.encode(scaleEncoder: encoder)
-        try Schema(types: types + added).encode(scaleEncoder: encoder)
+        try Schema(types: types).encode(scaleEncoder: encoder)
         try modules.encode(scaleEncoder: encoder)
         try RuntimeMetadataV14.ExtrinsicMetadata(
             type: try XCTUnwrap(extrinsic.type),
@@ -2510,6 +2765,58 @@ final class Sora2LiveRuntimeTests: XCTestCase {
     /// An extension without data needs no bytes, known or not
     /// (`CheckNonZeroSender` is in every current Substrate runtime): the
     /// transaction is unchanged and signing goes on.
+    func testSignedExtensionLayoutExpansionIsBounded() throws {
+        let expanded = try factory { extensions, types in
+            let unit = try unitTypeId(in: types)
+            let next = (types.map(\.id).max() ?? 0) + 1
+            var previous = unit
+            var added: [SchemaItem] = []
+            // A tiny shared graph would otherwise expand to 4^8 visits.
+            for offset in 0..<8 {
+                let id = next + BigUInt(offset)
+                let child = previous
+                added.append(try schemaItem(id: id, path: ["test", "Expanded\(offset)"]) { encoder in
+                    try UInt8(0).encode(scaleEncoder: encoder)
+                    try BigUInt(4).encode(scaleEncoder: encoder)
+                    for _ in 0..<4 {
+                        try ScaleOption<String>.none.encode(scaleEncoder: encoder)
+                        try child.encode(scaleEncoder: encoder)
+                        try ScaleOption<String>.none.encode(scaleEncoder: encoder)
+                        try [String]().encode(scaleEncoder: encoder)
+                    }
+                })
+                previous = id
+            }
+            extensions.append(SignedExtension(identifier: "ExpandedZero", type: previous, additionalSigned: unit))
+            return added
+        }
+        XCTAssertThrowsError(try Sora2SignedExtensionSupport.validate(metadata: expanded.metadata))
+    }
+
+    func testByteBearingSignedExtensionsCannotBeReorderedDuplicatedOrOmitted() throws {
+        let edits: [(inout [SignedExtension]) throws -> Void] = [
+            { extensions in
+                let nonce = try XCTUnwrap(extensions.firstIndex { $0.identifier == "CheckNonce" })
+                let payment = try XCTUnwrap(extensions.firstIndex { $0.identifier == "ChargeTransactionPayment" })
+                extensions.swapAt(nonce, payment)
+            },
+            { extensions in extensions.append(try XCTUnwrap(extensions.first { $0.identifier == "CheckNonce" })) },
+            { extensions in extensions.removeAll { $0.identifier == "CheckMortality" } },
+            { extensions in
+                let spec = try XCTUnwrap(extensions.firstIndex { $0.identifier == "CheckSpecVersion" })
+                let transaction = try XCTUnwrap(extensions.firstIndex { $0.identifier == "CheckTxVersion" })
+                extensions.swapAt(spec, transaction)
+            }
+        ]
+        for edit in edits {
+            let changed = try factory { extensions, _ in try edit(&extensions); return [] }
+            XCTAssertThrowsError(try Sora2SignedExtensionSupport.validate(metadata: changed.metadata)) { error in
+                XCTAssertEqual(error as? Sora2SignedExtensionSupport.Unsupported, .init(identifier: "signed-extension-order"))
+            }
+            XCTAssertThrowsError(try Sora2LiveRuntimeValidator.validate(factory: changed, live: try liveIdentity(of: changed)))
+        }
+    }
+
     func testUnknownSignedExtensionWithoutDataChangesNothing() throws {
         let baseline = try assembleTransfer(with: try factory())
         let withEmptyExtension = try factory { extensions, types in
@@ -5065,4 +5372,197 @@ final class LocalTransactionHistoryTests: XCTestCase {
         let rows = try await history([transfer(1)], address: "B").getHistory(count: 10, assetId: nil)
         XCTAssertEqual(rows.map { $0.base.txHash }, ["0x63"])
     }
+}
+
+final class BoundedRPCProtocolBoundaryTests: XCTestCase {
+    private func engine(_ source: MetadataTestEngine = MetadataTestEngine()) -> Sora2BoundedHTTPJSONRPCEngine {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RPCStubProtocol.self]
+        return Sora2BoundedHTTPJSONRPCEngine(sourceEngine: source, session: URLSession(configuration: configuration))
+    }
+
+    func testReconnectingWrapperFollowsSourceWithoutQueuingReplayRequests() throws {
+        let source = MetadataTestEngine()
+        let transport = engine(source)
+        let changed = try XCTUnwrap(URL(string: "wss://changed.test/rpc"))
+        transport.reconnect(url: changed)
+        XCTAssertEqual(source.url, changed)
+        XCTAssertEqual(transport.url, changed)
+        XCTAssertTrue(transport.pendingEngineRequests.isEmpty)
+        transport.url = nil
+        XCTAssertNil(source.url)
+        XCTAssertNil(transport.url)
+    }
+
+    func testFixedNodeRemainsPinnedWhenLegacyCallerRequestsReconnect() throws {
+        let original = try XCTUnwrap(URL(string: "wss://archive.test/rpc"))
+        let transport = Sora2BoundedHTTPJSONRPCEngine(nodeURL: original)
+        transport.reconnect(url: try XCTUnwrap(URL(string: "wss://different.test")))
+        XCTAssertEqual(transport.url, original)
+        transport.url = nil
+        XCTAssertEqual(transport.url, original)
+        XCTAssertTrue(transport.pendingEngineRequests.isEmpty)
+    }
+
+    func testWrappingAnAlreadyBoundedTransportPreservesItsIdentity() {
+        let transport = engine()
+        XCTAssertTrue(Sora2BoundedHTTPJSONRPCEngine.wrapping(transport) === transport)
+    }
+
+    func testSubscribeRejectsBeforeDeliveringAnyUpdate() {
+        XCTAssertThrowsError(try engine().subscribe(
+            "state_subscribeStorage", params: [String](),
+            updateClosure: { (_: String) in XCTFail("HTTP must not open a subscription") },
+            failureClosure: { _, _ in XCTFail("Synchronous rejection must not call the asynchronous failure handler") }
+        )) { error in
+            guard case Sora2BoundedHTTPJSONRPCError.subscriptionsUnavailable = error else { return XCTFail("Unexpected error: \(error)") }
+        }
+    }
+
+    func testAddingLegacySubscriptionReportsTerminalUnsubscription() {
+        var failures = 0
+        let subscription = JSONRPCSubscription<String>(
+            requestId: 17, requestData: Data(), requestOptions: JSONRPCOptions(),
+            updateClosure: { _ in XCTFail("No HTTP subscription update is possible") },
+            failureClosure: { error, unsubscribed in
+                failures += 1
+                XCTAssertTrue(unsubscribed)
+                guard case Sora2BoundedHTTPJSONRPCError.subscriptionsUnavailable = error else { return XCTFail("Unexpected error: \(error)") }
+            }
+        )
+        engine().addSubscription(subscription)
+        XCTAssertEqual(failures, 1)
+    }
+
+    func testUnsubscribeIsRejectedForUnknownAndPreviouslyIssuedIdentifiers() {
+        let transport = engine()
+        for identifier in [UInt16(0), transport.generateRequestId(), UInt16.max] {
+            XCTAssertThrowsError(try transport.unsubsribe(identifier)) { error in
+                guard case Sora2BoundedHTTPJSONRPCError.subscriptionsUnavailable = error else { return XCTFail("Unexpected error: \(error)") }
+            }
+        }
+    }
+
+    func testUnreviewedMethodIsRejectedBeforeTransport() {
+        RPCStubProtocol.reset { _, _ in XCTFail("Unreviewed methods must never reach HTTP"); return nil }
+        XCTAssertThrowsError(try engine().callMethod(
+            "author_insertKey", params: ["test"], options: JSONRPCOptions(),
+            completion: { (_: Result<String, Error>) in XCTFail("Method validation must reject synchronously") }
+        )) { error in
+            guard case Sora2BoundedHTTPJSONRPCError.methodNotAllowed = error else { return XCTFail("Unexpected error: \(error)") }
+        }
+        XCTAssertTrue(RPCStubProtocol.hosts().isEmpty)
+    }
+
+    func testSubmissionRejectsMissingEmptyAndMultipleExtrinsicsBeforeTransport() {
+        RPCStubProtocol.reset { _, _ in XCTFail("Malformed submission must never reach HTTP"); return nil }
+        let transport = engine()
+        let payloads: [[String]?] = [nil, [], ["0x00", "0x01"], ["0x"], ["0x0"], ["0xAA"], ["0xgg"]]
+        for payload in payloads {
+            XCTAssertThrowsError(try transport.callMethod(
+                SoraPassport.RPCMethod.submitExtrinsic, params: payload, options: JSONRPCOptions(),
+                completion: { (_: Result<String, Error>) in XCTFail("Invalid payload must reject synchronously") }
+            )) { error in
+                guard case Sora2BoundedHTTPJSONRPCError.invalidResponse = error else { return XCTFail("Unexpected error: \(error)") }
+            }
+        }
+        XCTAssertTrue(RPCStubProtocol.hosts().isEmpty)
+    }
+
+    func testSubmissionRejectsNonStringParametersBeforeTransport() {
+        XCTAssertThrowsError(try engine().callMethod(
+            SoraPassport.RPCMethod.submitExtrinsic, params: [42], options: JSONRPCOptions(),
+            completion: { (_: Result<String, Error>) in XCTFail("Incorrect parameter type must reject synchronously") }
+        )) { error in
+            guard case Sora2BoundedHTTPJSONRPCError.invalidResponse = error else { return XCTFail("Unexpected error: \(error)") }
+        }
+    }
+
+    func testDisconnectCancelsEveryOutstandingRequestWithDistinctIdentifiers() async throws {
+        let started = expectation(description: "HTTP request started")
+        let completed = expectation(description: "Cancelled request completed once")
+        started.expectedFulfillmentCount = 2
+        completed.expectedFulfillmentCount = 2
+        BoundedRPCHeldProtocol.onStart = { started.fulfill() }
+        defer { BoundedRPCHeldProtocol.onStart = nil }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [BoundedRPCHeldProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let transport = Sora2BoundedHTTPJSONRPCEngine(nodeURL: try XCTUnwrap(URL(string: "https://held.test")), session: session)
+        let identifiers = try (0..<2).map { _ in
+            try transport.callMethod(SoraPassport.RPCMethod.getHead, params: [String](), options: JSONRPCOptions()) { (result: Result<String, Error>) in
+                if case .success = result { XCTFail("A disconnected request cannot succeed") }
+                completed.fulfill()
+            }
+        }
+        XCTAssertEqual(Set(identifiers).count, 2)
+        XCTAssertFalse(identifiers.contains(0))
+        XCTAssertFalse(identifiers.contains(transport.generateRequestId()))
+        await fulfillment(of: [started], timeout: 5)
+        transport.disconnectIfNeeded()
+        await fulfillment(of: [completed], timeout: 5)
+        XCTAssertTrue(transport.pendingEngineRequests.isEmpty)
+        XCTAssertNotEqual(transport.generateRequestId(), 0)
+        transport.disconnectIfNeeded()
+    }
+
+    func testRuntimeProofCacheEvictsOldestVersionAndPersistsOnlyBoundedProofs() throws {
+        let suite = "bounded-runtime-proof-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let cache = Sora2LiveRuntimeIdentityCache(defaults: defaults)
+        let hash = String(repeating: "a", count: 64)
+        for spec in 133...181 {
+            cache.store(metadataSHA256: hash, node: "https://metadata.test/", specVersion: UInt32(spec), transactionVersion: 131)
+        }
+        XCTAssertNil(cache.metadataSHA256(node: "https://metadata.test/", specVersion: 133, transactionVersion: 131))
+        XCTAssertEqual(cache.metadataSHA256(node: "https://metadata.test/", specVersion: 134, transactionVersion: 131), hash)
+        let persisted = try XCTUnwrap(defaults.dictionary(forKey: Sora2LiveRuntimeIdentityCache.persistenceKey))
+        XCTAssertEqual(persisted.count, Sora2LiveRuntimeIdentityCache.maximumEntries)
+        let reloaded = Sora2LiveRuntimeIdentityCache(defaults: defaults)
+        XCTAssertNil(reloaded.metadataSHA256(node: "https://metadata.test/", specVersion: 133, transactionVersion: 131))
+        XCTAssertEqual(reloaded.metadataSHA256(node: "https://metadata.test/", specVersion: 181, transactionVersion: 131), hash)
+    }
+
+    func testRuntimeProofEvictionBreaksTiesByTransactionVersionThenNode() {
+        let cache = Sora2LiveRuntimeIdentityCache()
+        let hash = String(repeating: "b", count: 64)
+        for index in 0..<48 {
+            cache.store(metadataSHA256: hash, node: String(format: "https://node%02d.test/", index), specVersion: 133, transactionVersion: 132)
+        }
+        cache.store(metadataSHA256: hash, node: "https://older.test/", specVersion: 133, transactionVersion: 131)
+        XCTAssertNil(cache.metadataSHA256(node: "https://older.test/", specVersion: 133, transactionVersion: 131))
+        cache.store(metadataSHA256: hash, node: "https://z-last.test/", specVersion: 133, transactionVersion: 132)
+        XCTAssertNil(cache.metadataSHA256(node: "https://node00.test/", specVersion: 133, transactionVersion: 132))
+        XCTAssertEqual(cache.metadataSHA256(node: "https://node01.test/", specVersion: 133, transactionVersion: 132), hash)
+        XCTAssertEqual(cache.metadataSHA256(node: "https://z-last.test/", specVersion: 133, transactionVersion: 132), hash)
+    }
+
+    func testMalformedPersistedProofKeysAreIgnoredWithoutLosingValidProofs() throws {
+        let suite = "malformed-runtime-proof-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let hash = String(repeating: "c", count: 64)
+        defaults.set([
+            "missing-separator": hash,
+            "133:131 https://valid.test/": hash,
+            "133:131 https://bad-hash.test/": "not-a-hash",
+            "133:131:4 https://invalid.test/": hash,
+            "133:0 https://invalid.test/": hash,
+            "invalid:131 https://invalid.test/": hash
+        ], forKey: Sora2LiveRuntimeIdentityCache.persistenceKey)
+        let cache = Sora2LiveRuntimeIdentityCache(defaults: defaults)
+        XCTAssertEqual(cache.metadataSHA256(node: "https://valid.test/", specVersion: 133, transactionVersion: 131), hash)
+        XCTAssertNil(cache.metadataSHA256(node: "https://bad-hash.test/", specVersion: 133, transactionVersion: 131))
+        XCTAssertNil(cache.metadataSHA256(node: "https://invalid.test/", specVersion: 133, transactionVersion: 131))
+    }
+}
+
+private final class BoundedRPCHeldProtocol: URLProtocol {
+    static var onStart: (() -> Void)?
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() { Self.onStart?() }
+    override func stopLoading() {}
 }

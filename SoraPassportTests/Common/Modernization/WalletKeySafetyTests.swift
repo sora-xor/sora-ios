@@ -2256,6 +2256,33 @@ final class WalletKeySafetyTests: XCTestCase {
         }
     }
 
+    func testPhraseParserRejectsListsLongerThanThirtyWords() throws {
+        let creator = IRMnemonicCreator(language: .english)
+        // 27 and 30 words (288 and 320 bits) are the longest phrases the creator makes.
+        for bytes in [36, 40] {
+            let longest = try phrase(entropy: 0x5a, bytes: bytes)
+            XCTAssertEqual(try creator.mnemonic(fromList: longest).entropy(), Data(repeating: 0x5a, count: bytes))
+        }
+        // Multiples of three that the parser used to accept, up to lengths that
+        // read past the checksum hash. A decrypted Drive backup can carry them.
+        let words = try creator.mnemonic(fromEntropy: Data(repeating: 0x5a, count: 32)).allWords()
+        for count in [33, 48, 771, 3_000] {
+            let list = (0..<count).map { words[$0 % words.count] }.joined(separator: " ")
+            XCTAssertThrowsError(try creator.mnemonic(fromList: list), "\(count)") { error in
+                XCTAssertTrue((error as NSError).localizedDescription.hasPrefix("Invalid number of words"), "\(error)")
+            }
+        }
+    }
+
+    func testSoftPublicKeyDerivationMatchesTheSoftKeypair() throws {
+        let factory = SNKeyFactory()
+        let parent = try factory.createKeypair(fromSeed: Data(repeating: 0x2a, count: 32))
+        let chaincode = Data((0..<32).map { UInt8($0) })
+        let child = try factory.createKeypairSoft(parent, chaincode: chaincode)
+        let publicChild = try factory.createPublicKeySoft(parent.publicKey(), chaincode: chaincode)
+        XCTAssertEqual(publicChild.rawData(), child.publicKey().rawData())
+    }
+
     // MARK: (l) Interrupted ordinary create or import
 
     func testInterruptedImportBeforeCoreDataIsSetAsideAndTheItemsAreAdopted() throws {
@@ -3129,14 +3156,14 @@ final class WalletKeySafetyTests: XCTestCase {
         let keychain = InMemoryKeychain()
         try? keychain.addKey(Data("111111".utf8), with: KeystoreTag.pincode.rawValue)
         let settings = InMemorySettingsManager()
-        var date = Date(timeIntervalSince1970: 1_000)
+        var uptime: TimeInterval = 1_000
         let interactor = SecurityLayerInteractor(applicationHandler: ApplicationHandler(), settings: settings,
-            keystore: keychain, pincodeDelay: 300, currentDate: { date })
+            keystore: keychain, pincodeDelay: 300, uptime: { uptime })
         let output = SecurityLayerOutputSpy()
         interactor.presenter = output
         func backgroundAndReturn() {
             interactor.didReceiveWillResignActive(notification: Notification(name: UIApplication.willResignActiveNotification))
-            date.addTimeInterval(301)
+            uptime += 301
             interactor.didReceiveWillEnterForeground(notification: Notification(name: UIApplication.willEnterForegroundNotification))
         }
         WalletPendingPinSetup.begin(settings)
@@ -3155,6 +3182,167 @@ final class WalletKeySafetyTests: XCTestCase {
         wireframe.showAuthorization()
         XCTAssertNil(wireframe.authorizationWindow)
         XCTAssertEqual(pinScreens, 0)
+    }
+
+    private static let resumeCheckAccount = AccountItem(address: "resume-check-wallet", cryptoType: .sr25519,
+        networkType: Chain.sora.addressType(), username: "Resume", publicKeyData: Data(repeating: 7, count: 32),
+        settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
+    /// The app PIN itself, then the selected wallet's PIN-setup state.
+    private static let unreadableResumeTags = [KeystoreTag.pincode.rawValue,
+                                               WalletOwnerPIN.setupPrefix + resumeCheckAccount.address]
+
+    /// The resume check for a selected wallet with an app PIN. Reads of
+    /// `failingTag` fail until the test sets `interactor.keystore = keychain`.
+    private func makeResumeCheck(failingTag: String, uptime: @escaping () -> TimeInterval,
+                                 protectedDataAvailable: @escaping () -> Bool)
+        -> (SecurityLayerInteractor, SecurityLayerOutputSpy, InMemoryKeychain, NotificationCenter) {
+        let keychain = InMemoryKeychain()
+        try? keychain.addKey(Data("111111".utf8), with: KeystoreTag.pincode.rawValue)
+        let settings = InMemorySettingsManager()
+        settings.set(value: Self.resumeCheckAccount, for: SettingsKey.selectedAccount.rawValue)
+        let center = NotificationCenter()
+        let interactor = SecurityLayerInteractor(applicationHandler: ApplicationHandler(), settings: settings,
+            keystore: AuxiliaryReadFailureKeychain(keychain, blockedSuffixes: [failingTag]), pincodeDelay: 300,
+            uptime: uptime, isProtectedDataAvailable: protectedDataAvailable, notificationCenter: center)
+        let output = SecurityLayerOutputSpy()
+        interactor.presenter = output
+        interactor.setup()
+        return (interactor, output, keychain, center)
+    }
+
+    /// Once protected data is available, a PIN state that still cannot be
+    /// read asks for the PIN, once, and removes the cover: the PIN screen
+    /// handles its own Keychain and recovery errors. The user is never left
+    /// behind the cover.
+    func testAnUnreadablePinStateWithProtectedDataAvailableAsksForThePinOnce() {
+        let resign = Notification(name: UIApplication.willResignActiveNotification)
+        let foreground = Notification(name: UIApplication.willEnterForegroundNotification)
+        let active = Notification(name: UIApplication.didBecomeActiveNotification)
+        for failingTag in Self.unreadableResumeTags {
+            // Back from the background, or from only being inactive.
+            for throughForeground in [true, false] {
+                let label = "\(failingTag), through foreground: \(throughForeground)"
+                var uptime: TimeInterval = 1_000
+                let (interactor, output, _, center) = makeResumeCheck(failingTag: failingTag,
+                    uptime: { uptime }, protectedDataAvailable: { true })
+
+                interactor.didReceiveWillResignActive(notification: resign)
+                uptime += 301
+                if throughForeground {
+                    interactor.didReceiveWillEnterForeground(notification: foreground)
+                }
+                interactor.didReceiveDidBecomeActive(notification: active)
+                let expected: [SecurityLayerOutputSpy.Event] = throughForeground
+                    ? [.cover, .authorize, .uncover] : [.cover, .uncover, .authorize]
+                XCTAssertEqual(output.events, expected, label)
+
+                // Decided once: later events ask for nothing more.
+                center.post(name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
+                interactor.didReceiveWillEnterForeground(notification: foreground)
+                interactor.didReceiveDidBecomeActive(notification: active)
+                XCTAssertEqual(output.authorizationRequests, 1, label)
+            }
+        }
+    }
+
+    /// Before protected data is available (the phone not unlocked yet) the
+    /// Keychain cannot answer: only the privacy cover shows and the timed-out
+    /// check stays pending. The unlock notification, or else the next return,
+    /// asks for the PIN, whether or not the Keychain answers by then.
+    func testAKeychainErrorBeforeTheUnlockKeepsTheCoverThenAsksForThePin() {
+        let resign = Notification(name: UIApplication.willResignActiveNotification)
+        let foreground = Notification(name: UIApplication.willEnterForegroundNotification)
+        let active = Notification(name: UIApplication.didBecomeActiveNotification)
+        for failingTag in Self.unreadableResumeTags {
+            for keychainRecovers in [true, false] {
+                for viaUnlock in [true, false] {
+                    let label = "\(failingTag), Keychain recovers: \(keychainRecovers), via unlock: \(viaUnlock)"
+                    var uptime: TimeInterval = 1_000
+                    var protectedDataAvailable = false
+                    let (interactor, output, keychain, center) = makeResumeCheck(failingTag: failingTag,
+                        uptime: { uptime }, protectedDataAvailable: { protectedDataAvailable })
+
+                    interactor.didReceiveWillResignActive(notification: resign)
+                    uptime += 301
+                    interactor.didReceiveWillEnterForeground(notification: foreground)
+                    interactor.didReceiveDidBecomeActive(notification: active)
+                    XCTAssertEqual(output.events, [.cover], label)
+
+                    if keychainRecovers {
+                        interactor.keystore = keychain
+                    }
+                    protectedDataAvailable = true
+                    if viaUnlock {
+                        center.post(name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
+                        XCTAssertEqual(output.events, [.cover, .uncover, .authorize], label)
+                    } else {
+                        // Leaving again keeps the first absence's start: a short
+                        // second absence still asks for the PIN on return.
+                        interactor.didReceiveWillResignActive(notification: resign)
+                        uptime += 10
+                        interactor.didReceiveWillEnterForeground(notification: foreground)
+                        interactor.didReceiveDidBecomeActive(notification: active)
+                        XCTAssertEqual(output.events, [.cover, .cover, .authorize, .uncover], label)
+                    }
+
+                    // Decided once: later events ask for nothing more.
+                    center.post(name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
+                    interactor.didReceiveWillEnterForeground(notification: foreground)
+                    interactor.didReceiveDidBecomeActive(notification: active)
+                    XCTAssertEqual(output.authorizationRequests, 1, label)
+                }
+            }
+        }
+    }
+
+    /// The time away runs on the continuous clock: it counts device sleep and
+    /// setting the date back does not move it, so a wall-clock rollback
+    /// cannot stretch the unlocked interval. A reading before the start (a
+    /// reset clock) asks for the PIN, and an unlock while away settles
+    /// nothing early.
+    func testTheResumePinTimeoutRunsOnTheContinuousClockSoSettingTheDateBackCannotExtendIt() {
+        var timebase = mach_timebase_info_data_t()
+        mach_timebase_info(&timebase)
+        let continuous = TimeInterval(mach_continuous_time()) *
+            TimeInterval(timebase.numer) / TimeInterval(timebase.denom) / 1_000_000_000
+        XCTAssertEqual(SecurityLayerInteractor.continuousUptime(), continuous, accuracy: 1)
+        XCTAssertGreaterThanOrEqual(SecurityLayerInteractor.continuousUptime(),
+                                    ProcessInfo.processInfo.systemUptime - 1)
+
+        let keychain = InMemoryKeychain()
+        try? keychain.addKey(Data("111111".utf8), with: KeystoreTag.pincode.rawValue)
+        let center = NotificationCenter()
+        var uptime: TimeInterval = 1_000
+        let interactor = SecurityLayerInteractor(applicationHandler: ApplicationHandler(),
+            settings: InMemorySettingsManager(), keystore: keychain, pincodeDelay: 300,
+            uptime: { uptime }, notificationCenter: center)
+        let output = SecurityLayerOutputSpy()
+        interactor.presenter = output
+        interactor.setup()
+        let resign = Notification(name: UIApplication.willResignActiveNotification)
+        let foreground = Notification(name: UIApplication.willEnterForegroundNotification)
+        let active = Notification(name: UIApplication.didBecomeActiveNotification)
+        func away(_ seconds: TimeInterval) {
+            interactor.didReceiveWillResignActive(notification: resign)
+            uptime += seconds
+            interactor.didReceiveWillEnterForeground(notification: foreground)
+            interactor.didReceiveDidBecomeActive(notification: active)
+        }
+        away(299)
+        XCTAssertEqual(output.authorizationRequests, 0)
+        away(301)
+        XCTAssertEqual(output.authorizationRequests, 1)
+        // A reading before the start is a reset clock, not a short absence.
+        away(-3_600)
+        XCTAssertEqual(output.authorizationRequests, 2)
+
+        // Unlocking the phone 60 seconds in does not settle the absence as short.
+        interactor.didReceiveWillResignActive(notification: resign)
+        uptime += 60
+        center.post(name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
+        uptime += 241
+        interactor.didReceiveWillEnterForeground(notification: foreground)
+        XCTAssertEqual(output.authorizationRequests, 3)
     }
 
     /// A read error while the shared gate probed the migration namespace
@@ -3404,11 +3592,14 @@ private final class PinSetupOutputSpy: PinSetupInteractorOutputProtocol {
     func didReceiveConfigError(_ error: Error) { errors.append(error) }
 }
 
+/// Records the privacy cover and PIN decisions in order.
 private final class SecurityLayerOutputSpy: SecurityLayerInteractorOutputProtocol {
-    var authorizationRequests = 0
-    func didDecideSecurePresentation() {}
-    func didDecideUnsecurePresentation() {}
-    func didDecideRequestAuthorization() { authorizationRequests += 1 }
+    enum Event { case cover, uncover, authorize }
+    private(set) var events: [Event] = []
+    var authorizationRequests: Int { events.filter { $0 == .authorize }.count }
+    func didDecideSecurePresentation() { events.append(.cover) }
+    func didDecideUnsecurePresentation() { events.append(.uncover) }
+    func didDecideRequestAuthorization() { events.append(.authorize) }
 }
 
 /// Records the 1.x upgrade's import request; the test completes it.
@@ -3544,7 +3735,8 @@ private enum InterruptedWrite {
     /// below `root`. Writes of the host app in other folders are ignored.
     static func observing(below root: URL,
                           _ observer: @escaping (DurableFileWriter.Checkpoint, URL) throws -> Void,
-                          during body: () throws -> Void) rethrows {
+                          during body: () throws -> Void) throws {
+        #if DEBUG || WALLET_TESTING
         let rootPath = root.resolvingSymlinksInPath().path
         DurableFileWriter.checkpointObserver = { checkpoint, directory in
             guard directory.resolvingSymlinksInPath().path.hasPrefix(rootPath) else { return }
@@ -3554,6 +3746,15 @@ private enum InterruptedWrite {
         }
         defer { DurableFileWriter.checkpointObserver = nil }
         try body()
+        #else
+        throw XCTSkip("Durable-write fault injection is absent from the production Release host")
+        #endif
+    }
+
+    static func requireCheckpointObservation() throws {
+        #if !DEBUG && !WALLET_TESTING
+        throw XCTSkip("Durable-write fault injection is absent from the production Release host")
+        #endif
     }
 
     /// Runs `body` and returns what a kill would leave at every checkpoint
@@ -3760,7 +3961,9 @@ final class WalletInterruptedWriteTests: XCTestCase {
     private var scratch: [URL] = []
 
     override func tearDown() {
+        #if DEBUG || WALLET_TESTING
         DurableFileWriter.checkpointObserver = nil
+        #endif
         for url in scratch { try? FileManager.default.removeItem(at: url) }
         scratch = []
         super.tearDown()
@@ -3883,6 +4086,7 @@ final class WalletInterruptedWriteTests: XCTestCase {
     }
 
     func testAWriteInProgressIsNeverSweptAndNeverFailsAListing() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         let directory = try makeDirectory()
         let target = directory.appendingPathComponent("journal.json")
         try DurableFileWriter.write(Data("old".utf8), to: target, fileManager: .default,
@@ -3922,6 +4126,7 @@ final class WalletInterruptedWriteTests: XCTestCase {
     }
 
     func testAKillAtAnyStepOfAWriteLeavesThePublishedFileWholeAndOnlySweepableFiles() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         for replacesExisting in [false, true] {
             let directory = try makeDirectory()
             let target = directory.appendingPathComponent("active.json")
@@ -3969,6 +4174,7 @@ final class WalletInterruptedWriteTests: XCTestCase {
     }
 
     func testAnErrorAtAnyStepOfAWriteLeavesNoHelperFileAndAWholePublishedFile() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         struct InjectedFailure: Error {}
         for replacesExisting in [false, true] {
             for failing in DurableFileWriter.Checkpoint.allCases {
@@ -4026,6 +4232,7 @@ final class WalletInterruptedWriteTests: XCTestCase {
     }
 
     func testAnErrorWhileAFailedWriteIsRolledBackLeavesNoHelperFile() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         struct InjectedFailure: Error {}
         // The publication fails, and then the rollback (or the withdrawal of
         // a new file) fails as well, at each of its steps.
@@ -4156,6 +4363,7 @@ extension WalletInterruptedWriteTests {
     // MARK: 3. A kill at any step, then a fresh start
 
     func testAKillAtAnyStepOfTheFirstLaunchAfterTheUpgradeIsCompletedByTheNextLaunch() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         let (device, first, second) = try upgradedTwoAccountDevice()
         let states = try InterruptedWrite.killStates(of: device, label: "first launch") {
             XCTAssertEqual(try device.startup(), .ready)
@@ -4176,6 +4384,7 @@ extension WalletInterruptedWriteTests {
     }
 
     func testAKillAtAnyStepOfAnAccountSwitchOrRemovalIsCompletedByTheNextLaunch() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         let (device, first, second) = try upgradedTwoAccountDevice()
         XCTAssertEqual(try device.startup(), .ready)
         let store = try device.networkStore()
@@ -4207,6 +4416,7 @@ extension WalletInterruptedWriteTests {
     }
 
     func testAKillAtAnyStepOfAnAccountJournalWriteLeavesAReadableJournal() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         let directory = try makeDirectory()
         let gate = WalletRecoveryCapabilityGate(settings: InMemorySettingsManager(),
             unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
@@ -4338,6 +4548,7 @@ extension WalletInterruptedWriteTests {
     // MARK: 6. Records of unfinished transactions
 
     func testAKillAtAnyStepOfATransactionRecordWriteNeverBlocksTheNextSend() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         let directory = try makeDirectory()
         let store = try Sora2PendingSubmissionStore(baseURL: directory)
         _ = try store.stage(account: "cnAccount", hash: transactionHash(0xa1))
@@ -4365,6 +4576,7 @@ extension WalletInterruptedWriteTests {
     }
 
     func testAWriteOfAnotherJournalInProgressDoesNotRefuseASend() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         let directory = try makeDirectory()
         let store = try Sora2PendingSubmissionStore(baseURL: directory)
         let folder = directory.appendingPathComponent("SORA/PendingTransactions")
@@ -4807,6 +5019,7 @@ extension WalletInterruptedWriteTests {
     // MARK: 8. A rename: the display name follows the database
 
     func testAKillAtAnyStepOfARenameIsCompletedByTheNextLaunchWithTheNewName() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         let (device, first, second) = try upgradedTwoAccountDevice()
         XCTAssertEqual(try device.startup(), .ready)
         // The app's own stack over the installation's database file: the
@@ -4850,6 +5063,7 @@ extension WalletInterruptedWriteTests {
     }
 
     func testARenameWhoseSnapshotWriteFailsIsCompletedByTheNextLaunch() throws {
+        try InterruptedWrite.requireCheckpointObservation()
         struct DiskFull: Error {}
         // The snapshot write fails at its first step, or the pointer write does.
         for failingCheckpoint in [0, 4] {
@@ -5953,5 +6167,158 @@ final class WalletRecoveryConvergenceTests: XCTestCase {
         }
         XCTAssertEqual(try WalletOwnerPIN.boundAddresses(keystore: device.keychain), [account.address])
         XCTAssertEqual(try owner.verifyRetained("246810", addresses: [account.address]), [account.address])
+    }
+}
+
+final class RetainedMaterialPreparationBoundaryTests: XCTestCase {
+    private func cannotAuthorizeCredentialRepair(_ prepared: PreparedAccount) {
+        XCTAssertThrowsError(try prepared.credentialRepairMaterial()) {
+            guard case WalletCredentialRepair.Failure.suppliedMaterialRequired = $0 else {
+                return XCTFail("Unexpected repair authorization error: \($0)")
+            }
+        }
+    }
+    private func prepareSeedOnly(_ crypto: CryptoType) throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let seed = Data(repeating: 0x31, count: 32)
+        let expected = try HistoricalWriter.seedImport(seed, cryptoType: crypto, keystore: reference)
+        try device.keychain.base.saveSeed(seed, address: expected.address)
+        let before = try device.keychain.bytes(), gate = device.isolatedGate()
+        let wallet = try XCTUnwrap(RetainedKeychainWalletDiscovery.prove(address: expected.address, keystore: device.keychain, recoveryGate: gate))
+        XCTAssertEqual(wallet.cryptoType, crypto); XCTAssertEqual(wallet.publicKey, expected.publicKeyData); XCTAssertFalse(wallet.hasPhrase)
+        let prepared = try RetainedKeychainWalletDiscovery.preparedAccount(for: wallet, username: "Retained seed", keystore: device.keychain, recoveryGate: gate)
+        defer { prepared.discard() }
+        XCTAssertEqual(prepared.account.address, expected.address); XCTAssertEqual(prepared.account.publicKeyData, expected.publicKeyData)
+        XCTAssertEqual(prepared.account.username, "Retained seed"); XCTAssertEqual(prepared.account.cryptoType, crypto)
+        cannotAuthorizeCredentialRepair(prepared)
+        try prepared.prepareInitialPINSetup(keystore: device.keychain, settings: device.settings, operationID: UUID())
+        XCTAssertEqual(try device.keychain.bytes(), before); XCTAssertTrue(device.keychain.added.isEmpty); XCTAssertFalse(device.keychain.changedExistingItems)
+    }
+    private func preparePhraseOnly(_ crypto: CryptoType, path: String) throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: Data(repeating: 0x32, count: 16))
+        let expected = try HistoricalWriter.phraseImport(mnemonic.toString(), path: path, cryptoType: crypto, keystore: reference)
+        try device.keychain.base.saveEntropy(mnemonic.entropy(), address: expected.address)
+        if !path.isEmpty { try device.keychain.base.saveDeriviation(path, address: expected.address) }
+        let before = try device.keychain.bytes(), gate = device.isolatedGate()
+        let wallet = try XCTUnwrap(RetainedKeychainWalletDiscovery.prove(address: expected.address, keystore: device.keychain, recoveryGate: gate))
+        XCTAssertEqual(wallet.cryptoType, crypto); XCTAssertTrue(wallet.hasPhrase); XCTAssertEqual(wallet.derivationPath ?? "", path)
+        let prepared = try RetainedKeychainWalletDiscovery.preparedAccount(for: wallet, username: "Retained phrase", keystore: device.keychain, recoveryGate: gate)
+        defer { prepared.discard() }
+        cannotAuthorizeCredentialRepair(prepared)
+        try prepared.prepareInitialPINSetup(keystore: device.keychain, settings: device.settings, operationID: UUID())
+        XCTAssertEqual(prepared.account.address, expected.address); XCTAssertEqual(prepared.account.publicKeyData, expected.publicKeyData)
+        XCTAssertEqual(prepared.account.cryptoType, crypto); XCTAssertEqual(prepared.account.username, "Retained phrase")
+        XCTAssertEqual(try device.keychain.bytes(), before); XCTAssertTrue(device.keychain.added.isEmpty); XCTAssertFalse(device.keychain.changedExistingItems)
+    }
+    func testSr25519SeedAloneProvesAndPreparesTheRetainedIdentityWithoutWrites() throws { try prepareSeedOnly(.sr25519) }
+    func testEd25519SeedAloneProvesAndPreparesTheRetainedIdentityWithoutWrites() throws { try prepareSeedOnly(.ed25519) }
+    func testEcdsaSeedAloneProvesAndPreparesTheRetainedIdentityWithoutWrites() throws { try prepareSeedOnly(.ecdsa) }
+    func testSr25519PhraseAndSoftPathPrepareWithoutAddingSecretTags() throws { try preparePhraseOnly(.sr25519, path: "/soft") }
+    func testEd25519PhraseAndHardPathPrepareWithoutAddingSecretTags() throws { try preparePhraseOnly(.ed25519, path: "//hard") }
+    func testEcdsaPhraseAndHardPathPrepareWithoutAddingSecretTags() throws { try preparePhraseOnly(.ecdsa, path: "//hard") }
+    func testChangedSeedAfterDiscoveryCannotPrepareThePreviouslyProvenWallet() throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let account = try HistoricalWriter.seedImport(Data(repeating: 0x33, count: 32), cryptoType: .ed25519, keystore: reference)
+        try device.keychain.base.saveSeed(Data(repeating: 0x33, count: 32), address: account.address)
+        let gate = device.isolatedGate(), wallet = try XCTUnwrap(RetainedKeychainWalletDiscovery.prove(address: account.address, keystore: device.keychain, recoveryGate: device.isolatedGate()))
+        try device.keychain.base.saveSeed(Data(repeating: 0x34, count: 32), address: account.address)
+        let before = try device.keychain.bytes()
+        XCTAssertThrowsError(try RetainedKeychainWalletDiscovery.preparedAccount(for: wallet, username: "Stale", keystore: device.keychain, recoveryGate: gate)) {
+            guard case AccountCreateError.retainedKeyConflict = $0 else { return XCTFail("Unexpected error: \($0)") }
+        }
+        XCTAssertEqual(try device.keychain.bytes(), before); XCTAssertTrue(device.keychain.added.isEmpty)
+    }
+    func testSeedUnderAnotherAddressIsUnprovableAndRemainsUntouched() throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let account = try HistoricalWriter.seedImport(Data(repeating: 0x35, count: 32), cryptoType: .sr25519, keystore: reference)
+        try device.keychain.base.saveSeed(Data(repeating: 0x36, count: 32), address: account.address)
+        let before = try device.keychain.bytes()
+        XCTAssertNil(try RetainedKeychainWalletDiscovery.prove(address: account.address, keystore: device.keychain, recoveryGate: device.isolatedGate()))
+        XCTAssertEqual(try device.keychain.bytes(), before)
+    }
+    func testForeignNetworkAddressIsRejectedBeforeAdoptingItsTags() throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let account = try HistoricalWriter.seedImport(Data(repeating: 0x37, count: 32), cryptoType: .sr25519, keystore: reference)
+        let foreign = try SS58AddressFactory().address(fromAccountId: account.publicKeyData, type: 42)
+        try device.keychain.base.saveSeed(Data(repeating: 0x37, count: 32), address: foreign)
+        let before = try device.keychain.bytes()
+        XCTAssertNil(try RetainedKeychainWalletDiscovery.prove(address: foreign, keystore: device.keychain, recoveryGate: device.isolatedGate()))
+        XCTAssertEqual(try device.keychain.bytes(), before)
+    }
+    func testAddressWithoutRetainedMaterialDoesNotProduceARecoveryCandidate() throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let account = try HistoricalWriter.seedImport(Data(repeating: 0x38, count: 32), cryptoType: .ed25519, keystore: reference)
+        XCTAssertNil(try RetainedKeychainWalletDiscovery.prove(address: account.address, keystore: device.keychain, recoveryGate: device.isolatedGate()))
+        XCTAssertTrue(try device.keychain.bytes().isEmpty)
+    }
+    func testChangedDerivationPathCannotPrepareAnotherAccountFromTheRetainedPhrase() throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: Data(repeating: 0x39, count: 16))
+        let account = try HistoricalWriter.phraseImport(mnemonic.toString(), path: "//one", keystore: reference)
+        try device.keychain.base.saveEntropy(mnemonic.entropy(), address: account.address)
+        try device.keychain.base.saveDeriviation("//two", address: account.address)
+        let before = try device.keychain.bytes()
+        XCTAssertNil(try RetainedKeychainWalletDiscovery.prove(address: account.address, keystore: device.keychain, recoveryGate: device.isolatedGate()))
+        XCTAssertEqual(try device.keychain.bytes(), before)
+    }
+    func testPreparedRetainedMaterialDoesNotGrantInitialPinSetupByItself() throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let seed = Data(repeating: 0x3a, count: 32)
+        let account = try HistoricalWriter.seedImport(seed, cryptoType: .ed25519, keystore: reference)
+        try device.keychain.base.saveSeed(seed, address: account.address)
+        let gate = device.isolatedGate(), wallet = try XCTUnwrap(RetainedKeychainWalletDiscovery.prove(address: account.address, keystore: device.keychain, recoveryGate: device.isolatedGate()))
+        let prepared = try RetainedKeychainWalletDiscovery.preparedAccount(for: wallet, username: "Unowned", keystore: device.keychain, recoveryGate: gate)
+        defer { prepared.discard() }
+        let before = try device.keychain.bytes()
+        try prepared.prepareInitialPINSetup(keystore: device.keychain, settings: device.settings, operationID: UUID())
+        XCTAssertEqual(try device.keychain.bytes(), before); XCTAssertTrue(device.keychain.added.isEmpty)
+    }
+
+    func testPreparedGlobalEntropyCannotCreateAnInitialPinSetupClaim() throws {
+        let device = try Installation()
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: Data(repeating: 0x3b, count: 20))
+        _ = try HistoricalWriter.version1(phrase: mnemonic.toString(), keystore: device.keychain.base)
+        let gate = device.isolatedGate()
+        let inventory = try RetainedKeychainWalletDiscovery.inventory(keystore: device.keychain, recoveryGate: gate)
+        let wallet = try XCTUnwrap(inventory.adoptable.first(where: \.usesGlobalEntropy))
+        let prepared = try RetainedKeychainWalletDiscovery.preparedAccount(for: wallet, username: "Earlier wallet", keystore: device.keychain, recoveryGate: gate)
+        defer { prepared.discard() }
+        cannotAuthorizeCredentialRepair(prepared)
+        let before = try device.keychain.bytes()
+        try prepared.prepareInitialPINSetup(keystore: device.keychain, settings: device.settings, operationID: UUID())
+        XCTAssertEqual(try device.keychain.bytes(), before)
+        XCTAssertFalse(try WalletOwnerPIN(keystore: device.keychain, settings: device.settings, recoveryGate: gate).requiresInitialSetup(accounts: [prepared.account]))
+    }
+
+    func testPreparedDirectSecretCannotCreateAnInitialPinSetupClaim() throws {
+        let device = try Installation()
+        let account = try HistoricalWriter.seedImport(Data(repeating: 0x3c, count: 32), cryptoType: .ecdsa, keystore: device.keychain.base)
+        let gate = device.isolatedGate()
+        let wallet = try XCTUnwrap(RetainedKeychainWalletDiscovery.prove(address: account.address, keystore: device.keychain, recoveryGate: gate))
+        let prepared = try RetainedKeychainWalletDiscovery.preparedAccount(for: wallet, username: "Earlier wallet", keystore: device.keychain, recoveryGate: gate)
+        defer { prepared.discard() }
+        let before = try device.keychain.bytes()
+        try prepared.prepareInitialPINSetup(keystore: device.keychain, settings: device.settings, operationID: UUID())
+        XCTAssertEqual(try device.keychain.bytes(), before)
+        XCTAssertFalse(try WalletOwnerPIN(keystore: device.keychain, settings: device.settings, recoveryGate: gate).requiresInitialSetup(accounts: [account]))
+    }
+
+    func testSeedOnlyPreparationCanUseASeparatelyVerifiedOwnerGrant() throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let seed = Data(repeating: 0x3d, count: 32)
+        let account = try HistoricalWriter.seedImport(seed, cryptoType: .ed25519, keystore: reference)
+        try device.keychain.base.saveSeed(seed, address: account.address)
+        try device.keychain.base.saveKey(JSONEncoder().encode(WalletOwnerPIN.Binding(pin: "123456")), with: account.address + WalletOwnerPIN.bindingSuffix)
+        let gate = device.isolatedGate(), owner = WalletOwnerPIN(keystore: device.keychain, settings: device.settings, recoveryGate: device.isolatedGate())
+        let grant = try owner.authorizeRetained("123456", addresses: [account.address])
+        let wallet = try XCTUnwrap(RetainedKeychainWalletDiscovery.prove(address: account.address, keystore: device.keychain, recoveryGate: gate))
+        let prepared = try RetainedKeychainWalletDiscovery.preparedAccount(for: wallet, username: "Authorized wallet", keystore: device.keychain, recoveryGate: gate)
+        defer { prepared.discard() }
+        prepared.restrictToRetainedOwnership(grant)
+        try prepared.prepareInitialPINSetup(keystore: device.keychain, settings: device.settings, operationID: UUID())
+        XCTAssertTrue(try owner.requiresInitialSetup(accounts: [account]))
+        XCTAssertEqual(try device.keychain.fetchKey(for: KeystoreTag.seedTagForAddress(account.address)), seed)
+        cannotAuthorizeCredentialRepair(prepared)
     }
 }

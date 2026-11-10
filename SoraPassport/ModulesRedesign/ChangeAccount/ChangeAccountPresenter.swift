@@ -23,6 +23,10 @@ import SSFUtils
 import UIKit
 
 final class ChangeAccountPresenter {
+    typealias RetainedRestore = (UIViewController, WalletRetainedPinGate.Scope,
+                                @escaping (Bool) -> Void,
+                                @escaping (WalletRetainedWalletRestoreFlow.Outcome) -> Void) -> Void
+    private let retainedRestore: RetainedRestore
     weak var view: ChangeAccountViewProtocol?
     
     var wireframe: ChangeAccountWireframeProtocol!
@@ -51,7 +55,9 @@ final class ChangeAccountPresenter {
          capabilityProbe: @escaping (AccountItem, @escaping (WalletAccountCapability.State) -> Void) -> Void = WalletAccountCapability.probe,
          retainedWallets: @escaping (Set<String>) -> [RetainedKeychainWallet] = {
              WalletRecoveryStateProbe.retainedWalletsAfterSetup(keystore: Keychain(), existingAddresses: $0)
-         }) {
+         },
+         retainedRestore: @escaping RetainedRestore = WalletRetainedWalletRestoreFlow.run) {
+        self.retainedRestore = retainedRestore
         self.capabilityProbe = capabilityProbe
         self.retainedWallets = retainedWallets
         self.accountRepository = accountRepository
@@ -292,7 +298,7 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
 
     private func restoreRetainedWallets(from controller: UIViewController) {
         let eventCenter = self.eventCenter
-        WalletRetainedWalletRestoreFlow.run(on: controller, scope: .afterSetup, setBusy: { busy in
+        retainedRestore(controller, .afterSetup, { busy in
             controller.view.isUserInteractionEnabled = !busy
         }) { [weak self] outcome in
             switch outcome {

@@ -20,18 +20,18 @@ import SoraUIKit
 
 final class SoramitsuLoadingView: SoramitsuView {
     
-    /// Theme-aware backdrop (dark in dark mode).
-    let blurredView: UIView = {
-        let view = NeonScrimView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
+    let blurredView: UIView = UIView()
+    
+    let customBlurEffectView: CustomVisualEffectView = {
+        let blurEffect = UIBlurEffect(style: .light)
+        return CustomVisualEffectView(effect: blurEffect, intensity: 0.5)
     }()
-
-    /// A small glass card holding the spinner (spec §7.14).
+    
     let backgroundView: UIView = {
-        let backgroundView = GlassView()
-        backgroundView.fill = .strong
-        backgroundView.shape = .rounded(16)
+        let backgroundView = UIView()
+        backgroundView.backgroundColor = UIColor.systemGray5
+        backgroundView.layer.cornerRadius = 10
+        backgroundView.layer.masksToBounds = true
         backgroundView.translatesAutoresizingMaskIntoConstraints = false
         return backgroundView
     }()
@@ -39,7 +39,6 @@ final class SoramitsuLoadingView: SoramitsuView {
     let activityIndicatorView: UIActivityIndicatorView = {
         let activityIndicatorView = UIActivityIndicatorView()
         activityIndicatorView.style = .large
-        activityIndicatorView.color = NeonTokens.current.cyan
         activityIndicatorView.translatesAutoresizingMaskIntoConstraints = false
         activityIndicatorView.startAnimating()
         return activityIndicatorView
@@ -56,6 +55,7 @@ final class SoramitsuLoadingView: SoramitsuView {
         isUserInteractionEnabled = false
         translatesAutoresizingMaskIntoConstraints = false
         addSubview(blurredView)
+        blurredView.addSubview(customBlurEffectView)
         
         addSubview(backgroundView)
         backgroundView.addSubview(activityIndicatorView)
@@ -65,8 +65,6 @@ final class SoramitsuLoadingView: SoramitsuView {
         NSLayoutConstraint.activate([
             blurredView.widthAnchor.constraint(equalTo: widthAnchor),
             blurredView.heightAnchor.constraint(equalTo: heightAnchor),
-            blurredView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            blurredView.centerYAnchor.constraint(equalTo: centerYAnchor),
             
             backgroundView.centerYAnchor.constraint(equalTo: centerYAnchor),
             backgroundView.centerXAnchor.constraint(equalTo: centerXAnchor),
@@ -77,5 +75,10 @@ final class SoramitsuLoadingView: SoramitsuView {
             activityIndicatorView.centerYAnchor.constraint(equalTo: backgroundView.centerYAnchor),
             activityIndicatorView.centerXAnchor.constraint(equalTo: backgroundView.centerXAnchor),
         ])
+    }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        customBlurEffectView.frame = bounds
     }
 }

@@ -44,16 +44,24 @@ extension LocalizationManagerProtocol {
 extension LocalizationManager {
     static let shared: LocalizationManager = {
         let manager = LocalizationManager(settings: SettingsManager.shared,
-                                          key: SettingsKey.selectedLocalization.rawValue)
+                                          key: SettingsKey.selectedLocalization.rawValue,
+                                          availableLocalizations: appLanguages)
         manager.replaceUnavailableSelection()
         return manager
     }()
 
+    /// Custom translations stay selectable without becoming App Store locales.
+    static var appLanguages: [String] {
+        Bundle.main.localizations + ["egy-Egyp"].filter {
+            !Bundle.main.localizations.contains($0) && R.languageBundle($0) != nil
+        }
+    }
+
     /// A stored choice that this build does not ship is replaced: first by
     /// the same language without its region (a regional variant such as
     /// "es-CO" from an old release keeps Spanish), then by the best device
-    /// language, then English. Tester builds offered Old Akkadian and Middle
-    /// Egyptian, which 3.9.0 no longer ships.
+    /// language, then English. In-app languages are included in the manager's
+    /// available choices even when Apple does not recognize their locale.
     func replaceUnavailableSelection(
         preferredLanguages: [String] = Locale.preferredLanguages
     ) {

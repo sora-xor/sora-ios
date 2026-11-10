@@ -38,10 +38,15 @@ extension RootPresenter: RootInteractorOutputProtocol {
 
     func didDecideLegacyWalletUpgrade() {
         wireframe.showLegacyWalletUpgrade(
-            on: view
-        ) { [weak self] in
-            self?.interactor.performLegacyWalletUpgrade()
+            on: view,
+            requiresPIN: interactor.legacyUpgradeRequiresPIN
+        ) { [weak self] pin in
+            self?.interactor.performLegacyWalletUpgrade(pin: pin)
         }
+    }
+
+    func didRejectLegacyWalletUpgradePIN(_ error: Error) {
+        wireframe.showLegacyWalletUpgradePINRejected(on: view, error: error)
     }
 
     func didDecideLocalAuthentication() {

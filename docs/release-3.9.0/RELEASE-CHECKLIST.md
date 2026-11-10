@@ -31,23 +31,34 @@ Human and operations actions for the release. Each task adds its items here.
 
 ### Archive
 
-- [ ] Archive with plain `xcodebuild archive` (or Xcode Organizer). No
-      qualification mode variables are needed any more.
-- [ ] Pass `-onlyUsePackageVersionsFromResolvedFile` to `xcodebuild archive`
-      and confirm `git status` shows no change to
-      `Package.resolved` afterwards, so the archive uses the pinned
-      dependency versions tested locally.
-- [ ] Pass the build number explicitly: `CURRENT_PROJECT_VERSION` must be
-      greater than `2026091402` (format `YYYYMMDDNN`, e.g. `2026101001`).
-      `MARKETING_VERSION` must be `3.9.0`.
-- [ ] Signing continuity, so existing users keep Keychain access to their
-      wallets. Check the signed archive:
-      - bundle ID `co.jp.soramitsu.sora`
+- [ ] Archive with `scripts/archive-app-store.sh` from a clean checkout:
+      `SORA_MARKETING_VERSION=3.9.2 SORA_BUILD_NUMBER=<YYYYMMDDNN>
+      SORA_ARCHIVE_PATH=... SORA_EXPORT_PATH=... scripts/archive-app-store.sh`.
+      The build number must be above every earlier upload (highest so far:
+      `2026102901`). The script archives a copy of HEAD whose only change is
+      the modernization gate build phase in `--lint-ios-migration-release-source-gate`
+      mode, as every 3.9.x TestFlight upload did (the full promotion mode
+      needs Nexus signing receipts this release does not ship). It passes
+      `-onlyUsePackageVersionsFromResolvedFile` and fails if any
+      `Package.resolved` changed during the build.
+- [ ] The script stops unless both the archive and the exported IPA keep
+      signing continuity, so existing users keep Keychain access to their
+      wallets:
+      - bundle ID `co.jp.soramitsu.sora`, the requested version and build
       - team `YLWWUD25VZ`
       - `application-identifier` `YLWWUD25VZ.co.jp.soramitsu.sora`
-      - no new `keychain-access-groups` entitlement
+      - no `keychain-access-groups` or app-group entitlement
         (`SoraPassport/SoraPassport.entitlements` is an empty dictionary,
         as in 3.8.6)
+      - distribution signing (`get-task-allow` false) on the export, and no
+        migration-evidence harness in the binary
+- [ ] Dependencies changed in 3.9.2: Kingfisher 6.3.1 → 7.12.0 (ships its
+      privacy manifest); the Starscream fork is vendored at
+      `VendorPackages/fearless-starscream` (its GitHub repository was removed,
+      so clean checkouts could not resolve packages; sources byte-identical to
+      4.0.12 plus upstream's privacy manifest, see `UPSTREAM.json`); Apple
+      swift-* packages moved within their ranges, including swift-crypto
+      5.0.3 (CVE-2026-86983).
 - [ ] Check that `Payload/SoraPassport.app/Frameworks/` has no `*.a` files
       and no static-library frameworks.
 
@@ -115,9 +126,11 @@ existing wallet:
 - [ ] Leftover SORA Card SDK tokens on upgraded phones (Keychain or
       UserDefaults items under unknown SDK service names) are not cleaned
       up: any Keychain deletion code risks wallet keys. They are inert.
-- [ ] `FirebaseMessaging` is linked but unused (no push code). Unlinking it
-      would stop FCM auto-init (an installation/token fetch at launch).
-      Product/privacy owner to decide; the change is a pbxproj edit only.
+- [x] `FirebaseMessaging` was linked but unused (no push code, no
+      `aps-environment` entitlement, no remote-notification background mode).
+      3.9.2 unlinks it, so FCM auto-init (an installation/token fetch at
+      launch) no longer runs. (The rest of firebase-ios-sdk was removed on
+      2026-11-07; see the no-closed-source item below.)
 - [ ] Unused images (for example `KatanaGirl`, 1.6 MB, and some old
       PIN/profile icons) are left for the UI redesign owner, who may reuse
       some of them.
@@ -172,8 +185,9 @@ existing wallet:
       the user's own Google account, and submitted financial transactions are
       public on-chain. Backup secret fields are encrypted locally; this does
       not claim a developer-operated server can read users' recovery phrases.
-      Google Sign-In and Firebase Messaging have additional SDK declarations,
-      including linked profile data and Other Data Types. Generate the archive
+      Google Sign-In has additional SDK declarations, including linked
+      profile data and Other Data Types (Firebase Messaging, which also had
+      some, is no longer linked from 3.9.2). Generate the archive
       Privacy Report and reconcile it with actual behavior; Analytics has no
       separate manifest, so the report alone is not an exhaustive inventory.
 - [ ] Before publishing the tracking/advertising answers, verify production
@@ -261,9 +275,13 @@ existing wallet:
 - [ ] Polkamarkt keeps its runtime-130 contract pins (mutations are compiled
       off and the feature is hidden). Re-qualify against the live runtime
       before enabling it.
-- [ ] FirebaseAnalytics stays linked (no code calls it; automatic collection
-      runs). Removing it would change the App Privacy answers. Product and
-      privacy owner to decide.
+- [x] No closed-source SDK is linked (2026-11-07): firebase-ios-sdk is gone
+      (Core, Analytics, Crashlytics), so the App Privacy answers drop Crash Data,
+      Other Diagnostic Data, Product Interaction, Device ID and Coarse Location.
+      Crash reports come from Xcode Organizer. The prebuilt blake2lib,
+      libed25519, sr25519lib, sorawallet and MPQRCoreSDK binaries are replaced
+      by source (see `Fixtures/Modernization/ios-vendored-binary-qualification-README.md`).
+      Update App Store Connect's App Privacy section before submitting.
 
 ## i4: Key safety, lockouts and recovery (core)
 

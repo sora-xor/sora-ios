@@ -277,6 +277,9 @@ final class NexusCoordinatorLifecycleTests: XCTestCase {
     XCTAssertEqual(result.state, .committed)
     XCTAssertNotNil(result.historyReconciledAt)
     XCTAssertEqual(result.terminalBlockHeight, 10)
+    // Both history proofs ask for the block the status reported, not the
+    // whole chain (Taira walked every block range: minutes per send).
+    XCTAssertEqual(f.read.proofBlockHeights, [10, 10])
     XCTAssertEqual(result.sender, sender)
     XCTAssertEqual(result.receiver, receiver)
     XCTAssertEqual(result.amount.rawValue, "2")
@@ -594,6 +597,8 @@ private final class CoordinatorRead: NexusToriiReading {
   var quantity = "100", definition: String, historyAmount = "2", statusHash: String
   var definitionReads = 0, statusReads = 0
   var balanceRequests: [String] = []
+  /// The committed block each narrowed history proof asked for.
+  var proofBlockHeights: [Int64] = []
   var wrongAccount = false, authoritative = true, duplicateHistory = false
   var kind = "applied", resolvedFrom = "state"
   var statusError: Error?
@@ -656,6 +661,22 @@ private final class CoordinatorRead: NexusToriiReading {
       transactionHash: hash, timestampMilliseconds: 1, amount: try PIQuantity(historyAmount),
       sender: account, receiver: receiver)
     return duplicateHistory ? [item, item] : [item]
+  }
+  func hasAuthoritativeCommittedTransaction(
+    account: String, configuration: NexusNetworkConfiguration, assetDefinitionID: String,
+    transactionHash: String, committedBlockHeight: Int64
+  ) async throws -> Bool {
+    proofBlockHeights.append(committedBlockHeight)
+    return authoritative
+  }
+  func committedXorTransfers(
+    account: String, configuration: NexusNetworkConfiguration, assetDefinitionID: String,
+    transactionHash: String, committedBlockHeight: Int64
+  ) async throws -> [NexusTransferHistoryItem] {
+    proofBlockHeights.append(committedBlockHeight)
+    return try await committedXorTransfers(
+      account: account, configuration: configuration, assetDefinitionID: assetDefinitionID,
+      transactionHash: transactionHash)
   }
 }
 private final class CoordinatorSign: NexusTransactionSigning {

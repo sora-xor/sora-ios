@@ -311,10 +311,12 @@ extension WebSocketEngine {
                 try processSubscriptionUpdate(data)
             }
         } catch {
+            // Node responses carry addresses, balances and other account
+            // data, and release builds keep warnings and errors. Those
+            // levels get the size only; the text stays at debug level.
+            logger?.error("Can't parse data of \(data.count) bytes")
             if let stringData = String(data: data, encoding: .utf8) {
-                logger?.error("Can't parse data: \(stringData)")
-            } else {
-                logger?.error("Can't parse data")
+                logger?.debug("Can't parse data: \(stringData)")
             }
         }
     }
@@ -429,10 +431,9 @@ extension WebSocketEngine {
         } catch {
             processSubscriptionError(identifier, error: error, shouldUnsubscribe: true)
 
+            logger?.error("Did fail to parse subscription data for request \(identifier) (\(data.count) bytes)")
             if let responseString = String(data: data, encoding: .utf8) {
-                logger?.error("Did fail to parse subscription data: \(responseString)")
-            } else {
-                logger?.error("Did fail to parse subscription data")
+                logger?.debug("Did fail to parse subscription data: \(responseString)")
             }
         }
     }

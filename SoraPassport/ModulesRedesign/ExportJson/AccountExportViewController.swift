@@ -53,7 +53,7 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
     private lazy var passwordInputField: InputField = {
         let view = InputField()
         view.sora.titleLabelText = R.string.localizable.exportJsonInputLabel(preferredLanguages: languages)
-        view.sora.descriptionLabelText = R.string.localizable.backupPasswordRequirments(preferredLanguages: languages)
+        view.sora.descriptionLabelText = R.string.localizable.backupPasswordPolicyRequirements(preferredLanguages: languages)
         view.sora.textFieldPlaceholder = R.string.localizable.exportJsonInputLabel(preferredLanguages: languages)
         view.sora.keyboardType = .alphabet
         view.sora.textContentType = .newPassword
@@ -127,13 +127,12 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
 
     private func updateState() {
 
-        let isPasswordValid = (passwordInputField.sora.text?.count ?? 0) >= 6
+        let violation = BackupPasswordPolicy.violation(for: passwordInputField.sora.text ?? "")
+        let isPasswordValid = violation == nil
         let isConfirmEmpty = confirmPasswordInputField.sora.text?.isEmpty ?? true
         let isMatching = passwordInputField.sora.text == confirmPasswordInputField.sora.text
 
-        passwordInputField.sora.descriptionLabelText = isPasswordValid
-            ? R.string.localizable.backupPasswordMandatoryReqsFulfilled(preferredLanguages: languages)
-            : R.string.localizable.backupPasswordRequirments(preferredLanguages: languages)
+        passwordInputField.sora.descriptionLabelText = BackupPasswordPolicy.guidance(for: violation, preferredLanguages: languages)
         passwordInputField.sora.state = isPasswordValid ? .success : .fail
 
         confirmPasswordInputField.sora.descriptionLabelText = isMatching ? "" : isConfirmEmpty ? "" :
@@ -146,7 +145,7 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
     @objc
     func downloadTapped(){
         guard let password = passwordInputField.sora.text,
-              password.count >= 6,
+              BackupPasswordPolicy.violation(for: password) == nil,
               password == confirmPasswordInputField.sora.text else { return }
         presenter.exportWith(password: password)
     }

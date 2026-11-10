@@ -40,7 +40,11 @@ struct EthereumSignature: Codable {
 
         let vPartString = try container.decode(String.self, forKey: .vPart)
         let vPartData = try NSData(hexString: vPartString) as Data
-        vPart = 0//vPartData.bytes[0]
+        guard vPartData.count == 1, let recoveryId = vPartData.first else {
+            throw DecodingError.dataCorruptedError(forKey: .vPart, in: container,
+                debugDescription: "Ethereum signature recovery ID must contain exactly one byte")
+        }
+        vPart = recoveryId
 
         let rPartString = try container.decode(String.self, forKey: .rPart)
         rPart = try NSData(hexString: rPartString) as Data

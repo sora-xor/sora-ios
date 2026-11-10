@@ -1387,14 +1387,16 @@ final class StartupNetworkTests: XCTestCase {
     private final class StubRegistryServices: ChainSyncServiceProtocol, CommonTypesSyncServiceProtocol,
         RuntimeSyncServiceProtocol, SnapshotHotBootBuilderProtocol, SpecVersionSubscriptionFactoryProtocol,
         SpecVersionSubscriptionProtocol {
+        var knownChain = false, chainSyncing = false
+        var refreshRequests: [String] = []
         func syncUp() {}
         func startHotBoot() {}
         func register(chain _: ChainModel, with _: ChainConnection) {}
         func unregister(chainId _: ChainModel.Id) {}
-        func apply(version _: RuntimeVersion, for _: ChainModel.Id) {}
-        func applyReplacingCachedMetadata(version _: RuntimeVersion, for _: ChainModel.Id) {}
-        func hasChain(with _: ChainModel.Id) -> Bool { false }
-        func isChainSyncing(_: ChainModel.Id) -> Bool { false }
+        func apply(version _: RuntimeVersion, for id: ChainModel.Id) { refreshRequests.append("apply:" + id) }
+        func applyReplacingCachedMetadata(version _: RuntimeVersion, for id: ChainModel.Id) { refreshRequests.append("replace:" + id) }
+        func hasChain(with _: ChainModel.Id) -> Bool { knownChain }
+        func isChainSyncing(_: ChainModel.Id) -> Bool { chainSyncing }
         func createSubscription(for _: ChainModel.Id, connection _: JSONRPCEngine) -> SpecVersionSubscriptionProtocol { self }
         func subscribe() {}
         func unsubscribe() {}
@@ -2832,5 +2834,68 @@ final class StartupNetworkTests: XCTestCase {
         XCTAssertTrue(waitOnMain { rebuilt.getBalances(with: [xor]) == saved })
         XCTAssertEqual(cache.balances(of: account), saved)
         withExtendedLifetime((withList, withoutList, rebuilt)) {}
+    }
+}
+
+extension StartupNetworkTests {
+    private struct RegistryBoundaryFixture {
+        let registry: ChainRegistry; let services: StubRegistryServices
+        let repository: CoreDataRepository<ChainModel, CDChain>; let operations: OperationQueue
+        let chain: ChainModel
+    }
+    private func boundaryRegistry() -> RegistryBoundaryFixture {
+        let storage = SubstrateStorageTestFacade(), operations = OperationQueue()
+        let repository = ChainRepositoryFactory(storageFacade: storage).createRepository()
+        let observable = CoreDataContextObservable(service: storage.databaseService, mapper: repository.dataMapper, predicate: { _ in true })
+        observable.start { XCTAssertNil($0) }
+        let provider = StreamableProvider(source: AnyStreamableSource(SoraPassport.EmptyStreamableSource<ChainModel>()),
+            repository: AnyDataProviderRepository(repository), observable: AnyDataProviderRepositoryObservable(observable),
+            operationManager: OperationManager(operationQueue: operations))
+        let services = StubRegistryServices()
+        let registry = ChainRegistry(snapshotHotBootBuilder: services, runtimeProviderPool: StubRuntimePool(), connectionPool: StubPool(connection: node),
+            chainSyncService: services, runtimeSyncService: services, commonTypesSyncService: services, chainProvider: provider,
+            specVersionSubscriptionFactory: services, logger: nil, eventCenter: EventCenter(),
+            chainRepository: AnyDataProviderRepository(repository), operationManager: OperationManager(operationQueue: operations),
+            networkStatusPresenter: StatusRecorder(), nodeDidConnect: {})
+        let chain = ChainSyncService.preparedChain(chainId: "0x" + String(repeating: "5c", count: 32), addressPrefix: 69, name: "Boundary chain",
+            nodes: [ChainNodeModel(url: URL(string: "wss://boundary.invalid")!, name: "Boundary", apikey: nil)],
+            typesURL: nil, local: nil, assets: [], whitelist: .empty)
+        return RegistryBoundaryFixture(registry: registry, services: services, repository: repository, operations: operations, chain: chain)
+    }
+    func testRegistryExplicitSubscriptionPublishesKnownChainsAndReusesTheirAssetManager() throws {
+        let f = boundaryRegistry(); XCTAssertEqual(f.registry.availableChainIds, [])
+        let save = f.repository.saveOperation({ [f.chain] }, { [] }); f.operations.addOperations([save], waitUntilFinished: true)
+        _ = try XCTUnwrap(save.result).get(); f.registry.subscribeToChians()
+        XCTAssertTrue(waitOnMain { f.registry.getChain(for: f.chain.chainId) != nil })
+        XCTAssertEqual(f.registry.availableChainIds, [f.chain.chainId])
+        XCTAssertTrue(f.registry.getAssetManager(for: f.chain.chainId) === f.registry.getAssetManager(for: f.chain.chainId))
+        XCTAssertEqual(f.registry.getActiveNode(for: f.chain.chainId)?.name, "Boundary")
+        let remove = f.repository.saveOperation({ [] }, { [f.chain.chainId] }); f.operations.addOperations([remove], waitUntilFinished: true)
+        _ = try XCTUnwrap(remove.result).get(); XCTAssertTrue(waitOnMain { f.registry.getChain(for: f.chain.chainId) == nil })
+        XCTAssertEqual(f.registry.availableChainIds, [])
+    }
+    func testRegistryAdditionalObserverReceivesInitialChainsOnItsRequestedQueue() throws {
+        let f = boundaryRegistry(), observer = NSObject(), delivered = expectation(description: "chain observer initial snapshot")
+        let save = f.repository.saveOperation({ [f.chain] }, { [] }); f.operations.addOperations([save], waitUntilFinished: true)
+        _ = try XCTUnwrap(save.result).get()
+        let queue = DispatchQueue(label: "registry-boundary-delivery"), key = DispatchSpecificKey<Bool>(); queue.setSpecific(key: key, value: true)
+        f.registry.chainsSubscribe(observer, runningInQueue: queue) { changes in
+            XCTAssertEqual(DispatchQueue.getSpecific(key: key), true)
+            XCTAssertEqual(changes.compactMap { $0.item?.chainId }, [f.chain.chainId]); delivered.fulfill()
+        }
+        wait(for: [delivered], timeout: 3); f.registry.chainsUnsubscribe(observer)
+    }
+    func testRuntimeRefreshIgnoresUnknownAndSyncingChainsUnlessMetadataReplacementIsRequired() throws {
+        let f = boundaryRegistry(), version = try JSONDecoder().decode(RuntimeVersion.self, from: Data(#"{"specVersion":130,"transactionVersion":131}"#.utf8))
+        f.registry.requestRuntimeRefresh(for: "chain", liveVersion: version, replacingCachedMetadata: false)
+        XCTAssertTrue(f.services.refreshRequests.isEmpty)
+        f.services.knownChain = true
+        f.registry.requestRuntimeRefresh(for: "chain", liveVersion: version, replacingCachedMetadata: false)
+        XCTAssertEqual(f.services.refreshRequests, ["apply:chain"])
+        f.services.chainSyncing = true
+        f.registry.requestRuntimeRefresh(for: "chain", liveVersion: version, replacingCachedMetadata: false)
+        XCTAssertEqual(f.services.refreshRequests.count, 1)
+        f.registry.requestRuntimeRefresh(for: "chain", liveVersion: version, replacingCachedMetadata: true)
+        XCTAssertEqual(f.services.refreshRequests, ["apply:chain", "replace:chain"])
     }
 }

@@ -362,6 +362,9 @@ private final class SwapEditorAssets: AssetManagerProtocol {
   func setup(for accountSettings: SelectedWalletSettings) {}
 }
 private final class SwapEditorInteractor: PolkaswapMainInteractorInputProtocol {
+  private let quoteLock = NSLock()
+  private var capturedQuotes = [PolkaswapMainInteractorQuoteParams]()
+  var quotes: [PolkaswapMainInteractorQuoteParams] { quoteLock.lock(); defer { quoteLock.unlock() }; return capturedQuotes }
   var paths = [(String, String)](), markets = [(String, String)]()
   func networkFeeValue(completion: @escaping (Decimal) -> Void) { completion(1) }
   func checkIsPathAvailable(fromAssetId: String, toAssetId: String) {
@@ -370,7 +373,7 @@ private final class SwapEditorInteractor: PolkaswapMainInteractorInputProtocol {
   func loadMarketSources(fromAssetId: String, toAssetId: String) {
     markets.append((fromAssetId, toAssetId))
   }
-  func quote(params: PolkaswapMainInteractorQuoteParams) {}
+  func quote(params: PolkaswapMainInteractorQuoteParams) { quoteLock.lock(); capturedQuotes.append(params); quoteLock.unlock() }
   func loadBalance(asset: AssetInfo) {}
   func unsubscribePoolXYK() {}
   func unsubscribePoolTBC() {}
@@ -411,6 +414,12 @@ private final class SwapEditorView: UIViewController, LiquidityViewProtocol {
 }
 
 private final class SwapEditorRoutes: LiquidityWireframeProtocol {
+  var slippages = [PolkaswapSlippage](), slippageCompletion: ((PolkaswapSlippage) -> Void)?
+  var offeredMarkets = [[LiquiditySourceType]](), selectedMarkets = [LiquiditySourceType](), marketCompletion: ((LiquiditySourceType) -> Void)?
+  var alerts = [(String?, String?, String?)](), alertHosts = [UIViewController?]()
+  func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) {
+    alerts.append((message, title, closeAction)); alertHosts.append(view?.controller)
+  }
   var assetLists = [[String]](), assetCompletion: ((String) -> Void)?,
     reviews = [(String, String, Decimal, Decimal, Decimal)]()
   func showChoiсeBaseAsset(
@@ -431,14 +440,14 @@ private final class SwapEditorRoutes: LiquidityWireframeProtocol {
     on controller: UINavigationController?,
     currentLocale: PolkaswapSlippage,
     completion: @escaping (PolkaswapSlippage) -> Void
-  ) {}
+  ) { slippages.append(currentLocale); slippageCompletion = completion }
 
   func showChoiсeMarket(
     on controller: UINavigationController?,
     selectedMarket: LiquiditySourceType,
     markets: [LiquiditySourceType],
     completion: @escaping (LiquiditySourceType) -> Void
-  ) {}
+  ) { offeredMarkets.append(markets); selectedMarkets.append(selectedMarket); marketCompletion = completion }
 
   func showSupplyLiquidityConfirmation(
     on controller: UINavigationController?,
@@ -494,4 +503,117 @@ private final class SwapEditorRoutes: LiquidityWireframeProtocol {
     fiatData: [PIExactFiatData],
     polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?
   ) { reviews.append((baseAssetId, targetAssetId, firstAssetAmount, secondAssetAmount, fee)) }
+}
+
+extension SwapEditorFlowTests {
+    private func awaitQuote(_ f: SwapEditorFixture, count: Int = 1) async throws -> PolkaswapMainInteractorQuoteParams {
+        let deadline = Date().addingTimeInterval(3)
+        while f.interactor.quotes.count < count && Date() < deadline { try? await Task.sleep(nanoseconds: 20_000_000) }
+        return try XCTUnwrap(f.interactor.quotes.last)
+    }
+    func testCurrentMarketDiscoveryBuildsAnExactInputQuote() async throws {
+        let f = make(); f.model.didLoadMarketSources([LiquiditySourceType.xyk.rawValue], fromAssetId: f.xor, toAssetId: f.val)
+        let quote = try await awaitQuote(f)
+        XCTAssertEqual(quote.fromAssetId, f.xor); XCTAssertEqual(quote.toAssetId, f.val)
+        XCTAssertEqual(quote.amount, "1000000000000000000"); XCTAssertEqual(quote.swapVariant, .desiredInput)
+        XCTAssertEqual(quote.filterMode, .disabled); XCTAssertEqual(quote.liquiditySources, [LiquiditySourceType.xyk.rawValue])
+        XCTAssertFalse(f.view.marketLoading)
+    }
+    func testExactOutputQuoteUsesTheRequestedTokensPrecision() async throws {
+        let f = make(); f.model.swapVariant = .desiredOutput; f.model.inputedSecondAmount = Decimal(string: "1.234567")!
+        f.model.didLoadMarketSources([LiquiditySourceType.xyk.rawValue], fromAssetId: f.xor, toAssetId: f.val)
+        let quote = try await awaitQuote(f)
+        XCTAssertEqual(quote.amount, "1234567"); XCTAssertEqual(quote.swapVariant, .desiredOutput)
+    }
+    func testExplicitMarketQuoteEnablesTheSelectedSourceFilter() async throws {
+        let f = make(); f.model.selectedMarket = .tbc
+        f.model.didLoadMarketSources([LiquiditySourceType.tbc.rawValue], fromAssetId: f.xor, toAssetId: f.val)
+        let quote = try await awaitQuote(f)
+        XCTAssertEqual(quote.filterMode, .allowSelected); XCTAssertEqual(quote.liquiditySources, [LiquiditySourceType.tbc.rawValue])
+    }
+    func testObsoleteMarketDiscoveryDoesNotChangeTheCurrentMarketOrScheduleAQuote() async {
+        let f = make(); f.view.marketLoading = true
+        f.model.didLoadMarketSources([LiquiditySourceType.tbc.rawValue], fromAssetId: f.val, toAssetId: f.pswap)
+        await settle(); XCTAssertFalse(f.model.marketSourcer?.isLoaded() == true)
+        XCTAssertTrue(f.interactor.quotes.isEmpty); XCTAssertTrue(f.view.marketLoading)
+    }
+    func testMissingMarketSourceCannotProcessADiscoveryResult() {
+        let f = make(); f.model.marketSourcer = nil
+        f.model.didLoadMarketSources([LiquiditySourceType.xyk.rawValue], fromAssetId: f.xor, toAssetId: f.val)
+        XCTAssertTrue(f.interactor.quotes.isEmpty)
+    }
+    func testMarketRemovalSelectsTheLastAvailableSource() {
+        let f = make(); let sources = SwapMarketSourcer(fromAssetId: f.xor, toAssetId: f.val)
+        sources.setMarketSources([.xyk, .tbc]); f.model.marketSourcer = sources; f.model.selectedMarket = .smart
+        f.model.updateSelectedMarketSourceIfNecessary(); XCTAssertEqual(f.model.selectedMarket, .tbc)
+    }
+    func testEmptyOrMissingMarketListFallsBackWithoutEnablingReview() {
+        let f = make(); let sources = SwapMarketSourcer(fromAssetId: f.xor, toAssetId: f.val)
+        sources.setMarketSources([]); f.model.marketSourcer = sources; f.model.selectedMarket = .tbc
+        f.model.updateSelectedMarketSourceIfNecessary(); XCTAssertEqual(f.model.selectedMarket, .smart)
+        XCTAssertFalse(f.model.updateButtonState()); XCTAssertFalse(f.view.enabled)
+        f.model.marketSourcer = nil; f.model.updateSelectedMarketSourceIfNecessary(); XCTAssertEqual(f.model.selectedMarket, .smart)
+    }
+    func testSlippagePickerReceivesTheCurrentValueAndAppliesItsResult() throws {
+        let f = make(); let chosen = try XCTUnwrap(PolkaswapSlippage(basisPoints: 125))
+        f.model.changeSlippageTolerance(); XCTAssertEqual(f.routes.slippages, [.defaultValue])
+        try XCTUnwrap(f.routes.slippageCompletion)(chosen); XCTAssertEqual(f.model.slippageTolerance, chosen)
+    }
+    func testMarketPickerOffersOnlySmartAndBondingCurveSources() throws {
+        let f = make(); let sources = SwapMarketSourcer(fromAssetId: f.xor, toAssetId: f.val)
+        sources.setMarketSources([.xyk, .tbc, .smart]); f.model.marketSourcer = sources
+        f.model.changeMarket(); XCTAssertEqual(f.routes.offeredMarkets, [[.tbc, .smart]])
+        XCTAssertEqual(f.routes.selectedMarkets, [.smart]); try XCTUnwrap(f.routes.marketCompletion)(.tbc)
+        XCTAssertEqual(f.model.selectedMarket, .tbc)
+    }
+    func testMissingMarketProviderStillOffersSmartRouting() {
+        let f = make(); f.model.marketSourcer = nil; f.model.changeMarket()
+        XCTAssertEqual(f.routes.offeredMarkets, [[.smart]])
+    }
+    func testNewBlockRefreshInvalidatesOldAmountsBeforeRequestingAnotherQuote() async throws {
+        let f = make(); await ready(f); XCTAssertNotNil(f.model.amounts)
+        f.model.marketSourcer?.didLoad([LiquiditySourceType.xyk.rawValue])
+        f.model.processNewBlockAppeared(event: NewBlockEvent())
+        XCTAssertNil(f.model.amounts); XCTAssertFalse(f.view.enabled)
+        _ = try await awaitQuote(f)
+    }
+    func testPoolNotificationsCoalesceIntoOneCurrentQuote() async throws {
+        let f = make(); f.model.marketSourcer?.didLoad([LiquiditySourceType.xyk.rawValue])
+        f.model.didUpdatePoolSubscription(); f.model.didUpdatePoolSubscription()
+        _ = try await awaitQuote(f); XCTAssertEqual(f.interactor.quotes.count, 1)
+    }
+    func testSwappingSidesWhileEditingOutputMovesThatAmountToTheInput() async {
+        let f = make(); f.model.viewDidLoad(); await settle(); f.model.focusedField = .two
+        f.model.inputedSecondAmount = 7; f.model.middleButtonActionHandler?()
+        XCTAssertEqual(f.model.firstAssetId, f.val); XCTAssertEqual(f.model.secondAssetId, f.xor)
+        XCTAssertEqual(f.model.inputedFirstAmount, 7); XCTAssertEqual(f.view.focused, .one)
+    }
+    func testExactOutputWithNoPositiveRequestedAmountIsNotReady() {
+        let f = make(); f.model.swapVariant = .desiredOutput; f.model.inputedSecondAmount = 0
+        XCTAssertFalse(f.model.updateButtonState()); XCTAssertFalse(f.view.enabled)
+    }
+    func testExactOutputCannotUseAnUnquotedSlippageLimit() {
+        let f = make(); f.model.swapVariant = .desiredOutput; f.model.inputedSecondAmount = 1
+        XCTAssertFalse(f.model.checkBalances()); XCTAssertFalse(f.view.enabled)
+    }
+    func testThreeFeeInfoActionsKeepTheirMessagesAndHostTogether() {
+        let f = make(); f.model.minMaxReceivedInfoButtonTapped(); f.model.networkFeeInfoButtonTapped(); f.model.swapFeeInfoButtonTapped()
+        XCTAssertEqual(f.routes.alerts.count, 3); XCTAssertEqual(f.routes.alerts.first?.0, f.model.swapVariant.message)
+        XCTAssertEqual(f.routes.alerts.first?.1, f.model.swapVariant.title)
+        XCTAssertTrue(f.routes.alerts.allSatisfy { !($0.0 ?? "").isEmpty && !($0.1 ?? "").isEmpty && $0.2 != nil })
+        XCTAssertTrue(f.routes.alertHosts.allSatisfy { $0 === f.view })
+    }
+    func testSuccessfulCurrentQuoteEnablesReviewAfterItsFeeArrives() async {
+        let f = make(); f.model.didLoadQuote(SwapValues(amount: "2000000", route: [f.xor, f.val]), dexId: 4, params: f.params)
+        let deadline = Date().addingTimeInterval(2)
+        while !f.view.enabled && Date() < deadline { try? await Task.sleep(nanoseconds: 10_000_000) }
+        XCTAssertTrue(f.view.enabled); XCTAssertEqual(f.model.amounts?.fromAmount, 1); XCTAssertEqual(f.model.amounts?.toAmount, 2)
+    }
+    func testSuccessfulQuoteCannotEnableReviewAfterFundsDisappear() async {
+        let f = make(); f.balances.values[f.xor] = 0; f.model.processBalance(data: [])
+        f.model.didLoadQuote(SwapValues(amount: "2000000", route: [f.xor, f.val]), dexId: 4, params: f.params)
+        let deadline = Date().addingTimeInterval(2)
+        while f.model.amounts == nil && Date() < deadline { try? await Task.sleep(nanoseconds: 10_000_000) }
+        XCTAssertNotNil(f.model.amounts); XCTAssertFalse(f.view.enabled)
+    }
 }

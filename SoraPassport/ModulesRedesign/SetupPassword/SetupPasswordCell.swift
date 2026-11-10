@@ -33,7 +33,8 @@ final class SetupPasswordCell: SoramitsuTableViewCell {
             confirmPasswordInputField.textField.text = ""
             setPasswordInputField.sora.resetValidation()
             confirmPasswordInputField.sora.resetValidation()
-            setPasswordInputField.sora.descriptionLabelText = R.string.localizable.backupPasswordRequirments(preferredLanguages: .currentLocale)
+            setPasswordInputField.sora.descriptionLabelText =
+                R.string.localizable.backupPasswordPolicyRequirements(preferredLanguages: .currentLocale)
             confirmPasswordInputField.sora.descriptionLabelText = ""
             checkView.isSelected = false
             continueButton.isEnabled = false
@@ -43,12 +44,12 @@ final class SetupPasswordCell: SoramitsuTableViewCell {
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] event in
                     switch event {
-                    case .lowSecurityPassword:
-                        let descriptionLabelText = R.string.localizable.backupPasswordRequirments(preferredLanguages: .currentLocale)
+                    case .lowSecurityPassword(let violation):
+                        let descriptionLabelText = BackupPasswordPolicy.guidance(for: violation, preferredLanguages: .currentLocale)
                         self?.setPasswordInputField.sora.descriptionLabelText = descriptionLabelText
                         self?.setPasswordInputField.sora.state = .fail
                     case .securedPassword:
-                        let descriptionLabelText = R.string.localizable.backupPasswordMandatoryReqsFulfilled(preferredLanguages: .currentLocale)
+                        let descriptionLabelText = BackupPasswordPolicy.guidance(for: nil, preferredLanguages: .currentLocale)
                         self?.setPasswordInputField.sora.descriptionLabelText = descriptionLabelText
                         self?.setPasswordInputField.sora.state = .success
                     case .notMatchPasswords:
@@ -77,7 +78,7 @@ final class SetupPasswordCell: SoramitsuTableViewCell {
         label.sora.font = FontType.paragraphM
         label.sora.textColor = .fgPrimary
         label.sora.numberOfLines = 0
-        label.sora.text = R.string.localizable.backupPasswordTitle(preferredLanguages: .currentLocale)
+        label.sora.text = R.string.localizable.backupPasswordTitle2(preferredLanguages: .currentLocale)
         return label
     }()
     
@@ -91,7 +92,7 @@ final class SetupPasswordCell: SoramitsuTableViewCell {
         view.sora.textFieldPlaceholder = R.string.localizable.createBackupSetPassword(preferredLanguages: .currentLocale)
         view.textField.returnKeyType = .next
         view.textField.isSecureTextEntry = true
-        view.sora.descriptionLabelText = R.string.localizable.backupPasswordRequirments(preferredLanguages: .currentLocale)
+        view.sora.descriptionLabelText = R.string.localizable.backupPasswordPolicyRequirements(preferredLanguages: .currentLocale)
         view.textField.sora.addHandler(for: .editingChanged) { [weak self] in
             self?.input.send(.passwordChanged(view.textField.text ?? ""))
         }

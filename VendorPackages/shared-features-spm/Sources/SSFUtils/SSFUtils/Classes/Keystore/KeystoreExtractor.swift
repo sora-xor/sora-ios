@@ -23,7 +23,11 @@ public class KeystoreExtractor: KeystoreExtracting {
         } else if keyDerivationName == KeystoreEncodingType.scrypt.rawValue,
                   cipherType == KeystoreEncodingType.xsalsa.rawValue
         {
-            let scryptParameters = try ScryptParameters(data: data)
+            // A truncated, oversized or unbounded payload is rejected before
+            // the key derivation and before the nonce is sliced.
+            guard let scryptParameters = ScryptParameters(boundedEncryptedData: data) else {
+                throw KeystoreExtractorError.unsupportedEncoding
+            }
 
             let scryptData: Data
 

@@ -25,13 +25,15 @@ final class AccountExportViewFactory: AccountExportViewFactoryProtocol {
     static func createView(accounts: [AccountItem]) -> AccountExportViewProtocol? {
         let view = AccountExportViewController()
         let presenter = AccountExportPresenter()
+        let fileStore = AccountExportFileStore()
         let interactor = AccountExportInteractor(
             keystore: Keychain(),
             settings: SettingsManager.shared,
-            accounts: accounts
+            accounts: accounts,
+            fileStore: fileStore
         )
 
-        let wireframe = AccountExportWireframe(localizationManager: LocalizationManager.shared)
+        let wireframe = AccountExportWireframe(localizationManager: LocalizationManager.shared, fileStore: fileStore)
 
         view.localizationManager = LocalizationManager.shared
         view.presenter = presenter

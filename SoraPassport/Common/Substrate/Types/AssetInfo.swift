@@ -50,6 +50,10 @@ struct AssetInfo: Codable {
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
         visible = try container.decodeIfPresent(Bool.self, forKey: .visible) ?? false
         fiatPrice = nil
+        // Saved copies may come from a node an earlier build trusted.
+        if let pinned = WalletAssetPrecision.pinned(for: assetId) {
+            precision = pinned
+        }
         normalizeNativeAssetMetadata()
     }
 
@@ -76,6 +80,30 @@ struct AssetInfo: Codable {
         guard assetId == WalletAssetId.xor.rawValue else { return }
         name = "XOR"
         symbol = "XOR"
+    }
+}
+
+/// Asset decimals that no node can change. SORA2 registers its predefined
+/// assets with `DEFAULT_BALANCE_PRECISION` (18) at genesis, and its assets
+/// pallet refuses any precision above `MAX_ALLOWED_PRECISION` (18). A node
+/// that reported more decimals for XOR would turn a confirmed 1 XOR into 100
+/// signed, so the app never takes these values from a node.
+enum WalletAssetPrecision {
+    static let maximum: UInt32 = 18
+
+    private static let predefined: [String: UInt32] = Dictionary(uniqueKeysWithValues: [
+        WalletAssetId.xor.rawValue, WalletAssetId.val.rawValue, WalletAssetId.pswap.rawValue,
+        WalletAssetId.xst.rawValue, WalletAssetId.xstusd.rawValue, WalletAssetId.tbcd.rawValue,
+        WalletAssetId.kusd.rawValue, WalletAssetId.eth, WalletAssetId.kxor
+    ].map { ($0, 18) })
+
+    static func pinned(for assetId: String) -> UInt32? {
+        predefined[assetId.lowercased()]
+    }
+
+    /// False for a precision the runtime cannot hold, so the node lied.
+    static func isPossible(_ precision: UInt32) -> Bool {
+        precision <= maximum
     }
 }
 

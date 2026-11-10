@@ -16,6 +16,7 @@
 // limitations under the License.
 
 import Foundation
+import UIKit
 import SoraUIKit
 
 enum InputMode {
@@ -41,12 +42,20 @@ class InputPincodePresenter: PinSetupPresenterProtocol {
     private var verificationPinLength: Int?
     private var isCheckingPin = false
     private var isLoadingPinLength = false
+    private var isOwnerPinRequired = false
+    private var enrollmentDecision = UUID()
+    private weak var enrollmentAlert: UIAlertController?
     
     public var mode: InputMode = .verify {
         didSet {
-            view?.setupTitleLabel(text: mode.title)
+            view?.setupTitleLabel(text: mode == .verify ? verifyTitle : mode.title)
             view?.resetTitleColor()
         }
+    }
+
+    /// Says why Face ID or Touch ID did not start this time.
+    private var verifyTitle: String {
+        isOwnerPinRequired ? LocalAuthInteractor.ownerPinEntryTitle : InputMode.verify.title
     }
     
     var inputedPinCode: String = "" {
@@ -203,9 +212,33 @@ extension InputPincodePresenter: LocalAuthInteractorOutputProtocol {
             view?.setupTitleLabel(text: "PIN unavailable. Unlock your iPhone, then tap a number to retry.")
             return
         }
-        view?.setupTitleLabel(text: R.string.localizable.pincodeEnterPinCode(preferredLanguages: .currentLocale).capitalized)
+        view?.setupTitleLabel(text: verifyTitle)
         verificationPinLength = count
         isNeedUpdateTo6Symbols = count == 4
         view?.updatePinCodeSymbolsCount(with: count)
+    }
+
+    func didRequireOwnerPinEntry() {
+        isOwnerPinRequired = true
+        view?.didChangeAccessoryState(enabled: false)
+        guard mode == .verify, verificationPinLength != nil, !isCheckingPin else { return }
+        view?.setupTitleLabel(text: verifyTitle)
+    }
+
+    func didRequireEnrollmentDecision(type: AvailableBiometryType, completion: @escaping (Bool) -> Void) {
+        let decision = UUID()
+        enrollmentDecision = decision
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.enrollmentDecision == decision else { return }
+            self.enrollmentAlert = self.view?.askToKeepChangedBiometry(type: type, completion: completion)
+        }
+    }
+
+    func didInvalidatePendingPin() {
+        enrollmentDecision = UUID()
+        enrollmentAlert?.dismiss(animated: false)
+        enrollmentAlert = nil
+        inputedPinCode = ""
+        isCheckingPin = false
     }
 }

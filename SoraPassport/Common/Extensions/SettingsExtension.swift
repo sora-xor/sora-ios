@@ -881,6 +881,11 @@ enum ProductSurfacePolicy {
     static let showsNexusPortfolio = !isAppStoreBuild
     static let acceptsIrohaConnect = !isAppStoreBuild
 
+    /// The Wallet tab's home is the portfolio: every wallet's assets on every network in one view,
+    /// in place of the account header and the selected wallet's Assets card. On in every
+    /// configuration; false brings the classic home back.
+    static let showsPortfolioView = true
+
     /// What an install shows before it has a stored choice or a PI value.
     /// The Nexus line keeps its tester default (Taira, Nexus and Polkamarkt
     /// on); the App Store line starts with them off until PI publishes them.

@@ -42,6 +42,7 @@ protocol RedesignWalletViewModelProtocol: AnyObject {
     func updateAssets(updatedSection: UpdatedSection)
     func showFullListAssets()
     func showFullListPools()
+    func showAssetDetails(with assetInfo: AssetInfo)
     func showPoolDetails(with pool: PoolInfo)
     func showInternerConnectionAlert()
     func showReferralProgram(assetManager: AssetManagerProtocol)
@@ -75,22 +76,28 @@ final class RedesignWalletViewModel {
     let address: String
     let qrEncoder: WalletQREncoderProtocol
     let sharingFactory: AccountShareFactoryProtocol
+    private let accountRepository: AnyDataProviderRepository<AccountItem>
     var referralFactory: ReferralsOperationFactoryProtocol
     var assetsProvider: AssetProviderProtocol
     var walletContext: CommonWalletContextProtocol
     var editViewService: EditViewServiceProtocol
+    let feeProvider = FeeProvider()
     let eventCenter = EventCenter.shared
     let marketCapService: MarketCapServiceProtocol
     let poolsViewModelService: PoolsItemService
-    /// The top of the home: hero, lenses, list and XOR on other networks (`preparePortfolio()`).
+    let assetsViewModelService: AssetsItemService
+    /// The Wallet tab's home is the portfolio: every wallet's assets on every network in one view.
+    /// Without it the home is the classic account header and Assets card.
+    let showsPortfolio: Bool
     @MainActor lazy var portfolioHome = PortfolioHome(dataSource: PortfolioHome.makeDataSource(assetManager: assetManager))
 
-    /// The selected wallet's accounts on other networks, shown as XOR rows
-    /// under the portfolio list. Never another wallet's: see `refreshNetworkRows()`.
+    /// The selected wallet's accounts on other networks, shown as XOR rows in
+    /// the assets list. Never another wallet's: see `refreshNetworkRows()`.
     private var networkAccounts: [NetworkAccount] = []
     private var networkBalances: [String: NetworkRowBalance] = [:]
     private var networkRowsTask: Task<Void, Never>?
-    private let nexusReadClient: NexusToriiReading = NexusToriiReadClient()
+    private let nexusReadClient: NexusToriiReading
+    private let selectedNetworkAccounts: @MainActor () -> [NetworkAccount]
     
     init(wireframe: RedesignWalletWireframeProtocol?,
          providerFactory: BalanceProviderFactory,
@@ -110,7 +117,12 @@ final class RedesignWalletViewModel {
          walletContext: CommonWalletContextProtocol,
          editViewService: EditViewServiceProtocol,
          poolsViewModelService: PoolsItemService,
-         marketCapService: MarketCapServiceProtocol) {
+         assetsViewModelService: AssetsItemService,
+         marketCapService: MarketCapServiceProtocol,
+         selectedNetworkAccounts: @escaping @MainActor () -> [NetworkAccount] = { WalletNetworkAccounts.selectedWallet() },
+         nexusReadClient: NexusToriiReading = NexusToriiReadClient(),
+         showsPortfolio: Bool = ProductSurfacePolicy.showsPortfolioView) {
+        self.showsPortfolio = showsPortfolio
         self.wireframe = wireframe
         self.accountId = accountId
         self.address = address
@@ -125,10 +137,19 @@ final class RedesignWalletViewModel {
         self.sharingFactory = sharingFactory
         self.referralFactory = referralFactory
         self.assetsProvider = assetsProvider
+        self.assetsViewModelService = assetsViewModelService
+        self.accountRepository = AnyDataProviderRepository(
+            UserDataStorageFacade.shared
+            .createRepository(filter: nil,
+                              sortDescriptors: [],
+                              mapper: AnyCoreDataMapper(AccountItemMapper()))
+        )
         self.poolsService = poolsService
         self.walletContext = walletContext
         self.editViewService = editViewService
         self.marketCapService = marketCapService
+        self.selectedNetworkAccounts = selectedNetworkAccounts
+        self.nexusReadClient = nexusReadClient
         self.poolsViewModelService = poolsViewModelService
         self.eventCenter.add(observer: self, dispatchIn: .main)
     }
@@ -146,12 +167,14 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             var enabledIds = ApplicationConfig.shared.getAvailableApplicationSections()
             let poolId = Cards.pooledAssets.id
 
-            var models = Cards.allCases.map { card in
+            // The portfolio is always shown: it is not one of the cards Edit view turns on or off.
+            let cards = Cards.allCases.filter { !self.showsPortfolio || $0 != .liquidAssets }
+            var models = cards.map { card in
                 EnabledViewModel(id: card.id,
                                  title: card.title,
                                  state: card.defaultState)
             }
-            
+
             if !isPoolAvailable {
                 models.removeAll(where: { $0.id == poolId })
                 enabledIds.removeAll(where: { $0 == poolId } )
@@ -183,7 +206,12 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
 
     @MainActor
     private func visibleItems() -> [SoramitsuTableViewItemProtocol] {
-        // The portfolio first, then the cards below it, each with its own rule.
+        showsPortfolio ? portfolioItems() : classicItems()
+    }
+
+    /// The portfolio first, then the cards below it, each with its own rule.
+    @MainActor
+    private func portfolioItems() -> [SoramitsuTableViewItemProtocol] {
         var items = portfolioHome.items
         let enabledIds = ApplicationConfig.shared.getAvailableApplicationSections()
         let backupedAccounts = ApplicationConfig.shared.getAvailableBackupedAccounts()
@@ -191,15 +219,15 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         if !backupedAccounts.contains(address), let backupItem = walletItems.first(where: { $0 is BackupItem }) {
             items.append(backupItem)
         }
-        
+
         if let poolsItem = walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem {
             poolsItem.isHidden = !enabledIds.contains(Cards.pooledAssets.id)
-            
+
             if enabledIds.contains(Cards.pooledAssets.id) {
                 items.append(poolsItem)
             }
         }
-        
+
         if enabledIds.contains(Cards.referralProgram.id), let friendsItem = walletItems.first(where: { $0 is FriendsItem }) {
             items.append(friendsItem)
         }
@@ -211,10 +239,54 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         return items
     }
 
-    /// The asset list closed: tokens shown, hidden or reordered there change the portfolio.
+    /// The classic home of every 3.x release before 3.9: the account header,
+    /// Assets (with XOR on other networks as rows), then the optional cards.
+    @MainActor
+    private func classicItems() -> [SoramitsuTableViewItemProtocol] {
+        var items: [SoramitsuTableViewItemProtocol] = []
+        let enabledIds = ApplicationConfig.shared.getAvailableApplicationSections()
+        let backupedAccounts = ApplicationConfig.shared.getAvailableBackupedAccounts()
+
+        if let accountItem = walletItems.first(where: { $0 is AccountTableViewItem }) {
+            items.append(accountItem)
+        }
+
+        // The 3.8.6 order: backup and invite cards above the assets.
+        if !backupedAccounts.contains(address), let backupItem = walletItems.first(where: { $0 is BackupItem }) {
+            items.append(backupItem)
+        }
+
+        if enabledIds.contains(Cards.referralProgram.id), let friendsItem = walletItems.first(where: { $0 is FriendsItem }) {
+            items.append(friendsItem)
+        }
+
+        if enabledIds.contains(Cards.liquidAssets.id), let assetsItem = walletItems.first(where: { $0 is AssetsItem }) {
+            items.append(assetsItem)
+        }
+
+        if let poolsItem = walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem {
+            poolsItem.isHidden = !enabledIds.contains(Cards.pooledAssets.id)
+            
+            if enabledIds.contains(Cards.pooledAssets.id) {
+                items.append(poolsItem)
+            }
+        }
+
+        if let editViewItem = walletItems.first(where: { $0 is EditViewItem }) {
+            items.append(editViewItem)
+        }
+
+        return items
+    }
+
     func updateAssets(updatedSection: UpdatedSection) {
         guard updatedSection == .assets else { return }
-        Task { @MainActor in self.portfolioHome.viewModel.refreshAll() }
+        if showsPortfolio {
+            // The asset list closed: tokens shown, hidden or reordered there change the portfolio.
+            Task { @MainActor in self.portfolioHome.viewModel.refreshAll() }
+        } else {
+            (walletItems.filter({ $0 is AssetsItem }).first as? AssetsItem)?.updateContent()
+        }
     }
     
 
@@ -233,6 +305,24 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         
         var items: [SoramitsuTableViewItemProtocol] = []
 
+        if !showsPortfolio {
+            let accountItem = itemFactory.createAccountItem(with: self,
+                                                            view: view,
+                                                            wireframe: wireframe,
+                                                            feeProvider: feeProvider,
+                                                            assetManager: assetManager,
+                                                            assetsProvider: assetsProvider,
+                                                            fiatService: fiatService,
+                                                            networkFacade: networkFacade,
+                                                            providerFactory: providerFactory,
+                                                            qrEncoder: qrEncoder,
+                                                            sharingFactory: sharingFactory,
+                                                            accountRepository: accountRepository,
+                                                            marketCapService: marketCapService,
+                                                            reloadItem: reloadItem)
+            items.append(accountItem)
+        }
+
         let backupItem: SoramitsuTableViewItemProtocol = itemFactory.createBackupItem(with: self,
                                                                                       assetManager: assetManager)
         items.append(backupItem)
@@ -241,6 +331,19 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                                                                               assetManager: assetManager)
         items.append(friendsItem)
         isReferralProgramHidden = false
+
+        if !showsPortfolio {
+            let assetItem: SoramitsuTableViewItemProtocol = itemFactory.createAssetsItem(with: self,
+                                                                                         assetManager: assetManager,
+                                                                                         assetsProvider: assetsProvider,
+                                                                                         fiatService: fiatService,
+                                                                                         itemService: assetsViewModelService,
+                                                                                         marketCapService: marketCapService)
+            (assetItem as? AssetsItem)?.networkRowHandler = { [weak self] account in
+                Task { @MainActor in self?.openNetwork(account: account) }
+            }
+            items.append(assetItem)
+        }
 
         let poolItem: SoramitsuTableViewItemProtocol = itemFactory.createPoolsItem(with: self,
                                                                                    poolsService: poolsService,
@@ -258,7 +361,9 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                                                                           editViewService: editViewService)
         items.append(editViewItem)
 
-        preparePortfolio()
+        if showsPortfolio {
+            preparePortfolio()
+        }
 
         return items
     }
@@ -315,6 +420,35 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                      updateHandler: updateAssets)
     }
     
+    func showAssetDetails(with assetInfo: AssetInfo) {
+        let factory = AssetViewModelFactory(walletAssets: [assetInfo],
+                                            assetManager: assetManager,
+                                            fiatService: fiatService)
+
+        let poolFactory = PoolViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
+                                            assetManager: assetManager,
+                                               fiatService: fiatService)
+
+        wireframe?.showAssetDetails(on: view?.controller,
+                                    assetInfo: assetInfo,
+                                    assetManager: assetManager,
+                                    fiatService: fiatService,
+                                    assetViewModelFactory: factory,
+                                    poolsService: poolsService,
+                                    poolViewModelsFactory: poolFactory,
+                                    providerFactory: providerFactory,
+                                    networkFacade: networkFacade,
+                                    accountId: accountId,
+                                    address: address,
+                                    polkaswapNetworkFacade: polkaswapNetworkFacade,
+                                    qrEncoder: qrEncoder,
+                                    sharingFactory: sharingFactory,
+                                    referralFactory: referralFactory,
+                                    assetsProvider: assetsProvider,
+                                    marketCapService: marketCapService,
+                                    farmingService: farmingService)
+    }
+
     func showPoolDetails(with pool: PoolInfo) {
         wireframe?.showPoolDetails(on: view?.controller,
                                    poolInfo: pool,
@@ -368,7 +502,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     /// otherwise they open SORA2's flow exactly as before.
     @MainActor
     private func startNetworkAction(_ action: WalletNetworkAction, sora2: @escaping () -> Void) {
-        let accounts = WalletNetworkAccounts.selectedWallet()
+        let accounts = selectedNetworkAccounts()
         guard
             accounts.contains(where: { $0.networkId == .sora2 }),
             accounts.contains(where: { $0.networkId != .sora2 }),
@@ -387,8 +521,10 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         let open: @MainActor (WalletNetworkChoice) -> Void = { [weak self] choice in
             if choice.account.networkId == .sora2 {
                 sora2()
+            } else if action == .receive {
+                self?.openNetworkReceive(account: choice.account)
             } else {
-                self?.openNetwork(account: choice.account, startSend: action == .send)
+                self?.openNetwork(account: choice.account, startSend: true)
             }
         }
         if let only = WalletNetworkChoices.onlyChoice(choices) {
@@ -414,7 +550,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                 tairaAdmitted: NexusNetworkAdmissionPolicy.current.isTairaAdmitted
             ),
             let configuration = NexusNetworkConfiguration.configuration(for: account.networkId),
-            let navigation = view?.controller.navigationController
+            let presenter = view?.controller
         else {
             return
         }
@@ -427,11 +563,50 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             mutationUnavailableReason: runtime.initializationFailed
                 ? NexusPortfolioPresentationPolicy.journalUnavailableMessage
                 : nil,
-            opensSendWhenReady: startSend
+            opensSendWhenReady: startSend,
+            xorAsset: assetManager.assetInfo(for: WalletAssetId.xor.rawValue)
         )
-        navigation.setNavigationBarHidden(false, animated: false)
-        detail.hidesBottomBarWhenPushed = true
-        navigation.pushViewController(detail, animated: true)
+        detail.onClose = { [weak self] () -> Void in self?.networkPageDidClose() }
+        // Opened as SORA2 opens XOR's asset details.
+        NexusSora2Presentation.present(detail, from: presenter)
+    }
+
+    /// A network page opens over this screen, so closing it is no
+    /// `viewWillAppear` here. Without this, a send or a faucet claim made there
+    /// would not reach the home: its rows would keep the old balance until the
+    /// next tab switch, the portfolio until its next timed read.
+    @MainActor
+    private func networkPageDidClose() {
+        refreshNetworkRows()
+        if showsPortfolio { portfolioHome.viewModel.refreshAll() }
+    }
+
+    /// The wallet's Receive on a network other than SORA2: SORA2's Receive
+    /// screen with that network's address, as SORA2's Receive opens.
+    @MainActor
+    func openNetworkReceive(account: NetworkAccount) {
+        let settings = SettingsManager.shared
+        guard
+            ProductSurfacePolicy.showsNexusPortfolio,
+            settings.nexusEnabled,
+            account.walletId == SelectedWalletSettings.shared.currentAccount?.address,
+            NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
+                networkId: account.networkId,
+                nexusEnabled: settings.nexusEnabled,
+                tairaEnabled: settings.isTairaEnabled,
+                tairaAdmitted: NexusNetworkAdmissionPolicy.current.isTairaAdmitted
+            ),
+            let configuration = NexusNetworkConfiguration.configuration(for: account.networkId),
+            let presenter = view?.controller
+        else {
+            return
+        }
+        NexusNetworkDetailViewController.presentReceive(
+            account: account,
+            configuration: configuration,
+            xorAsset: assetManager.assetInfo(for: WalletAssetId.xor.rawValue),
+            from: presenter
+        )
     }
 
     /// Reloads the other networks' XOR rows for the selected wallet. Account
@@ -440,7 +615,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     @MainActor
     func refreshNetworkRows() {
         networkRowsTask?.cancel()
-        let accounts = WalletNetworkAccounts.selectedWallet()
+        let accounts = selectedNetworkAccounts()
         networkBalances = networkBalances.filter { key, _ in accounts.contains { $0.id == key } }
         networkAccounts = accounts
         applyNetworkRows()
@@ -486,6 +661,10 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
 
     @MainActor
     private func applyNetworkRows() {
+        let assetsItem = walletItems.first(where: { $0 is AssetsItem }) as? AssetsItem
+        guard showsPortfolio || assetsItem != nil else {
+            return
+        }
         let directory = WalletNetworkDirectory.current
         let main = directory.mainNetwork(walletNetworks: Set(networkAccounts.map(\.networkId)))
         let xor = assetManager.assetInfo(for: WalletAssetId.xor.rawValue)
@@ -516,15 +695,29 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                     title: directory.rowLabel(for: networkId, main: main).map { "\(name) · \($0)" } ?? name,
                     amount: amount,
                     tag: directory.tag(for: networkId, main: main),
-                    icon: icon
+                    icon: icon,
+                    isMain: networkId == main
                 )
             }
-        let card = portfolioHome.otherNetworksItem
-        guard card.rows != rows else {
+        if showsPortfolio {
+            let card = portfolioHome.otherNetworksItem
+            guard card.rows != rows else {
+                return
+            }
+            card.rows = rows
+            reloadItem?([card])
             return
         }
-        card.rows = rows
-        reloadItem?([card])
+        guard let assetsItem else {
+            return
+        }
+        let sora2Label = directory.rowLabel(for: .sora2, main: main)
+        guard assetsItem.networkRows != rows || assetsItem.sora2RowLabel != sora2Label else {
+            return
+        }
+        assetsItem.networkRows = rows
+        assetsItem.sora2RowLabel = sora2Label
+        reloadItem?([assetsItem])
     }
 
     /// XOR balances by network for the Receive and Send choices.

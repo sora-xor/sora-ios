@@ -89,23 +89,17 @@ extension ConfigService: ConfigServiceProtocol {
         let queryOperation = SubqueryConfigInfoOperation<SoraConfig>()
         
         queryOperation.completionBlock = { [weak self] in
-            guard let self = self, let response = try? queryOperation.extractNoCancellableResultData() else {
+            guard let self = self, (try? queryOperation.extractNoCancellableResultData()) != nil else {
                 completion()
                 return
             }
-            // The bundled nodes and type registry always stay. PI may add
-            // nodes at other URLs; a URL that is already bundled keeps its
-            // bundled entry.
-            let bundled = ApplicationConfig.shared.defaultChainNodes
-            let bundledURLs = Set(bundled.map(\.url))
-            let remote: [ChainNodeModel] = response.nodes.compactMap({ node in
-                guard let url = URL(string: node.address), SoraNodeConnectionPolicy.isAllowedEndpoint(url),
-                      !bundledURLs.contains(url) else { return nil }
-                return ChainNodeModel(url: url, name: node.name, apikey: nil)
-            })
+            // Only the bundled nodes and type registry are used. PI's answer
+            // is unsigned and PI shares an address with node hosts reported
+            // compromised, so its node list is ignored: a node decides what
+            // the app shows and signs.
             self.config = RemoteConfig(polkaswapIndexerUrlString: ApplicationConfig.shared.polkaswapIndexerURL.absoluteString,
                                        typesUrlString: ApplicationConfig.shared.commonTypesURL?.absoluteString,
-                                       defaultNodes: bundled.union(remote))
+                                       defaultNodes: ApplicationConfig.shared.defaultChainNodes)
             completion()
         }
         

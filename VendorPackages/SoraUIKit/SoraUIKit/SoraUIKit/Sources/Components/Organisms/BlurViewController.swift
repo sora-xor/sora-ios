@@ -7,19 +7,17 @@ open class BlurViewController: UIViewController {
         }
     }
     
-    public var backgroundColor: SoramitsuColor = .custom(uiColor: .clear) {
-        didSet {
-            if isViewLoaded { applyBackground() }
-        }
-    }
+    public var backgroundColor: SoramitsuColor = .custom(uiColor: .clear)
     public var completionHandler: (() -> Void)?
-
-    /// Theme-aware backdrop: a dark blur and scrim in dark mode, a light one
-    /// in light mode. It follows theme changes while the modal is open.
+    
     lazy var blurredView: UIView = {
-        let backdrop = NeonScrimView(frame: view.bounds)
-        backdrop.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        return backdrop
+        let containerView = UIView()
+        let blurEffect = UIBlurEffect(style: .light)
+        let customBlurEffectView = CustomVisualEffectView(effect: blurEffect, intensity: 0.5)
+        customBlurEffectView.frame = self.view.bounds
+
+        containerView.addSubview(customBlurEffectView)
+        return containerView
     }()
 
     var panGestureRecognizer: UIPanGestureRecognizer?
@@ -40,16 +38,8 @@ open class BlurViewController: UIViewController {
         fatalError("init(coder:) has not been implemented")
     }
     
-    private func applyBackground() {
-        let color = SoramitsuUI.shared.theme.palette.color(backgroundColor)
-        view.backgroundColor = color
-        // An opaque page (the PIN root) has nothing behind it to blur.
-        blurredView.isHidden = color.cgColor.alpha >= 1
-    }
-
     func setupView() {
-        applyBackground()
-        SoramitsuUI.updates.addObserver(self)
+        view.backgroundColor = SoramitsuUI.shared.theme.palette.color(backgroundColor)
         view.addSubview(blurredView)
         view.sendSubviewToBack(blurredView)
 
@@ -110,11 +100,5 @@ extension BlurViewController: UIGestureRecognizerDelegate {
             touchedView = candidate.superview
         }
         return true
-    }
-}
-
-extension BlurViewController: SoramitsuObserver {
-    public func styleDidChange(options: UpdateOptions) {
-        if options.contains(.palette) { applyBackground() }
     }
 }

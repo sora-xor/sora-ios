@@ -15,7 +15,8 @@ final class SwapConfirmationBehaviorTests: XCTestCase {
     private let pswap = WalletAssetId.pswap.rawValue
     override func setUp() { super.setUp(); language = LocalizationManager.shared.selectedLocalization; LocalizationManager.shared.selectedLocalization = "en" }
     override func tearDown() { LocalizationManager.shared.selectedLocalization = language; super.tearDown() }
-    private final class Fixture {
+    @MainActor private final class Fixture {
+        let routes = SwapReviewRoutes(), host = SwapReviewHost(), events = SwapReviewEvents()
         let model: ConfirmSwapViewModel; let provider: SwapReviewBalances; let wallet: SwapReviewNetwork; let interactor: SwapReviewInteractor
         var rows: [SoramitsuTableViewItemProtocol] = []
         let params: PolkaswapMainInteractorQuoteParams
@@ -23,12 +24,13 @@ final class SwapConfirmationBehaviorTests: XCTestCase {
             provider = SwapReviewBalances(values: values); wallet = SwapReviewNetwork(); interactor = SwapReviewInteractor()
             let manager = SwapReviewAssets(); let tolerance = PolkaswapSlippage.defaultValue
             params = PolkaswapMainInteractorQuoteParams(fromAssetId: from, toAssetId: to, amount: "5000000000000000000", swapVariant: direction, liquiditySources: [], filterMode: .disabled)
-            model = ConfirmSwapViewModel(wireframe: nil, firstAssetId: from, secondAssetId: to, assetManager: manager,
-                eventCenter: EventCenter(), firstAssetAmount: direction == .desiredInput ? 5 : 10,
+            model = ConfirmSwapViewModel(wireframe: routes, firstAssetId: from, secondAssetId: to, assetManager: manager,
+                eventCenter: events, firstAssetAmount: direction == .desiredInput ? 5 : 10,
                 secondAssetAmount: direction == .desiredInput ? 10 : 5, slippageTolerance: tolerance, details: [], market: .xyk,
                 amounts: SwapQuoteAmounts(fromAmount: 5, toAmount: 10), walletService: wallet, fee: fee, swapVariant: direction,
                 minMaxValue: direction == .desiredInput ? tolerance.minimumAmount(for: 10) : tolerance.maximumAmount(for: 10), dexId: 0,
                 interactor: interactor, quoteParams: params, assetsProvider: provider, fiatData: [])
+            model.view = host
             model.setupItems = { [weak self] in self?.rows = $0 }; model.reloadItems = { [weak self] in self?.rows = $0 }; model.viewDidLoad()
         }
         var button: SoramitsuButtonItem? { rows.compactMap { $0 as? SoramitsuButtonItem }.first }
@@ -166,10 +168,11 @@ private final class SwapReviewAssets: AssetManagerProtocol {
     func setup(for accountSettings: SelectedWalletSettings) {}
 }
 private final class SwapReviewInteractor: PolkaswapMainInteractorInputProtocol {
+    var quotes = [PolkaswapMainInteractorQuoteParams](), quoted: ((PolkaswapMainInteractorQuoteParams) -> Void)?
     func networkFeeValue(completion: @escaping (Decimal) -> Void) { completion(1) }
     func checkIsPathAvailable(fromAssetId: String, toAssetId: String) {}
     func loadMarketSources(fromAssetId: String, toAssetId: String) {}
-    func quote(params: PolkaswapMainInteractorQuoteParams) {}
+    func quote(params: PolkaswapMainInteractorQuoteParams) { quotes.append(params); quoted?(params) }
     func loadBalance(asset: AssetInfo) {}
     func unsubscribePoolXYK() {}
     func unsubscribePoolTBC() {}
@@ -181,6 +184,7 @@ private final class SwapReviewInteractor: PolkaswapMainInteractorInputProtocol {
 private final class SwapReviewCall: CancellableCall { var cancellations = 0; func cancel() { cancellations += 1 } }
 private final class SwapReviewNetwork: WalletServiceProtocol {
     var transfers: [TransferInfo] = []
+    var transferCompletions = [DataResultCompletionBlock]()
     var queries: [String] = []; var completions: [SearchCompletionBlock] = []; var calls: [SwapReviewCall] = []
     private let unused = WalletService(operationFactory: WalletNetworkOperationFactoryProtocolMock())
     func search(for searchString: String, runCompletionIn queue: DispatchQueue, completionBlock: @escaping SearchCompletionBlock) -> CancellableCall {
@@ -189,7 +193,7 @@ private final class SwapReviewNetwork: WalletServiceProtocol {
     func fetchBalance(for assets: [String], runCompletionIn queue: DispatchQueue, completionBlock: @escaping BalanceCompletionBlock) -> CancellableCall { unused.fetchBalance(for: assets, runCompletionIn: queue, completionBlock: completionBlock) }
     func fetchTransactionHistory(for filter: WalletHistoryRequest, pagination: Pagination, runCompletionIn queue: DispatchQueue, completionBlock: @escaping TransactionHistoryBlock) -> CancellableCall { unused.fetchTransactionHistory(for: filter, pagination: pagination, runCompletionIn: queue, completionBlock: completionBlock) }
     func fetchTransferMetadata(for info: TransferMetadataInfo, runCompletionIn queue: DispatchQueue, completionBlock: @escaping TransferMetadataCompletionBlock) -> CancellableCall { unused.fetchTransferMetadata(for: info, runCompletionIn: queue, completionBlock: completionBlock) }
-    func transfer(info: TransferInfo, runCompletionIn queue: DispatchQueue, completionBlock: @escaping DataResultCompletionBlock) -> CancellableCall { transfers.append(info); return SwapReviewCall() }
+    func transfer(info: TransferInfo, runCompletionIn queue: DispatchQueue, completionBlock: @escaping DataResultCompletionBlock) -> CancellableCall { transfers.append(info); transferCompletions.append(completionBlock); return SwapReviewCall() }
     func prepareTransferSubmission(for info: TransferInfo, preSigningValidation: @escaping () throws -> Void) async throws -> PreparedSora2TransferSubmission { XCTFail("Scanner attempted to sign"); throw CancellationError() }
     func submitPreparedTransfer(_ submission: PreparedSora2TransferSubmission, info: TransferInfo, preTransportValidation: @escaping () throws -> Void) async throws -> Data { XCTFail("Scanner attempted a submission"); throw CancellationError() }
     func fetchContacts(runCompletionIn queue: DispatchQueue, completionBlock: @escaping SearchCompletionBlock) -> CancellableCall { unused.fetchContacts(runCompletionIn: queue, completionBlock: completionBlock) }
@@ -285,4 +289,111 @@ private final class ReviewPools: PoolsServiceInputProtocol {
     func loadPools(currentAsset _: AssetInfo) -> [PoolInfo] { [] }
     func loadTargetPools(for _: String) -> [PoolInfo] { [] }
     func appendDelegate(delegate _: PoolsServiceOutput) {}
+}
+
+extension SwapConfirmationBehaviorTests {
+    func testReviewIdentifiesThePolkaswapBrandWithoutAnUnrelatedTitle() {
+        let f = fixture(values: [xor: 6, val: 0]); XCTAssertNil(f.model.title)
+        XCTAssertEqual(f.model.imageName, "Wallet/polkaswapLogo")
+    }
+    func testConfirmButtonUsesTheCurrentValidatedTransferAndShowsProgress() throws {
+        let f = fixture(values: [xor: 6, val: 0]); try XCTUnwrap(f.button?.handler)()
+        XCTAssertEqual(f.wallet.transfers.count, 1); XCTAssertEqual(f.routes.shown, 1); XCTAssertEqual(f.routes.hidden, 0)
+    }
+    func testSuccessfulTransferPublishesTheExactPendingSwapAndClosesOnlyAfterDetails() throws {
+        let f = fixture(values: [xor: 6, val: 0]); f.model.submit(); try XCTUnwrap(f.wallet.transferCompletions.first)(.success(Data([0xab, 0xcd])))
+        let transaction = try XCTUnwrap(f.routes.transactions.first as? Swap)
+        XCTAssertEqual(transaction.base.txHash, "0xabcd"); XCTAssertEqual(transaction.base.status, .pending)
+        XCTAssertEqual(transaction.fromTokenId, xor); XCTAssertEqual(transaction.toTokenId, val)
+        XCTAssertEqual(transaction.fromAmount.decimalValue, 5); XCTAssertEqual(transaction.toAmount.decimalValue, 10)
+        XCTAssertEqual(transaction.base.fee.decimalValue, pow(10, 18)); XCTAssertEqual(transaction.market, .xyk)
+        XCTAssertEqual(f.routes.hidden, 1); XCTAssertEqual(f.events.transactions.count, 1)
+        XCTAssertEqual(f.host.dismissals, 0); try XCTUnwrap(f.routes.completion)(); XCTAssertEqual(f.host.dismissals, 1)
+    }
+    func testRejectedTransferPublishesFailureWithoutInventingATransactionHash() throws {
+        let f = fixture(values: [xor: 6, val: 0]); f.model.submit()
+        try XCTUnwrap(f.wallet.transferCompletions.first)(.failure(ReviewRouteFailure.rejected))
+        let transaction = try XCTUnwrap(f.routes.transactions.first as? Swap)
+        XCTAssertEqual(transaction.base.status, .failed); XCTAssertEqual(transaction.base.txHash, "")
+        XCTAssertEqual(f.routes.hidden, 1); XCTAssertEqual(f.events.transactions.count, 1)
+        XCTAssertEqual(f.events.transactions.first?.base.status, .failed)
+    }
+    func testCancelledTransferCompletionOnlyStopsProgress() throws {
+        let f = fixture(values: [xor: 6, val: 0]); f.model.submit(); try XCTUnwrap(f.wallet.transferCompletions.first)(nil)
+        XCTAssertEqual(f.routes.hidden, 1); XCTAssertTrue(f.routes.transactions.isEmpty)
+        XCTAssertTrue(f.events.transactions.isEmpty); XCTAssertEqual(f.host.dismissals, 0)
+    }
+    func testChangingReviewedAmountsCannotReuseTheOldExactQuote() {
+        let f = fixture(values: [xor: 20, val: 0]); f.model.firstAssetAmount = 4; f.model.submit()
+        XCTAssertTrue(f.wallet.transfers.isEmpty); XCTAssertEqual(f.routes.shown, 0)
+    }
+    func testMissingReviewedAssetCannotReachTransfer() {
+        let f = fixture(values: [xor: 20, val: 0]); f.model.firstAssetId = "unavailable"; f.model.submit()
+        XCTAssertTrue(f.wallet.transfers.isEmpty); XCTAssertEqual(f.routes.shown, 0)
+    }
+    func testExactOutputConfirmationKeepsInputAndOutputAmountsInTheirReviewedDirection() throws {
+        let f = fixture(direction: .desiredOutput, values: [xor: 20, val: 0]); f.model.submit()
+        let transfer = try XCTUnwrap(f.wallet.transfers.first)
+        XCTAssertEqual(transfer.amount.decimalValue, 10); XCTAssertEqual(transfer.context?[TransactionContextKeys.estimatedAmount], "5")
+        XCTAssertEqual(transfer.context?[TransactionContextKeys.minMaxValue], "10.05")
+    }
+    func testNewBlocksRefreshTheExactReviewedRequest() async throws {
+        let f = fixture(values: [xor: 6, val: 0]); let done = expectation(description: "new block refresh")
+        f.interactor.quoted = { _ in done.fulfill() }; f.model.processNewBlockAppeared(event: NewBlockEvent())
+        await fulfillment(of: [done], timeout: 3)
+        let params = try XCTUnwrap(f.interactor.quotes.last)
+        XCTAssertEqual(params.fromAssetId, f.params.fromAssetId); XCTAssertEqual(params.toAssetId, f.params.toAssetId)
+        XCTAssertEqual(params.amount, f.params.amount); XCTAssertEqual(params.swapVariant, f.params.swapVariant)
+    }
+    func testPoolRefreshCoalescesRepeatedNotifications() async {
+        let f = fixture(values: [xor: 6, val: 0]); let done = expectation(description: "pool quote")
+        f.interactor.quoted = { _ in done.fulfill() }; f.model.didUpdatePoolSubscription(); f.model.didUpdatePoolSubscription()
+        await fulfillment(of: [done], timeout: 3); XCTAssertEqual(f.interactor.quotes.count, 1)
+    }
+    func testUnrelatedQuoteDetailsCallCompletesWithoutChangingTheReview() {
+        let f = fixture(values: [xor: 6, val: 0]); var completed = 0
+        let other = PolkaswapMainInteractorQuoteParams(fromAssetId: val, toAssetId: xor, amount: f.params.amount, swapVariant: .desiredInput, liquiditySources: [], filterMode: .disabled)
+        f.model.updateDetails(params: other, quote: SwapValues(amount: "9000000000000000000", route: [val, xor])) { completed += 1 }
+        XCTAssertEqual(completed, 1); XCTAssertEqual(f.model.firstAssetAmount, 5); XCTAssertEqual(f.model.secondAssetAmount, 10)
+    }
+    func testInfoActionsPresentTheirOwnExplanationFromTheReview() {
+        let f = fixture(values: [xor: 6, val: 0]); f.model.minMaxReceivedInfoButtonTapped(); f.model.networkFeeInfoButtonTapped(); f.model.swapFeeInfoButtonTapped()
+        XCTAssertEqual(f.routes.alerts.count, 3); XCTAssertEqual(f.routes.alerts.first?.0, f.model.swapVariant.message)
+        XCTAssertEqual(f.routes.alerts.first?.1, f.model.swapVariant.title)
+        XCTAssertTrue(f.routes.alerts.allSatisfy { !($0.0 ?? "").isEmpty && !($0.1 ?? "").isEmpty && $0.2 != nil })
+        XCTAssertTrue(f.routes.alertHosts.allSatisfy { $0 === f.host })
+    }
+    func testBalanceNotificationFromBackgroundDisablesInsufficientReviewOnMain() async {
+        let f = fixture(values: [xor: 6, val: 0]); f.provider.values[xor] = 0
+        let notified = expectation(description: "background balance callback")
+        let model = f.model
+        DispatchQueue.global().async { model.processBalance(data: []); notified.fulfill() }
+        await fulfillment(of: [notified], timeout: 2)
+        for _ in 0..<100 { if f.button?.isEnable == false { break }; try? await Task.sleep(nanoseconds: 5_000_000) }
+        XCTAssertEqual(f.button?.isEnable, false)
+    }
+}
+private enum ReviewRouteFailure: Error { case rejected }
+private final class SwapReviewRoutes: ConfirmWireframeProtocol {
+    var shown = 0, hidden = 0, transactions = [Transaction](), completion: (() -> Void)?
+    var alerts = [(String?, String?, String?)](), alertHosts = [UIViewController?]()
+    func showActivityIndicator() { shown += 1 }
+    func hideActivityIndicator() { hidden += 1 }
+    func showActivityDetails(on controller: UIViewController?, model: Transaction, assetManager: AssetManagerProtocol, completion: (() -> Void)?) {
+        transactions.append(model); self.completion = completion
+    }
+    func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) {
+        alerts.append((message, title, closeAction)); alertHosts.append(view?.controller)
+    }
+}
+@MainActor private final class SwapReviewHost: UIViewController, @preconcurrency ConfirmViewProtocol {
+    var dismissals = 0
+    func dismiss(competion: (() -> Void)?) { dismissals += 1; competion?() }
+}
+private final class SwapReviewEvents: EventCenterProtocol {
+    var transactions = [Transaction]()
+    func notify(with event: EventProtocol) { if let value = event as? NewTransactionCreatedEvent { transactions.append(value.item) } }
+    func notify(with event: EventProtocol, completionOnMain: @escaping () -> Void) { notify(with: event); completionOnMain() }
+    func add(observer: EventVisitorProtocol, dispatchIn queue: DispatchQueue?) {}
+    func remove(observer: EventVisitorProtocol) {}
 }

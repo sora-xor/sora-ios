@@ -26,12 +26,13 @@ public struct FontData {
     let paragraphSpacing: CGFloat
     var features: Set<FontFeature> = []
 
-    /// PostScript name of the bundled face (for example `Sora-Bold`), or nil
-    /// when this style uses a system font.
+    /// PostScript name of the bundled face this style was designed in (for
+    /// example `Sora-Bold`), or nil for the monospaced family.
     ///
-    /// Before 3.9.0 the name was built from the enum case names
-    /// (`"headline-one"`), so the lookup always failed and every style fell
-    /// back to the system font. The raw values match the bundled fonts.
+    /// Up to 3.8.6 the name was built from the enum case names
+    /// (`"headline-one"`), so the lookup always failed and every style drew
+    /// in the system font. The classic design keeps that look: `font` is the
+    /// system font whatever this name is.
     public var postScriptName: String? {
         guard fontFamily.isBundled else { return nil }
         return "\(fontFamily.rawValue)-\(fontWeight.rawValue)"
@@ -89,11 +90,9 @@ public struct FontData {
         case .mono:
             primary = .monospacedSystemFont(ofSize: data.fontSize, weight: data.fontWeight.uiKitWeight)
         case .text, .headline:
-            if let name = data.postScriptName, let bundled = UIFont(name: name, size: data.fontSize) {
-                primary = bundled
-            } else {
-                primary = .systemFont(ofSize: data.fontSize, weight: data.fontWeight.uiKitWeight)
-            }
+            // The classic SORA design: up to 3.8.6 every style drew in the
+            // system font (see `postScriptName`), so it still does.
+            primary = .systemFont(ofSize: data.fontSize, weight: data.fontWeight.uiKitWeight)
         }
         let base = withEgyptianHieroglyphFallback(primary)
         guard data.features.contains(.tabular) else {
