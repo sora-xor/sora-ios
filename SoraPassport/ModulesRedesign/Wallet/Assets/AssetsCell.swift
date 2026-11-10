@@ -187,6 +187,20 @@ final class AssetsCell: SoramitsuTableViewCell {
         return view
     }()
 
+    /// The title and, under it, the note about prices, as one arranged subview
+    /// of `fullStackView`. This keeps the hidden note away from the rows that
+    /// are added later: a view inserted right after a hidden arranged subview
+    /// leaves UIStackView's old spacing in place, so the rows would hang above
+    /// Expand, over the title, and the card would stay as short as it was.
+    private let headerStackView: SoramitsuStackView = {
+        var view = SoramitsuStackView()
+        view.sora.backgroundColor = .custom(uiColor: .clear)
+        view.sora.axis = .vertical
+        view.sora.distribution = .fill
+        view.spacing = 4
+        return view
+    }()
+
     private lazy var openFullListAssetsButton: SoramitsuButton = {
         let button = SoramitsuButton(size: .extraSmall, type: .text(.primary))
         button.sora.horizontalOffset = 0
@@ -218,10 +232,9 @@ final class AssetsCell: SoramitsuTableViewCell {
         mainInfoView.addSubview(totalSpinner)
         totalSpinner.accessibilityIdentifier = "wallet.assets.total-loading"
         totalSpinner.startAnimating()
-        fullStackView.addArrangedSubviews(mainInfoView)
-        fullStackView.setCustomSpacing(16, after: mainInfoView)
-        fullStackView.addArrangedSubviews(priceNoteLabel)
-        fullStackView.setCustomSpacing(16, after: priceNoteLabel)
+        headerStackView.addArrangedSubviews(mainInfoView, priceNoteLabel)
+        fullStackView.addArrangedSubviews(headerStackView)
+        fullStackView.setCustomSpacing(16, after: headerStackView)
 
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.commonExpand(preferredLanguages: locale.rLanguages)
@@ -484,8 +497,6 @@ private extension AssetsCell {
     func applyPriceNote(_ text: String) {
         priceNoteLabel.sora.text = text
         priceNoteLabel.sora.isHidden = text.isEmpty
-        // A hidden row takes its spacing with it.
-        fullStackView.setCustomSpacing(text.isEmpty ? 16 : 4, after: mainInfoView)
     }
 }
 

@@ -596,6 +596,54 @@ extension WalletDashboardFlowTests {
         await waitForNetwork { reader.accounts.count == 2 }
         XCTAssertEqual(f.source.refreshes, refreshes + 1)
     }
+    /// Found on every fresh import: the first home has no asset list yet, and the Assets card is laid
+    /// out before its other networks are known. Their rows then lay over the card's title.
+    func testTheFirstHomeAfterAnImportShowsOtherNetworksBelowTheAssetsTitle() async throws {
+        let accounts = [try networkAccount(.sora2), try networkAccount(.minamoto), try networkAccount(.taira)]
+        let reader = DashboardNetworkReader()
+        reader.hold = true
+        let f = make(networkAccounts: { accounts }, reader: reader)
+        let screen = RedesignWalletViewController(viewModel: f.model)
+        f.model.view = screen
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        let window = scene.map(UIWindow.init(windowScene:)) ?? UIWindow(frame: UIScreen.main.bounds)
+        window.frame = scene?.coordinateSpace.bounds ?? UIScreen.main.bounds
+        defer {
+            reader.release()
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+        window.rootViewController = UINavigationController(rootViewController: screen)
+        window.makeKeyAndVisible()
+        window.layoutIfNeeded()
+
+        func descendants(of view: UIView) -> [UIView] { [view] + view.subviews.flatMap { descendants(of: $0) } }
+        func frame(_ view: UIView?, in cell: UIView) -> CGRect { view.map { $0.convert($0.bounds, to: cell) } ?? .null }
+        func view(_ identifier: String, in cell: UIView) -> UIView? { descendants(of: cell).first { $0.accessibilityIdentifier == identifier } }
+        var card: UIView? { descendants(of: screen.view).first { $0 is AssetsCell } }
+        await waitForNetwork {
+            card.map { view("wallet.network-row.minamoto", in: $0) != nil && view("wallet.network-row.taira", in: $0) != nil } ?? false
+        }
+        let cell = try XCTUnwrap(card)
+        let title = descendants(of: cell).first { $0 is WalletHeaderView }
+        let button = descendants(of: cell).first { $0 is SoramitsuButton }
+        XCTAssertTrue(f.model.assetsViewModelService.assetViewModels.isEmpty, "The asset list has not arrived")
+        func isLaidOut() -> Bool {
+            let rows = [frame(view("wallet.network-row.minamoto", in: cell), in: cell), frame(view("wallet.network-row.taira", in: cell), in: cell)]
+                .sorted { $0.minY < $1.minY }
+            return rows[0].minY >= frame(title, in: cell).maxY - 1 && rows[1].minY >= rows[0].maxY - 1
+                && frame(button, in: cell).minY >= rows[1].maxY - 1 && frame(button, in: cell).maxY <= cell.bounds.height + 1
+        }
+        await waitForNetwork { isLaidOut() }
+
+        // The rows can appear before the asynchronous read starts. Wait for the held read before
+        // releasing it, and let a subsequent refresh finish without creating another held continuation.
+        await waitForNetwork { !reader.pending.isEmpty }
+        reader.hold = false
+        reader.release()
+        await waitForNetwork { self.networkRows(f).first { $0.account.networkId == .taira }?.amount == "12.5 XOR" }
+        await waitForNetwork { isLaidOut() }
+    }
     func testSendingWithOnlyOneAvailableNetworkUsesTheExistingSora2Route() throws {
         let accounts = [try networkAccount(.sora2), try networkAccount(.minamoto)]
         let fixture = make(networkAccounts: { accounts })

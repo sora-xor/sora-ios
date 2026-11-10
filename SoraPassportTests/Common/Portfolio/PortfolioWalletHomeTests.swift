@@ -204,4 +204,246 @@ final class PortfolioWalletHomeTests: XCTestCase {
         row.sendActions(for: .touchUpInside)
         XCTAssertEqual(opened, ["A", "B"])
     }
+
+    // MARK: Assets, as VoiceOver reads it
+
+    /// The Assets card in a real table in a window, laid out as on the home. A read that lands sets a new model.
+    @MainActor
+    private func showList(_ home: PortfolioHome) -> (table: SoramitsuTableView, window: UIWindow) {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let table = SoramitsuTableView()
+        table.sora.estimatedRowHeight = UITableView.automaticDimension
+        table.frame = window.bounds
+        window.addSubview(table)
+        window.isHidden = false
+        table.sora.sections = [SoramitsuTableViewSection(rows: [home.listItem])]
+        table.layoutIfNeeded()
+        // The Wallet host uses this callback to resize the card when its rows or holdings change.
+        home.listItem.onHeightChange = { [weak table] in
+            UIView.performWithoutAnimation {
+                table?.beginUpdates()
+                table?.endUpdates()
+            }
+        }
+        return (table, window)
+    }
+
+    /// What VoiceOver speaks for each element. A label has no `accessibilityLabel` of its own while VoiceOver is off.
+    private func spoken(_ elements: [UIView]) -> [String] {
+        elements.map { ($0 as? UILabel)?.text ?? $0.accessibilityLabel ?? "" }
+    }
+
+    private func withNewAmount(_ row: PortfolioRow) -> PortfolioRow {
+        PortfolioRow(key: row.key, kind: row.kind, icon: row.icon, title: row.title, change: row.change, direction: row.direction,
+                     subtitle: row.subtitle, walletDots: row.walletDots, value: row.value + " +1", detail: row.detail, tag: row.tag,
+                     isExpandable: row.isExpandable, isExpanded: row.isExpanded, children: row.children, link: row.link,
+                     accessibilityLabel: row.accessibilityLabel + " +1")
+    }
+
+    /// Each element is a view on screen inside the card, under the one before it: the frames VoiceOver gets are the screen's.
+    @MainActor
+    private func assertOnScreenInReadingOrder(_ elements: [UIView], in cell: UITableViewCell, window: UIWindow,
+                                              file: StaticString = #filePath, line: UInt = #line) {
+        let card = cell.convert(cell.bounds, to: nil).insetBy(dx: -0.5, dy: -0.5)
+        var bottom = card.minY
+        for element in elements {
+            let frame = element.convert(element.bounds, to: nil)
+            XCTAssertTrue(element.window === window, "\(element) is not on screen", file: file, line: line)
+            XCTAssertGreaterThan(frame.height, 0, file: file, line: line)
+            XCTAssertTrue(card.contains(frame), "\(frame) is outside the card \(card)", file: file, line: line)
+            XCTAssertGreaterThanOrEqual(frame.minY, bottom - 0.5, "Read top to bottom", file: file, line: line)
+            bottom = frame.maxY
+        }
+    }
+
+    /// UIKit's own list of a cell's elements missed rows rebuilt deep inside the Assets card: VoiceOver skipped them, or read a
+    /// removed row's old balance. The card now lists its views itself and keeps them while their tokens stay.
+    @MainActor
+    func testVoiceOverKeepsTheAssetRowsItFoundAndReadsTheirNewAmounts() throws {
+        let home = home()
+        home.viewModel.update()
+        let model = try XCTUnwrap(home.listItem.model)
+        XCTAssertFalse(model.rows.isEmpty)
+        let shown = showList(home)
+        defer { shown.window.isHidden = true }
+        let cell = try XCTUnwrap(shown.table.cellForItem(item: home.listItem))
+        let before = listedElements(in: cell)
+        XCTAssertEqual(spoken(before), [PortfolioStrings.assets] + model.rows.map(\.accessibilityLabel))
+
+        home.listItem.model = PortfolioListModel(lenses: model.lenses, lens: model.lens, rows: model.rows.map(withNewAmount),
+                                                 emptyText: nil)
+        shown.table.layoutIfNeeded()
+
+        let after = listedElements(in: cell)
+        XCTAssertEqual(spoken(after), [PortfolioStrings.assets] + model.rows.map { $0.accessibilityLabel + " +1" })
+        XCTAssertEqual(after.count, before.count)
+        XCTAssertTrue(zip(before, after).allSatisfy { $0 === $1 }, "VoiceOver stays on a row whose amount changes")
+        assertOnScreenInReadingOrder(after, in: cell, window: shown.window)
+    }
+
+    /// On a new wallet the card first says it is reading. VoiceOver kept that text and never reached the rows that replaced it.
+    @MainActor
+    func testTheAssetRowsReplaceTheReadingTextInWhatVoiceOverReads() throws {
+        let home = home()
+        home.viewModel.update()
+        let model = try XCTUnwrap(home.listItem.model)
+        home.listItem.model = PortfolioListModel(lenses: model.lenses, lens: model.lens, rows: [], emptyText: "Reading balances…")
+        let shown = showList(home)
+        defer { shown.window.isHidden = true }
+        let cell = try XCTUnwrap(shown.table.cellForItem(item: home.listItem))
+        XCTAssertEqual(spoken(listedElements(in: cell)), [PortfolioStrings.assets, "Reading balances…"])
+
+        home.listItem.model = model
+        shown.table.layoutIfNeeded()
+
+        let after = listedElements(in: cell)
+        XCTAssertEqual(spoken(after), [PortfolioStrings.assets] + model.rows.map(\.accessibilityLabel))
+        assertOnScreenInReadingOrder(after, in: cell, window: shown.window)
+    }
+
+    /// Opening a row keeps VoiceOver on it, its holdings come straight after it, and they leave the list when it closes.
+    @MainActor
+    func testOpeningAnAssetRowKeepsVoiceOverOnItAndListsItsHoldingsNext() throws {
+        let home = home()
+        home.viewModel.update()
+        let model = try XCTUnwrap(home.listItem.model)
+        let index = try XCTUnwrap(model.rows.firstIndex(where: \.isExpandable))
+        let shown = showList(home)
+        defer { shown.window.isHidden = true }
+        let cell = try XCTUnwrap(shown.table.cellForItem(item: home.listItem))
+        func element(_ position: Int) throws -> UIView {
+            let elements = listedElements(in: cell)
+            return try XCTUnwrap(elements.indices.contains(position) ? elements[position] : nil, "Nothing listed at \(position)")
+        }
+        let row = try element(index + 1)
+        XCTAssertEqual(row.accessibilityValue, PortfolioStrings.text("Collapsed"))
+
+        home.viewModel.toggleRow(model.rows[index].key)
+        shown.table.layoutIfNeeded()
+
+        let opened = try XCTUnwrap(home.listItem.model?.rows[index])
+        XCTAssertFalse(opened.children.isEmpty)
+        XCTAssertTrue(try element(index + 1) === row, "VoiceOver stays on the row it opened")
+        XCTAssertEqual(row.accessibilityValue, PortfolioStrings.text("Expanded"))
+        let holdings = Array(listedElements(in: cell).dropFirst(index + 2).prefix(opened.children.count))
+        XCTAssertEqual(spoken(holdings), opened.children.map(\.accessibilityLabel))
+        assertOnScreenInReadingOrder(listedElements(in: cell), in: cell, window: shown.window)
+
+        home.viewModel.toggleRow(model.rows[index].key)
+        shown.table.layoutIfNeeded()
+        XCTAssertTrue(try element(index + 1) === row)
+        XCTAssertEqual(listedElements(in: cell).count, model.rows.count + 1, "The holdings left the list with the well")
+    }
+
+    @MainActor
+    func testAssetRowsKeepIdentityWhenReorderedAndUseTheirLatestCallbacks() throws {
+        let home = home()
+        home.viewModel.update()
+        let model = try XCTUnwrap(home.listItem.model)
+        XCTAssertGreaterThanOrEqual(model.rows.count, 2)
+        guard model.rows.count >= 2 else { return }
+        let initial = Array(model.rows.prefix(2))
+        func setRows(_ rows: [PortfolioRow]) {
+            home.listItem.model = PortfolioListModel(lenses: model.lenses, lens: model.lens, rows: rows, emptyText: nil)
+        }
+        setRows(initial)
+        let shown = showList(home)
+        defer { shown.window.isHidden = true }
+        let cell = try XCTUnwrap(shown.table.cellForItem(item: home.listItem))
+        let before = listedElements(in: cell)
+        guard before.count == 3 else { return XCTFail("Expected the heading and two asset rows") }
+        let first = try XCTUnwrap(before[1] as? UIControl)
+        let second = try XCTUnwrap(before[2] as? UIControl)
+        var opened: [PortfolioRow] = []
+        home.listItem.onRow = { opened.append($0) }
+        first.sendActions(for: .touchUpInside)
+
+        let updated = initial.map(withNewAmount)
+        setRows(Array(updated.reversed()))
+        shown.table.layoutIfNeeded()
+        let reordered = listedElements(in: cell)
+        guard reordered.count == 3 else { return XCTFail("Expected the reordered asset rows") }
+        XCTAssertTrue(reordered[1] === second)
+        XCTAssertTrue(reordered[2] === first)
+        XCTAssertEqual(spoken(reordered), [PortfolioStrings.assets] + updated.reversed().map(\.accessibilityLabel))
+        first.sendActions(for: .touchUpInside)
+        XCTAssertEqual(opened, [initial[0], updated[0]], "A retained view must open the latest row model")
+        assertOnScreenInReadingOrder(reordered, in: cell, window: shown.window)
+
+        setRows([updated[0]])
+        shown.table.layoutIfNeeded()
+        let remaining = listedElements(in: cell)
+        guard remaining.count == 2 else { return XCTFail("Expected only the retained asset row") }
+        XCTAssertTrue(remaining[1] === first)
+        XCTAssertNil(second.window, "A removed row must leave the visual and accessibility trees")
+        assertOnScreenInReadingOrder(remaining, in: cell, window: shown.window)
+    }
+
+    @MainActor
+    func testExpandedHoldingsRefreshTheirTargetsAndRemoveTheOldLink() throws {
+        let home = home()
+        home.viewModel.update()
+        let initialModel = try XCTUnwrap(home.listItem.model)
+        let expandable = try XCTUnwrap(initialModel.rows.first(where: \.isExpandable))
+        home.viewModel.toggleRow(expandable.key)
+        let model = try XCTUnwrap(home.listItem.model)
+        let expanded = try XCTUnwrap(model.rows.first(where: { $0.key == expandable.key }))
+        XCTAssertGreaterThanOrEqual(expanded.children.count, 2)
+        guard expanded.children.count >= 2 else { return }
+        let children = Array(expanded.children.prefix(2))
+        func parent(_ children: [PortfolioChildRow], value: String, link: String?) -> PortfolioRow {
+            PortfolioRow(key: expanded.key, kind: expanded.kind, icon: expanded.icon, title: expanded.title,
+                         change: expanded.change, direction: expanded.direction, subtitle: expanded.subtitle,
+                         walletDots: expanded.walletDots, value: value, detail: expanded.detail, tag: expanded.tag,
+                         isExpandable: true, isExpanded: true, children: children, link: link,
+                         accessibilityLabel: expanded.accessibilityLabel)
+        }
+        func setRow(_ row: PortfolioRow) {
+            home.listItem.model = PortfolioListModel(lenses: model.lenses, lens: model.lens, rows: [row], emptyText: nil)
+        }
+        setRow(parent(children, value: "old value", link: "Open wallet"))
+        let shown = showList(home)
+        defer { shown.window.isHidden = true }
+        let cell = try XCTUnwrap(shown.table.cellForItem(item: home.listItem))
+        let before = listedElements(in: cell)
+        guard before.count == 5 else { return XCTFail("Expected the heading, parent, two holdings and link") }
+        let first = try XCTUnwrap(before[2] as? UIControl)
+        let second = try XCTUnwrap(before[3] as? UIControl)
+        let link = try XCTUnwrap(before[4] as? UIButton)
+        var opened: [PortfolioChildRow] = []
+        var linkedValues: [String] = []
+        home.listItem.onChild = { opened.append($0) }
+        home.listItem.onLink = { linkedValues.append($0.value) }
+        first.sendActions(for: .touchUpInside)
+        link.sendActions(for: .touchUpInside)
+
+        let updated = children.map { child in
+            PortfolioChildRow(key: child.key, icon: child.icon, title: child.title, subtitle: child.subtitle,
+                              walletSlot: child.walletSlot, value: child.value + " +1", detail: child.detail,
+                              tag: child.tag, target: .token("updated-" + child.key),
+                              accessibilityLabel: child.accessibilityLabel + " +1")
+        }
+        setRow(parent(Array(updated.reversed()), value: "new value", link: "Open updated wallet"))
+        shown.table.layoutIfNeeded()
+        let reordered = listedElements(in: cell)
+        guard reordered.count == 5 else { return XCTFail("Expected the reordered holdings and link") }
+        XCTAssertTrue(reordered[2] === second)
+        XCTAssertTrue(reordered[3] === first)
+        XCTAssertTrue(reordered[4] === link)
+        XCTAssertEqual(spoken(Array(reordered[2...3])), updated.reversed().map(\.accessibilityLabel))
+        first.sendActions(for: .touchUpInside)
+        link.sendActions(for: .touchUpInside)
+        XCTAssertEqual(opened, [children[0], updated[0]])
+        XCTAssertEqual(linkedValues, ["old value", "new value"])
+        assertOnScreenInReadingOrder(reordered, in: cell, window: shown.window)
+
+        setRow(parent([updated[0]], value: "new value", link: nil))
+        shown.table.layoutIfNeeded()
+        let remaining = listedElements(in: cell)
+        guard remaining.count == 3 else { return XCTFail("Expected only the parent and retained holding") }
+        XCTAssertTrue(remaining[2] === first)
+        XCTAssertNil(second.window)
+        XCTAssertNil(link.window)
+        assertOnScreenInReadingOrder(remaining, in: cell, window: shown.window)
+    }
 }

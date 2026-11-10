@@ -126,8 +126,15 @@ public final class MainScreenAssetView: SoramitsuControl {
     public override func layoutSubviews() {
         updateColumns(for: bounds.width)
         super.layoutSubviews()
-        accessibilityLabel = [titleLabel.text, subtitleLabel.text, amountUpLabel.text, amountDownLabel.text]
-            .compactMap { $0 }.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.joined(separator: ", ")
+    }
+
+    /// Read from the labels whenever VoiceOver asks. Set during layout, it kept the old amount when a new one moved nothing.
+    public override var accessibilityLabel: String? {
+        get {
+            super.accessibilityLabel ?? [titleLabel.text, subtitleLabel.text, amountUpLabel.text, amountDownLabel.text]
+                .compactMap { $0 }.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.joined(separator: ", ")
+        }
+        set { super.accessibilityLabel = newValue }
     }
 
     public override func systemLayoutSizeFitting(_ targetSize: CGSize,
