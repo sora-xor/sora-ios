@@ -83,6 +83,26 @@ def assert_owned_marker(container):
     if (container/'Documents/simulator-public-fixtures-only.marker').read_text() != args.udid:
         raise RuntimeError('Fixture marker does not authorize this simulator')
 
+def legacy_preferences_persisted(container, receipt):
+    # XCTest can replace the app container between the writer and UI tests.
+    # On iOS 17, cfprefsd can still have the old domain on disk when the writer
+    # exits. Only hand off a 1.x installation once its actual inputs are durable.
+    assert_owned_marker(container)
+    expected_name = json.loads(receipt.read_text())['accounts'][0]['username']
+    if not expected_name:
+        raise ValueError('The public legacy fixture must have a display name')
+    path = container / 'Library/Preferences' / (args.bundle + '.plist')
+    deadline = time.monotonic() + min(30, args.stage_timeout_seconds)
+    while time.monotonic() < deadline:
+        try:
+            values = plistlib.loads(path.read_bytes())
+            if values.get('userName') == expected_name and 'selectedAccount' not in values:
+                return True
+        except (FileNotFoundError, plistlib.InvalidFileException):
+            pass
+        time.sleep(0.1)
+    return False
+
 def reinstall_with_receipt(record):
     # A real app uninstall retains simulator Keychain, but no wallet filesystem
     # is copied. Only the public fixture receipt and ownership marker return.
@@ -197,7 +217,14 @@ for case in args.cases:
         if outcome['exitCode'] != 0:
             print(json.dumps(record,indent=2),flush=True)
             sys.exit(outcome['exitCode'])
-        receipt = app_container() / 'Documents/simulator-upgrade-fixture.json'
+        container = app_container()
+        receipt = container / 'Documents/simulator-upgrade-fixture.json'
+        if stage == 'prepare' and case in ('one-x', 'entropy-only'):
+            outcome['legacyPreferencesPersisted'] = legacy_preferences_persisted(container, receipt)
+            if not outcome['legacyPreferencesPersisted']:
+                outcome['exitCode'] = 1
+                results_path.write_text(json.dumps(results + [record], indent=2) + '\n')
+                sys.exit('Fixture preparation failed: the released 1.x preferences were not persisted.')
         if receipt.exists():
             # Public synthetic identity and byte hashes only. Keep each phase
             # before the next real erase/uninstall replaces the app container.
