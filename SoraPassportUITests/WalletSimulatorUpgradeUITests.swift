@@ -182,7 +182,8 @@ final class WalletSimulatorUpgradeUITests: XCTestCase {
             }
             let restored = name == "bound-reinstall" || (name == "two-reinstalls" && phase == "second-install")
             let walletName = restored ? "Restored wallet" : (route == "legacy" ? "Public legacy fixture" : "Audit")
-            let wallet = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", walletName)).firstMatch
+            // The portfolio home's wallet name is a button; the classic home's is a text.
+            let wallet = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", walletName)).firstMatch
             if name == "unreachable-node" {
                 // Local PIN must remain reachable despite the bad saved URL.
                 // The node service may recover through its existing fallback;
@@ -226,6 +227,10 @@ final class WalletSimulatorUpgradeUITests: XCTestCase {
             }
             if env["SORA_SIMULATOR_REVEAL_PHRASE"] == "1" {
                 wallet.tap()
+                // The portfolio's wallet name opens the Wallets sheet, which leads to the account list.
+                let manage = app.buttons["portfolio.manage-wallets"].firstMatch
+                XCTAssertTrue(manage.waitForExistence(timeout: 10))
+                manage.tap()
                 let options = app.buttons["wallet-account-options"].firstMatch
                 XCTAssertTrue(options.waitForExistence(timeout: 10))
                 evidence("account-picker")

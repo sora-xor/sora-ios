@@ -222,6 +222,10 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
                                                lines: 0)
     /// "Assets", the card's title, styled like "XOR on other networks" below it.
     private let titleLabel = UILabel.portfolio(FontType.headline2, .title3, maximum: 32)
+    private let header = UIView()
+    private let emptyView = UIView()
+    private var rowViews: [String: PortfolioRowView] = [:]
+    private var wellViews: [String: PortfolioWellView] = [:]
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -238,7 +242,19 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         titleLabel.adjustsFontSizeToFitWidth = true
         titleLabel.minimumScaleFactor = 0.8
         titleLabel.accessibilityTraits = .header
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        header.addSubview(titleLabel)
+        emptyLabel.translatesAutoresizingMaskIntoConstraints = false
+        emptyView.addSubview(emptyLabel)
         NSLayoutConstraint.activate([
+            titleLabel.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 16),
+            titleLabel.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -16),
+            titleLabel.topAnchor.constraint(equalTo: header.topAnchor, constant: 12),
+            titleLabel.bottomAnchor.constraint(equalTo: header.bottomAnchor, constant: -2),
+            emptyLabel.leadingAnchor.constraint(equalTo: emptyView.leadingAnchor, constant: 20),
+            emptyLabel.trailingAnchor.constraint(equalTo: emptyView.trailingAnchor, constant: -20),
+            emptyLabel.topAnchor.constraint(equalTo: emptyView.topAnchor, constant: 22),
+            emptyLabel.bottomAnchor.constraint(equalTo: emptyView.bottomAnchor, constant: -22),
             card.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
             card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             card.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
@@ -281,53 +297,54 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         item.onHeightChange?()
     }
 
-    private func makeHeader() -> UIView {
+    /// Rows stay the same views across updates and are named in `accessibilityElements`:
+    /// `PortfolioOtherNetworksCell.reload()` says why.
+    private func rebuild(_ model: PortfolioListModel) {
+        card.apply()
         titleLabel.text = PortfolioStrings.assets
         titleLabel.textColor = PortfolioTheme.textPrimary
-        let wrapper = UIView()
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        wrapper.addSubview(titleLabel)
-        NSLayoutConstraint.activate([
-            titleLabel.leadingAnchor.constraint(equalTo: wrapper.leadingAnchor, constant: 16),
-            titleLabel.trailingAnchor.constraint(equalTo: wrapper.trailingAnchor, constant: -16),
-            titleLabel.topAnchor.constraint(equalTo: wrapper.topAnchor, constant: 12),
-            titleLabel.bottomAnchor.constraint(equalTo: wrapper.bottomAnchor, constant: -2)
-        ])
-        return wrapper
-    }
-
-    private func rebuild(_ model: PortfolioListModel) {
-        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        card.apply()
-        stack.addArrangedSubview(makeHeader())
+        var availableRows = rowViews
+        var availableWells = wellViews
+        rowViews = [:]
+        wellViews = [:]
+        var views: [UIView] = [header]
+        var elements: [UIView] = [titleLabel]
         if let empty = model.emptyText {
             emptyLabel.text = empty
             emptyLabel.textColor = PortfolioTheme.textSecondary
-            let wrapper = UIView()
-            emptyLabel.translatesAutoresizingMaskIntoConstraints = false
-            wrapper.addSubview(emptyLabel)
-            NSLayoutConstraint.activate([
-                emptyLabel.leadingAnchor.constraint(equalTo: wrapper.leadingAnchor, constant: 20),
-                emptyLabel.trailingAnchor.constraint(equalTo: wrapper.trailingAnchor, constant: -20),
-                emptyLabel.topAnchor.constraint(equalTo: wrapper.topAnchor, constant: 22),
-                emptyLabel.bottomAnchor.constraint(equalTo: wrapper.bottomAnchor, constant: -22)
-            ])
-            stack.addArrangedSubview(wrapper)
-            return
-        }
-        for (index, row) in model.rows.enumerated() {
-            let rowView = PortfolioRowView()
-            rowView.configure(row, showsSeparator: index > 0)
-            rowView.onTap = { [weak self] in self?.item?.onRow?(row) }
-            rowView.onCustomAction = { [weak self] action in self?.item?.onRowAction?(row, action) }
-            stack.addArrangedSubview(rowView)
-            if row.isExpanded {
-                let well = PortfolioWellView()
-                well.configure(row.children, link: row.link)
-                well.onChild = { [weak self] child in self?.item?.onChild?(child) }
-                well.onLink = { [weak self] in self?.item?.onLink?(row) }
-                stack.addArrangedSubview(well)
+            views.append(emptyView)
+            elements.append(emptyLabel)
+        } else {
+            for (index, row) in model.rows.enumerated() {
+                let rowView = availableRows.removeValue(forKey: row.key) ?? PortfolioRowView()
+                rowView.configure(row, showsSeparator: index > 0)
+                rowView.onTap = { [weak self] in self?.item?.onRow?(row) }
+                rowView.onCustomAction = { [weak self] action in self?.item?.onRowAction?(row, action) }
+                rowViews[row.key] = rowView
+                views.append(rowView)
+                elements.append(rowView)
+                if row.isExpanded {
+                    let well = availableWells.removeValue(forKey: row.key) ?? PortfolioWellView()
+                    well.configure(row.children, link: row.link)
+                    well.onChild = { [weak self] child in self?.item?.onChild?(child) }
+                    well.onLink = { [weak self] in self?.item?.onLink?(row) }
+                    wellViews[row.key] = well
+                    views.append(well)
+                    elements.append(contentsOf: well.elements)
+                }
             }
+        }
+        stack.portfolioArrange(views)
+        accessibilityElements = elements
+    }
+}
+
+extension UIStackView {
+    /// Makes `views` the arranged subviews, in this order, and leaves alone those already in place.
+    func portfolioArrange(_ views: [UIView]) {
+        arrangedSubviews.filter { !views.contains($0) }.forEach { $0.removeFromSuperview() }
+        for (index, view) in views.enumerated() where index >= arrangedSubviews.count || arrangedSubviews[index] !== view {
+            insertArrangedSubview(view, at: index)
         }
     }
 }
@@ -493,19 +510,37 @@ final class PortfolioRowView: UIControl {
 final class PortfolioWellView: UIView {
     var onChild: ((PortfolioChildRow) -> Void)?
     var onLink: (() -> Void)?
+    /// The well's rows and link, in reading order, for the cell's `accessibilityElements`.
+    private(set) var elements: [UIView] = []
 
     private let stack = UIStackView()
+    private let well = UIView()
+    private let inner = UIStackView()
+    private let linkButton = UIButton(type: .system)
+    private var childViews: [String: PortfolioChildRowView] = [:]
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         stack.axis = .vertical
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
+        well.layer.cornerRadius = 18
+        well.layer.cornerCurve = .continuous
+        inner.axis = .vertical
+        inner.translatesAutoresizingMaskIntoConstraints = false
+        well.addSubview(inner)
+        stack.addArrangedSubview(well)
+        linkButton.contentHorizontalAlignment = .leading
+        linkButton.addTarget(self, action: #selector(linkTapped), for: .touchUpInside)
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             stack.topAnchor.constraint(equalTo: topAnchor, constant: 2),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10)
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+            inner.leadingAnchor.constraint(equalTo: well.leadingAnchor),
+            inner.trailingAnchor.constraint(equalTo: well.trailingAnchor),
+            inner.topAnchor.constraint(equalTo: well.topAnchor, constant: 4),
+            inner.bottomAnchor.constraint(equalTo: well.bottomAnchor, constant: -4)
         ])
         layer.cornerCurve = .continuous
     }
@@ -515,30 +550,18 @@ final class PortfolioWellView: UIView {
     }
 
     func configure(_ children: [PortfolioChildRow], link: String?) {
-        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let tokens = PortfolioTheme.tokens
-        let well = UIView()
         well.backgroundColor = PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.035) : tokens.layer1
-        well.layer.cornerRadius = 18
-        well.layer.cornerCurve = .continuous
-        let inner = UIStackView()
-        inner.axis = .vertical
-        inner.translatesAutoresizingMaskIntoConstraints = false
-        well.addSubview(inner)
-        NSLayoutConstraint.activate([
-            inner.leadingAnchor.constraint(equalTo: well.leadingAnchor),
-            inner.trailingAnchor.constraint(equalTo: well.trailingAnchor),
-            inner.topAnchor.constraint(equalTo: well.topAnchor, constant: 4),
-            inner.bottomAnchor.constraint(equalTo: well.bottomAnchor, constant: -4)
-        ])
-        for (index, child) in children.enumerated() {
-            let view = PortfolioChildRowView()
+        var available = childViews
+        childViews = [:]
+        var views: [UIView] = children.enumerated().map { index, child in
+            let view = available.removeValue(forKey: child.key) ?? PortfolioChildRowView()
             view.configure(child, showsSeparator: index > 0)
             view.onTap = { [weak self] in self?.onChild?(child) }
-            inner.addArrangedSubview(view)
+            childViews[child.key] = view
+            return view
         }
         if let link {
-            let button = UIButton(type: .system)
             var configuration = UIButton.Configuration.plain()
             configuration.attributedTitle = AttributedString(link, attributes: AttributeContainer([
                 .font: PortfolioTheme.font(FontType.textBoldS, .subheadline, maximum: 24),
@@ -548,12 +571,11 @@ final class PortfolioWellView: UIView {
             configuration.imagePlacement = .trailing
             configuration.imagePadding = 6
             configuration.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
-            button.configuration = configuration
-            button.contentHorizontalAlignment = .leading
-            button.addTarget(self, action: #selector(linkTapped), for: .touchUpInside)
-            inner.addArrangedSubview(button)
+            linkButton.configuration = configuration
+            views.append(linkButton)
         }
-        stack.addArrangedSubview(well)
+        inner.portfolioArrange(views)
+        elements = views
     }
 
     @objc private func linkTapped() { onLink?() }

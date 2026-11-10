@@ -302,6 +302,33 @@ import XCTest
     XCTAssertEqual(f.sign.signs, 0)
     XCTAssertTrue(f.transport.requests.isEmpty)
   }
+  /// The wallet home under this page gets no `viewWillAppear` when it closes, so `onClose` is how
+  /// it hears of a send made here: once, from the real close button, and not while another screen
+  /// only covers the page.
+  func testPresentedDetailReportsItsCloseOnceAndNotWhileCovered() async throws {
+    let f = try make()
+    let screen = NexusNetworkDetailViewController(
+      account: f.account, configuration: NexusNetworkConfiguration.taira!, coordinator: f.model,
+      readClient: f.read, mutationUnavailableReason: nil, networkStore: { f.store })
+    var closes = 0
+    screen.onClose = { closes += 1 }
+    NexusSora2Presentation.present(screen, from: navigation)
+    await wait { screen.view.window != nil }
+
+    let cover = UIViewController()
+    cover.modalPresentationStyle = .fullScreen
+    screen.present(cover, animated: false)
+    await wait { cover.view.window != nil }
+    cover.dismiss(animated: false)
+    await wait { screen.presentedViewController == nil && screen.view.window != nil }
+    XCTAssertEqual(closes, 0)
+
+    let closeButton = try XCTUnwrap(screen.navigationItem.rightBarButtonItem)
+    UIApplication.shared.sendAction(
+      try XCTUnwrap(closeButton.action), to: closeButton.target, from: closeButton, for: nil)
+    await wait { closes > 0 && self.navigation.presentedViewController == nil }
+    XCTAssertEqual(closes, 1)
+  }
   func testAutomaticSendPresentsFormAfterQualification() async throws {
     let f = try make()
     let (_, flow) = try await openForm(f)

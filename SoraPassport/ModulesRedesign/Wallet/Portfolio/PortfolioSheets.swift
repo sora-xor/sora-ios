@@ -266,9 +266,9 @@ final class PortfolioOptionRow: UIControl {
         self.detail.text = detail
         self.detail.isHidden = detail == nil
         self.detail.textColor = tokens.textSecondary
-        backgroundColor = selected ? PortfolioTheme.flowerPink.withAlphaComponent(PortfolioTheme.isDark ? 0.14 : 0.07)
+        backgroundColor = selected ? WalletUX.accent.withAlphaComponent(PortfolioTheme.isDark ? 0.14 : 0.07)
             : (PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.04) : tokens.surface)
-        layer.borderColor = (selected ? PortfolioTheme.flowerPink : tokens.hairline).cgColor
+        layer.borderColor = (selected ? WalletUX.accent : tokens.hairline).cgColor
         layer.borderWidth = selected ? 1.5 : 1
         accessibilityLabel = [title, subtitle, value, detail].compactMap { $0 }.joined(separator: ", ")
         accessibilityTraits = selected ? [.button, .selected] : .button
@@ -309,9 +309,12 @@ final class PortfolioWalletsSheet: PortfolioSheetViewController {
             })
         }
         contentStack.setCustomSpacing(18, after: contentStack.arrangedSubviews.last ?? contentStack)
-        contentStack.addArrangedSubview(banner(
-            PortfolioStrings.text("All wallets adds each wallet's own total. Wallets that are not selected refresh about once a minute while you look, so each one shows how old its numbers are."),
-            link: PortfolioStrings.text("Refresh all wallets")) { [weak self] in self?.onRefresh?() })
+        // With one wallet there is nothing to add up or to refresh in the background.
+        if entries.count >= 2 {
+            contentStack.addArrangedSubview(banner(
+                PortfolioStrings.text("All wallets adds each wallet's own total. Wallets that are not selected refresh about once a minute while you look, so each one shows how old its numbers are."),
+                link: PortfolioStrings.text("Refresh all wallets")) { [weak self] in self?.onRefresh?() })
+        }
         let manage = UIButton(type: .system, primaryAction: UIAction { [weak self] _ in self?.onManage?() })
         var configuration = UIButton.Configuration.plain()
         configuration.attributedTitle = AttributedString(PortfolioStrings.text("Manage wallets"), attributes: AttributeContainer([
@@ -321,6 +324,7 @@ final class PortfolioWalletsSheet: PortfolioSheetViewController {
         configuration.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 4, bottom: 12, trailing: 4)
         manage.configuration = configuration
         manage.contentHorizontalAlignment = .leading
+        manage.accessibilityIdentifier = "portfolio.manage-wallets"
         contentStack.addArrangedSubview(manage)
         let assets = UIButton(type: .system, primaryAction: UIAction { [weak self] _ in self?.onManageAssets?() })
         configuration.attributedTitle = AttributedString(PortfolioStrings.text("Manage selected wallet's assets"), attributes: AttributeContainer([

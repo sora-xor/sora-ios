@@ -218,6 +218,8 @@ extension WalletNetworkChoicesCell: SoramitsuTableViewCellProtocol {
             view.titleLabel.sora.text = row.title
             view.titleLabel.sora.loadingPlaceholder.type = .none
             view.subtitleLabel.sora.text = row.subtitle.isEmpty ? " " : row.subtitle
+            // The subtitle can end in a sentence ("Sending on … starts when the network launches").
+            view.subtitleLabel.sora.lineBreakMode = .byWordWrapping
             view.subtitleLabel.sora.loadingPlaceholder.type = .none
             view.amountUpLabel.sora.text = row.tag?.title ?? ""
             switch row.tag {

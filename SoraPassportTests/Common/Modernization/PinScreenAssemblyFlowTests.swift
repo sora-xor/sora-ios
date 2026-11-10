@@ -222,6 +222,8 @@ private final class PinPresenterView: UIViewController, PinSetupViewProtocol {
     var controller: UIViewController { self }
     var symbolCounts: [Int] = [], circles: [Int] = [], accessory: [Bool] = [], deleteHidden: [Bool] = [], titles: [String] = []
     var errors = 0, biometryRequests = 0; var errorCompletion: ((Bool) -> Void)?, biometryCompletion: ((Bool) -> Void)?
+    var asked: UIViewController?
+    override func present(_ viewController: UIViewController, animated: Bool, completion: (() -> Void)? = nil) { asked = viewController }
     func didRequestBiometryUsage(biometryType: AvailableBiometryType, completionBlock: @escaping (Bool) -> Void) { XCTAssertTrue(Thread.isMainThread); biometryRequests += 1; biometryCompletion = completionBlock }
     func didChangeAccessoryState(enabled: Bool) { accessory.append(enabled) }
     func didReceiveWrongPincode() { errors += 1 }
@@ -391,16 +393,156 @@ final class LocalAuthLifecycleBoundaryTests: XCTestCase {
         await waitUntil { f.subject.state == .waitingPincode }
         XCTAssertEqual(f.biometry.requests, 0); XCTAssertEqual(f.output.completions, 0); XCTAssertEqual(completions, 0)
     }
-    func testTypedPinApprovesTheEnrolledFacesOrFingersOnlyWhileBiometryIsOn() async throws {
+    func testTypedPinApprovesOnlyAFirstEnrollmentAndOnlyWhileBiometryIsOn() async throws {
         let on = try fixture(); on.biometry.isEnrollmentApproved = false; await authenticate(on)
-        XCTAssertEqual(on.output.completions, 1); XCTAssertEqual(on.biometry.approvals, 1)
+        XCTAssertEqual(on.output.completions, 1); XCTAssertEqual(on.biometry.firstApprovals, 1); XCTAssertEqual(on.biometry.approvals, 0)
         let off = try fixture(enabled: false); await authenticate(off)
-        XCTAssertEqual(off.output.completions, 1); XCTAssertEqual(off.biometry.approvals, 0)
-        let wrong = try fixture(); await authenticate(wrong, pin: "000000"); XCTAssertEqual(wrong.biometry.approvals, 0)
+        XCTAssertEqual(off.output.completions, 1); XCTAssertEqual(off.biometry.firstApprovals, 0); XCTAssertEqual(off.biometry.approvals, 0)
+        let wrong = try fixture(); await authenticate(wrong, pin: "000000"); XCTAssertEqual(wrong.biometry.firstApprovals, 0)
+    }
+    private func typePinOnChangedEnrollment() async throws -> Fixture {
+        let f = try fixture(); f.biometry.isEnrollmentApproved = false; f.biometry.hasEnrollmentChanged = true
+        f.subject.process(pin: "123456"); await waitUntil(timeout: 30) { f.output.decisions.count == 1 }
+        return f
+    }
+    func testTypedPinOnAChangedEnrollmentWaitsForTheOwnerAndApprovesNothing() async throws {
+        let f = try await typePinOnChangedEnrollment()
+        XCTAssertEqual(f.output.completions, 0); XCTAssertEqual(f.subject.state, .checkingPincode)
+        XCTAssertEqual(f.biometry.approvals, 0); XCTAssertEqual(f.biometry.firstApprovals, 0)
+        XCTAssertEqual(f.settings.biometryEnabled, true)
+    }
+    func testKeepingAChangedEnrollmentApprovesItAndCompletes() async throws {
+        let f = try await typePinOnChangedEnrollment()
+        f.output.decisions[0](true)
+        XCTAssertEqual(f.biometry.approvals, 1); XCTAssertEqual(f.output.completions, 1); XCTAssertEqual(f.subject.state, .completed)
+        XCTAssertEqual(f.settings.biometryEnabled, true)
+    }
+    func testRefusingAChangedEnrollmentTurnsBiometryOffAndCompletesWithoutApproving() async throws {
+        let f = try await typePinOnChangedEnrollment()
+        f.output.decisions[0](false)
+        XCTAssertEqual(f.biometry.approvals, 0); XCTAssertEqual(f.output.completions, 1); XCTAssertEqual(f.subject.state, .completed)
+        XCTAssertEqual(f.settings.biometryEnabled, false)
+    }
+    func testASecondAnswerToTheEnrollmentQuestionChangesNothing() async throws {
+        let f = try await typePinOnChangedEnrollment()
+        f.output.decisions[0](true); f.output.decisions[0](false)
+        XCTAssertEqual(f.settings.biometryEnabled, true); XCTAssertEqual(f.biometry.approvals, 1); XCTAssertEqual(f.output.completions, 1)
+    }
+    func testBackgroundingDiscardsBothAnswersToThePendingEnrollmentQuestion() async throws {
+        for keep in [true, false] {
+            let f = try await typePinOnChangedEnrollment()
+            NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+            f.output.decisions[0](keep)
+            XCTAssertEqual(f.subject.state, .waitingPincode)
+            XCTAssertEqual(f.output.completions, 0); XCTAssertEqual(f.biometry.approvals, 0)
+            XCTAssertEqual(f.settings.biometryEnabled, true)
+            f.subject.updatePin(pin: "654321", completion: { XCTFail("The backgrounded PIN grant must be discarded") })
+            XCTAssertEqual(f.output.failures, 1)
+        }
+    }
+    func testAnOldEnrollmentAnswerCannotCompleteAFreshPinAttempt() async throws {
+        let f = try await typePinOnChangedEnrollment()
+        NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+        f.subject.process(pin: "123456")
+        await waitUntil(timeout: 30) { f.output.decisions.count == 2 }
+        f.output.decisions[0](true)
+        XCTAssertEqual(f.output.completions, 0); XCTAssertEqual(f.biometry.approvals, 0)
+        guard f.output.decisions.count == 2 else { return }
+        f.output.decisions[1](false)
+        XCTAssertEqual(f.output.completions, 1); XCTAssertEqual(f.settings.biometryEnabled, false)
+    }
+    func testBecomingInactiveDiscardsBothAnswersToTheEnrollmentQuestion() async throws {
+        for keep in [true, false] {
+            let f = try await typePinOnChangedEnrollment()
+            NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
+            f.output.decisions[0](keep)
+            XCTAssertEqual(f.subject.state, .waitingPincode)
+            XCTAssertEqual(f.output.completions, 0); XCTAssertEqual(f.biometry.approvals, 0)
+            XCTAssertEqual(f.settings.biometryEnabled, true)
+        }
+    }
+    func testSystemBiometryCanFinishAfterBecomingInactive() async throws {
+        let f = try fixture(); f.subject.startAuth(completion: nil)
+        await waitUntil { f.biometry.requests == 1 }
+        NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
+        XCTAssertEqual(f.subject.state, .checkingBiometry)
+        f.biometry.complete(true); await waitUntil { f.output.completions == 1 }
+        XCTAssertEqual(f.subject.state, .completed); XCTAssertEqual(f.biometry.approvals, 0)
+    }
+    func testBothPinScreensAcceptFreshEntryAfterBackgroundingTheEnrollmentQuestion() async throws {
+        let input = InputPincodePresenter(), authorization = AuthorizationPresenter()
+        for presenter in [input as any PinSetupPresenterProtocol, authorization as any PinSetupPresenterProtocol] {
+            let f = try fixture(), view = PinPresenterView()
+            f.biometry.hasEnrollmentChanged = true; f.biometry.isEnrollmentApproved = false
+            if let input = presenter as? InputPincodePresenter {
+                input.view = view; input.wireframe = PinPresenterRoute(); input.interactor = f.subject; f.subject.presenter = input
+            } else {
+                authorization.view = view; authorization.wireframe = PinAssemblyRoute(); authorization.interactor = f.subject; f.subject.presenter = authorization
+            }
+            f.subject.presenter?.setupPinCodeSymbols(with: 6)
+            "123456".forEach { presenter.padButtonTapped(with: String($0)) }
+            await waitUntil(timeout: 30) { view.asked != nil }
+            NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+            XCTAssertEqual(view.circles.last, 0)
+            presenter.padButtonTapped(with: "1")
+            XCTAssertEqual(view.circles.last, 1)
+            XCTAssertEqual(f.subject.state, .waitingPincode)
+        }
+    }
+    func testAChangedEnrollmentAsksNothingWhileBiometryIsOff() async throws {
+        let f = try fixture(enabled: false); f.biometry.hasEnrollmentChanged = true; await authenticate(f, timeout: 30)
+        XCTAssertTrue(f.output.decisions.isEmpty); XCTAssertEqual(f.output.completions, 1); XCTAssertEqual(f.biometry.approvals, 0)
+    }
+    func testAWrongPinOnAChangedEnrollmentAsksNothing() async throws {
+        let f = try fixture(); f.biometry.hasEnrollmentChanged = true; await authenticate(f, pin: "000000", timeout: 30)
+        XCTAssertTrue(f.output.decisions.isEmpty); XCTAssertEqual(f.output.wrong, 1); XCTAssertEqual(f.biometry.approvals, 0)
+    }
+    private func answer(_ action: UIAlertAction) throws {
+        let block = try XCTUnwrap(action.value(forKey: "handler"))
+        unsafeBitCast(block as AnyObject, to: (@convention(block) (UIAlertAction) -> Void).self)(action)
+    }
+    func testTheChangedBiometryQuestionNamesTheTypeAndItsButtonsAnswerAsTheySay() throws {
+        for (type, name) in [(AvailableBiometryType.faceId, "Face ID"), (AvailableBiometryType.touchId, "Touch ID")] {
+            let view = PinPresenterView(); var answers: [Bool] = []
+            view.askToKeepChangedBiometry(type: type) { answers.append($0) }
+            let alert = try XCTUnwrap(view.asked as? UIAlertController)
+            XCTAssertEqual(alert.title, WalletUX.format("%@ changed on this iPhone", name))
+            XCTAssertEqual(alert.message?.components(separatedBy: name).count, 3, "The message names \(name) twice")
+            XCTAssertEqual(alert.actions.map(\.title), [WalletUX.format("Keep %@", name), WalletUX.format("Turn %@ off", name)])
+            XCTAssertEqual(alert.actions.map(\.style), [.default, .destructive]); XCTAssertEqual(answers, [])
+            try answer(alert.actions[0]); XCTAssertEqual(answers, [true])
+            try answer(alert.actions[1]); XCTAssertEqual(answers, [true, false])
+        }
+    }
+    func testBothPinScreensPutTheQuestionOnTheirOwnView() async throws {
+        let input = InputPincodePresenter(), inputView = PinPresenterView(); input.view = inputView
+        let authorization = AuthorizationPresenter(), authorizationView = PinPresenterView(); authorization.view = authorizationView
+        var answers: [Bool] = []
+        input.didRequireEnrollmentDecision(type: .faceId) { answers.append($0) }
+        authorization.didRequireEnrollmentDecision(type: .touchId) { answers.append($0) }
+        await waitUntil { inputView.asked != nil && authorizationView.asked != nil }
+        let faceID = try XCTUnwrap(inputView.asked as? UIAlertController), touchID = try XCTUnwrap(authorizationView.asked as? UIAlertController)
+        XCTAssertEqual(faceID.title, WalletUX.format("%@ changed on this iPhone", "Face ID"))
+        XCTAssertEqual(touchID.title, WalletUX.format("%@ changed on this iPhone", "Touch ID"))
+        try answer(faceID.actions[0]); try answer(touchID.actions[1]); XCTAssertEqual(answers, [true, false])
+    }
+    func testReplacingThePinApprovesNoFacesOrFingers() async throws {
+        let f = try fixture()
+        let authorization = try WalletOwnerPIN(keystore: f.store.keychain, settings: f.settings, recoveryGate: gate(f.settings))
+            .authenticateCurrent("123456", currentAccounts: { [] })
+        let output = PinReplacementOutput()
+        let setup = PinSetupInteractor(secretManager: f.store, settingsManager: f.settings, biometryAuth: f.biometry,
+            config: ApplicationConfig.shared, ownerPINKeystore: f.store.keychain, recoveryGate: gate(f.settings),
+            authorization: authorization, accounts: { [] })
+        setup.presenter = output
+        setup.change(pin: "654321")
+        await waitUntil(timeout: 10) { output.saves == 1 }
+        XCTAssertEqual(f.biometry.approvals, 0); XCTAssertEqual(f.biometry.firstApprovals, 0)
     }
     func testBiometricUnlockNeverApprovesAnEnrollment() async throws {
         let f = try fixture(); f.subject.startAuth(completion: nil); await waitUntil { f.biometry.requests == 1 }
         f.biometry.complete(true); await waitUntil { f.output.completions == 1 }; XCTAssertEqual(f.biometry.approvals, 0)
+        XCTAssertEqual(f.biometry.firstApprovals, 0)
     }
     func testPinOnlyAuthorizationNeverOffersBiometry() async throws {
         let f = try fixture(allowsBiometry: false); XCTAssertFalse(f.subject.allowManualBiometryAuth)
@@ -552,8 +694,9 @@ final class LocalAuthLifecycleBoundaryTests: XCTestCase {
 private enum AuthBoundaryFailure: Error { case unavailable }
 private final class AuthBoundaryBiometry: BiometryAuthProtocol {
     var availableBiometryType: AvailableBiometryType = .touchId
-    var isEnrollmentApproved = true, approvals = 0
+    var isEnrollmentApproved = true, hasEnrollmentChanged = false, approvals = 0, firstApprovals = 0
     func approveCurrentEnrollment() { approvals += 1 }
+    func approveFirstEnrollment() { firstApprovals += 1 }
     var requests = 0, reasons: [String] = []; private var callback: (() -> Void)?; private var delivery: ((Bool) -> Void)?
     func authenticate(localizedReason: String, completionQueue: DispatchQueue, completionBlock: @escaping (Bool) -> Void) {
         requests += 1; reasons.append(localizedReason); delivery = { value in completionQueue.async { completionBlock(value) } }
@@ -567,6 +710,14 @@ private final class AuthBoundaryOutput: LocalAuthInteractorOutputProtocol {
     func reachedLastChancePinInput() { lastChance += 1 }; func didChangeState(from state: LocalAuthInteractor.LocalAuthState) { states.append(state) }
     func didCompleteAuth() { completions += 1 }; func didUnexpectedFail() { failures += 1 }; func setupPinCodeSymbols(with count: Int) { lengths.append(count) }
     func didRequireOwnerPinEntry() { ownerPinRequests += 1 }
+    var decisions: [(Bool) -> Void] = []
+    func didRequireEnrollmentDecision(type: AvailableBiometryType, completion: @escaping (Bool) -> Void) { decisions.append(completion) }
+}
+private final class PinReplacementOutput: PinSetupInteractorOutputProtocol {
+    var saves = 0
+    func didSavePin() { saves += 1 }
+    func didStartWaitingBiometryDecision(type: AvailableBiometryType, completionBlock: @escaping (Bool) -> Void) {}
+    func didChangeState(from: PinSetupInteractor.PinSetupState) {}
 }
 /// Fails every read of one tag the way an unavailable Keychain does.
 private final class AuthBoundaryReadFaultKeychain: KeystoreProtocol {
@@ -645,5 +796,24 @@ final class BiometryEnrollmentApprovalTests: XCTestCase {
         XCTAssertEqual(auth.availableBiometryType, .none); XCTAssertEqual(approvals.saves, 0); XCTAssertEqual(unlock(auth), false)
         evaluator.enrollment = BiometryEnrollment(type: .touchId, state: nil); auth.approveCurrentEnrollment()
         XCTAssertEqual(approvals.saves, 0); XCTAssertFalse(auth.isEnrollmentApproved)
+    }
+    func testAChangeIsReportedOnlyAgainstAnApprovedSet() {
+        let evaluator = Evaluator(), approvals = Approvals(), auth = BiometryAuth(evaluator: evaluator, approvals: approvals)
+        XCTAssertFalse(auth.hasEnrollmentChanged, "Nothing approved yet")
+        auth.approveCurrentEnrollment(); XCTAssertFalse(auth.hasEnrollmentChanged)
+        evaluator.enrollment = BiometryEnrollment(type: .faceId, state: Data([2])); XCTAssertTrue(auth.hasEnrollmentChanged)
+        evaluator.enrollment = nil; XCTAssertFalse(auth.hasEnrollmentChanged, "None enrolled now: nothing to decide")
+        evaluator.enrollment = BiometryEnrollment(type: .faceId, state: Data([3]))
+        XCTAssertTrue(auth.hasEnrollmentChanged, "Emptying the set and enrolling again is still a change")
+        evaluator.enrollment = BiometryEnrollment(type: .faceId, state: nil); XCTAssertFalse(auth.hasEnrollmentChanged)
+    }
+    func testTheFirstApprovalHappensOnceAndNeverCoversAChangedSet() {
+        let evaluator = Evaluator(), approvals = Approvals(), auth = BiometryAuth(evaluator: evaluator, approvals: approvals)
+        auth.approveFirstEnrollment(); XCTAssertEqual(approvals.stored, Data([1])); XCTAssertEqual(approvals.saves, 1)
+        evaluator.enrollment = BiometryEnrollment(type: .faceId, state: Data([2])); evaluator.matched = Data([2])
+        auth.approveFirstEnrollment()
+        XCTAssertEqual(approvals.stored, Data([1]), "A later typed PIN does not approve a changed set")
+        XCTAssertFalse(auth.isEnrollmentApproved); XCTAssertEqual(unlock(auth), false)
+        auth.approveCurrentEnrollment(); XCTAssertEqual(unlock(auth), true, "The owner's yes does")
     }
 }

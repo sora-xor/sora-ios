@@ -62,11 +62,251 @@ final class TairaFaucetClientTests: XCTestCase {
         XCTAssertNotEqual(proof.challenge, other.challenge)
         let expected = TairaClient.networkBytes + Data(account.utf8) + Data([0, 0, 0, 0, 0, 0, 0x27, 0x65]) + Data(repeating: 1, count: 32)
         XCTAssertEqual(proof.challenge, Data(SHA256.hash(data: Data("iroha:accounts:faucet:pow:v1".utf8) + expected)))
-        let nonce = try TairaFaucetClient.solve(proof) { nonce, salt, n, r, p in
+        let stretch = try TairaFaucetClient.solve(proof) { nonce, salt, n, r, p in
             XCTAssertEqual(salt, proof.challenge); XCTAssertEqual(n, 8192); XCTAssertEqual(r, 8); XCTAssertEqual(p, 1)
             return Data(repeating: nonce == Data([2, 1, 0, 0, 0, 0, 0, 0]) ? 0 : 255, count: 32)
         }
-        XCTAssertEqual(nonce, Data([2, 1, 0, 0, 0, 0, 0, 0]))
+        XCTAssertEqual(stretch.solution, Data([2, 1, 0, 0, 0, 0, 0, 0]))
+    }
+    func testSolveHasNoTimeLimit() throws {
+        let proof = try TairaFaucetClient.puzzle(puzzle(), account: account)
+        var now: TimeInterval = 0
+        // Every read of the clock is an hour later, and 259 tries still end in a solution.
+        let stretch = try TairaFaucetClient.solve(proof, uptime: { now += 3600; return now }) { nonce, _, _, _, _ in
+            Data(repeating: nonce == Data([2, 1, 0, 0, 0, 0, 0, 0]) ? 0 : 255, count: 32)
+        }
+        XCTAssertEqual(stretch.solution, Data([2, 1, 0, 0, 0, 0, 0, 0]))
+        XCTAssertGreaterThan(now, 900_000)
+    }
+    func testSolveRunsOutOfTriesExactlyAtTheBound() throws {
+        XCTAssertEqual(TairaFaucetClient.maximumTries, 65_536)
+        let proof = try TairaFaucetClient.puzzle(puzzle(), account: account)
+        var tries = 0, last = Data()
+        XCTAssertThrowsError(try TairaFaucetClient.solve(proof) { nonce, _, _, _, _ in
+            tries += 1; last = nonce
+            return Data(repeating: 255, count: 32)
+        }) { XCTAssertEqual($0 as? TairaFaucetClient.Failure, .resourceLimit) }
+        XCTAssertEqual(tries, 65_536)
+        XCTAssertEqual(last, Data([255, 255, 0, 0, 0, 0, 0, 0]))
+    }
+    func testAStretchOnlyPausesTheSolveAndAlwaysMakesATry() throws {
+        let proof = try TairaFaucetClient.puzzle(puzzle(), account: account)
+        var tried: [Data] = []
+        let record: TairaFaucetClient.Scrypt = { _, _, _, _, _ in Data(repeating: 255, count: 32) }
+        let first = try TairaFaucetClient.solve(proof, until: -1) { nonce, a, b, c, d in tried.append(nonce); return try record(nonce, a, b, c, d) }
+        XCTAssertEqual(first, .init(solution: nil, next: 1))
+        let second = try TairaFaucetClient.solve(proof, from: first.next, until: -1) { nonce, a, b, c, d in tried.append(nonce); return try record(nonce, a, b, c, d) }
+        XCTAssertEqual(second, .init(solution: nil, next: 2))
+        XCTAssertEqual(tried, [Data([0, 0, 0, 0, 0, 0, 0, 0]), Data([1, 0, 0, 0, 0, 0, 0, 0])])
+        let end = try TairaFaucetClient.solve(proof, from: TairaFaucetClient.maximumTries - 1, until: -1) { _, _, _, _, _ in Data(repeating: 0, count: 32) }
+        XCTAssertEqual(end, .init(solution: Data([255, 255, 0, 0, 0, 0, 0, 0]), next: TairaFaucetClient.maximumTries))
+        XCTAssertThrowsError(try TairaFaucetClient.solve(proof, from: end.next, until: -1) { _, _, _, _, _ in XCTFail("tried past the bound"); return Data() }) {
+            XCTAssertEqual($0 as? TairaFaucetClient.Failure, .resourceLimit)
+        }
+    }
+    func testFailureMessageBlamesTheConnectionOnlyForAFailedRequest() throws {
+        let connection = "Could not get test XOR. Check your connection and try again."
+        let solve = "Your test XOR could not be prepared on this device. Please try again later."
+        let other = "The faucet request was not completed. Please try again."
+        XCTAssertEqual(TairaFaucetClient.failureMessage(for: TairaFaucetClient.Failure.resourceLimit), solve)
+        for code in [URLError.notConnectedToInternet, .timedOut, .networkConnectionLost, .cannotFindHost] {
+            XCTAssertEqual(TairaFaucetClient.failureMessage(for: URLError(code)), connection)
+        }
+        for failure in [TairaFaucetClient.Failure.rejectedHTTP(400), .rejectedHTTP(503), .invalidResponse, .wrongNetwork, .expired, .alreadySubmitted] {
+            XCTAssertEqual(TairaFaucetClient.failureMessage(for: failure), other)
+        }
+        XCTAssertEqual(TairaFaucetClient.failureMessage(for: CocoaError(.fileWriteOutOfSpace)), other)
+        // Every message is in the catalogs: English, and the languages that do not fall back to it.
+        let catalogs = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("SoraPassport/SoraLocalizable")
+        func catalog(_ language: String) throws -> [String: String] {
+            let url = catalogs.appendingPathComponent(language + ".lproj/Localizable.strings")
+            return try XCTUnwrap(NSDictionary(contentsOf: url) as? [String: String], language)
+        }
+        let english = try catalog("en")
+        for key in [connection, solve, other] { XCTAssertEqual(english[key], key) }
+        let progress = "Preparing your test XOR… %@\nThis can take a few minutes."
+        XCTAssertEqual(english[progress], progress)
+        let languages = try FileManager.default.contentsOfDirectory(atPath: catalogs.path).filter { $0.hasSuffix(".lproj") }.map { String($0.dropLast(6)) }
+        XCTAssertEqual(languages.count, 33)
+        for language in languages where language != "en" {
+            let table = try catalog(language)
+            if ["akk", "egy-Egyp"].contains(language) {
+                XCTAssertNil(table[solve], language); XCTAssertNil(table[progress], language)
+            } else {
+                let translatedSolve = try XCTUnwrap(table[solve], language), translatedProgress = try XCTUnwrap(table[progress], language)
+                XCTAssertNotEqual(translatedSolve, solve, language); XCTAssertNotEqual(translatedProgress, progress, language)
+                XCTAssertEqual(translatedProgress.components(separatedBy: "%@").count, 2, language)
+                XCTAssertEqual(translatedProgress.components(separatedBy: "\n").count, 2, language)
+                XCTAssertFalse(translatedSolve.contains("%"), language)
+            }
+        }
+    }
+    // MARK: A whole prepare, against the fixture's exact claim (anchor 10085, nonce 0x38).
+    private var solved: Data { Data([0x38, 0, 0, 0, 0, 0, 0, 0]) }
+    private func puzzleAnswer(anchor: Int) throws -> TairaFaucetClient.Response {
+        var value = puzzle(); value["anchor_height"] = anchor
+        return .init(data: try TairaFaucetClient.json(value))
+    }
+    private func challenge(anchor: Int) throws -> Data {
+        var value = puzzle(); value["anchor_height"] = anchor
+        return try TairaFaucetClient.puzzle(value, account: account).challenge
+    }
+    private func refusal(_ code: String, status: Int = 400) throws -> TairaFaucetClient.Response {
+        .init(data: try TairaFaucetClient.json(["code": code, "message": "refused"]), statusCode: status)
+    }
+    private func claimClient(puzzles: @escaping @Sendable (Int) throws -> TairaFaucetClient.Response,
+                             refusals: [TairaFaucetClient.Response] = [], recorded: FaucetRequests,
+                             pacing: TairaFaucetClient.SolvePacing = .init(),
+                             scrypt: @escaping TairaFaucetClient.Scrypt) throws -> TairaFaucetClient {
+        let data = try fixture(), policy = try TairaFaucetClient.json(policy())
+        return TairaFaucetClient(scrypt: scrypt, transport: { request, _ in
+            let path = request.url!.path, earlier = await recorded.count(path: path)
+            await recorded.append(request)
+            switch path {
+            case "/v1/accounts/faucet/policy": return .init(data: policy)
+            case "/v1/accounts/faucet/puzzle": return try puzzles(earlier)
+            case "/v1/accounts/faucet/prepare": return earlier < refusals.count ? refusals[earlier] : .init(data: data)
+            default: XCTFail("unexpected \(path)"); return .init(data: Data())
+            }
+        }, clock: { 1_793_578_885_193 }, requestID: { "6ddfcc7d143e4c88a6232812ab8de1d45038167b3baf4aedae245d6f534824f4" }, pacing: pacing)
+    }
+    private func anchors(_ requests: [URLRequest]) throws -> [Int] {
+        try requests.filter { $0.url?.path == "/v1/accounts/faucet/prepare" }.map { request in
+            let body = try TairaFaucetClient.object(try XCTUnwrap(request.httpBody))
+            return try XCTUnwrap((body["claim"] as? [String: Any])?["pow_anchor_height"] as? Int)
+        }
+    }
+    func testSlowSolveStillEndsInAClaim() async throws {
+        let answer = try puzzleAnswer(anchor: 10085), solved = solved, recorded = FaucetRequests()
+        let hash = try TairaFaucetClient.object(fixture())["transaction_hash_hex"] as? String
+        // Every read of the clock is 40 s later: hours of solving, in one try per stretch.
+        let uptime = FaucetLog<TimeInterval>(), tries = FaucetLog<Data>()
+        let pacing = TairaFaucetClient.SolvePacing(uptime: { uptime.append(uptime.count == 0 ? 40 : uptime.last! + 40); return uptime.last! })
+        let client = try claimClient(puzzles: { _ in answer }, recorded: recorded, pacing: pacing) { nonce, _, _, _, _ in
+            tries.append(nonce)
+            // A solve that lost its place ends here with the wrong nonce, and fails, instead of never ending.
+            return Data(repeating: nonce == solved || tries.count > 1000 ? 0 : 255, count: 32)
+        }
+        let claim = try await client.prepare(account: account, publicKey: publicKey)
+        XCTAssertEqual(claim.transactionHash, hash)
+        XCTAssertEqual(tries.count, 57)
+        XCTAssertGreaterThan(try XCTUnwrap(uptime.last), 3600)
+    }
+    func testPuzzleIsReadAgainDuringASolveAndNoTryIsRepeated() async throws {
+        let old = try puzzleAnswer(anchor: 10084), new = try puzzleAnswer(anchor: 10085), newest = try challenge(anchor: 10085), solved = solved
+        let tries = FaucetLog<Data>(), recorded = FaucetRequests()
+        let client = try claimClient(puzzles: { $0 < 5 ? old : new }, recorded: recorded,
+                                     pacing: .init(puzzleRefresh: 0)) { nonce, salt, _, _, _ in
+            tries.append(nonce)
+            return Data(repeating: (nonce == solved && salt == newest) || tries.count > 1000 ? 0 : 255, count: 32)
+        }
+        let claim = try await client.prepare(account: account, publicKey: publicKey)
+        XCTAssertEqual(claim.account, account)
+        XCTAssertEqual(tries.all, (UInt64(0)...0x38).map { Data([UInt8($0), 0, 0, 0, 0, 0, 0, 0]) })
+        let requests = await recorded.requests
+        XCTAssertEqual(try anchors(requests), [10085])
+    }
+    func testAFailedPuzzleReadCostsTheSolveNothing() async throws {
+        let answer = try puzzleAnswer(anchor: 10085), older = try puzzleAnswer(anchor: 10000), solved = solved
+        let garbage = TairaFaucetClient.Response(data: Data("not json".utf8)), limited = TairaFaucetClient.Response(data: Data(), statusCode: 429, retryAfterSeconds: 60)
+        let tooHard = try { () throws -> TairaFaucetClient.Response in
+            var value = self.puzzle(); value["anchor_height"] = 10090; value["difficulty_bits"] = 13
+            return .init(data: try TairaFaucetClient.json(value))
+        }()
+        let recorded = FaucetRequests()
+        let client = try claimClient(puzzles: { read in
+            switch read % 5 {
+            case 0: return answer
+            case 1: throw URLError(.timedOut)
+            case 2: return garbage
+            case 3: return limited
+            default: return read % 2 == 0 ? older : tooHard
+            }
+        }, recorded: recorded, pacing: .init(puzzleRefresh: 0)) { nonce, _, _, _, _ in
+            Data(repeating: nonce == solved ? 0 : 255, count: 32)
+        }
+        _ = try await client.prepare(account: account, publicKey: publicKey)
+        let requests = await recorded.requests
+        XCTAssertEqual(try anchors(requests), [10085])
+    }
+    func testALaggingNodeCannotMoveTheSolveToAnOlderAnchor() async throws {
+        let new = try puzzleAnswer(anchor: 10085), older = try puzzleAnswer(anchor: 10084), newest = try challenge(anchor: 10085), solved = solved
+        let recorded = FaucetRequests()
+        let client = try claimClient(puzzles: { $0 == 0 ? new : older }, recorded: recorded,
+                                     pacing: .init(puzzleRefresh: 0)) { nonce, salt, _, _, _ in
+            Data(repeating: nonce == solved && salt == newest ? 0 : 255, count: 32)
+        }
+        let claim = try await client.prepare(account: account, publicKey: publicKey)
+        XCTAssertEqual(claim.account, account)
+        let requests = await recorded.requests
+        XCTAssertEqual(try anchors(requests), [10085])
+    }
+    func testAProofTheChainMovedPastIsSolvedAgainOnANewPuzzle() async throws {
+        for code in ["faucet_pow_anchor_stale", "faucet_pow_anchor_unknown", "faucet_pow_anchor_out_of_range", "faucet_pow_solution_invalid"] {
+            let old = try puzzleAnswer(anchor: 10000), new = try puzzleAnswer(anchor: 10085)
+            let oldChallenge = try challenge(anchor: 10000), newChallenge = try challenge(anchor: 10085), solved = solved
+            let recorded = FaucetRequests()
+            let client = try claimClient(puzzles: { $0 == 0 ? old : new }, refusals: [try refusal(code)], recorded: recorded,
+                                         pacing: .init(puzzleRefresh: .infinity)) { nonce, salt, _, _, _ in
+                let hit = salt == oldChallenge ? nonce == Data([3, 0, 0, 0, 0, 0, 0, 0]) : salt == newChallenge && nonce == solved
+                return Data(repeating: hit ? 0 : 255, count: 32)
+            }
+            let claim = try await client.prepare(account: account, publicKey: publicKey)
+            XCTAssertEqual(claim.account, account)
+            let requests = await recorded.requests
+            XCTAssertEqual(try anchors(requests), [10000, 10085], code)
+        }
+    }
+    func testRefusalsEndAfterTheLimit() async throws {
+        let answer = try puzzleAnswer(anchor: 10085), recorded = FaucetRequests()
+        let refusals = try Array(repeating: refusal("faucet_pow_anchor_stale"), count: 20)
+        let client = try claimClient(puzzles: { _ in answer }, refusals: refusals, recorded: recorded,
+                                     pacing: .init(puzzleRefresh: .infinity)) { _, _, _, _, _ in Data(repeating: 0, count: 32) }
+        do { _ = try await client.prepare(account: account, publicKey: publicKey); XCTFail("refused for ever") } catch {
+            XCTAssertEqual(error as? TairaFaucetClient.Failure, .rejectedHTTP(400))
+        }
+        let requests = await recorded.requests
+        XCTAssertEqual(TairaFaucetClient.maximumRefusedProofs, 3)
+        XCTAssertEqual(try anchors(requests).count, 4)
+    }
+    func testAnyOtherRefusalEndsTheClaimAtOnce() async throws {
+        let answer = try puzzleAnswer(anchor: 10085)
+        for (refused, failure) in [
+            (try refusal("faucet_invalid_request"), TairaFaucetClient.Failure.rejectedHTTP(400)),
+            (.init(data: Data("<html>".utf8), statusCode: 400), .rejectedHTTP(400)),
+            (try refusal("faucet_pow_anchor_stale", status: 500), .rejectedHTTP(500)),
+            (.init(data: Data(), statusCode: 429, retryAfterSeconds: 9), .rateLimited(retryAfterSeconds: 9))
+        ] as [(TairaFaucetClient.Response, TairaFaucetClient.Failure)] {
+            let recorded = FaucetRequests()
+            let client = try claimClient(puzzles: { _ in answer }, refusals: [refused], recorded: recorded) { _, _, _, _, _ in Data(repeating: 0, count: 32) }
+            do { _ = try await client.prepare(account: account, publicKey: publicKey); XCTFail("refusal ignored") } catch {
+                XCTAssertEqual(error as? TairaFaucetClient.Failure, failure)
+            }
+            let requests = await recorded.requests
+            XCTAssertEqual(try anchors(requests).count, 1)
+        }
+    }
+    func testCancellingAPrepareStopsTheSolveInsideAStretch() async throws {
+        let answer = try puzzleAnswer(anchor: 10085), tries = FaucetLog<Data>(), handle = FaucetLog<Task<TairaFaucetClient.PreparedClaim, Error>>()
+        // A stretch this long never ends by itself, so only the cancel can stop these tries. Without it they end at the cap.
+        let cap = 5000
+        let client = try claimClient(puzzles: { _ in answer }, recorded: FaucetRequests(), pacing: .init(puzzleRefresh: 3600)) { nonce, _, _, _, _ in
+            while handle.count == 0 { Thread.sleep(forTimeInterval: 0.001) }
+            tries.append(nonce)
+            if tries.count == 3 { handle.last?.cancel() }
+            Thread.sleep(forTimeInterval: 0.002)
+            return Data(repeating: tries.count >= cap ? 0 : 255, count: 32)
+        }
+        let account = account, publicKey = publicKey
+        let task = Task { try await client.prepare(account: account, publicKey: publicKey) }
+        handle.append(task)
+        do { _ = try await task.value; XCTFail("cancel ignored") } catch is CancellationError { }
+        let after = tries.count
+        XCTAssertGreaterThanOrEqual(after, 3)
+        XCTAssertLessThan(after, cap)
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(tries.count, after)
     }
     func testPrepareSubmitExactBytesOnceAndReconcileApplied() async throws {
         let data = try fixture(), policy = try TairaFaucetClient.json(policy()), puzzle = try TairaFaucetClient.json(puzzle())
@@ -168,4 +408,14 @@ final class TairaFaucetClientTests: XCTestCase {
 private actor FaucetRequests {
     var requests: [URLRequest] = []
     func append(_ request: URLRequest) { requests.append(request) }
+    func count(path: String) -> Int { requests.filter { $0.url?.path == path }.count }
+}
+
+private final class FaucetLog<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [Value] = []
+    func append(_ value: Value) { lock.lock(); defer { lock.unlock() }; values.append(value) }
+    var all: [Value] { lock.lock(); defer { lock.unlock() }; return values }
+    var count: Int { all.count }
+    var last: Value? { all.last }
 }

@@ -97,28 +97,39 @@ final class ContactSearchLifecycleTests: XCTestCase {
         let table = all(view.view).compactMap { $0 as? SoramitsuTableView }.first; XCTAssertEqual(table?.numberOfRows(inSection: 0), 3)
         XCTAssertTrue(all(view.view).compactMap { $0 as? UILabel }.contains { $0.text == "receiver" })
     }
+    /// The provider publishes insertions and refreshes, including the same cached rows more than once.
+    /// These routing tests wait for the desired state, not a one-shot notification.
+    private func waitForTitles(_ expected: [String], rows: () -> [SoramitsuTableViewItemProtocol],
+                               file: StaticString = #filePath, line: UInt = #line) async {
+        for _ in 0..<300 {
+            if titles(rows()) == expected { return }
+            await pause(10)
+        }
+        XCTAssertEqual(titles(rows()), expected, file: file, line: line)
+    }
+
     private func selectedAccount() -> AccountItem {
         AccountItem(address: "current-wallet", cryptoType: .sr25519, networkType: 69, username: "Current", publicKeyData: Data(repeating: 3, count: 32), settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
     }
     func testInitialContactLoadPublishesCachedRecipientsBetweenHeaderAndFooter() async {
-        let (model, _, _, _) = fixture(contacts: [contact("first"), contact("second")]); let shown = expectation(description: "cached contacts")
-        var rows: [SoramitsuTableViewItemProtocol] = []; model.setupItems = { rows = $0; if self.titles(rows) == ["first", "second"] { shown.fulfill() } }
-        model.viewDidLoad(); await fulfillment(of: [shown], timeout: 3)
+        let (model, _, _, _) = fixture(contacts: [contact("first"), contact("second")])
+        var rows: [SoramitsuTableViewItemProtocol] = []; model.setupItems = { rows = $0 }
+        model.viewDidLoad(); await waitForTitles(["first", "second"], rows: { rows })
         XCTAssertTrue(rows.first is ContactHeaderCellItem); XCTAssertTrue(rows.last is ContactFooterItem); XCTAssertEqual(rows.count, 4)
     }
     func testRecentRecipientReturnsTheChosenAccountWithoutAnySearchOrSend() async throws {
-        let (model, source, view, _) = fixture(contacts: [contact("recipient")]); let shown = expectation(description: "recent row")
+        let (model, source, view, _) = fixture(contacts: [contact("recipient")])
         var rows: [SoramitsuTableViewItemProtocol] = [], result: ScanQRResult?
-        model.setupItems = { rows = $0; if !self.titles(rows).isEmpty { shown.fulfill() } }; model.completion = { result = $0 }
-        model.viewDidLoad(); await fulfillment(of: [shown], timeout: 3)
+        model.setupItems = { rows = $0 }; model.completion = { result = $0 }
+        model.viewDidLoad(); await waitForTitles(["recipient"], rows: { rows })
         try XCTUnwrap(rows.compactMap { $0 as? ContactCellItem }.first).itemActionTap(with: nil)
         XCTAssertEqual(result?.firstName, "recipient"); XCTAssertEqual(view.dismissals, 1); XCTAssertTrue(source.queries.isEmpty)
     }
     func testRecentRecipientRechecksTheCurrentWalletAtSelectionTime() async throws {
-        let (model, _, view, _) = fixture(contacts: [contact("current-wallet")]); let shown = expectation(description: "recent row")
-        var rows: [SoramitsuTableViewItemProtocol] = []; model.setupItems = { rows = $0; if !self.titles(rows).isEmpty { shown.fulfill() } }
+        let (model, _, view, _) = fixture(contacts: [contact("current-wallet")])
+        var rows: [SoramitsuTableViewItemProtocol] = []; model.setupItems = { rows = $0 }
         model.completion = { _ in XCTFail("Cannot send to the current wallet") }
-        model.viewDidLoad(); await fulfillment(of: [shown], timeout: 3)
+        model.viewDidLoad(); await waitForTitles(["current-wallet"], rows: { rows })
         SelectedWalletSettings.shared.commitInternalValue(selectedAccount())
         try XCTUnwrap(rows.compactMap { $0 as? ContactCellItem }.first).itemActionTap(with: nil)
         XCTAssertEqual(view.errors.count, 1); XCTAssertEqual(view.dismissals, 0)

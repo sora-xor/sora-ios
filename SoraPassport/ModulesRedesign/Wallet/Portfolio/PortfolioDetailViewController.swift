@@ -199,7 +199,9 @@ final class PortfolioDetailViewController: UIViewController {
                 .foregroundColor: model.direction == .down ? tokens.error : tokens.success
             ]))
         }
-        summary.append(NSAttributedString(string: "   " + model.share, attributes: [.foregroundColor: tokens.textSecondary]))
+        if !model.share.isEmpty {
+            summary.append(NSAttributedString(string: "   " + model.share, attributes: [.foregroundColor: tokens.textSecondary]))
+        }
         summaryLabel.attributedText = summary
         sectionTitle.textColor = tokens.textPrimary
         countsLabel.setEyebrow(model.counts, color: tokens.textSecondary)
