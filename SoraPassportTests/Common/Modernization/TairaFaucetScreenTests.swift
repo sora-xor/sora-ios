@@ -267,6 +267,87 @@ final class TairaFaucetScreenTests: XCTestCase {
     try await Task.sleep(nanoseconds: 4_500_000_000)
     XCTAssertEqual(try status(screen).text, failed)
   }
+  /// One flag for the whole app. It clears a moment after the clock is told to stop, hence the waits.
+  private var screenStaysOn: Bool { UIApplication.shared.isIdleTimerDisabled }
+  func testScreenStaysOnWhilePreparingAndNotForTheStepsAfterIt() async throws {
+    faucet.holdRequest = true
+    faucet.nextPhase = .submitting
+    let screen = try await open()
+    XCTAssertFalse(screenStaysOn)
+    try tap(screen)
+    await waitUntil { self.screenStaysOn }
+    try await Task.sleep(nanoseconds: 2_500_000_000)
+    XCTAssertTrue(screenStaysOn)
+    faucet.releaseAll(keepingNextHold: true)
+    await waitUntil { (try? self.status(screen).text) == "Requesting test XOR…" }
+    await waitUntil { !self.screenStaysOn }
+    // A tick that came after the phase changed would turn it back on.
+    try await Task.sleep(nanoseconds: 1_500_000_000)
+    XCTAssertFalse(screenStaysOn)
+    faucet.releaseAll()
+    try await settled(screen)
+    XCTAssertEqual(try status(screen).text, "Received 25000 test XOR.")
+    XCTAssertFalse(screenStaysOn)
+  }
+  func testScreenCanSleepAgainHoweverAClaimEndsWhilePreparing() async throws {
+    let failures: [Error] = [
+      TairaFaucetClient.Failure.resourceLimit, URLError(.notConnectedToInternet),
+      TairaFaucetClient.Failure.rejectedHTTP(400),
+      TairaFaucetClient.Failure.rateLimited(retryAfterSeconds: 60),
+    ]
+    faucet.holdRequest = true
+    let screen = try await open()
+    for (index, failure) in failures.enumerated() {
+      faucet.failure = failure
+      try tap(screen)
+      await waitUntil { self.screenStaysOn }
+      faucet.releaseAll(keepingNextHold: true)
+      await waitUntil {
+        self.faucet.completedRequests == index + 1 && screen.balanceItem?.faucet?.busy == false
+      }
+      await waitUntil { !self.screenStaysOn }
+    }
+  }
+  func testClosingThePageLetsTheScreenSleepEvenIfTheRequestIsSlowToStop() async throws {
+    faucet.holdRequest = true
+    let screen = try await open()
+    try tap(screen)
+    await waitUntil { self.screenStaysOn }
+    navigation.popViewController(animated: false)
+    // The held request does not answer to cancelling, so the claim has not ended here.
+    await waitUntil { !self.screenStaysOn }
+    try await Task.sleep(nanoseconds: 1_500_000_000)
+    XCTAssertFalse(screenStaysOn)
+    XCTAssertEqual(faucet.completedRequests, 0)
+    faucet.releaseAll()
+    await waitUntil { self.faucet.completedRequests == 1 }
+    XCTAssertFalse(screenStaysOn)
+    withExtendedLifetime(screen) {}
+  }
+  func testWalletChangeWhilePreparingLetsTheScreenSleep() async throws {
+    faucet.holdRequest = true
+    let screen = try await open()
+    try tap(screen)
+    await waitUntil { self.screenStaysOn }
+    SelectedWalletSettings.shared.commitInternalValue(nil)
+    screen.refreshControl.sendActions(for: .valueChanged)
+    await waitUntil { !self.screenStaysOn }
+    XCTAssertEqual(faucet.completedRequests, 0)
+    faucet.releaseAll()
+    await waitUntil { self.faucet.completedRequests == 1 }
+    XCTAssertFalse(screenStaysOn)
+  }
+  func testScreenStaysOnEvenIfSomethingClearsTheFlagMeanwhile() async throws {
+    faucet.holdRequest = true
+    let screen = try await open()
+    try tap(screen)
+    await waitUntil { self.screenStaysOn }
+    UIApplication.shared.isIdleTimerDisabled = false
+    await waitUntil { self.screenStaysOn }
+    faucet.releaseAll()
+    try await settled(screen)
+    await waitUntil { !self.screenStaysOn }
+  }
   func testSolveThatRanOutSaysSoInsteadOfBlamingTheConnection() async throws {
     faucet.failure = TairaFaucetClient.Failure.resourceLimit
     let screen = try await open()

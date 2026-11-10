@@ -839,6 +839,8 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
             navigationController?.isBeingDismissed == true ||
             navigationController?.parent?.isBeingDismissed == true {
             faucetTask?.cancel()
+            // The screen may sleep now, even if the request takes a moment to stop.
+            faucetClock?.cancel()
             onClose?()
         }
     }
@@ -1378,11 +1380,17 @@ final class NexusNetworkDetailViewController: SoramitsuViewController {
     /// Preparing can take minutes on a slow device, and no percentage can be shown
     /// because every try of the puzzle is independent of the others. So after a few
     /// seconds the status counts the time, to show that the claim is still going.
+    /// The screen stays on until the clock stops, because the solve stands still
+    /// while the phone is locked.
     private func startFaucetClock() {
         faucetClock?.cancel()
         let started = ProcessInfo.processInfo.systemUptime
         faucetClock = Task { [weak self] in
+            defer { UIApplication.shared.isIdleTimerDisabled = false }
             while !Task.isCancelled {
+                // One flag for the whole app, and a clock that has just stopped
+                // clears it, so each tick sets it again.
+                UIApplication.shared.isIdleTimerDisabled = true
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 guard !Task.isCancelled, let self else { return }
                 let seconds = Int(ProcessInfo.processInfo.systemUptime - started)
