@@ -42,11 +42,14 @@ protocol LocalAuthInteractorOutputProtocol: AnyObject {
     /// changed since the owner approved them. Nothing goes on until they answer:
     /// true keeps Face ID or Touch ID with the set enrolled now, false turns it off.
     func didRequireEnrollmentDecision(type: AvailableBiometryType, completion: @escaping (Bool) -> Void)
+    /// A pending PIN check or enrollment choice was discarded on backgrounding.
+    func didInvalidatePendingPin()
 }
 
 extension LocalAuthInteractorOutputProtocol {
     func setupPinCodeSymbols(with count: Int) {}
     func didRequireOwnerPinEntry() {}
+    func didInvalidatePendingPin() {}
 }
 
 extension LocalAuthInteractor {
@@ -58,7 +61,8 @@ extension LocalAuthInteractor {
 
 extension PinSetupViewProtocol {
     /// The question behind `didRequireEnrollmentDecision`.
-    func askToKeepChangedBiometry(type: AvailableBiometryType, completion: @escaping (Bool) -> Void) {
+    @discardableResult
+    func askToKeepChangedBiometry(type: AvailableBiometryType, completion: @escaping (Bool) -> Void) -> UIAlertController {
         let name = type == .faceId ? "Face ID" : "Touch ID"
         let alert = UIAlertController(
             title: WalletUX.format("%@ changed on this iPhone", name),
@@ -73,5 +77,6 @@ extension PinSetupViewProtocol {
         alert.addAction(UIAlertAction(title: WalletUX.format("Keep %@", name), style: .default) { _ in completion(true) })
         alert.addAction(UIAlertAction(title: WalletUX.format("Turn %@ off", name), style: .destructive) { _ in completion(false) })
         controller.present(alert, animated: true)
+        return alert
     }
 }

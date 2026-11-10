@@ -16,6 +16,7 @@
 // limitations under the License.
 
 import Foundation
+import UIKit
 import SoraUIKit
 
 enum InputMode {
@@ -42,6 +43,8 @@ class InputPincodePresenter: PinSetupPresenterProtocol {
     private var isCheckingPin = false
     private var isLoadingPinLength = false
     private var isOwnerPinRequired = false
+    private var enrollmentDecision = UUID()
+    private weak var enrollmentAlert: UIAlertController?
     
     public var mode: InputMode = .verify {
         didSet {
@@ -223,8 +226,19 @@ extension InputPincodePresenter: LocalAuthInteractorOutputProtocol {
     }
 
     func didRequireEnrollmentDecision(type: AvailableBiometryType, completion: @escaping (Bool) -> Void) {
+        let decision = UUID()
+        enrollmentDecision = decision
         DispatchQueue.main.async { [weak self] in
-            self?.view?.askToKeepChangedBiometry(type: type, completion: completion)
+            guard let self, self.enrollmentDecision == decision else { return }
+            self.enrollmentAlert = self.view?.askToKeepChangedBiometry(type: type, completion: completion)
         }
+    }
+
+    func didInvalidatePendingPin() {
+        enrollmentDecision = UUID()
+        enrollmentAlert?.dismiss(animated: false)
+        enrollmentAlert = nil
+        inputedPinCode = ""
+        isCheckingPin = false
     }
 }

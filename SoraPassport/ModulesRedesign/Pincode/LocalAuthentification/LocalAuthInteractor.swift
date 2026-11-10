@@ -17,6 +17,7 @@
 
 import Foundation
 import SoraKeystore
+import UIKit
 
 enum FailureAuthCount: Int {
     case zero = 0
@@ -79,6 +80,8 @@ class LocalAuthInteractor {
     /// typed app PIN even when Face ID or Touch ID unlocks the app.
     private let allowsBiometry: Bool
     private var authorization: WalletOwnerPIN.Authorization?
+    private var pinAttempt = UUID()
+    private var inactivityObservers: [NSObjectProtocol] = []
     private var failCounter: Int = 0 {
         didSet {
             settingsManager.failInputPinCount = failCounter
@@ -118,6 +121,28 @@ class LocalAuthInteractor {
         self.accounts = accounts
         self.allowsBiometry = allowsBiometry
         self.failCounter = settingsManager.failInputPinCount ?? 0
+        inactivityObservers = [UIApplication.willResignActiveNotification,
+                               UIApplication.didEnterBackgroundNotification].map { notification in
+            NotificationCenter.default.addObserver(forName: notification, object: nil, queue: .main) {
+                [weak self] _ in self?.invalidatePendingPin()
+            }
+        }
+    }
+
+    deinit {
+        inactivityObservers.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    /// A pending PIN result or enrollment choice belongs to this active session.
+    /// System biometric prompts may deactivate the app, so keep their separate
+    /// checkingBiometry state intact.
+    private func invalidatePendingPin() {
+        guard state == .checkingPincode else { return }
+        pinAttempt = UUID()
+        authorization = nil
+        pincode = nil
+        state = .waitingPincode
+        presenter?.didInvalidatePendingPin()
     }
 
     private(set) var state = LocalAuthState.waitingPincode {
@@ -181,8 +206,8 @@ class LocalAuthInteractor {
         state = .waitingPincode
     }
 
-    private func processAuthorization(_ result: Result<WalletOwnerPIN.Authorization, Error>) {
-        guard state == .checkingPincode else { return }
+    private func processAuthorization(_ result: Result<WalletOwnerPIN.Authorization, Error>, attempt: UUID) {
+        guard state == .checkingPincode, attempt == pinAttempt else { return }
         pincode = nil
         switch result {
         case let .success(authorization):
@@ -199,7 +224,7 @@ class LocalAuthInteractor {
                 return
             }
             presenter?.didRequireEnrollmentDecision(type: biometryAuth.availableBiometryType) { [weak self] keep in
-                self?.processEnrollmentDecision(keep: keep)
+                self?.processEnrollmentDecision(keep: keep, attempt: attempt)
             }
         case let .failure(error):
             state = .waitingPincode
@@ -214,8 +239,8 @@ class LocalAuthInteractor {
         }
     }
 
-    private func processEnrollmentDecision(keep: Bool) {
-        guard state == .checkingPincode else { return }
+    private func processEnrollmentDecision(keep: Bool, attempt: UUID) {
+        guard state == .checkingPincode, attempt == pinAttempt else { return }
         if keep {
             biometryAuth.approveCurrentEnrollment()
         } else {
@@ -287,12 +312,14 @@ extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {
 
     func process(pin: String) {
         guard state == .waitingPincode || state == .checkingBiometry else { return }
+        let attempt = UUID()
+        pinAttempt = attempt
         state = .checkingPincode
         DispatchQueue.global(qos: .userInitiated).async {
             let result = Result {
                 try self.ownerPIN.authenticateCurrent(pin, currentAccounts: { (try? self.accounts()) ?? [] })
             }
-            DispatchQueue.main.async { self.processAuthorization(result) }
+            DispatchQueue.main.async { self.processAuthorization(result, attempt: attempt) }
         }
     }
 

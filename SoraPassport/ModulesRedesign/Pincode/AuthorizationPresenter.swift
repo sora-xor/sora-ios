@@ -16,6 +16,7 @@
 // limitations under the License.
 
 import Foundation
+import UIKit
 
 final class AuthorizationPresenter {
     weak var view: PinSetupViewProtocol?
@@ -25,6 +26,8 @@ final class AuthorizationPresenter {
     private var isCheckingPin = false
     private var isLoadingPinLength = false
     private var isOwnerPinRequired = false
+    private var enrollmentDecision = UUID()
+    private weak var enrollmentAlert: UIAlertController?
     
     var inputedPinCode: String = "" {
         didSet {
@@ -143,9 +146,20 @@ extension AuthorizationPresenter: LocalAuthInteractorOutputProtocol {
     }
 
     func didRequireEnrollmentDecision(type: AvailableBiometryType, completion: @escaping (Bool) -> Void) {
+        let decision = UUID()
+        enrollmentDecision = decision
         DispatchQueue.main.async { [weak self] in
-            self?.view?.askToKeepChangedBiometry(type: type, completion: completion)
+            guard let self, self.enrollmentDecision == decision else { return }
+            self.enrollmentAlert = self.view?.askToKeepChangedBiometry(type: type, completion: completion)
         }
+    }
+
+    func didInvalidatePendingPin() {
+        enrollmentDecision = UUID()
+        enrollmentAlert?.dismiss(animated: false)
+        enrollmentAlert = nil
+        inputedPinCode = ""
+        isCheckingPin = false
     }
 
     func didChangeState(from state: LocalAuthInteractor.LocalAuthState) {}
