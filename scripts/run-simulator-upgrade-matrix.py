@@ -23,7 +23,11 @@ parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--cases', nargs='+', default=['vector-9'])
 parser.add_argument('--bundle', choices=['co.jp.soramitsu.sora.dev','co.jp.soramitsu.sora'], default='co.jp.soramitsu.sora.dev')
 parser.add_argument('--stage', choices=['all', 'prepare', 'ui', 'verify'], default='all')
+parser.add_argument('--stage-timeout-seconds', type=int, default=240,
+                    help='Maximum runtime per Xcode test stage (default: 240).')
 args = parser.parse_args()
+if args.stage_timeout_seconds <= 0:
+    parser.error('--stage-timeout-seconds must be positive')
 if args.stage != 'all' and any(case in ['two-reinstalls', 'erase-restore'] for case in args.cases):
     sys.exit('The two-reinstalls and erase-restore scenarios require --stage all so their lifecycle evidence is complete.')
 if args.bundle != 'co.jp.soramitsu.sora.dev' and (args.stage != 'ui' or args.cases != ['fresh-import']):
@@ -44,7 +48,7 @@ def command(cmd, log):
     with open(log, 'w') as stream:
         process = subprocess.Popen(cmd, stdout=stream, stderr=subprocess.STDOUT)
         try:
-            code = process.wait(timeout=240)
+            code = process.wait(timeout=args.stage_timeout_seconds)
         except subprocess.TimeoutExpired:
             subprocess.run(['sample', str(process.pid), '2', '-file', str(log)+'.sample.txt'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             process.terminate()
@@ -53,14 +57,16 @@ def command(cmd, log):
                 process.kill()
                 process.wait()
             code = 124
-            stream.write('\nHARNESS_TIMEOUT: Xcode did not finish within 240 seconds. Not a pass.\n')
+            stream.write(f'\nHARNESS_TIMEOUT: Xcode did not finish within {args.stage_timeout_seconds} seconds. Not a pass.\n')
     return {'exitCode': code, 'seconds': round(time.time()-started,2), 'log': str(log)}
 
 def route(case):
-    if case in ['reinstall','bound-reinstall','two-reinstalls','missing-db']: return 'welcome'
+    # An in-place update asks nothing: missing-db, corrupt-db, empty-db,
+    # stuck-on-screen, pinless and the 1.x cases all reach the ordinary PIN pad.
+    if case in ['reinstall','bound-reinstall','two-reinstalls']: return 'welcome'
     if case in ['new-phone','fresh-import']: return 'onboarding'
     if case in ['one-x','entropy-only']: return 'legacy'
-    if case in ['corrupt-db','pinless','preserved-return']: return 'recovery'
+    if case in ['preserved-return']: return 'recovery'
     return 'wallet'
 
 def app_container():
@@ -160,6 +166,7 @@ for case in args.cases:
     run_path = args.xctestrun.with_name('SimulatorMatrix-' + args.udid + '-' + case + '.xctestrun')
     run_path.write_bytes(plistlib.dumps(run))
     record = {'case':case,'udid':args.udid,'route':route(case),
+              'stageTimeoutSeconds':args.stage_timeout_seconds,
               'scope':'simulator-source-qualification','releaseAuthorized':False,'stages':{}}
     stages = [
         ('prepare','SoraPassportTests/WalletSimulatorUpgradeFixtureTests/testPreparePublicHistoricalState'),
@@ -186,6 +193,10 @@ for case in args.cases:
         outcome = command(cmd, args.output / (case+'-'+stage+'.log'))
         outcome['resultBundle'] = str(result_bundle)
         record['stages'][stage] = outcome
+        results_path.write_text(json.dumps(results+[record],indent=2)+'\n')
+        if outcome['exitCode'] != 0:
+            print(json.dumps(record,indent=2),flush=True)
+            sys.exit(outcome['exitCode'])
         receipt = app_container() / 'Documents/simulator-upgrade-fixture.json'
         if receipt.exists():
             # Public synthetic identity and byte hashes only. Keep each phase
@@ -194,9 +205,6 @@ for case in args.cases:
             shutil.copy2(receipt, copied_receipt)
             outcome['publicFixtureReceipt'] = str(copied_receipt)
         results_path.write_text(json.dumps(results+[record],indent=2)+'\n')
-        if outcome['exitCode'] != 0:
-            print(json.dumps(record,indent=2),flush=True)
-            sys.exit(outcome['exitCode'])
         if (stage == 'prepare' and case in ['reinstall','bound-reinstall','two-reinstalls']) or (stage == 'verify-first' and case == 'two-reinstalls'):
             reinstall_with_receipt(record)
         if stage == 'prepare' and case == 'erase-restore':

@@ -88,10 +88,11 @@ final class RootWireframe: RootWireframeProtocol {
         )
         let pinView = PinViewFactory.createRedesignSecuredPinView()?.controller ?? UIViewController()
         
-        let containerView = BlurViewController()
-        containerView.backgroundColor = .bgPage
-        containerView.isClosable = false
-        containerView.modalPresentationStyle = .overFullScreen
+        // This is the root screen, so there is no content behind it to blur.
+        // A half-complete blur animator otherwise stays active throughout PIN
+        // entry, keeping the screen in an unfinished animation state.
+        let containerView = SoramitsuViewController()
+        containerView.soramitsuView.sora.backgroundColor = .bgPage
         containerView.add(pinView)
 
         view.rootViewController = containerView
@@ -814,6 +815,7 @@ final class WalletRecoveryViewController: UIViewController {
             self.setKeyRecoveryBusy(true)
             DispatchQueue.global(qos: .userInitiated).async {
                 let result = Result {
+                    WalletDatabaseSelfRepair.recordSetUpAgainChoice(SettingsManager.shared)
                     try WalletLocalStateSetAside.setAside(settings: SettingsManager.shared,
                         expectedMarker: WalletMigrationRecoveryMarker.capture(SettingsManager.shared),
                         paths: .production(), closeDatabase: { try? UserDataStorageFacade.shared.databaseService.close() })
@@ -1035,7 +1037,8 @@ final class WalletRecoveryViewController: UIViewController {
             self.setKeyRecoveryBusy(true)
             DispatchQueue.global(qos: .userInitiated).async {
                 let result = Result {
-                    try WalletLocalStateSetAside.setAside(
+                    WalletDatabaseSelfRepair.recordSetUpAgainChoice(SettingsManager.shared)
+                    return try WalletLocalStateSetAside.setAside(
                         settings: SettingsManager.shared,
                         expectedMarker: marker,
                         paths: .production(),
@@ -1896,7 +1899,9 @@ final class WalletWelcomeBackViewController: UIViewController {
         WalletSetUpAgainConfirmation.present(on: self, movesWalletData: false) { [weak self] in
             // Nothing is moved here: there is no wallet database. The Keychain
             // items stay.
-            self?.leaveForOnboarding()
+            guard let self else { return }
+            WalletDatabaseSelfRepair.recordSetUpAgainChoice(self.settings)
+            self.leaveForOnboarding()
         }
     }
 

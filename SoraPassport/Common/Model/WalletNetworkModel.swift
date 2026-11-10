@@ -2113,6 +2113,16 @@ struct WalletNetworkSnapshot: Codable, Equatable {
     let wallets: [WalletIdentity]
     let accounts: [NetworkAccount]
     let createdAt: Date
+    /// Absent in older snapshots: the algorithm is unknown, never inferred
+    /// from an address/public key that Ed25519 and Sr25519 can share.
+    var soraCryptoTypes: [String: CryptoType]? = nil
+
+    static func cryptoTypes(from accounts: [AccountItem]) -> [String: CryptoType] {
+        // Inventory verification rejects duplicate addresses separately.
+        accounts.reduce(into: [:]) { result, account in
+            result[account.address] = account.cryptoType
+        }
+    }
 }
 
 enum WalletAccountCommitStage: String, Codable {
@@ -3799,6 +3809,18 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
         return gate
     }
 
+    /// Private to the automatic database repair at startup: it proves that
+    /// retained keys match account addresses while a marker may still be set.
+    /// Proof only: this gate is never handed to anything that writes wallet
+    /// material, and the ordinary gates stay as they are until the repair ends.
+    static func forStartupSelfRepairProof(settings: SettingsManagerProtocol) -> WalletRecoveryCapabilityGate {
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false },
+            credentialRepairPending: { false })
+        gate.addOnlyPreservationCheck = {}
+        return gate
+    }
+
     init(
         settings: SettingsManagerProtocol,
         unresolvedMigrationJournal: @escaping () -> Bool,
@@ -4585,6 +4607,13 @@ final class WalletNetworkStore {
               retained.wallets == expected.wallets else {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
+        // Missing legacy metadata is unknown. If both sides know the
+        // algorithm, they must agree without changing NetworkAccount identity.
+        if let retainedTypes = retained.soraCryptoTypes,
+           let expectedTypes = expected.soraCryptoTypes,
+           retainedTypes != expectedTypes {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
         for wallet in retained.wallets {
             let original = retained.accounts.filter { $0.walletId == wallet.id }
             let verified = expected.accounts.filter { $0.walletId == wallet.id }
@@ -4682,7 +4711,8 @@ final class WalletNetworkStore {
             selectedWalletId: walletId,
             wallets: current.wallets,
             accounts: current.accounts,
-            createdAt: Date()
+            createdAt: Date(),
+            soraCryptoTypes: WalletNetworkSnapshot.cryptoTypes(from: expectedAccounts)
         )
         try stageAndActivateUnlocked(next)
     }
@@ -4729,7 +4759,8 @@ final class WalletNetworkStore {
             selectedWalletId: current.selectedWalletId,
             wallets: wallets,
             accounts: current.accounts,
-            createdAt: Date()
+            createdAt: Date(),
+            soraCryptoTypes: WalletNetworkSnapshot.cryptoTypes(from: expectedAccounts)
         )
         try stageAndActivateUnlocked(next)
     }
@@ -4790,7 +4821,8 @@ final class WalletNetworkStore {
             selectedWalletId: nextSelectedWalletId,
             wallets: remainingWallets,
             accounts: current.accounts.filter { $0.walletId != walletId },
-            createdAt: Date()
+            createdAt: Date(),
+            soraCryptoTypes: current.soraCryptoTypes?.filter { $0.key != walletId }
         )
         try stageAndActivateUnlocked(next)
         guard
@@ -4858,7 +4890,8 @@ final class WalletNetworkStore {
             accounts: current.accounts.filter {
                 !walletIds.contains($0.walletId)
             },
-            createdAt: Date()
+            createdAt: Date(),
+            soraCryptoTypes: current.soraCryptoTypes?.filter { !walletIds.contains($0.key) }
         )
         try stageAndActivateUnlocked(next)
         guard
@@ -5182,7 +5215,9 @@ final class WalletNetworkStore {
             guard
                 let stored = storedSoraAccounts[account.address]?.first,
                 stored.address == account.address,
-                stored.publicKey == account.publicKeyData
+                stored.publicKey == account.publicKeyData,
+                snapshot.soraCryptoTypes == nil ||
+                    snapshot.soraCryptoTypes?[account.address] == account.cryptoType
             else {
                 throw WalletNetworkMigrationError
                     .legacyIdentityMismatch(account.address)
@@ -5236,7 +5271,10 @@ final class WalletNetworkStore {
             }),
             current.accounts.allSatisfy({ account in
                 proposedAccounts[account.id]?.first == account
-            })
+            }),
+            current.soraCryptoTypes?.allSatisfy({ walletId, cryptoType in
+                proposed.soraCryptoTypes?[walletId] == cryptoType
+            }) ?? true
         else {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
@@ -5589,6 +5627,7 @@ final class WalletNetworkStore {
         guard
             wallets.count == snapshot.wallets.count,
             accounts.count == snapshot.accounts.count,
+            snapshot.soraCryptoTypes.map({ Set($0.keys) == Set(wallets.keys) }) ?? true,
             snapshot.wallets.allSatisfy({
                 !$0.id.isEmpty &&
                     $0.id.utf8.count <= 512 &&
@@ -6324,7 +6363,8 @@ final class WalletNetworkModelMigrator {
             selectedWalletId: selectedAddress,
             wallets: identities,
             accounts: networkAccounts,
-            createdAt: Date()
+            createdAt: Date(),
+            soraCryptoTypes: WalletNetworkSnapshot.cryptoTypes(from: accounts)
         )
         try verifyLegacyAccounts(accounts, in: snapshot)
         if let current {
@@ -6340,7 +6380,11 @@ final class WalletNetworkModelMigrator {
            current.schemaVersion == snapshot.schemaVersion,
            current.selectedWalletId == snapshot.selectedWalletId,
            current.wallets == snapshot.wallets,
-           current.accounts == snapshot.accounts {
+           current.accounts == snapshot.accounts,
+           current.soraCryptoTypes == nil || current.soraCryptoTypes == snapshot.soraCryptoTypes {
+            // Healthy legacy snapshots need no mandatory metadata-only write.
+            // Return the enriched, verified value; the next actual publication
+            // with account rows carries it without adding a low-space failure.
             settings.walletNetworkStoreVersion = WalletNetworkSnapshot.currentSchemaVersion
             return snapshot
         }
@@ -6476,7 +6520,9 @@ final class WalletNetworkModelMigrator {
             guard
                 let stored = soraAccounts[account.address]?.first,
                 stored.address == account.address,
-                stored.publicKey == account.publicKeyData
+                stored.publicKey == account.publicKeyData,
+                snapshot.soraCryptoTypes == nil ||
+                    snapshot.soraCryptoTypes?[account.address] == account.cryptoType
             else {
                 throw WalletNetworkMigrationError.legacyIdentityMismatch(account.address)
             }
@@ -6521,7 +6567,9 @@ final class WalletNetworkModelMigrator {
             }
             guard
                 current.address == legacy.address,
-                current.publicKeyData == legacy.publicKey
+                current.publicKeyData == legacy.publicKey,
+                snapshot.soraCryptoTypes == nil ||
+                    snapshot.soraCryptoTypes?[legacy.walletId] == current.cryptoType
             else {
                 throw WalletNetworkMigrationError.legacyIdentityMismatch(legacy.address)
             }
@@ -6549,7 +6597,8 @@ final class WalletNetworkModelMigrator {
             accounts: snapshot.accounts.filter {
                 !walletIds.contains($0.walletId)
             },
-            createdAt: snapshot.createdAt
+            createdAt: snapshot.createdAt,
+            soraCryptoTypes: snapshot.soraCryptoTypes?.filter { !walletIds.contains($0.key) }
         )
     }
 

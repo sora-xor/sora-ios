@@ -22,7 +22,9 @@ import SoraFoundation
 
 protocol RedesignWalletViewProtocol: ControllerBackedProtocol {}
 
-final class RedesignWalletViewController: SoramitsuViewController {
+/// The Wallet home has no bar. Without this, the navigation controller shows the empty bar again after
+/// `viewWillAppear` hid it, and it turns into a blank band across the top once the page scrolls.
+final class RedesignWalletViewController: SoramitsuViewController, HiddableBarWhenPushed {
 
     private lazy var tableView: SoramitsuTableView = {
         let tableView = SoramitsuTableView()

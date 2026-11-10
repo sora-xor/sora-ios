@@ -9405,7 +9405,7 @@ final class WalletModernizationTests: XCTestCase {
             )
             XCTAssertEqual(WalletStorageStartup.run(settings: settings) {
                 try databaseMigrator.performMigration()
-            }, .needsStorageSpace)
+            }, version == .version2 ? .ready : .needsStorageSpace)
             XCTAssertEqual(try Data(contentsOf: storeURL), originalStoreBytes)
             XCTAssertFalse(settings.walletMigrationRecoveryRequired)
             for (tag, bytes) in originalKeys {

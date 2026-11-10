@@ -347,13 +347,51 @@ final class WalletOwnerPIN {
             guard !accounts.isEmpty else { throw Failure.authenticationRequired }
             let intents = try pendingSetupIntents(accounts: accounts)
             if !intents.isEmpty {
-                guard Set(intents.keys) == Set(accounts.map(\.address)),
-                      try proven(accounts).count == accounts.count else {
+                // Every row that can sign needs a claim. A row with no keys
+                // on this iPhone has no signing authority to claim.
+                guard try Set(intents.keys) == Set(proven(accounts).map(\.address)) else {
                     throw Failure.authenticationRequired
                 }
             } else if try !keystore.checkKey(for: KeystoreTag.pincode.rawValue) {
                 guard try proven(accounts).isEmpty else { throw Failure.authenticationRequired }
             }
+        }
+    }
+
+    /// Wallets already in this installation's database whose PIN was never
+    /// saved: App Store 3.8.6 opened PIN setup for them, and an update must do
+    /// the same instead of stopping. A reinstall cannot reach this state: it
+    /// keeps the PIN item, and its database has no rows for retained wallets.
+    /// A wallet with an owner record stays with that record: only its own PIN
+    /// may claim it, so nothing is authorized while one exists.
+    func authorizeInitialSetupWithoutPIN(accounts: [AccountItem]) throws {
+        try Self.synchronized {
+            guard try !keystore.checkKey(for: KeystoreTag.pincode.rawValue) else { return }
+            let signing = try proven(accounts)
+            guard try signing.allSatisfy({ try !keystore.checkKey(for: $0.address + Self.bindingSuffix) }) else {
+                return
+            }
+            for account in signing where try !keystore.checkKey(for: Self.setupPrefix + account.address) {
+                try prepareInitialSetup(account: account, operationID: UUID())
+            }
+        }
+    }
+
+    /// False when this wallet has an owner record that the installation's
+    /// current PIN does not open (or a record that cannot be read). The
+    /// automatic database repair then leaves that wallet to its owner PIN.
+    func currentPINMayOwn(address: String) throws -> Bool {
+        try Self.synchronized {
+            let tag = address + Self.bindingSuffix
+            guard try keystore.checkKey(for: tag) else { return true }
+            let binding: Binding?
+            do { binding = try read(Binding.self, tag: tag) } catch is DecodingError { return false }
+            guard let binding, var pin = try keystore.loadIfKeyExists(KeystoreTag.pincode.rawValue) else {
+                return false
+            }
+            defer { pin.resetBytes(in: 0..<pin.count) }
+            guard let value = String(data: pin, encoding: .utf8) else { return false }
+            return (try? binding.matches(value)) == true
         }
     }
 
@@ -421,11 +459,10 @@ final class WalletOwnerPIN {
                 try writeRotation(pin, accounts: [], finishSetup: true)
                 return
             }
-            guard Set(intents.keys) == Set(accounts.map(\.address)) else {
+            let verified = try proven(accounts)
+            guard Set(intents.keys) == Set(verified.map(\.address)) else {
                 throw Failure.authenticationRequired
             }
-            let verified = try proven(accounts)
-            guard verified.count == accounts.count else { throw Failure.authenticationRequired }
             try writeRotation(pin, accounts: verified, finishSetup: true,
                               setupIntents: intents.mapValues(\.operationID))
         }

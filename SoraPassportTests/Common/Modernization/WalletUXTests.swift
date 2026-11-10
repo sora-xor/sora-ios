@@ -2305,7 +2305,7 @@ final class WalletUXTests: XCTestCase {
     }
 
     @MainActor
-    func testEditingReviewPreservesDraftAndRequiresAnotherQuote() throws {
+    func testEditingReviewPreservesDraftAndRequiresAnotherQuote() async throws {
         let (flow, navigation) = try sendFlow()
         flow.amountViewModel.set(recipient: "test-recipient-address")
         try enterAmount("12.5", in: flow)
@@ -2318,6 +2318,7 @@ final class WalletUXTests: XCTestCase {
             assetDefinitionID: "test-asset", availableBalance: try PIQuantity("100"), quote: quote)
         XCTAssertFalse(prepared.submissionMayHaveStarted)
         flow.showReview(prepared)
+        await waitForNavigationUpdate()
         let review = try XCTUnwrap(flow.confirmViewModel)
         XCTAssertEqual(review.total, "12.51")
         XCTAssertTrue(navigation.topViewController is ConfirmViewController)

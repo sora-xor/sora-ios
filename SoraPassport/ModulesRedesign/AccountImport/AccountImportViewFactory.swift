@@ -98,6 +98,17 @@ final class AccountImportViewFactory {
                                                              expectedDisplayName:
                                                                  expectedDisplayName
                                                          )
+                                                 },
+                                                 beforeInsert: { prepared in
+                                                     // Nobody typed anything for this account, so
+                                                     // while a 1.x PIN exists the upgrade must not
+                                                     // open PIN setup, where anyone holding the
+                                                     // iPhone could choose a new one. That PIN stays,
+                                                     // and the ordinary PIN screen asks for it next.
+                                                     // Unreadable counts as present: never a new PIN.
+                                                     if (try? keystore.checkKey(for: KeystoreTag.pincode.rawValue)) != false {
+                                                         prepared.restrictToRetainedOwnership(nil)
+                                                     }
                                                  })
         return interactor
     }

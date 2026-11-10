@@ -105,12 +105,6 @@ final class WalletSimulatorUpgradeUITests: XCTestCase {
         } else if route == "recovery" {
             XCTAssertTrue(app.otherElements["sora.migrationEvidence.v3.recovery"].waitForExistence(timeout: 60))
             XCTAssertTrue(app.buttons["wallet-recovery-restore-phrase"].exists)
-            if name == "pinless" {
-                let setUp = app.buttons["wallet-recovery-set-up-again"]
-                if !setUp.isHittable { app.swipeUp() }
-                XCTAssertTrue(setUp.isHittable, app.debugDescription)
-                XCTAssertFalse(app.otherElements["MainViewAccessibilityId"].exists)
-            }
             evidence("recovery")
             if name == "preserved-return" {
                 let setUp = app.buttons["wallet-recovery-set-up-again"]
@@ -148,23 +142,13 @@ final class WalletSimulatorUpgradeUITests: XCTestCase {
                 confirmation.typeText(publicPIN)
                 protect.buttons["Use earlier wallet data"].tap()
             } else { return }
-        } else if route == "legacy" {
-            XCTAssertTrue(app.buttons["sora.migrationEvidence.v3.continueUpgrade"].waitForExistence(timeout: 60))
-            evidence("legacy-confirmation")
-            app.buttons["sora.migrationEvidence.v3.continueUpgrade"].tap()
-            // Both legacy fixtures retain the original 1.x PIN. Authenticate
-            // it before waiting for the replacement wallet's PIN setup.
-            let legacyPIN = app.alerts["Enter your PIN"]
-            XCTAssertTrue(legacyPIN.waitForExistence(timeout: 60), app.debugDescription)
-            evidence("legacy-pin-request")
-            let field = legacyPIN.secureTextFields.firstMatch
-            XCTAssertTrue(field.exists, app.debugDescription)
-            field.tap()
-            field.typeText(publicPIN)
-            legacyPIN.buttons["Continue"].tap()
         }
         do {
-            XCTAssertTrue(app.otherElements["MainViewAccessibilityId"].waitForExistence(timeout: 60))
+            // An update asks nothing: whatever the old state, the next thing
+            // on screen is the ordinary PIN pad.
+            XCTAssertTrue(app.otherElements["MainViewAccessibilityId"].waitForExistence(timeout: 60), app.debugDescription)
+            XCTAssertFalse(app.buttons["sora.migrationEvidence.v3.continueUpgrade"].exists)
+            XCTAssertFalse(app.alerts["Enter your PIN"].exists)
             evidence("pin")
             func enterPIN() {
                 for digit in publicPIN {
@@ -173,7 +157,7 @@ final class WalletSimulatorUpgradeUITests: XCTestCase {
                 }
             }
             enterPIN()
-            if route == "legacy" || ["pinless", "metadata-only", "erase-restore", "fresh-import"].contains(name)
+            if ["pinless", "metadata-only", "erase-restore", "fresh-import"].contains(name)
                 || (name == "two-reinstalls" && phase == "first-install") {
                 // Initial PIN validation runs asynchronously. Do not deliver
                 // confirmation digits into the first entry's reset window.
@@ -200,16 +184,37 @@ final class WalletSimulatorUpgradeUITests: XCTestCase {
                 evidence(wallet.exists ? "unreachable-node-wallet-opened" : "unreachable-node-bounded-service-recovery")
                 return
             }
-            var opened = wallet.waitForExistence(timeout: 20)
+            // Multiple wallets now open the aggregate portfolio. Select the
+            // expected fixture through its real scope picker before checking
+            // its address and phrase; an aggregate heading alone is not proof
+            // that the original account is available.
+            let allWallets = app.buttons["All wallets"]
+            func waitForPortfolio(_ timeout: TimeInterval) -> Bool {
+                let visible = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    wallet.exists || allWallets.exists
+                }, object: nil)
+                return XCTWaiter.wait(for: [visible], timeout: timeout) == .completed
+            }
+            var opened = waitForPortfolio(20)
             if !opened, app.buttons["wallet-opening-retry"].exists {
                 // Exercise the real bounded retry after an unavailable live
                 // service. Keep the first result in the evidence, never call
                 // an opening/retry screen a successful wallet launch.
                 evidence("opening-service-retry")
                 app.buttons["wallet-opening-retry"].tap()
-                opened = wallet.waitForExistence(timeout: 60)
+                opened = waitForPortfolio(60)
             }
             XCTAssertTrue(opened, app.debugDescription)
+            if !wallet.exists, allWallets.exists {
+                allWallets.tap()
+                let individual = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", walletName)).firstMatch
+                XCTAssertTrue(individual.waitForExistence(timeout: 10), app.debugDescription)
+                individual.tap()
+                let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                    object: app.buttons["portfolio.manage-wallets"])
+                XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 10), .completed)
+            }
+            XCTAssertTrue(wallet.waitForExistence(timeout: 10), app.debugDescription)
             XCTAssertFalse(app.otherElements["sora.migrationEvidence.v3.recovery"].exists)
             evidence("wallet")
             if name == "fresh-import" || (name == "two-reinstalls" && phase == "first-install") {

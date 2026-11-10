@@ -35,6 +35,17 @@ final class CustomNodeFormTests: XCTestCase {
     func testNodeFormRejectsMissingZeroNegativeAndOutOfRangePorts() {
         for value in ["wss://node.example:", "wss://node.example:0", "wss://node.example:-1", "wss://node.example:65536", "wss://node.example:999999", "wss://node.example:abc"] { XCTAssertFalse(validate(value), value) }
     }
+    func testEmptyPortIsRejectedBeforeURLNormalizationEvenWithAPathOrIPv6() {
+        for value in ["wss://node.example:/rpc", "wss://node.example:?network=sora", "ws://[::1]:", "ws://[::1]:/rpc"] {
+            let (presenter, view, source) = fixture()
+            presenter.customNodeNameChange(to: "Fixture")
+            presenter.customNodeAddressChange(to: value)
+            XCTAssertFalse(view.enabled, value)
+            presenter.submitButtonTapped()
+            XCTAssertTrue(source.updates.isEmpty, value)
+        }
+        XCTAssertTrue(validate("wss://node.example/rpc:sub?token=abc:"))
+    }
     func testNodeFormRejectsCredentialsAndFragments() {
         for value in ["wss://user@node.example", "wss://user:pass@node.example", "wss://node.example#fragment", "wss://node.example/#fragment"] { XCTAssertFalse(validate(value), value) }
     }
