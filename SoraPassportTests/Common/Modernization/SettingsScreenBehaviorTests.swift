@@ -52,7 +52,7 @@ final class SettingsScreenBehaviorTests: XCTestCase {
         XCTAssertEqual(old, 0); XCTAssertEqual(current, 1)
         XCTAssertFalse(views(UILabel.self, in: cell).contains { $0.text == "Old" || $0.text == "NETWORKS" })
     }
-    func testSettingsScreenBuildsAndLanguageActionOpensTheLanguageList() throws {
+    func testSettingsScreenBuildsAndLanguageActionOpensTheLanguageList() async throws {
         let previous = LocalizationManager.shared.selectedLocalization
         defer { LocalizationManager.shared.selectedLocalization = previous }
         LocalizationManager.shared.selectedLocalization = "en"
@@ -65,6 +65,7 @@ final class SettingsScreenBehaviorTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(table.sora.sections.count, 2)
         let language = try XCTUnwrap(table.sora.sections.first?.rows.first as? AppSettingsItem)
         language.itemActionTap(with: nil)
+        await waitForNavigationUpdate()
         let languages = try XCTUnwrap(navigation.topViewController as? LanguageView)
         languages.loadViewIfNeeded()
         let languageTable = try XCTUnwrap(views(SoramitsuTableView.self, in: languages.view).first)

@@ -155,7 +155,7 @@ final class InputSendInfoViewModel {
     }
 
     private func loadFiat() {
-        Task { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self else { return }
             self.fiatData = await self.fiatService?.getFiat() ?? []
         }
@@ -191,12 +191,20 @@ final class InputSendInfoViewModel {
 
 extension InputSendInfoViewModel: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        setupBalanceDataProvider()
+        if Thread.isMainThread {
+            setupBalanceDataProvider()
+        } else {
+            DispatchQueue.main.async { [weak self] in self?.setupBalanceDataProvider() }
+        }
     }
 }
 
 extension InputSendInfoViewModel: FiatServiceObserverProtocol {
     func processFiat(data: [PIExactFiatData]) {
-        fiatData = data
+        if Thread.isMainThread {
+            fiatData = data
+        } else {
+            DispatchQueue.main.async { [weak self] in self?.fiatData = data }
+        }
     }
 }

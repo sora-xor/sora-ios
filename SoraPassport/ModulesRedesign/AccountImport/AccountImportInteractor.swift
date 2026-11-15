@@ -26,6 +26,7 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
     private(set) var settings: SelectedWalletSettingsProtocol
     private let eventCenter: EventCenterProtocol
     private let preparedAccountPersistence: (PreparedAccount) throws -> Void
+    private let beforeInsert: ((PreparedAccount) -> Void)?
     private let lifecycleCoordinator: WalletLifecycleCoordinator
 
     init(accountOperationFactory: AccountOperationFactoryProtocol,
@@ -39,10 +40,12 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
              WalletMnemonicWordPolicy.retainedSoraWordCounts,
          preparedAccountPersistence:
              ((PreparedAccount) throws -> Void)? = nil,
+         beforeInsert: ((PreparedAccount) -> Void)? = nil,
          lifecycleCoordinator: WalletLifecycleCoordinator = .shared
     ) {
         self.settings = settings
         self.eventCenter = eventCenter
+        self.beforeInsert = beforeInsert
         self.lifecycleCoordinator = lifecycleCoordinator
         self.preparedAccountPersistence =
             preparedAccountPersistence ?? { prepared in
@@ -85,6 +88,7 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
                 let prepared = try preparedResult.get()
                 if try self.requestExplicitCredentialRepairIfNeeded(prepared, lifecycleLease: lifecycleLease,
                     eventCenter: selectionEventCenter, completion: completion) { return }
+                self.beforeInsert?(prepared)
                 self.settings.performInsertAndSelect(
                     prepared: prepared,
                     persistSecrets: {

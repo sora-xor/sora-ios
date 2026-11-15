@@ -137,26 +137,29 @@ final class AccountOptionsScreenFlowTests: XCTestCase {
     XCTAssertNotNil(v.navigationItem.leftBarButtonItem ?? v.navigationItem.rightBarButtonItem)
     XCTAssertEqual(v.navigationItem.largeTitleDisplayMode, .never)
   }
-  func testPhraseRouteStopsAtTheDisclosureScreen() throws {
+  func testPhraseRouteStopsAtTheDisclosureScreen() async throws {
     let host = OptionsRouteHost()
     let nav = UINavigationController(rootViewController: host)
     route().showPassphrase(from: host, account: account())
+    await settle()
     let warning = try XCTUnwrap(nav.topViewController as? AccountWarningViewController)
     XCTAssertNotNil(warning.completion)
     XCTAssertTrue(warning.hidesBottomBarWhenPushed)
     XCTAssertEqual(nav.viewControllers.count, 2)
   }
-  func testSeedRouteStopsAtTheDisclosureScreen() throws {
+  func testSeedRouteStopsAtTheDisclosureScreen() async throws {
     let host = OptionsRouteHost()
     let nav = UINavigationController(rootViewController: host)
     route().showRawSeed(from: host, account: account())
+    await settle()
     XCTAssertTrue(nav.topViewController is AccountWarningViewController)
     XCTAssertEqual(nav.viewControllers.count, 2)
   }
-  func testJsonRouteStopsAtTheDisclosureScreen() throws {
+  func testJsonRouteStopsAtTheDisclosureScreen() async throws {
     let host = OptionsRouteHost()
     let nav = UINavigationController(rootViewController: host)
     route().showJson(account: account(), from: host)
+    await settle()
     XCTAssertTrue(nav.topViewController is AccountWarningViewController)
     XCTAssertEqual(nav.viewControllers.count, 2)
   }

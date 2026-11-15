@@ -139,7 +139,7 @@ final class ChangeAccountTests: XCTestCase {
     }
 
     @MainActor
-    func testLanguageRowOpensTheInAppLanguagePicker() throws {
+    func testLanguageRowOpensTheInAppLanguagePicker() async throws {
         let presenter = AppSettingsPresenter()
         let view = SettingsViewSpy()
         let navigation = UINavigationController(rootViewController: view)
@@ -148,6 +148,7 @@ final class ChangeAccountTests: XCTestCase {
         presenter.reload()
         let item = try XCTUnwrap(view.model?.sections.first?.rows.first as? AppSettingsItem)
         item.onTap?()
+        await waitForNavigationUpdate()
         XCTAssertTrue(navigation.topViewController is LanguageView)
     }
 

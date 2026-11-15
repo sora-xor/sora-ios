@@ -48,19 +48,21 @@ final class AccountOnboardingNavigationTests: XCTestCase {
         route.endAddingBlock = {}; route.showSignup(from: OnboardingRouteHost(), isGoogleBackupSelected: false); await drainMainQueue()
         XCTAssertEqual(nav.viewControllers.count, 1)
     }
-    func testEveryRestoreSourcePushesTheMatchingImportPresenter() throws {
+    func testEveryRestoreSourcePushesTheMatchingImportPresenter() async throws {
         for source in AccountImportSource.allCases {
             let (route, host, nav) = make(); route.showAccountRestoreRedesign(from: host, sourceType: source)
+            await drainMainQueue()
             let view = try XCTUnwrap(nav.topViewController as? ImportAccountViewController)
             let presenter = try XCTUnwrap(view.presenter as? AccountImportPresenter)
             XCTAssertEqual(presenter.selectedSourceType, source); XCTAssertTrue(presenter.view === view)
             XCTAssertNotNil(presenter.interactor); XCTAssertTrue(presenter.wireframe is AddImportedWireframe)
         }
     }
-    func testKeystoreImportOnlyPushesFromTheRootOfTheFlow() throws {
+    func testKeystoreImportOnlyPushesFromTheRootOfTheFlow() async throws {
         let (route, host, nav) = make(); route.showKeystoreImport(from: host)
+        await drainMainQueue()
         XCTAssertTrue(nav.topViewController is ImportAccountViewController); XCTAssertEqual(nav.viewControllers.count, 2)
-        route.showKeystoreImport(from: host); XCTAssertEqual(nav.viewControllers.count, 2)
+        route.showKeystoreImport(from: host); await drainMainQueue(); XCTAssertEqual(nav.viewControllers.count, 2)
     }
     func testMissingImportServiceDoesNotPushAnIncompleteDestination() {
         URLHandlingService.shared.setup(children: [])
@@ -149,27 +151,29 @@ final class AccountOnboardingNavigationTests: XCTestCase {
         let nav = try XCTUnwrap(container.children.first as? UINavigationController)
         XCTAssertEqual(container.modalPresentationStyle, .overFullScreen); XCTAssertTrue(nav.topViewController is WelcomeViewController)
     }
-    func testExportRouteRequiresTheWarningBeforeAuthentication() throws {
+    func testExportRouteRequiresTheWarningBeforeAuthentication() async throws {
         let host = OnboardingRouteHost(), nav = UINavigationController(rootViewController: OnboardingRouteHost())
         nav.pushViewController(host, animated: false)
         ChangeAccountWireframe().showExportAccounts(accounts: [], from: host)
+        await drainMainQueue()
         let warning = try XCTUnwrap(nav.topViewController as? AccountWarningViewController)
         XCTAssertTrue(warning.hidesBottomBarWhenPushed); XCTAssertNotNil(warning.completion)
     }
-    func testJsonExportRoutePushesItsWarningWithoutCreatingAnExportFile() throws {
+    func testJsonExportRoutePushesItsWarningWithoutCreatingAnExportFile() async throws {
         let host = OnboardingRouteHost(), nav = UINavigationController(rootViewController: OnboardingRouteHost())
         nav.pushViewController(host, animated: false)
         AccountExportWireframe(localizationManager: LocalizationManager.shared).showJson(from: host, accounts: [])
+        await drainMainQueue()
         XCTAssertTrue(nav.topViewController is AccountWarningViewController); XCTAssertEqual(nav.viewControllers.count, 3)
     }
-    func testShareCancellationKeepsTheExportScreenAndSuccessReturnsToItsCaller() throws {
+    func testShareCancellationKeepsTheExportScreenAndSuccessReturnsToItsCaller() async throws {
         let host = OnboardingRouteHost(), root = OnboardingRouteHost(), nav = UINavigationController(rootViewController: OnboardingRouteHost())
         nav.setViewControllers([root, host], animated: false)
         let route = AccountExportWireframe(localizationManager: LocalizationManager.shared)
         route.showShareFile(url: NSURL(fileURLWithPath: "/tmp/public-test-export.json"), in: host)
         let activity = try XCTUnwrap(host.shown.last as? UIActivityViewController)
-        activity.completionWithItemsHandler?(nil, false, nil, nil); XCTAssertTrue(nav.topViewController === host)
-        activity.completionWithItemsHandler?(.copyToPasteboard, true, nil, nil); XCTAssertTrue(nav.topViewController === root)
+        activity.completionWithItemsHandler?(nil, false, nil, nil); await drainMainQueue(); XCTAssertTrue(nav.topViewController === host)
+        activity.completionWithItemsHandler?(.copyToPasteboard, true, nil, nil); await drainMainQueue(); XCTAssertTrue(nav.topViewController === root)
     }
     func testNameSetupStartsEmptyForNewWalletAndDefersProceedUntilWarningCompletes() throws {
         let view = OnboardingRouteHost(), route = UsernameRouteSpy(), presenter = UsernameSetupPresenter()
@@ -224,10 +228,11 @@ final class AccountOnboardingNavigationTests: XCTestCase {
             XCTAssertTrue(presenter.view === view); XCTAssertNotNil(presenter.interactor)
         }
     }
-    func testAddNameWarningPreservesTheContinuationAndRequiresExplicitAction() throws {
+    func testAddNameWarningPreservesTheContinuationAndRequiresExplicitAction() async throws {
         let view = OnboardingRouteHost(), nav = UINavigationController(rootViewController: OnboardingRouteHost())
         nav.pushViewController(view, animated: false); var completions = 0
         AddUsernameWireframe(localizationManager: LocalizationManager.shared, isNeedSetupName: true).showWarning(from: view) { completions += 1 }
+        await drainMainQueue()
         let warning = try XCTUnwrap(nav.topViewController as? AccountWarningViewController)
         XCTAssertEqual(completions, 0); warning.completion?(); XCTAssertEqual(completions, 1)
     }

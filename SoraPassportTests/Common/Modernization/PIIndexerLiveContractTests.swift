@@ -5153,7 +5153,7 @@ final class PIRound4PriceTests: XCTestCase {
     private static let eth =
         "0x0200070000000000000000000000000000000000000000000000000000000000"
 
-    private func wait(
+    @MainActor private func wait(
         _ what: String,
         until condition: @escaping () -> Bool
     ) async {
@@ -5522,6 +5522,7 @@ final class PIRound4PriceTests: XCTestCase {
     }
 
     /// The same for "request an amount".
+    @MainActor
     func testRequestAmountFollowsThePricesWhenTheLiveCatalogArrives()
         async throws
     {
@@ -5543,6 +5544,13 @@ final class PIRound4PriceTests: XCTestCase {
             marketCapService: PriceTestMarketCap()
         )
 
+        let offMain = Counter()
+        let balanceObservation = viewModel.$balanceFiatText.dropFirst().sink { _ in
+            if !Thread.isMainThread { offMain.increment() }
+        }
+        let amountObservation = viewModel.$inputedFiatAmountText.dropFirst().sink { _ in
+            if !Thread.isMainThread { offMain.increment() }
+        }
         viewModel.viewDidLoad()
         viewModel.inputedAmount = 2
         await wait("the value at the first price") {
@@ -5562,7 +5570,18 @@ final class PIRound4PriceTests: XCTestCase {
         XCTAssertEqual(viewModel.balanceFiatText, "100 ($300)")
         let calls = await fiat.calls
         XCTAssertEqual(calls, 2)
-        withExtendedLifetime((fiat, manager, provider)) {}
+
+        // Provider notifications arrive on background queues. Both published
+        // values must still change together on the UI thread.
+        let refreshed = try xor(at: "4")
+        DispatchQueue.global().async { viewModel.processFiat(data: refreshed) }
+        await wait("the callback price") { viewModel.inputedFiatAmountText == "$8" }
+        XCTAssertEqual(viewModel.balanceFiatText, "100 ($400)")
+        provider.balances = [BalanceData(identifier: priceTestXor, balance: AmountDecimal(value: 50))]
+        DispatchQueue.global().async { viewModel.processBalance(data: []) }
+        await wait("the callback balance") { viewModel.balanceFiatText == "50 ($200)" }
+        XCTAssertEqual(offMain.value, 0)
+        withExtendedLifetime((fiat, manager, provider, balanceObservation, amountObservation)) {}
     }
 
     /// The observation ends with the screen that holds it.

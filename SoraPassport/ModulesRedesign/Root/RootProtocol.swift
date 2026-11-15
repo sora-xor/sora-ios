@@ -45,6 +45,9 @@ protocol RootInteractorInputProtocol: AnyObject {
     var legacyUpgradeRequiresPIN: Bool { get }
     /// `pin` is the SORA 1.x PIN the user typed, or nil if none was asked.
     func performLegacyWalletUpgrade(pin: String?)
+    /// The same upgrade with no screen, as App Store 3.8.6 did it. The PIN
+    /// screen that follows is the check.
+    func performAutomaticLegacyWalletUpgrade()
 }
 
 protocol RootInteractorOutputProtocol: AnyObject {

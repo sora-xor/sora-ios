@@ -484,17 +484,18 @@ extension WalletStorageStartup {
                 recoveryGate: recoveryGate
             ).unresolved().isEmpty
         }
+        let localPaths: () throws -> WalletLocalStateSetAside.Paths = {
+            if let applicationSupportURL {
+                return .init(storeURL: storeURL, applicationSupportURL: applicationSupportURL,
+                             setAsideRootURL: storeURL.deletingLastPathComponent()
+                                .appendingPathComponent("WalletSetAside", isDirectory: true))
+            }
+            return try .production(fileManager: fileManager)
+        }
 //it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
         var deferredForLegacyUpgrade = false
         let accountCommitRecovery: () throws -> Void = {
-            let paths: WalletLocalStateSetAside.Paths
-            if let applicationSupportURL {
-                paths = .init(storeURL: storeURL, applicationSupportURL: applicationSupportURL,
-                              setAsideRootURL: storeURL.deletingLastPathComponent()
-                                .appendingPathComponent("WalletSetAside", isDirectory: true))
-            } else {
-                paths = try .production(fileManager: fileManager)
-            }
+            let paths = try localPaths()
             let returnLease = lifecycleCoordinator.acquire()
             do {
                 try WalletPreservedGeneration.resume(paths: paths, settings: settings, keystore: keystore)
@@ -527,6 +528,7 @@ extension WalletStorageStartup {
                 keystore: keystore,
                 settings: settings,
                 baseURL: applicationSupportURL,
+                availableCapacity: dbMigrator.availableCapacity,
                 lifecycleCoordinator: lifecycleCoordinator
             )
             try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
@@ -573,20 +575,35 @@ extension WalletStorageStartup {
                 )
             }
         }
-        let outcome: WalletStorageStartupOutcome
-        if let retryDelay {
-            outcome = run(
+        let ordinaryChecks: () -> WalletStorageStartupOutcome = {
+            deferredForLegacyUpgrade = false
+            if let retryDelay {
+                return run(
+                    settings: settings,
+                    accountCommitRecovery: accountCommitRecovery,
+                    retryDelay: retryDelay,
+                    migration: migration
+                )
+            }
+            return run(
                 settings: settings,
                 accountCommitRecovery: accountCommitRecovery,
-                retryDelay: retryDelay,
                 migration: migration
             )
-        } else {
-            outcome = run(
-                settings: settings,
-                accountCommitRecovery: accountCommitRecovery,
-                migration: migration
-            )
+        }
+
+        // An update asks nothing. A wallet whose files cannot be used comes
+        // back by itself (`WalletDatabaseSelfRepair`), including a wallet that
+        // an earlier version already stopped on the recovery screen.
+        let repair = (try? localPaths()).map {
+            WalletDatabaseSelfRepair.Environment(
+                settings: settings, keystore: keystore, paths: $0, databaseWriter: dbMigrator,
+                fileManager: fileManager, lifecycleCoordinator: lifecycleCoordinator)
+        }
+        if let repair { WalletDatabaseSelfRepair.restoreLostDatabase(repair) }
+        var outcome = ordinaryChecks()
+        if outcome == .recoveryRequired, let repair {
+            outcome = WalletDatabaseSelfRepair.recover(repair, ordinaryChecks: ordinaryChecks)
         }
         if outcome == .recoveryRequired {
             do { try dbMigrator.preserveLegacyKeysDuringRecovery(lifecycleCoordinator: lifecycleCoordinator) }
@@ -608,6 +625,7 @@ enum WalletStartupVerificationRecovery {
         storeURL: URL, modelDirectory: String,
         keystore: KeystoreProtocol, settings: SettingsManagerProtocol,
         baseURL: URL? = nil,
+        availableCapacity: @escaping (URL) -> Int64? = UserStorageMigrator.availableCapacityForMigration(at:),
         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
         checkpoint: () throws -> Void = {}
     ) throws -> Bool {
@@ -646,6 +664,7 @@ enum WalletStartupVerificationRecovery {
                 let database = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
                     storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
                     settings: settings, fileManager: .default, recoveryGate: journalGate,
+                    availableCapacity: availableCapacity,
                     loadWalletNetworkSnapshot: { try journalStore.load() })
                 try database.resumeForStartupVerification(marker: marker)
             }
@@ -664,6 +683,7 @@ enum WalletStartupVerificationRecovery {
             let evidence = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
                 storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
                 settings: settings, fileManager: fileManager, recoveryGate: gate,
+                availableCapacity: availableCapacity,
                 loadWalletNetworkSnapshot: { try store.load() }).retainedWalletEvidenceKind()
             guard evidence != .durable else { throw UserStorageMigrationError.missingWalletStore }
             if try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(storeExists: false,
@@ -684,6 +704,7 @@ enum WalletStartupVerificationRecovery {
             let database = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
                 storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
                 settings: settings, fileManager: fileManager, recoveryGate: gate,
+                availableCapacity: availableCapacity,
                 loadWalletNetworkSnapshot: { try store.load() })
             try WalletStartupDiagnostic.check(.databaseMigration) {
                 try database.performMigration()
@@ -749,6 +770,7 @@ final class SplashInteractor: SplashInteractorProtocol {
     private let migrationStateLock = NSLock()
     private var didStartStorageMigration = false
     private var isAwaitingStorageRetry = false
+    private var didRepeatChecksAfterStartupFailure = false
     private var protectedDataObserver: NSObjectProtocol?
     private let storageMigrationQueue: OperationQueue = {
         let queue = OperationQueue()
@@ -915,10 +937,30 @@ final class SplashInteractor: SplashInteractorProtocol {
                 )
                 if let self {
                     WalletStartupDiagnostic.record(error, phase: .selectedAccount, settings: self.settings)
+                    if self.repeatChecksOnceAfterStartupFailure() { return }
                 }
                 self?.presenter.setupComplete()
             }
         }
+    }
+
+    /// A failure after the storage checks latched recovery. The checks repair
+    /// exactly that, so they run once more before routing shows anything.
+    /// Returns false when they already did, in this start.
+    private func repeatChecksOnceAfterStartupFailure() -> Bool {
+        migrationStateLock.lock()
+        guard !didRepeatChecksAfterStartupFailure else {
+            migrationStateLock.unlock()
+            return false
+        }
+        didRepeatChecksAfterStartupFailure = true
+        migrationStateLock.unlock()
+        storageMigrationQueue.addOperation { [weak self] in
+            // The checks may move the database: nothing may hold it open.
+            try? UserDataStorageFacade.shared.databaseService.close()
+            self?.runStorageChecks()
+        }
+        return true
     }
 
     private func completeSplashOnMain() {
@@ -983,6 +1025,7 @@ final class SplashInteractor: SplashInteractorProtocol {
                 Logger.shared.error(
                     "Wallet network bootstrap outcome: \(outcome)"
                 )
+                if self.repeatChecksOnceAfterStartupFailure() { return }
                 DispatchQueue.main.async {
                     self.presenter.setupComplete()
                 }

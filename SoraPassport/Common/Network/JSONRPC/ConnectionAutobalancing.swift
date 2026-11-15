@@ -45,6 +45,15 @@ enum SoraNodeConnectionPolicy {
         ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "SORA Ministry of Finance 2", apikey: nil),
     ]
 
+    /// Validate user input before Foundation normalizes an explicitly empty port
+    /// away on older supported systems.
+    static func isAllowedEndpoint(_ value: String) -> Bool {
+        let authority = value.components(separatedBy: "://").dropFirst().joined(separator: "://")
+            .prefix { $0 != "/" && $0 != "?" && $0 != "#" }
+        guard !authority.hasSuffix(":"), let url = URL(string: value) else { return false }
+        return isAllowedEndpoint(url)
+    }
+
     /// Excludes the reported compromised host even when cached or supplied remotely.
     static func isAllowedEndpoint(_ url: URL) -> Bool {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),

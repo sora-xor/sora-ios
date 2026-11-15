@@ -434,9 +434,10 @@ extension PortfolioCoordinatorFlowTests {
         let sheet = try shown(PortfolioSwapSheet.self, f)
         XCTAssertTrue(sheet.isSelectedWallet); XCTAssertEqual(sheet.targets.map(\.symbol), ["VAL", "PSWAP", "XSTUSD"])
     }
-    func testHomeTokenActionWithNoExplicitChoiceOpensItsDetailInTheCurrentNavigation() throws {
+    func testHomeTokenActionWithNoExplicitChoiceOpensItsDetailInTheCurrentNavigation() async throws {
         let f = make(), home = boundHome(f), navigation = UINavigationController(rootViewController: f.host)
         home.listItem.onRowAction?(try homeRow(home, lens: .tokens, key: PortfolioFixtures.xor.id), nil)
+        await waitForNavigationUpdate()
         XCTAssertTrue(navigation.topViewController is PortfolioDetailViewController)
         XCTAssertEqual(navigation.viewControllers.count, 2)
     }
@@ -641,12 +642,13 @@ final class PortfolioDetailActionCoverageTests: XCTestCase {
         f.controller.styleDidChange(options: .effects)
         XCTAssertEqual(f.requests.count, before)
     }
-    func testMissingTokenReturnsToThePreviousScreen() {
+    func testMissingTokenReturnsToThePreviousScreen() async {
         let f = Fixture(); let root = UIViewController()
         let navigation = UINavigationController(rootViewController: root)
         navigation.pushViewController(f.controller, animated: false)
         f.available = false
         f.controller.reload()
+        await waitForNavigationUpdate()
         XCTAssertTrue(navigation.topViewController === root)
     }
     func testHoldingHighlightReturnsToNormalOpacity() throws {

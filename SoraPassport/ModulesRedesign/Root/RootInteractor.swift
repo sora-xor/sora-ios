@@ -562,9 +562,7 @@ enum LegacyWalletAccountCommitRecovery {
 
     private static func accountModel(modelDirectory: String) throws -> NSManagedObjectModel {
         let name = UserStorageVersion.version2.rawValue
-        guard let url = Bundle.main.url(forResource: name, withExtension: "omo", subdirectory: modelDirectory)
-                ?? Bundle.main.url(forResource: name, withExtension: "mom", subdirectory: modelDirectory),
-              let model = NSManagedObjectModel(contentsOf: url)
+        guard let model = UserStorageParams.loadableModel(forResource: name, modelDirectory: modelDirectory)?.model
         else { throw UserStorageMigrationError.unavailableModel(name) }
         return model
     }
@@ -588,8 +586,7 @@ enum LegacyWalletAccountCommitRecovery {
                                        body: (NSManagedObjectContext) throws -> T) throws -> T {
         try validateStoreFiles(storeURL)
         if FileManager.default.fileExists(atPath: storeURL.path) {
-            let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
-                ofType: NSSQLiteStoreType, at: storeURL, options: [NSReadOnlyPersistentStoreOption: true])
+            let metadata = try NSPersistentStoreCoordinator.readOnlyMetadata(at: storeURL)
             guard model.isConfiguration(withName: nil, compatibleWithStoreMetadata: metadata) else {
                 throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
             }
@@ -916,6 +913,9 @@ extension RootInteractor: RootInteractorInputProtocol {
             // the account first, so a stop in between must lead back to PIN
             // setup, not to a PIN entry the user may not be able to answer.
             let ownerPIN = WalletOwnerPIN(keystore: keystore, settings: settings)
+            if !pincodeExists {
+                try ownerPIN.authorizeInitialSetupWithoutPIN(accounts: initialPINAccounts())
+            }
             let pendingSetup = try legacyUpgradeSelectedAccount().map {
                 try ownerPIN.requiresInitialSetup(accounts: [$0])
             } ?? false
@@ -975,6 +975,22 @@ extension RootInteractor: RootInteractorInputProtocol {
             return
         }
 
+        runLegacyWalletUpgrade()
+    }
+
+    func performAutomaticLegacyWalletUpgrade() {
+        legacyUpgradeLock.lock()
+        guard !didStartLegacyWalletUpgrade else {
+            legacyUpgradeLock.unlock()
+            return
+        }
+        didStartLegacyWalletUpgrade = true
+        legacyUpgradeLock.unlock()
+
+        runLegacyWalletUpgrade()
+    }
+
+    private func runLegacyWalletUpgrade() {
         do {
             guard
                 !settings.walletMigrationRecoveryRequired,
@@ -1054,6 +1070,12 @@ extension RootInteractor: RootInteractorInputProtocol {
                         )
                         self.legacyImportInteractor = nil
                         self.addScopedCopiesAfterLegacyUpgrade(account)
+                        // The 1.x PIN stays this wallet's PIN (see
+                        // `createLegacyUpgradeInteractor`), so no PIN setup is
+                        // waiting and the insert's onboarding hint does not apply.
+                        if (try? self.keystore.checkKey(for: KeystoreTag.pincode.rawValue)) == true {
+                            WalletPendingPinSetup.finish(self.settings)
+                        }
                         self.decideModuleSynchroniously()
                     } catch {
                         self.failLegacyWalletUpgrade(error)

@@ -279,7 +279,9 @@ final class UserStorageMigrator {
     private let recoveryGate: WalletRecoveryCapabilityGate
     private let migrationRecoveryMarker: WalletMigrationRecoveryMarker?
     private let checkpoint: ((UserStorageMigrationCheckpoint) throws -> Void)?
-    private let availableCapacity: (URL) -> Int64?
+    // Every startup retry must use the same capacity provider as its initial
+    // preflight, including verification through a marker-bound migrator.
+    let availableCapacity: (URL) -> Int64?
     private let loadWalletNetworkSnapshot:
         () throws -> WalletNetworkSnapshot?
     private let afterLegacyStoreCopyBeforeVerification:
@@ -411,8 +413,7 @@ final class UserStorageMigrator {
         guard pathExistsNoFollow(storeURL), storeBundleIsRegularNoFollow(at: storeURL) else {
             throw UserStorageMigrationError.missingWalletStore
         }
-        let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
-            ofType: NSSQLiteStoreType, at: storeURL, options: nil)
+        let metadata = try NSPersistentStoreCoordinator.readOnlyMetadata(at: storeURL)
         guard compatibleVersionForStoreMetadata(metadata) == targetVersion else {
             throw UserStorageMigrationError.unknownStoreVersion
         }
@@ -855,8 +856,7 @@ final class UserStorageMigrator {
         guard pathExistsNoFollow(storeURL), storeBundleIsRegularNoFollow(at: storeURL) else {
             throw UserStorageMigrationError.missingWalletStore
         }
-        let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
-            ofType: NSSQLiteStoreType, at: storeURL, options: nil)
+        let metadata = try NSPersistentStoreCoordinator.readOnlyMetadata(at: storeURL)
         guard let version = compatibleVersionForStoreMetadata(metadata) else {
             throw UserStorageMigrationError.unknownStoreVersion
         }
@@ -947,11 +947,7 @@ final class UserStorageMigrator {
             throw UserStorageMigrationError.unknownStoreVersion
         }
 
-        let maybeMetadata = try? NSPersistentStoreCoordinator.metadataForPersistentStore(
-            ofType: NSSQLiteStoreType,
-            at: storeURL,
-            options: nil
-        )
+        let maybeMetadata = NSPersistentStoreCoordinator.metadata(at: storeURL)
 
         guard
             let metadata = maybeMetadata,
@@ -988,7 +984,13 @@ final class UserStorageMigrator {
             return
         }
 
-        try ensureMigrationCapacity()
+        do {
+            try ensureMigrationCapacity()
+        } catch UserStorageMigrationError.insufficientStorage where sourceVersion == targetVersion {
+            // The live inventory and its keys have passed above. Defer only
+            // the safety copy; the caller still runs all remaining checks.
+            return
+        }
         try forceWALCheckpointingForStore(at: storeURL)
 
         let safetyDirectory = storeURL
@@ -2523,26 +2525,62 @@ final class UserStorageMigrator {
     }
 
     private func createManagedObjectModel(forResource resource: String) throws -> NSManagedObjectModel {
-        let bundle = Bundle.main
-        let omoURL = bundle.url(
+        guard let model = UserStorageParams.loadableModel(
             forResource: resource,
-            withExtension: "omo",
-            subdirectory: modelDirectory
-        )
-
-        let momURL = bundle.url(
-            forResource: resource,
-            withExtension: "mom",
-            subdirectory: modelDirectory
-        )
-
-        guard
-            let modelURL = omoURL ?? momURL,
-            let model = NSManagedObjectModel(contentsOf: modelURL) else {
+            modelDirectory: modelDirectory
+        )?.model else {
             throw UserStorageMigrationError.unavailableModel(resource)
         }
 
         return model
+    }
+
+    /// A new database at `url` holding exactly these rows, in the current
+    /// schema, as one file. Public account data only: no key is read or
+    /// written. The caller proves the rows and publishes the file.
+    func writeRepairedStore(accounts: [AccountItem], at url: URL) throws {
+        let model = try createManagedObjectModel(forResource: targetVersion.rawValue)
+        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+        let store = try coordinator.addPersistentStore(
+            ofType: NSSQLiteStoreType,
+            configurationName: nil,
+            at: url,
+            options: [NSSQLitePragmasOption: ["journal_mode": "DELETE"]]
+        )
+        defer { try? coordinator.remove(store) }
+        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        context.persistentStoreCoordinator = coordinator
+        var failure: Error?
+        context.performAndWait {
+            do {
+                for account in accounts {
+                    // By entity name: the same classes may belong to another
+                    // loaded copy of this model (the app's own Core Data stack).
+                    let assets = NSEntityDescription.insertNewObject(
+                        forEntityName: "CDAccountSettings",
+                        into: context
+                    )
+                    assets.setValue(account.settings.orderedAssetIds as NSArray?, forKey: "orderedAssets")
+                    assets.setValue(account.settings.visibleAssetIds as NSArray?, forKey: "visibleAssets")
+                    let row = NSEntityDescription.insertNewObject(
+                        forEntityName: "CDAccountItem",
+                        into: context
+                    )
+                    row.setValue(account.address, forKey: "identifier")
+                    row.setValue(account.username, forKey: "username")
+                    row.setValue(account.publicKeyData, forKey: "publicKey")
+                    row.setValue(Int16(account.cryptoType.rawValue), forKey: "cryptoType")
+                    row.setValue(Int16(account.networkType), forKey: "networkType")
+                    row.setValue(account.order, forKey: "order")
+                    row.setValue(account.isSelected, forKey: "isSelected")
+                    row.setValue(assets, forKey: "settings")
+                }
+                try context.save()
+            } catch {
+                failure = error
+            }
+        }
+        if let failure { throw failure }
     }
 
     private func createMapping(
@@ -2569,11 +2607,7 @@ final class UserStorageMigrator {
         guard storeBundleIsRegularNoFollow(at: storeURL) else {
             throw UserStorageMigrationError.unknownStoreVersion
         }
-        let maybeMetadata = try? NSPersistentStoreCoordinator.metadataForPersistentStore(
-            ofType: NSSQLiteStoreType,
-            at: storeURL,
-            options: nil
-        )
+        let maybeMetadata = NSPersistentStoreCoordinator.metadata(at: storeURL)
 
         guard
             let metadata = maybeMetadata,

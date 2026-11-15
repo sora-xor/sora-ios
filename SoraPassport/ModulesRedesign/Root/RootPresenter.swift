@@ -37,12 +37,9 @@ extension RootPresenter: RootInteractorOutputProtocol {
     }
 
     func didDecideLegacyWalletUpgrade() {
-        wireframe.showLegacyWalletUpgrade(
-            on: view,
-            requiresPIN: interactor.legacyUpgradeRequiresPIN
-        ) { [weak self] pin in
-            self?.interactor.performLegacyWalletUpgrade(pin: pin)
-        }
+        // An update asks nothing. The splash stays up while the 1.x wallet
+        // becomes an account; routing then runs again and opens the PIN screen.
+        interactor.performAutomaticLegacyWalletUpgrade()
     }
 
     func didRejectLegacyWalletUpgradePIN(_ error: Error) {

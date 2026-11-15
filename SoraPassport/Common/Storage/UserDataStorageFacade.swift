@@ -40,6 +40,28 @@ enum UserStorageParams {
     static var storageURL: URL {
         storageDirectoryURL.appendingPathComponent(databaseName)
     }
+
+    /// The first compiled form of a model that actually loads. `.omo` is only
+    /// Core Data's optimised copy of `.mom`. An `.omo` this iOS version cannot
+    /// read must not make every wallet database look like an unknown one.
+    static func loadableModel(
+        forResource resource: String,
+        modelDirectory: String = UserStorageParams.modelDirectory,
+        bundle: Bundle = .main
+    ) -> (url: URL, model: NSManagedObjectModel)? {
+        for fileExtension in ["omo", "mom"] {
+            guard
+                let url = bundle.url(
+                    forResource: resource,
+                    withExtension: fileExtension,
+                    subdirectory: modelDirectory
+                ),
+                let model = NSManagedObjectModel(contentsOf: url)
+            else { continue }
+            return (url, model)
+        }
+        return nil
+    }
 }
 
 class UserDataStorageFacade: StorageFacadeProtocol {
@@ -49,21 +71,7 @@ class UserDataStorageFacade: StorageFacadeProtocol {
 
     private init() {
         let modelName = UserStorageParams.modelVersion.rawValue
-        let bundle = Bundle.main
-
-        let omoURL = bundle.url(
-            forResource: modelName,
-            withExtension: "omo",
-            subdirectory: UserStorageParams.modelDirectory
-        )
-
-        let momURL = bundle.url(
-            forResource: modelName,
-            withExtension: "mom",
-            subdirectory: UserStorageParams.modelDirectory
-        )
-
-        let modelURL = omoURL ?? momURL
+        let modelURL = UserStorageParams.loadableModel(forResource: modelName)?.url
 
         let persistentSettings = CoreDataPersistentSettings(
             databaseDirectory: UserStorageParams.storageDirectoryURL,

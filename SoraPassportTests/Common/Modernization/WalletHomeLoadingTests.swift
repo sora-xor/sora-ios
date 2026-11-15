@@ -506,7 +506,10 @@ final class WalletHomeLoadingTests: XCTestCase {
         RedesignWalletViewController.refresh(items: [item], in: table)
         let title = try heading(in: cell), row = try networkRowView(.taira, in: cell), button = try expand(in: cell)
         await assertReadsInOrder([title, row, button], in: cell)
-        let heightWithoutNote = cell.bounds.height
+        // The network row can wrap its amount column after its width is known.
+        // Measure the space around that row to isolate the note's contribution.
+        func heightOutsideRow() -> CGFloat { cell.bounds.height - frame(row, in: cell).height }
+        let heightWithoutNote = heightOutsideRow()
 
         service.priceNoteText = "Prices as of 09:02"
         await wait("The note appears") { views(SoramitsuLabel.self, in: cell).contains { $0.text == "Prices as of 09:02" && !$0.isHidden } }
@@ -516,7 +519,7 @@ final class WalletHomeLoadingTests: XCTestCase {
         XCTAssertEqual(frame(row, in: cell).minY - frame(note, in: cell).maxY, 16, accuracy: 1)
 
         service.priceNoteText = ""
-        await wait("The note's space goes with it") { note.isHidden && abs(cell.bounds.height - heightWithoutNote) <= 1 }
+        await wait("The note's space goes with it") { note.isHidden && abs(heightOutsideRow() - heightWithoutNote) <= 1 }
         await assertReadsInOrder([title, row, button], in: cell)
         XCTAssertEqual(frame(row, in: cell).minY - frame(title, in: cell).maxY, 16, accuracy: 1)
     }
