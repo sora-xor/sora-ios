@@ -2,14 +2,44 @@ import UIKit
 
 public class SoramitsuViewConfiguration<Type: Element & UIView>: SoramitsuConfiguration<Type> {
 
-    public var material: SoramitsuSurfaceMaterial = .automatic
+    public var material: SoramitsuSurfaceMaterial = .automatic {
+        didSet { updatePlate() }
+    }
     
     public var backgroundColor: SoramitsuColor = .custom(uiColor: .clear) {
         didSet {
             let supportedPalette = supportsPaletteMode ? style.palette : LightPalette()
             let color = supportedPalette.color(backgroundColor)
             owner?.backgroundColor = color
+            updatePlate()
         }
+    }
+
+    /// A rounded, unclipped surface-coloured view is a card: it stands on a porcelain plate.
+    private var plate: LitPlateLayer?
+
+    func updatePlate() {
+        guard let owner else { return }
+        var isSurface = false
+        if case .bgSurface = backgroundColor { isSurface = true }
+        let radius = owner.layer.cornerRadius
+        guard isSurface, material != .solid, !clipsToBounds, radius >= 12, !(owner is UIControl) else {
+            plate?.removeFromSuperlayer()
+            plate = nil
+            return
+        }
+        let target = plate ?? LitPlateLayer()
+        if plate == nil {
+            plate = target
+            owner.layer.insertSublayer(target, at: 0)
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        target.cornerRadiusValue = min(radius, min(owner.bounds.width, owner.bounds.height) / 2)
+        target.elevation = owner.bounds.height < 80 ? 9 : 16
+        target.frame = owner.bounds
+        CATransaction.commit()
+        owner.layer.shadowOpacity = 0
     }
 
     /// True while the stored background is re-applied (theme change, owner
@@ -34,6 +64,7 @@ public class SoramitsuViewConfiguration<Type: Element & UIView>: SoramitsuConfig
             let radius = style.radii.radius(cornerRadius, size: owner?.frame.size ?? .zero)
             owner?.layer.cornerRadius = radius
             overlay.viewCornerRadiusDidChange()
+            updatePlate()
         }
     }
     
@@ -63,6 +94,7 @@ public class SoramitsuViewConfiguration<Type: Element & UIView>: SoramitsuConfig
     public var clipsToBounds: Bool = true {
         didSet {
             owner?.clipsToBounds = clipsToBounds
+            updatePlate()
         }
     }
     
@@ -158,6 +190,7 @@ public class SoramitsuViewConfiguration<Type: Element & UIView>: SoramitsuConfig
     
     private func ownerSizeDidChange() {
         retrigger(self, \.cornerRadius)
+        updatePlate()
     }
     
     public override func styleDidChange(options: UpdateOptions) {
@@ -182,8 +215,7 @@ public class SoramitsuViewConfiguration<Type: Element & UIView>: SoramitsuConfig
     }
 }
 
-/// Kept for call sites written for the 3.9 design. Last year's design draws
-/// every surface solid, so the value is stored and ignored.
+/// `.solid` keeps a surface-coloured view flat; otherwise a rounded, unclipped one stands on a plate.
 public enum SoramitsuSurfaceMaterial {
     case automatic
     case solid

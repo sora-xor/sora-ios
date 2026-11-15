@@ -76,8 +76,8 @@ final class PortfolioLensCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
 final class PortfolioSegmentedControl: UIView {
     var onSelect: ((Int) -> Void)?
 
-    private let background = GlassView()
-    private let pill = UIView()
+    private let background = PortfolioPressedWell()
+    private let pill = GlassView()
     private let stack = UIStackView()
     private var buttons: [UIButton] = []
     private var selectedIndex = 0
@@ -86,9 +86,9 @@ final class PortfolioSegmentedControl: UIView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        background.shape = .capsule
         background.isUserInteractionEnabled = false
-        pill.layer.cornerCurve = .continuous
+        pill.shape = .capsule
+        pill.elevation = 6
         pill.isUserInteractionEnabled = false
         stack.axis = .horizontal
         stack.distribution = .fillEqually
@@ -154,24 +154,11 @@ final class PortfolioSegmentedControl: UIView {
 
     private func applyColors() {
         let tokens = PortfolioTheme.tokens
-        background.apply()
-        pill.backgroundColor = PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.12) : tokens.surface
-        pill.layer.borderWidth = 1
-        pill.layer.borderColor = (PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.16) : tokens.hairline).cgColor
-        pill.layer.shadowColor = UIColor.black.cgColor
-        pill.layer.shadowOpacity = PortfolioTheme.isDark ? 0 : 0.08
-        pill.layer.shadowRadius = 6
-        pill.layer.shadowOffset = CGSize(width: 0, height: 2)
         for (index, button) in buttons.enumerated() {
             let selected = index == selectedIndex
             button.setTitleColor(selected ? tokens.textPrimary : tokens.textSecondary, for: .normal)
             button.accessibilityTraits = selected ? [.button, .selected] : .button
         }
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        pill.layer.cornerRadius = pill.bounds.height / 2
     }
 
     @objc private func tapped(_ sender: UIButton) {
@@ -222,6 +209,7 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
                                                lines: 0)
     /// "Assets", the card's title, styled like "XOR on other networks" below it.
     private let titleLabel = UILabel.portfolio(FontType.headline2, .title3, maximum: 32)
+    private var hasEntered = false
     private let header = UIView()
     private let emptyView = UIView()
     private var rowViews: [String: PortfolioRowView] = [:]
@@ -232,7 +220,7 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         backgroundColor = .clear
         contentView.backgroundColor = .clear
         selectionStyle = .none
-        card.shape = .rounded(24)
+        card.shape = .rounded(26)
         card.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(card)
         stack.axis = .vertical
@@ -301,8 +289,9 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
     /// `PortfolioOtherNetworksCell.reload()` says why.
     private func rebuild(_ model: PortfolioListModel) {
         card.apply()
-        titleLabel.text = PortfolioStrings.assets
-        titleLabel.textColor = PortfolioTheme.textPrimary
+        titleLabel.attributedText = .letterpress(PortfolioStrings.assets, attributes: [
+            .font: titleLabel.font as Any, .foregroundColor: PortfolioTheme.textPrimary
+        ])
         var availableRows = rowViews
         var availableWells = wellViews
         rowViews = [:]
@@ -315,6 +304,8 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
             views.append(emptyView)
             elements.append(emptyLabel)
         } else {
+            let entering = !hasEntered && !model.rows.isEmpty && window != nil && FxPolicy.current.litMotion
+            if entering { hasEntered = true }
             for (index, row) in model.rows.enumerated() {
                 let rowView = availableRows.removeValue(forKey: row.key) ?? PortfolioRowView()
                 rowView.configure(row, showsSeparator: index > 0)
@@ -323,6 +314,7 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
                 rowViews[row.key] = rowView
                 views.append(rowView)
                 elements.append(rowView)
+                if entering, index < 8 { LitMotion.rise(rowView, by: 10, after: 0.04 * Double(index)) }
                 if row.isExpanded {
                     let well = availableWells.removeValue(forKey: row.key) ?? PortfolioWellView()
                     well.configure(row.children, link: row.link)
@@ -361,7 +353,7 @@ final class PortfolioRowView: UIControl {
     var onTap: (() -> Void)?
     var onCustomAction: ((PortfolioQuickAction?) -> Void)?
 
-    private let separator = UIView()
+    private let separator = LitEngravedLine()
     private let icon = PortfolioTokenIconView(size: 40)
     private let title = UILabel.portfolio(FontType.textBoldM, .body, maximum: 30)
     private let change = UILabel.portfolio(FontType.textBoldXS, .caption1, maximum: 20)
@@ -425,8 +417,8 @@ final class PortfolioRowView: UIControl {
         NSLayoutConstraint.activate([
             separator.topAnchor.constraint(equalTo: topAnchor),
             separator.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 70),
-            separator.trailingAnchor.constraint(equalTo: trailingAnchor),
-            separator.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
+            separator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            separator.heightAnchor.constraint(equalToConstant: 2),
             main.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             main.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
             main.topAnchor.constraint(equalTo: topAnchor, constant: 14),
@@ -444,9 +436,8 @@ final class PortfolioRowView: UIControl {
     }
 
     func configure(_ row: PortfolioRow, showsSeparator: Bool) {
-        self.row = row
         let tokens = PortfolioTheme.tokens
-        separator.backgroundColor = tokens.hairline
+        defer { self.row = row }
         separator.isHidden = !showsSeparator
         icon.configure(row.icon)
         title.text = row.title
@@ -469,7 +460,15 @@ final class PortfolioRowView: UIControl {
         detail.textColor = tokens.textSecondary
         chevron.isHidden = !row.isExpandable
         chevron.image = PortfolioGlyphs.symbol("chevron.down", pointSize: 13, color: tokens.textSecondary)
-        chevron.transform = row.isExpanded ? CGAffineTransform(rotationAngle: .pi) : .identity
+        // The chevron turns over as the row opens.
+        let turned: CGAffineTransform = row.isExpanded ? CGAffineTransform(rotationAngle: .pi) : .identity
+        if self.row?.key == row.key, window != nil, LitMotion.allowed {
+            UIView.animate(withDuration: 0.34, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0) {
+                self.chevron.transform = turned
+            }
+        } else {
+            chevron.transform = turned
+        }
 
         let large = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
         main.axis = large ? .vertical : .horizontal
@@ -500,7 +499,13 @@ final class PortfolioRowView: UIControl {
     }
 
     override var isHighlighted: Bool {
-        didSet { backgroundColor = isHighlighted ? PortfolioTheme.tokens.glassFillPressed : .clear }
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            LitMotion.press(icon, pressed: isHighlighted, scale: 0.9)
+            UIView.animate(withDuration: isHighlighted ? 0.08 : 0.28, delay: 0, options: [.allowUserInteraction, .beginFromCurrentState]) {
+                self.backgroundColor = self.isHighlighted ? PortfolioTheme.tokens.glassFillPressed.withAlphaComponent(0.55) : .clear
+            }
+        }
     }
 
     @objc private func tapped() { onTap?() }
@@ -514,7 +519,7 @@ final class PortfolioWellView: UIView {
     private(set) var elements: [UIView] = []
 
     private let stack = UIStackView()
-    private let well = UIView()
+    private let well = PortfolioPressedWell()
     private let inner = UIStackView()
     private let linkButton = UIButton(type: .system)
     private var childViews: [String: PortfolioChildRowView] = [:]
@@ -524,8 +529,6 @@ final class PortfolioWellView: UIView {
         stack.axis = .vertical
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
-        well.layer.cornerRadius = 18
-        well.layer.cornerCurve = .continuous
         inner.axis = .vertical
         inner.translatesAutoresizingMaskIntoConstraints = false
         well.addSubview(inner)
@@ -551,7 +554,6 @@ final class PortfolioWellView: UIView {
 
     func configure(_ children: [PortfolioChildRow], link: String?) {
         let tokens = PortfolioTheme.tokens
-        well.backgroundColor = PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.035) : tokens.layer1
         var available = childViews
         childViews = [:]
         var views: [UIView] = children.enumerated().map { index, child in
@@ -581,11 +583,38 @@ final class PortfolioWellView: UIView {
     @objc private func linkTapped() { onLink?() }
 }
 
+/// A recess pressed into the plate, holding what a row opens to.
+final class PortfolioPressedWell: UIView {
+    private let well = LitWellLayer()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        well.cornerRadiusValue = 18
+        well.depth = 3
+        layer.addSublayer(well)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func setFloor(_ floor: UIColor?, depth: CGFloat = 3, radius: CGFloat = 18) {
+        well.floorColor = floor
+        well.depth = depth
+        well.cornerRadiusValue = radius
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        well.place(in: bounds)
+    }
+}
+
 /// A holding (network, wallet) or a token inside an expanded row.
 final class PortfolioChildRowView: UIControl {
     var onTap: (() -> Void)?
 
-    private let separator = UIView()
+    private let separator = LitEngravedLine()
     private let icon = PortfolioTokenIconView(size: 30)
     private let title = UILabel.portfolio(FontType.textBoldS, .subheadline, maximum: 26)
     private let walletDot = UIView()
@@ -635,8 +664,8 @@ final class PortfolioChildRowView: UIControl {
         NSLayoutConstraint.activate([
             separator.topAnchor.constraint(equalTo: topAnchor),
             separator.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 54),
-            separator.trailingAnchor.constraint(equalTo: trailingAnchor),
-            separator.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
+            separator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            separator.heightAnchor.constraint(equalToConstant: 2),
             walletDot.widthAnchor.constraint(equalToConstant: 7),
             walletDot.heightAnchor.constraint(equalToConstant: 7),
             main.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
@@ -656,7 +685,6 @@ final class PortfolioChildRowView: UIControl {
 
     func configure(_ child: PortfolioChildRow, showsSeparator: Bool) {
         let tokens = PortfolioTheme.tokens
-        separator.backgroundColor = tokens.hairline
         separator.isHidden = !showsSeparator
         icon.configure(child.icon)
         title.text = child.title
@@ -680,7 +708,10 @@ final class PortfolioChildRowView: UIControl {
     }
 
     override var isHighlighted: Bool {
-        didSet { backgroundColor = isHighlighted ? PortfolioTheme.tokens.glassFillPressed : .clear }
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            LitMotion.press(icon, pressed: isHighlighted, scale: 0.9)
+        }
     }
 
     @objc private func tapped() { onTap?() }

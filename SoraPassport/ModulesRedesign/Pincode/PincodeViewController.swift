@@ -97,8 +97,13 @@ final class PincodeViewController: SoramitsuViewController {
         return view
     }()
     
-    private var circleViews: [SoramitsuView] = []
+    private var circleViews: [PincodeDotView] = []
     private var enteredDigits = 0
+
+    /// The planet in its ring, where the launch flight sets it down. The ring is the lock: each digit
+    /// draws one more of its circles. Screens too short for it and the title both go without.
+    let emblemView = SacredEmblemView()
+    private var hasEntered = false
 
     var cooldownTimerFactory: (TimeInterval, @escaping @Sendable (Timer) -> Void) -> Timer = { interval, block in
         Timer.scheduledTimer(withTimeInterval: interval, repeats: true, block: block)
@@ -124,6 +129,21 @@ final class PincodeViewController: SoramitsuViewController {
         presenter.start()
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        guard !hasEntered else { return }
+        hasEntered = true
+        guard FxPolicy.current.litMotion else { return }
+        LitMotion.rise(titleLabel, by: 8)
+        LitMotion.rise(circlesStackView, by: 8, after: 0.03)
+        LitMotion.rise(numpadView, by: 18, after: 0.05)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        layoutEmblem()
+    }
+
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         timer?.invalidate()
@@ -141,6 +161,7 @@ private extension PincodeViewController {
         
         numpadView.delegate = self
         
+        view.addSubview(emblemView)
         view.addSubview(containerView)
         view.addSubview(numpadView)
         
@@ -166,6 +187,18 @@ private extension PincodeViewController {
             circlesStackView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
         ])
         
+    }
+
+    func layoutEmblem() {
+        // Once unlocking has taken it across to the home it is no longer this screen's to place.
+        guard emblemView.superview === view else { return }
+        guard let place = SacredEmblemLayout.pinPlacement(bounds: view.bounds, safeArea: view.safeAreaInsets) else {
+            emblemView.isHidden = true
+            return
+        }
+        emblemView.frame = place.frame
+        // A title that wraps grows upwards into the emblem's room; the words win.
+        emblemView.isHidden = place.frame.maxY > titleLabel.convert(titleLabel.bounds, to: view).minY - 6
     }
 
     func updateTitleLabelState() {
@@ -298,9 +331,7 @@ extension PincodeViewController: PinSetupViewProtocol {
         circlesStackView.removeArrangedSubviews()
         circleViews = []
         for _ in 0..<count {
-            let view = SoramitsuView()
-            view.sora.backgroundColor = .bgSurfaceVariant
-            view.sora.cornerRadius = .circle
+            let view = PincodeDotView()
             view.widthAnchor.constraint(equalToConstant: 24).isActive = true
             view.heightAnchor.constraint(equalToConstant: 24).isActive = true
             view.isAccessibilityElement = false
@@ -333,9 +364,12 @@ extension PincodeViewController: PinSetupViewProtocol {
         if UIAccessibility.isVoiceOverRunning {
             UIAccessibility.post(notification: .announcement, argument: circlesStackView.accessibilityValue)
         }
+        let palette = SoramitsuUI.shared.theme.palette
         for (index, view) in circleViews.enumerated() {
-            view.sora.backgroundColor = index < count ? .accentPrimary : .bgSurfaceVariant
+            view.setFilled(index < count, color: palette.color(.accentPrimary))
         }
+        emblemView.setShare(circleViews.isEmpty ? 0 : CGFloat(enteredDigits) / CGFloat(circleViews.count),
+                            animated: true)
     }
     
     func setupDeleteButton(isHidden: Bool) {
@@ -350,7 +384,9 @@ extension PincodeViewController: PinSetupViewProtocol {
     func animateWrongInputError(with completion: @escaping (Bool) -> Void) {
         titleLabel.sora.textColor = .statusError
         titleLabel.sora.text = R.string.localizable.commonWrongPin(preferredLanguages: .currentLocale)
-        (circlesStackView.subviews as? [SoramitsuView])?.forEach { $0.sora.backgroundColor = .statusError }
+        let errorColor = SoramitsuUI.shared.theme.palette.color(.statusError)
+        circleViews.forEach { $0.setFilled(true, color: errorColor) }
+        emblemView.showError(color: errorColor)
         if FxPolicy.current.reduceMotion {
             circlesStackView.transform = .identity
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { completion(true) }
@@ -396,5 +432,47 @@ extension PincodeViewController: SoramitsuNumpadDelegate {
 
     func numpadViewDidClearInput(_ view: SoramitsuNumpadView) {
         for _ in 0..<enteredDigits { presenter.deleteButtonTapped() }
+    }
+}
+
+/// One PIN digit: a small well pressed into the page; a lit bead drops into it when the digit is entered.
+final class PincodeDotView: SoramitsuView {
+    private let well = LitWellLayer()
+    private let bead = LitLEDView(diameter: 15)
+    private(set) var isFilled = false
+
+    override init(frame: CGRect = .zero) {
+        super.init(frame: frame)
+        sora.useAutoresizingMask = false
+        well.cornerRadiusValue = 12
+        well.depth = 2
+        layer.addSublayer(well)
+        bead.isHidden = true
+        bead.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(bead)
+        NSLayoutConstraint.activate([
+            bead.centerXAnchor.constraint(equalTo: centerXAnchor),
+            bead.centerYAnchor.constraint(equalTo: centerYAnchor),
+            bead.widthAnchor.constraint(equalToConstant: 15),
+            bead.heightAnchor.constraint(equalToConstant: 15)
+        ])
+    }
+
+    func setFilled(_ filled: Bool, color: UIColor) {
+        let appeared = filled && !isFilled
+        isFilled = filled
+        bead.setColor(color)
+        bead.isHidden = !filled
+        guard appeared, LitMotion.allowed else { return }
+        bead.transform = CGAffineTransform(scaleX: 0.3, y: 0.3)
+        UIView.animate(withDuration: 0.34, delay: 0, usingSpringWithDamping: 0.55, initialSpringVelocity: 0,
+                       options: [.allowUserInteraction]) {
+            self.bead.transform = .identity
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        well.place(in: bounds)
     }
 }

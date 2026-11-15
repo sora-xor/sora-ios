@@ -44,9 +44,14 @@ final class MainTabBarViewController: UITabBarController {
         self.delegate = self
 
         let tabBar = TabBar(frame: tabBar.frame)
-        tabBar.middleButton.sora.backgroundColor = .custom(uiColor: .white)
+        tabBar.middleButton.sora.backgroundColor = .custom(uiColor: .clear)
         tabBar.middleButton.sora.image = R.image.wallet.polkaswap()
-        tabBar.middleButton.sora.shadow = .default
+        tabBar.middleButton.sora.clipsToBounds = false
+        // The disc is a white ceramic dome standing in the bar's trough.
+        let dome = LitCabochonView(lit: UIColor(litHex: 0xFFFFFF), deep: UIColor(litHex: 0xD8D1CC), domeDiameter: 56, wellDiameter: 0)
+        dome.frame = CGRect(x: 0, y: 0, width: 56, height: 56)
+        dome.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleTopMargin, .flexibleBottomMargin]
+        tabBar.middleButton.insertSubview(dome, at: 0)
         tabBar.middleButton.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.middleButtonHadler?()
         }
@@ -81,12 +86,13 @@ final class MainTabBarViewController: UITabBarController {
         custom.installSwapDisc(in: tabBar)
     }
 
-    /// iOS 27 ignores the app's request for the pre-26 bars, so where the
-    /// system draws a Liquid Glass bar the classic one is drawn over it. The
-    /// system bar still lays out the tabs, insets their content and hides
-    /// with pushed screens; the cover is its subview, so it moves along.
+    /// The porcelain bar is drawn over the system one on every system: iOS 27
+    /// ignores the app's request for the pre-26 bars, and the selection well
+    /// needs a control of its own elsewhere. The system bar still lays out the
+    /// tabs, insets their content and hides with pushed screens; the cover is
+    /// its subview, so it moves along.
     private func installClassicCover() {
-        guard let custom = customTabBar, tabBar === custom, !custom.drawsLegacyChrome else { return }
+        guard let custom = customTabBar, tabBar === custom else { return }
         let cover = ClassicTabBarCover(frame: custom.bounds)
         cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         cover.onSelect = { [weak self] index in self?.selectTab(at: index) }
@@ -212,21 +218,38 @@ final class MainTabBarViewController: UITabBarController {
     }
 }
 
-/// The classic SORA tab bar drawn over a Liquid Glass system bar: the
-/// notched white chrome and the tabs in Bold labels, the selected one in SORA
-/// red. The centre of five is left to the Polkaswap disc.
+/// The classic SORA tab bar drawn over a Liquid Glass system bar: a notched
+/// porcelain slab and the tabs in Bold labels, the selected one in SORA red in
+/// a well that slides from tab to tab. The centre of five is left to the
+/// Polkaswap disc.
 final class ClassicTabBarCover: UIView {
     var onSelect: ((Int) -> Void)?
     private(set) var itemControls: [ClassicTabItemControl] = []
     private var items: [UITabBarItem] = []
     private let chrome = CAShapeLayer()
+    /// The bar's top edge catching the light.
+    private let edge = CAShapeLayer()
+    /// A well under the selected tab; it slides to the next one.
+    private let selection = LitWellLayer()
+    private var selectedSlot: Int?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         // Drawn above anything the system bar adds after it.
         layer.zPosition = 100
         chrome.lineWidth = 0
+        chrome.shadowColor = UIColor(litHex: 0x6B4A40).cgColor
+        chrome.shadowOpacity = 0.26
+        chrome.shadowRadius = 14
+        chrome.shadowOffset = CGSize(width: 0, height: -4)
         layer.addSublayer(chrome)
+        edge.fillColor = nil
+        edge.strokeColor = UIColor.white.withAlphaComponent(0.95).cgColor
+        edge.lineWidth = 1
+        layer.addSublayer(edge)
+        selection.cornerRadiusValue = 16
+        selection.depth = 2
+        layer.addSublayer(selection)
     }
 
     required init?(coder: NSCoder) {
@@ -241,7 +264,41 @@ final class ClassicTabBarCover: UIView {
             control.isSelected = index == selectedIndex
         }
         chrome.fillColor = SoramitsuUI.shared.theme.palette.color(.bgSurface).cgColor
+        if selectedSlot != selectedIndex {
+            let first = selectedSlot == nil
+            selectedSlot = selectedIndex
+            moveSelection(animated: !first)
+        }
         setNeedsLayout()
+    }
+
+    private func selectionFrame() -> CGRect? {
+        guard let slot = selectedSlot, itemControls.indices.contains(slot), !itemControls[slot].isHidden else { return nil }
+        let control = itemControls[slot].frame
+        return CGRect(x: control.midX - 28, y: 2, width: 56, height: 32)
+    }
+
+    private func moveSelection(animated: Bool) {
+        guard let frame = selectionFrame() else {
+            selection.isHidden = true
+            return
+        }
+        let from = selection.position
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        selection.isHidden = false
+        selection.place(in: frame)
+        CATransaction.commit()
+        if animated, LitMotion.allowed {
+            let spring = CASpringAnimation(keyPath: "position")
+            spring.fromValue = from
+            spring.toValue = selection.position
+            spring.damping = 17
+            spring.stiffness = 240
+            spring.mass = 1
+            spring.duration = spring.settlingDuration
+            selection.add(spring, forKey: "slide")
+        }
     }
 
     private func rebuild(_ items: [UITabBarItem]) {
@@ -262,6 +319,9 @@ final class ClassicTabBarCover: UIView {
         CATransaction.setDisableActions(true)
         chrome.frame = bounds
         chrome.path = Self.notchedPath(in: bounds)
+        chrome.shadowPath = chrome.path
+        edge.frame = bounds
+        edge.path = Self.topEdgePath(in: bounds)
         CATransaction.commit()
         guard !itemControls.isEmpty else { return }
         let width = bounds.width / CGFloat(itemControls.count)
@@ -270,6 +330,24 @@ final class ClassicTabBarCover: UIView {
             let slot = rightToLeft ? itemControls.count - 1 - index : index
             control.frame = CGRect(x: CGFloat(slot) * width, y: 0, width: width, height: 49)
         }
+        moveSelection(animated: false)
+    }
+
+    /// The outline's top run: the trough and the two flats either side of it.
+    static func topEdgePath(in bounds: CGRect) -> CGPath {
+        let depth: CGFloat = 32
+        let centre = bounds.midX
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: bounds.minX, y: 0.5))
+        path.addLine(to: CGPoint(x: centre - depth, y: 0.5))
+        path.addCurve(to: CGPoint(x: centre, y: depth + 0.5),
+                      controlPoint1: CGPoint(x: centre - depth, y: 0.5),
+                      controlPoint2: CGPoint(x: centre - depth, y: depth + 0.5))
+        path.addCurve(to: CGPoint(x: centre + depth, y: 0.5),
+                      controlPoint1: CGPoint(x: centre + depth, y: depth + 0.5),
+                      controlPoint2: CGPoint(x: centre + depth, y: 0.5))
+        path.addLine(to: CGPoint(x: bounds.maxX, y: 0.5))
+        return path.cgPath
     }
 
     /// The classic bar's outline: a trough under the Polkaswap disc.
@@ -332,6 +410,13 @@ final class ClassicTabItemControl: UIControl {
         icon.tintColor = color
         title.textColor = color
         accessibilityTraits = isSelected ? [.button, .selected] : .button
+    }
+
+    override var isHighlighted: Bool {
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            LitMotion.press(icon, pressed: isHighlighted, scale: 0.86)
+        }
     }
 
     override func layoutSubviews() {

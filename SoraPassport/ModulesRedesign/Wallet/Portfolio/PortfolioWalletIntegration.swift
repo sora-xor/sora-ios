@@ -206,6 +206,7 @@ final class PortfolioTableBinding: NSObject, UIScrollViewDelegate {
         let offset = scrollView.contentOffset.y
         let skyBottom = home.heroItem.topInset + PortfolioTheme.Sky.height
         home.heroItem.isSkyVisible = host?.view.window != nil && offset < skyBottom - 40
+        home.heroItem.scrollOffset = offset
         // The card reaches the status bar once the sky (minus the card's overlap) has scrolled by.
         backdrop.setShown(offset > PortfolioTheme.Sky.height - PortfolioTheme.Sky.cardOverlap, animated: true)
     }
@@ -238,6 +239,11 @@ final class PortfolioStatusBackdrop: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        background?.layer.shadowPath = UIBezierPath(rect: bounds).cgPath
+    }
+
     func setShown(_ shown: Bool, animated: Bool) {
         guard shown != isShown else { return }
         isShown = shown
@@ -255,6 +261,13 @@ final class PortfolioStatusBackdrop: UIView {
         view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         insertSubview(view, at: 0)
         background = view
+        // The slab behind the status bar stands over the page like the tab bar does. A blur has no shape to cast from.
+        if !(view is UIVisualEffectView) {
+            view.layer.shadowColor = UIColor(litHex: 0x6B4A40).cgColor
+            view.layer.shadowOpacity = 0.22
+            view.layer.shadowRadius = 9
+            view.layer.shadowOffset = CGSize(width: 0, height: 3)
+        }
         hairline.backgroundColor = PortfolioTheme.hairline
         applyVisibility()
     }

@@ -66,11 +66,12 @@ enum PortfolioRing {
     }
 }
 
-/// The hero sky: a night (dark) or dawn (light) gradient, a nebula with the planet's halo, twinkling
-/// stars, and the SORA planet with the allocation ring round it. The ring is the chart: 3.6 degrees
-/// of band per ray (one ray per percent of the counted value), coloured by the entity's slot, its back
-/// half passing behind the planet. A light runs round it while the sky is on screen. Decorative for
-/// accessibility; the legend chips are the real buttons.
+/// The hero sky: the SORA planet with the allocation ring round it, ray traced in `LitHeroView` over the
+/// porcelain page they light. The ring is the chart: 3.6 degrees of band per ray (one ray per percent of
+/// the counted value), coloured by the entity's slot, its back half passing behind the planet. A light
+/// runs round it while the sky is on screen, faster while balances are being read. Where Metal cannot be
+/// set up, plain layers draw the same scene. Decorative for accessibility; the legend chips are the real
+/// buttons.
 final class PortfolioSkyView: UIView {
     struct Model: Equatable {
         var segments: [PortfolioFanSegment]
@@ -104,6 +105,10 @@ final class PortfolioSkyView: UIView {
     private let ringBack = PortfolioRingHalf(front: false)
     private let planet = PortfolioPlanet()
     private let ringFront = PortfolioRingHalf(front: true)
+    private let litHero = LitHeroView()
+    private var usesLitHero: Bool { litHero.isAvailable }
+    private var isReading = false
+    private var scrollOffset: CGFloat = 0
     private var model = Model(segments: [], highlightedKey: nil, showsFan: false)
     private var tilt: (x: CGFloat, y: CGFloat) = (0, 0)
     private var laidOutSize: CGSize = .zero
@@ -140,6 +145,18 @@ final class PortfolioSkyView: UIView {
         nebulaFade.endPoint = CGPoint(x: 0.5, y: 1)
         glowView.layer.mask = nebulaFade
         [ringBack.layer, planet.layer, ringFront.layer].forEach { orbitView.layer.addSublayer($0) }
+        if usesLitHero {
+            addSubview(litHero)
+            gradient.isHidden = true
+            starsView.isHidden = true
+            glowView.isHidden = true
+            orbitView.layer.isHidden = true
+            litHero.planetRadius = PortfolioTheme.Sky.planetRadius
+            litHero.ringRadius = PortfolioTheme.Sky.ringRadius
+            litHero.ringWidth = PortfolioTheme.Sky.ringWidth
+            litHero.outerOrbit = PortfolioTheme.Sky.orbitOuter
+            litHero.onUnavailable = { [weak self] in self?.fallBackToPlainSky() }
+        }
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
         addGestureRecognizer(tap)
@@ -201,7 +218,7 @@ final class PortfolioSkyView: UIView {
         let dark = PortfolioTheme.isDark
         let glows = FxPolicy.current.glows
         gradient.colors = PortfolioTheme.skyColors()
-        starsView.isHidden = !dark
+        starsView.isHidden = !dark || usesLitHero
         starLayers.enumerated().forEach { index, layer in
             layer.fillColor = PortfolioTheme.starColor.withAlphaComponent([0.24, 0.38, 0.56][index]).cgColor
         }
@@ -233,6 +250,60 @@ final class PortfolioSkyView: UIView {
         ringFront.setPose(pose, glintDeg: 90 - 50 * x)
         planet.setTilt(x: x, y: y)
         CATransaction.commit()
+        updateLitPose()
+    }
+
+    /// The shader would not build on this device: the plain drawing takes over.
+    private func fallBackToPlainSky() {
+        litHero.removeFromSuperview()
+        gradient.isHidden = false
+        glowView.isHidden = false
+        orbitView.layer.isHidden = false
+        applyTheme()
+        updateLoops()
+        setNeedsLayout()
+    }
+
+    /// How far the planet and ring sit below their rest because the page has scrolled.
+    private var scrollLag: CGFloat { usesLitHero ? max(scrollOffset, 0) * 0.24 : 0 }
+
+    /// The planet and ring move as one with the parallax; the shader reads them from the same transform
+    /// the ring's hit test uses.
+    private func updateLitPose() {
+        guard usesLitHero else { return }
+        let pose = self.pose
+        let shift = orbitView.transform
+        litHero.planetCenter = CGPoint(x: pose.center.x + shift.tx, y: pose.center.y + shift.ty)
+        litHero.aspect = pose.aspect
+        litHero.rollRadians = pose.rollDeg * .pi / 180
+        litHero.tilt = CGPoint(x: tilt.x, y: tilt.y)
+        updateLitScroll()
+    }
+
+    /// Scrolling moves the finished picture and draws no new frame: the planet lags, or swells about its centre.
+    private func updateLitScroll() {
+        guard usesLitHero else { return }
+        let swell = 1 + min(max(-scrollOffset, 0), 140) / 140 * 0.14
+        let x = litHero.planetCenter.x - bounds.midX
+        let y = litHero.planetCenter.y - bounds.midY
+        litHero.transform = CGAffineTransform(translationX: x, y: y + scrollLag)
+            .scaledBy(x: swell, y: swell)
+            .translatedBy(x: -x, y: -y)
+    }
+
+    /// Balances are being read: the light runs faster round the ring, and the scene flares once when it ends.
+    func setReading(_ reading: Bool) {
+        if isReading, !reading { litHero.flare() }
+        isReading = reading
+        litHero.lapDuration = reading ? 2.6 : PortfolioTheme.Sky.cometLap
+    }
+
+    /// The page moved under the sky: the planet lags behind it, so the card slides over it; pulled down past
+    /// the top, the planet swells towards the viewer.
+    func setScroll(offset: CGFloat) {
+        guard scrollOffset != offset else { return }
+        scrollOffset = offset
+        updateLitScroll()
     }
 
     /// Runs the light round the ring, the stars' twinkle and the halo's breathing while the sky is on
@@ -256,6 +327,10 @@ final class PortfolioSkyView: UIView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         gradient.frame = bounds
+        // Set this way because the view carries a transform.
+        litHero.bounds = bounds
+        litHero.center = CGPoint(x: bounds.midX, y: bounds.midY)
+        litHero.bottomFade = bounds.height * 0.24
         [starsView, glowView, orbitView].forEach { view in
             view.bounds = CGRect(origin: .zero, size: bounds.size)
             view.center = CGPoint(x: bounds.midX, y: bounds.midY)
@@ -323,6 +398,7 @@ final class PortfolioSkyView: UIView {
         ringBack.setSegments(drawn, gap: gap)
         ringFront.setSegments(drawn, gap: gap)
         CATransaction.commit()
+        applyLitSegments()
         applyHighlight(animated: false)
         let keys = arcs.map(\.segment.key)
         if keys != drawnKeys {
@@ -332,11 +408,33 @@ final class PortfolioSkyView: UIView {
         }
     }
 
+    private func applyLitSegments() {
+        guard usesLitHero else { return }
+        let arcs = model.showsFan ? PortfolioRing.arcs(model.segments) : []
+        let gap = arcs.count > 1 ? PortfolioTheme.Sky.gapDeg : 0
+        let radians: CGFloat = .pi / 180
+        let segments = arcs.map { arc -> LitHeroView.Segment in
+            let selected = model.highlightedKey == arc.segment.key
+            let dimmed = model.highlightedKey != nil && !selected
+            return LitHeroView.Segment(start: (arc.start + gap / 2) * radians,
+                                       sweep: max(arc.sweep - gap, 0.6) * radians,
+                                       color: PortfolioTheme.color(for: arc.segment.slot),
+                                       strength: dimmed ? CGFloat(PortfolioTheme.Sky.dimmedAlpha) : 1,
+                                       widthScale: selected ? PortfolioTheme.Sky.selectedWidth : 1,
+                                       lift: selected ? 1 : 0)
+        }
+        litHero.setSegments(segments, ringStart: PortfolioRing.start(model.segments) * radians)
+    }
+
     /// The ring draws itself in once per set of segments (first data, a new lens), when on screen.
     private func runIntroIfReady() {
         guard pendingIntro, window != nil else { return }
         pendingIntro = false
         guard !UIAccessibility.isReduceMotionEnabled else { return }
+        if usesLitHero {
+            litHero.runReveal(duration: PortfolioTheme.Sky.intro)
+            return
+        }
         // One ease-out over the whole ring: each segment draws over its own stretch of the curve.
         func time(_ fraction: CGFloat) -> CFTimeInterval {
             PortfolioTheme.Sky.intro * CFTimeInterval(1 - pow(1 - min(max(fraction, 0), 1), 1.0 / 3))
@@ -354,6 +452,7 @@ final class PortfolioSkyView: UIView {
     }
 
     private func applyHighlight(animated: Bool) {
+        applyLitSegments()
         let duration = animated && !UIAccessibility.isReduceMotionEnabled ? NeonMotion.base : 0
         let glows = FxPolicy.current.glows
         CATransaction.begin()
@@ -373,6 +472,7 @@ final class PortfolioSkyView: UIView {
     }
 
     private func updateLoops() {
+        litHero.isCometRunning = usesLitHero && wantsLoops && window != nil && FxPolicy.current.litMotion
         guard wantsLoops, loopsAllowed, window != nil else {
             ringBack.stopComet()
             ringFront.stopComet()
@@ -412,8 +512,9 @@ final class PortfolioSkyView: UIView {
     /// the part of the ring behind the planet. The planet itself takes no taps.
     func segmentKey(at point: CGPoint) -> String? {
         guard model.showsFan, !model.segments.isEmpty else { return nil }
-        // The parallax moves the planet and its ring together.
-        let p = orbitView.convert(point, from: self)
+        // The parallax moves the planet and its ring together, and the page's scroll leaves them behind.
+        var p = orbitView.convert(point, from: self)
+        p.y -= scrollLag
         let pose = self.pose
         let q = pose.toPlane(p)
         let r = (q.x * q.x + q.y * q.y).squareRoot()
@@ -756,5 +857,55 @@ final class PortfolioLayerView: UIView {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+}
+
+// MARK: - Arrival from the PIN screen
+
+extension PortfolioSkyView {
+    /// Where the planet is drawn, in this view.
+    var planetFrame: CGRect {
+        let radius = PortfolioTheme.Sky.planetRadius
+        return CGRect(x: planetCenter.x - radius, y: planetCenter.y - radius, width: radius * 2, height: radius * 2)
+    }
+
+    fileprivate static func first(in view: UIView) -> PortfolioSkyView? {
+        if let sky = view as? PortfolioSkyView { return sky }
+        for subview in view.subviews {
+            if let sky = first(in: subview) { return sky }
+        }
+        return nil
+    }
+}
+
+/// Hands the planet that flies in from the PIN screen to the home's own. The home's sky stays unseen
+/// until the flying one lands on it, so there are never two planets.
+@MainActor
+final class PortfolioArrival {
+    private weak var sky: PortfolioSkyView?
+    private var homeSeen: CFTimeInterval?
+
+    func destination(in window: UIWindow?) -> SacredUnlockFlight.Destination {
+        guard let window else { return .nowhere }
+        guard let home = window.rootViewController as? MainTabBarViewController, home.isViewLoaded else {
+            return .waiting
+        }
+        if let sky = PortfolioSkyView.first(in: home.view), sky.window === window, sky.bounds.width > 0 {
+            self.sky = sky
+            sky.alpha = 0
+            return .planet(sky.convert(sky.planetFrame, to: window))
+        }
+        // The home is up. One that shows no sky has nowhere to land; its first layout gets a moment.
+        let now = CACurrentMediaTime()
+        guard let seen = homeSeen else {
+            homeSeen = now
+            return .waiting
+        }
+        return now - seen > 0.4 ? .nowhere : .waiting
+    }
+
+    func landed() {
+        guard let sky else { return }
+        UIView.animate(withDuration: SacredGeometry.beat(1)) { sky.alpha = 1 }
     }
 }

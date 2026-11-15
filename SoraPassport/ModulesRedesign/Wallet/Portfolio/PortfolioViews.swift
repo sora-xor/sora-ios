@@ -41,10 +41,13 @@ enum PortfolioIconCache {
     }
 }
 
-/// A round token icon with a lettered fallback.
+/// A round token icon with a lettered fallback, struck as a coin: a domed face with a turned rim, its
+/// shadow on the plate below it.
 final class PortfolioTokenIconView: UIView {
+    private let face = UIView()
     private let imageView = UIImageView()
     private let fallback = UILabel()
+    private let coin = LitCoinLayers()
     private var size: CGFloat
 
     init(size: CGFloat) {
@@ -52,27 +55,38 @@ final class PortfolioTokenIconView: UIView {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         isAccessibilityElement = false
+        // Round for callers that add a border; the coin's own face does the clipping.
         layer.cornerRadius = size / 2
-        layer.cornerCurve = .continuous
-        clipsToBounds = true
+        face.layer.cornerRadius = size / 2
+        face.clipsToBounds = true
         imageView.contentMode = .scaleAspectFit
         fallback.textAlignment = .center
         fallback.adjustsFontSizeToFitWidth = true
         fallback.minimumScaleFactor = 0.5
         [imageView, fallback].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
-            addSubview($0)
+            face.addSubview($0)
         }
+        face.translatesAutoresizingMaskIntoConstraints = false
+        layer.addSublayer(coin.shadow)
+        addSubview(face)
+        layer.addSublayer(coin.light)
+        coin.configure(diameter: size)
+        coin.layout(iconFrame: CGRect(x: 0, y: 0, width: size, height: size))
         NSLayoutConstraint.activate([
             widthAnchor.constraint(equalToConstant: size),
             heightAnchor.constraint(equalToConstant: size),
-            imageView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            imageView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            imageView.topAnchor.constraint(equalTo: topAnchor),
-            imageView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            fallback.centerXAnchor.constraint(equalTo: centerXAnchor),
-            fallback.centerYAnchor.constraint(equalTo: centerYAnchor),
-            fallback.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 0.78)
+            face.leadingAnchor.constraint(equalTo: leadingAnchor),
+            face.trailingAnchor.constraint(equalTo: trailingAnchor),
+            face.topAnchor.constraint(equalTo: topAnchor),
+            face.bottomAnchor.constraint(equalTo: bottomAnchor),
+            imageView.leadingAnchor.constraint(equalTo: face.leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: face.trailingAnchor),
+            imageView.topAnchor.constraint(equalTo: face.topAnchor),
+            imageView.bottomAnchor.constraint(equalTo: face.bottomAnchor),
+            fallback.centerXAnchor.constraint(equalTo: face.centerXAnchor),
+            fallback.centerYAnchor.constraint(equalTo: face.centerYAnchor),
+            fallback.widthAnchor.constraint(equalTo: face.widthAnchor, multiplier: 0.78)
         ])
     }
 
@@ -90,22 +104,22 @@ final class PortfolioTokenIconView: UIView {
             fallback.text = String(symbol.prefix(4))
             fallback.font = FontType.textBoldXS.font.withSize(size * 0.3)
             fallback.textColor = .white
-            backgroundColor = image == nil ? PortfolioTheme.color(for: .slot(abs(id.hashValue) % 5)) : .clear
+            face.backgroundColor = image == nil ? PortfolioTheme.color(for: .slot(abs(id.hashValue) % 5)) : .clear
         case let .network(network):
             imageView.image = PortfolioBadges.network(network, size: size)
             imageView.isHidden = false
             fallback.isHidden = true
-            backgroundColor = .clear
+            face.backgroundColor = .clear
         case let .wallet(id, name):
             imageView.image = PortfolioBadges.wallet(id: id, name: name, size: size)
             imageView.isHidden = false
             fallback.isHidden = true
-            backgroundColor = .clear
+            face.backgroundColor = .clear
         case .allWallets:
             imageView.image = PortfolioBadges.allWallets(size: size)
             imageView.isHidden = false
             fallback.isHidden = true
-            backgroundColor = .clear
+            face.backgroundColor = .clear
         }
     }
 }
@@ -265,18 +279,18 @@ final class PortfolioTagView: UIView {
     }
 }
 
-/// Capsule with a dot: "● LIVE · 31s".
+/// A small well with a status light: "● LIVE · 31s".
 final class PortfolioFreshnessChip: UIControl {
-    private let dot = UIView()
+    private let well = LitWellLayer()
+    private let dot = LitLEDView(diameter: 7)
     private let label = UILabel()
+    private var lightColor = UIColor.clear
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         translatesAutoresizingMaskIntoConstraints = false
-        layer.cornerCurve = .continuous
-        layer.borderWidth = 1
-        dot.layer.cornerRadius = 3.5
-        dot.isUserInteractionEnabled = false
+        well.depth = 1.8
+        layer.addSublayer(well)
         label.isUserInteractionEnabled = false
         label.font = PortfolioTheme.font(FontType.eyebrow, .caption2, maximum: 18)
         label.adjustsFontForContentSizeCategory = true
@@ -286,14 +300,14 @@ final class PortfolioFreshnessChip: UIControl {
             addSubview($0)
         }
         NSLayoutConstraint.activate([
-            dot.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            dot.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 11),
             dot.centerYAnchor.constraint(equalTo: centerYAnchor),
             dot.widthAnchor.constraint(equalToConstant: 7),
             dot.heightAnchor.constraint(equalToConstant: 7),
             label.leadingAnchor.constraint(equalTo: dot.trailingAnchor, constant: 7),
-            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -11),
-            label.topAnchor.constraint(equalTo: topAnchor, constant: 6),
-            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -6)
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            label.topAnchor.constraint(equalTo: topAnchor, constant: 7),
+            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -7)
         ])
         isAccessibilityElement = true
         accessibilityTraits = .button
@@ -313,23 +327,54 @@ final class PortfolioFreshnessChip: UIControl {
         case .partial: color = tokens.warning
         case .offline: color = tokens.error
         }
-        dot.backgroundColor = color
-        label.textColor = tone == .partial ? tokens.warning : tokens.textSecondary
-        backgroundColor = tokens.glassFill
-        layer.borderColor = tokens.hairline.cgColor
+        dot.setColor(color)
+        lightColor = color
+        label.textColor = tokens.textSecondary
         accessibilityLabel = text
         accessibilityTraits = tone == .live ? .staticText : .button
     }
 
+    /// Fresh numbers have just arrived: one ring goes out from the light, like a drop in still water.
+    func ping() {
+        guard LitMotion.allowed, window != nil else { return }
+        let ring = CAShapeLayer()
+        let side = dot.bounds.width
+        ring.bounds = CGRect(x: 0, y: 0, width: side, height: side)
+        ring.position = dot.center
+        ring.path = UIBezierPath(ovalIn: ring.bounds).cgPath
+        ring.fillColor = nil
+        ring.strokeColor = lightColor.cgColor
+        ring.lineWidth = 1.2
+        ring.opacity = 0
+        layer.addSublayer(ring)
+        let widen = CABasicAnimation(keyPath: "transform.scale")
+        widen.fromValue = 1
+        widen.toValue = 1 + 2 * SacredGeometry.phi
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0.75
+        fade.toValue = 0
+        let wave = CAAnimationGroup()
+        wave.animations = [widen, fade]
+        wave.duration = SacredGeometry.beat(4)
+        wave.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { ring.removeFromSuperlayer() }
+        ring.add(wave, forKey: "sacred.ping")
+        CATransaction.commit()
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
-        layer.cornerRadius = bounds.height / 2
+        well.cornerRadiusValue = bounds.height / 2
+        well.place(in: bounds)
     }
 }
 
-/// Legend chip: dot, name, percent. The fan's accessible twin.
+/// Legend chip: light, name, percent. The fan's accessible twin. Raised at rest, pressed in when selected.
 final class PortfolioLegendChipView: UIControl {
-    private let dot = UIView()
+    private let plate = LitPlateLayer()
+    private let well = LitWellLayer()
+    private let dot = LitLEDView(diameter: 8)
     private let title = UILabel()
     private let percent = UILabel()
     private(set) var key: String = ""
@@ -338,10 +383,11 @@ final class PortfolioLegendChipView: UIControl {
     override init(frame: CGRect) {
         super.init(frame: frame)
         translatesAutoresizingMaskIntoConstraints = false
-        layer.cornerCurve = .continuous
-        layer.borderWidth = 1
-        dot.layer.cornerRadius = 2.5
-        dot.layer.cornerCurve = .continuous
+        plate.elevation = 6
+        well.depth = 2.2
+        well.isHidden = true
+        layer.addSublayer(plate)
+        layer.addSublayer(well)
         title.font = PortfolioTheme.font(FontType.textBoldS, .subheadline, maximum: 22)
         percent.font = PortfolioTheme.font(FontType.amountS, .subheadline, maximum: 22)
         [title, percent].forEach { $0.adjustsFontForContentSizeCategory = true }
@@ -352,14 +398,14 @@ final class PortfolioLegendChipView: UIControl {
         }
         NSLayoutConstraint.activate([
             heightAnchor.constraint(greaterThanOrEqualToConstant: 36),
-            dot.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            dot.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 13),
             dot.centerYAnchor.constraint(equalTo: centerYAnchor),
-            dot.widthAnchor.constraint(equalToConstant: 9),
-            dot.heightAnchor.constraint(equalToConstant: 9),
-            title.leadingAnchor.constraint(equalTo: dot.trailingAnchor, constant: 8),
+            dot.widthAnchor.constraint(equalToConstant: 8),
+            dot.heightAnchor.constraint(equalToConstant: 8),
+            title.leadingAnchor.constraint(equalTo: dot.trailingAnchor, constant: 9),
             title.centerYAnchor.constraint(equalTo: centerYAnchor),
             percent.leadingAnchor.constraint(equalTo: title.trailingAnchor, constant: 6),
-            percent.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -13),
+            percent.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
             percent.centerYAnchor.constraint(equalTo: centerYAnchor),
             title.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: 8),
             title.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -8)
@@ -380,26 +426,31 @@ final class PortfolioLegendChipView: UIControl {
         accessibilityLabel = chip.accessibilityLabel
         accessibilityTraits = chip.isSelected ? [.button, .selected] : .button
         accessibilityHint = chip.isSelected && chip.opensToken ? PortfolioStrings.whereItLives : nil
-        applyColors(selected: chip.isSelected)
-    }
-
-    private func applyColors(selected: Bool) {
         let tokens = PortfolioTheme.tokens
-        dot.backgroundColor = color
+        dot.setColor(color)
         title.textColor = tokens.textPrimary
         percent.textColor = tokens.textSecondary
-        backgroundColor = selected ? color.withAlphaComponent(PortfolioTheme.isDark ? 0.18 : 0.12) : tokens.glassFill
-        layer.borderColor = (selected ? color : tokens.hairline).cgColor
-        layer.borderWidth = selected ? 1.5 : 1
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        plate.isHidden = chip.isSelected
+        well.isHidden = !chip.isSelected
+        well.floorColor = chip.isSelected ? PortfolioTheme.tintedFloor(color) : nil
+        CATransaction.commit()
     }
 
     override var isHighlighted: Bool {
-        didSet { alpha = isHighlighted ? 0.7 : 1 }
+        didSet { if isHighlighted != oldValue { LitMotion.press(self, pressed: isHighlighted, scale: 0.95) } }
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        layer.cornerRadius = bounds.height / 2
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        plate.cornerRadiusValue = bounds.height / 2
+        plate.frame = bounds
+        well.cornerRadiusValue = bounds.height / 2
+        well.place(in: bounds)
+        CATransaction.commit()
     }
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
@@ -408,67 +459,45 @@ final class PortfolioLegendChipView: UIControl {
     }
 }
 
-/// A quick action: a glossy disc in one of the hero's colours (lit from the top left like the planet,
-/// with a glow of its own colour below it), a white glyph, and a label below.
+/// A quick action: a glass cabochon in one of the hero's colours, seated in a well pressed into the plate, a
+/// white glyph under the glass, a label below. Pressing sinks the dome into its well.
 final class PortfolioQuickActionView: UIControl {
-    private static let size: CGFloat = 54
-    private let disc = UIView()
-    private let face = CALayer()
-    private let fill = CAGradientLayer()
-    private let gloss = CAGradientLayer()
-    private let glyph = UIImageView()
+    private static let domeSize: CGFloat = 50
+    private static let wellSize: CGFloat = 62
+    private let dome: LitCabochonView
     private let label = UILabel()
+    private let haptic = UIImpactFeedbackGenerator(style: .light)
     let action: PortfolioQuickAction
 
     init(action: PortfolioQuickAction) {
         self.action = action
+        let colors = PortfolioTheme.actionColors(action)
+        dome = LitCabochonView(lit: colors.lit, deep: colors.deep, domeDiameter: Self.domeSize, wellDiameter: Self.wellSize)
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        disc.isUserInteractionEnabled = false
-        let bounds = CGRect(x: 0, y: 0, width: Self.size, height: Self.size)
-        face.frame = bounds
-        face.cornerRadius = Self.size / 2
-        face.masksToBounds = true
-        face.borderWidth = 1
-        face.borderColor = UIColor.white.withAlphaComponent(0.22).cgColor
-        fill.frame = bounds
-        fill.startPoint = .zero
-        fill.endPoint = CGPoint(x: 1, y: 1)
-        gloss.frame = bounds
-        gloss.colors = [UIColor.white.withAlphaComponent(0.28), UIColor.clear].map(\.cgColor)
-        gloss.locations = [0, 0.5]
-        [fill, gloss].forEach { face.addSublayer($0) }
-        disc.layer.addSublayer(face)
-        disc.layer.shadowPath = UIBezierPath(ovalIn: bounds).cgPath
-        disc.layer.shadowOffset = CGSize(width: 0, height: 5)
-        disc.layer.shadowRadius = 10
-        glyph.contentMode = .center
         label.textAlignment = .center
         label.font = PortfolioTheme.font(FontType.textBoldXS, .caption1, maximum: 20)
         label.adjustsFontForContentSizeCategory = true
         label.numberOfLines = 1
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor = 0.8
-        [disc, label].forEach {
+        [dome, label].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             addSubview($0)
         }
-        glyph.translatesAutoresizingMaskIntoConstraints = false
-        disc.addSubview(glyph)
         NSLayoutConstraint.activate([
-            disc.topAnchor.constraint(equalTo: topAnchor),
-            disc.centerXAnchor.constraint(equalTo: centerXAnchor),
-            disc.widthAnchor.constraint(equalToConstant: Self.size),
-            disc.heightAnchor.constraint(equalToConstant: Self.size),
-            glyph.centerXAnchor.constraint(equalTo: disc.centerXAnchor),
-            glyph.centerYAnchor.constraint(equalTo: disc.centerYAnchor),
-            label.topAnchor.constraint(equalTo: disc.bottomAnchor, constant: 8),
+            dome.topAnchor.constraint(equalTo: topAnchor),
+            dome.centerXAnchor.constraint(equalTo: centerXAnchor),
+            dome.widthAnchor.constraint(equalToConstant: Self.wellSize),
+            dome.heightAnchor.constraint(equalToConstant: Self.wellSize),
+            label.topAnchor.constraint(equalTo: dome.bottomAnchor, constant: 7),
             label.leadingAnchor.constraint(equalTo: leadingAnchor),
             label.trailingAnchor.constraint(equalTo: trailingAnchor),
             label.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
         isAccessibilityElement = true
         accessibilityTraits = .button
+        addTarget(self, action: #selector(touchedDown), for: .touchDown)
         applyTheme()
     }
 
@@ -482,57 +511,52 @@ final class PortfolioQuickActionView: UIControl {
         switch action {
         case .send:
             title = PortfolioStrings.send
-            glyph.image = PortfolioGlyphs.symbol("arrow.up.right", pointSize: 19, color: .white)
+            dome.glyphView.image = PortfolioGlyphs.symbol("arrow.up.right", pointSize: 19, color: .white)
         case .receive:
             title = PortfolioStrings.receive
-            glyph.image = PortfolioGlyphs.symbol("arrow.down.left", pointSize: 19, color: .white)
+            dome.glyphView.image = PortfolioGlyphs.symbol("arrow.down.left", pointSize: 19, color: .white)
         case .move:
             title = PortfolioStrings.move
-            glyph.image = PortfolioGlyphs.moveImage(size: 24, color: .white)
+            dome.glyphView.image = PortfolioGlyphs.moveImage(size: 24, color: .white)
         case .swap:
             title = PortfolioStrings.swap
-            glyph.image = PortfolioGlyphs.flowerImage(size: 24, color: .white)
+            dome.glyphView.image = PortfolioGlyphs.flowerImage(size: 24, color: .white)
         }
-        let colors = PortfolioTheme.actionColors(action)
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        fill.colors = [colors.lit.cgColor, colors.deep.cgColor]
-        disc.layer.shadowColor = colors.deep.cgColor
-        disc.layer.shadowOpacity = FxPolicy.current.glows ? (PortfolioTheme.isDark ? 0.55 : 0.32) : 0
-        CATransaction.commit()
         label.text = title
         label.textColor = tokens.textPrimary
         accessibilityLabel = title
     }
 
+    /// The dome rises out of its well.
+    func popIn(after delay: CFTimeInterval) {
+        dome.popIn(after: delay)
+    }
+
     override var isHighlighted: Bool {
-        // The disc sinks a little (Reduce Motion: it only dims); the label stays still.
-        didSet {
-            let pressed = isHighlighted
-            let scale: CGFloat = pressed && !UIAccessibility.isReduceMotionEnabled ? 0.94 : 1
-            UIView.animate(withDuration: 0.12, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
-                self.disc.transform = CGAffineTransform(scaleX: scale, y: scale)
-                self.disc.alpha = pressed ? 0.85 : 1
-            }
-        }
+        didSet { dome.setPressed(isHighlighted) }
+    }
+
+    @objc private func touchedDown() {
+        haptic.impactOccurred(intensity: 0.7)
     }
 }
 
-/// The 24 h change in a capsule tinted with its direction's colour.
+/// The 24 h change in a shallow well whose floor takes the direction's colour.
 final class PortfolioChangePill: UIView {
     let label = UILabel.portfolio(FontType.amountS, .subheadline, lines: 0)
+    private let well = LitWellLayer()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        layer.borderWidth = 1
-        layer.cornerCurve = .continuous
+        well.depth = 1.8
+        layer.addSublayer(well)
         label.translatesAutoresizingMaskIntoConstraints = false
         addSubview(label)
         NSLayoutConstraint.activate([
-            label.topAnchor.constraint(equalTo: topAnchor, constant: 3),
-            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -3),
-            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
-            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10)
+            label.topAnchor.constraint(equalTo: topAnchor, constant: 5),
+            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -5),
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12)
         ])
         isAccessibilityElement = false
     }
@@ -542,62 +566,14 @@ final class PortfolioChangePill: UIView {
     }
 
     func tint(_ color: UIColor) {
-        backgroundColor = color.withAlphaComponent(PortfolioTheme.isDark ? 0.13 : 0.09)
-        layer.borderColor = color.withAlphaComponent(0.32).cgColor
+        well.floorColor = PortfolioTheme.tintedFloor(color)
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         // A capsule on one line; a rounded box when large text wraps it.
-        layer.cornerRadius = min(bounds.height / 2, 16)
-    }
-}
-
-/// The planet's light falling on the top of the hero card: a soft red glow from its top edge and a rim
-/// of light along the edge's middle.
-final class PortfolioCardLightView: UIView {
-    private let glow = CAGradientLayer()
-    private let rim = CAGradientLayer()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        isUserInteractionEnabled = false
-        isAccessibilityElement = false
-        clipsToBounds = true
-        glow.type = .radial
-        glow.startPoint = CGPoint(x: 0.5, y: 0.5)
-        glow.endPoint = CGPoint(x: 1, y: 1)
-        rim.startPoint = CGPoint(x: 0, y: 0.5)
-        rim.endPoint = CGPoint(x: 1, y: 0.5)
-        [glow, rim].forEach { layer.addSublayer($0) }
-        applyTheme()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    func applyTheme() {
-        let dark = PortfolioTheme.isDark
-        let glowColor = PortfolioTheme.soraGlow.withAlphaComponent(dark ? 0.22 : 0.12)
-        let rimColor = PortfolioTheme.soraGlow.withAlphaComponent(dark ? 0.85 : 0.55)
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        glow.colors = [glowColor.cgColor, glowColor.withAlphaComponent(0).cgColor]
-        glow.isHidden = !FxPolicy.current.glows
-        rim.colors = [rimColor.withAlphaComponent(0).cgColor, rimColor.cgColor, rimColor.withAlphaComponent(0).cgColor]
-        CATransaction.commit()
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        let width = bounds.width
-        let radius = width * 0.55
-        glow.frame = CGRect(x: width / 2 - radius, y: -0.45 * radius, width: 2 * radius, height: 0.9 * radius)
-        rim.frame = CGRect(x: width * 0.18, y: 0, width: width * 0.64, height: 1.5)
-        CATransaction.commit()
+        well.cornerRadiusValue = min(bounds.height / 2, 18)
+        well.place(in: bounds)
     }
 }
 
@@ -633,9 +609,7 @@ final class PortfolioDotsView: UIStackView {
 extension UILabel {
     /// Eyebrow text ("TOTAL BALANCE", "FROM"): the type scale's tracking needs attributed text.
     func setEyebrow(_ text: String, color: UIColor) {
-        attributedText = NSAttributedString(string: text, attributes: [
-            .font: font as Any, .foregroundColor: color, .kern: 1.2
-        ])
+        attributedText = .letterpress(text, attributes: [.font: font as Any, .foregroundColor: color, .kern: 1.2])
         accessibilityLabel = text.capitalized
     }
 

@@ -146,7 +146,7 @@ final class PortfolioNetworkAssetRowView: UIControl {
         return 24 + max(40, texts)
     }
 
-    private let icon = UIImageView()
+    private let icon = LitCoinImageView(diameter: 40)
     private let title = UILabel.portfolio(FontType.textM, .body, maximum: 28)
     private let amount = UILabel.portfolio(FontType.textBoldXS, .footnote, maximum: 22)
     private let tagLabel = UILabel.portfolio(FontType.textBoldXS, .caption1, maximum: 20)
@@ -154,9 +154,6 @@ final class PortfolioNetworkAssetRowView: UIControl {
     init() {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        icon.contentMode = .scaleAspectFit
-        icon.layer.cornerRadius = 20
-        icon.clipsToBounds = true
         icon.translatesAutoresizingMaskIntoConstraints = false
         tagLabel.setContentHuggingPriority(.required, for: .horizontal)
         tagLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
@@ -188,7 +185,7 @@ final class PortfolioNetworkAssetRowView: UIControl {
 
     func configure(_ row: NetworkAssetRow) {
         networkId = row.account.networkId
-        icon.image = row.icon
+        icon.imageView.image = row.icon
         title.text = row.title
         title.textColor = PortfolioTheme.textPrimary
         amount.text = row.amount

@@ -435,6 +435,8 @@ final class WalletNeonButton: UIButton {
         }
     }
     private var glowSpec: GlowSpec?
+    /// The lacquer's own colour on the plate below it.
+    private var lacquerShadow: UIColor?
     /// MINIMAL tier: a ring in the glow colour instead of the glow.
     private var ring: NeonRingLayer?
 
@@ -479,7 +481,7 @@ final class WalletNeonButton: UIButton {
         switch neonStyle {
         case .primary, .safe:
             if isEnabled {
-                let fill = NeonGradientView()
+                let fill = LitLacquerFill()
                 fill.apply(neonStyle == .safe ? tokens.ctaSafe : tokens.ctaPrimary)
                 background.customView = fill
                 background.backgroundColor = .clear
@@ -504,7 +506,10 @@ final class WalletNeonButton: UIButton {
         }
         configuration.background = background
         self.configuration = configuration
+        lacquerShadow = isEnabled && (neonStyle == .primary || neonStyle == .safe)
+            ? (neonStyle == .safe ? tokens.ctaSafe : tokens.ctaPrimary).colors.last : nil
         applyGlow(fx: fx)
+        updateLacquerShadow()
         if !fx.reduceMotion, neonStyle != .tertiary {
             let scale: CGFloat = isHighlighted ? 0.98 : 1
             UIView.animate(withDuration: isHighlighted ? NeonMotion.press : NeonMotion.fast, delay: 0,
@@ -512,6 +517,18 @@ final class WalletNeonButton: UIButton {
                 self.transform = CGAffineTransform(scaleX: scale, y: scale)
             }
         }
+    }
+
+    private func updateLacquerShadow() {
+        guard let lacquerShadow, bounds.height > 0 else {
+            layer.shadowOpacity = 0
+            return
+        }
+        layer.shadowColor = lacquerShadow.cgColor
+        layer.shadowOpacity = isHighlighted ? 0.22 : 0.42
+        layer.shadowRadius = isHighlighted ? 4 : 8
+        layer.shadowOffset = isHighlighted ? CGSize(width: 1, height: 2) : CGSize(width: 2.5, height: 5)
+        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: bounds.height / 2).cgPath
     }
 
     /// Glow at rest (pressed while highlighted), a ring in the MINIMAL tier,
@@ -542,6 +559,7 @@ final class WalletNeonButton: UIButton {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        updateLacquerShadow()
         if layer.shadowOpacity > 0 {
             layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: bounds.height / 2).cgPath
         }

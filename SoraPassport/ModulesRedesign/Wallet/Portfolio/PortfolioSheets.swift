@@ -136,12 +136,8 @@ class PortfolioSheetViewController: UIViewController {
 
     func banner(_ text: String, link: String? = nil, action: (() -> Void)? = nil) -> UIView {
         let tokens = PortfolioTheme.tokens
-        let container = UIView()
-        container.backgroundColor = tokens.infoContainer
-        container.layer.cornerRadius = 16
-        container.layer.cornerCurve = .continuous
-        let accent = UIView()
-        accent.backgroundColor = tokens.info
+        let container = PortfolioPressedWell()
+        container.setFloor(PortfolioTheme.tintedFloor(tokens.info), depth: 2.2)
         let icon = UIImageView(image: PortfolioGlyphs.symbol("info.circle", pointSize: 16, color: tokens.info))
         icon.setContentHuggingPriority(.required, for: .horizontal)
         let label = paragraph(text, color: tokens.textPrimary)
@@ -160,21 +156,14 @@ class PortfolioSheetViewController: UIViewController {
         let stack = UIStackView(arrangedSubviews: [icon, texts])
         stack.spacing = 10
         stack.alignment = .top
-        [accent, stack].forEach {
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            container.addSubview($0)
-        }
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(stack)
         NSLayoutConstraint.activate([
-            accent.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            accent.topAnchor.constraint(equalTo: container.topAnchor),
-            accent.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            accent.widthAnchor.constraint(equalToConstant: 4),
             stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
             stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -14),
             stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 14),
             stack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -14)
         ])
-        container.clipsToBounds = true
         return container
     }
 
@@ -207,6 +196,7 @@ extension PortfolioSheetViewController: SoramitsuObserver {
 /// A card row used by the sheets.
 final class PortfolioOptionRow: UIControl {
     var onTap: (() -> Void)?
+    private lazy var backing = LitBacking(host: self)
     private let icon = PortfolioTokenIconView(size: 40)
     private let title = UILabel.portfolio(FontType.textBoldM, .body, lines: 0, maximum: 30)
     private let subtitle = UILabel.portfolio(FontType.textS, .subheadline, color: PortfolioTheme.textSecondary,
@@ -216,9 +206,6 @@ final class PortfolioOptionRow: UIControl {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        layer.cornerRadius = 20
-        layer.cornerCurve = .continuous
-        layer.borderWidth = 1
         let left = UIStackView(arrangedSubviews: [title, subtitle])
         left.axis = .vertical
         left.spacing = 3
@@ -266,16 +253,19 @@ final class PortfolioOptionRow: UIControl {
         self.detail.text = detail
         self.detail.isHidden = detail == nil
         self.detail.textColor = tokens.textSecondary
-        backgroundColor = selected ? WalletUX.accent.withAlphaComponent(PortfolioTheme.isDark ? 0.14 : 0.07)
-            : (PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.04) : tokens.surface)
-        layer.borderColor = (selected ? WalletUX.accent : tokens.hairline).cgColor
-        layer.borderWidth = selected ? 1.5 : 1
+        // Raised at rest, pressed in when it is the current choice.
+        backing.style = selected ? .pressed(floor: PortfolioTheme.tintedFloor(WalletUX.accent), depth: 2.6) : .raised(elevation: 8)
         accessibilityLabel = [title, subtitle, value, detail].compactMap { $0 }.joined(separator: ", ")
         accessibilityTraits = selected ? [.button, .selected] : .button
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        backing.layout(radius: 20)
+    }
+
     override var isHighlighted: Bool {
-        didSet { alpha = isHighlighted ? 0.75 : 1 }
+        didSet { if isHighlighted != oldValue { LitMotion.press(self, pressed: isHighlighted, scale: 0.98) } }
     }
 
     @objc private func tapped() { onTap?() }

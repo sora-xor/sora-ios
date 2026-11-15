@@ -106,8 +106,8 @@ final class PortfolioNoticeCell: SoramitsuTableViewCell, SoramitsuTableViewCellP
         guard let state = item?.capability else { return }
         let tokens = PortfolioTheme.tokens
         card.apply()
-        card.backgroundColor = tokens.warningContainer.withAlphaComponent(PortfolioTheme.isDark ? 0.7 : 1)
-        card.layer.cornerRadius = 20
+        // A warning is glazed in its own colour.
+        card.plate.setFace(top: tokens.warningContainer, bottom: tokens.warningContainer.blended(with: tokens.warning, 0.08))
         badge.text = state.badge
         badge.textColor = tokens.warning
         reason.text = state.reason

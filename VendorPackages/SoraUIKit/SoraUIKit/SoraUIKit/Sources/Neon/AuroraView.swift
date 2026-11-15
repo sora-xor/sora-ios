@@ -26,6 +26,10 @@ public final class AuroraView: UIView {
         isAccessibilityElement = false
         accessibilityElementsHidden = true
         layer.addSublayer(gridContainer)
+        // Porcelain: light falling off from the top left, and a grain under the long gradients.
+        let page = LitPageView(frame: bounds)
+        page.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        addSubview(page)
         SoramitsuUI.updates.addObserver(self)
         observer = NotificationCenter.default.addObserver(forName: .neonFxChanged, object: nil, queue: .main) {
             [weak self] _ in self?.rebuild()

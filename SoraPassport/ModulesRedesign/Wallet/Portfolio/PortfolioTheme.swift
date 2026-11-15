@@ -77,6 +77,11 @@ enum PortfolioTheme {
         }
     }
 
+    /// The floor of a well that means something: mostly porcelain, a breath of the colour.
+    static func tintedFloor(_ color: UIColor) -> UIColor {
+        Lit.wellFloor.blended(with: .white, 0.42).blended(with: color, 0.09)
+    }
+
     // MARK: Text and status
 
     static var textPrimary: UIColor { tokens.textPrimary }
@@ -134,7 +139,7 @@ enum PortfolioTheme {
         /// Seconds per lap of the light that runs round the ring, and for the ring to draw itself in.
         static let cometLap: CFTimeInterval = 9
         static let intro: CFTimeInterval = 1.1
-        static let cardOverlap: CGFloat = 22
+        static let cardOverlap: CGFloat = 10
     }
 
     enum Depth {
