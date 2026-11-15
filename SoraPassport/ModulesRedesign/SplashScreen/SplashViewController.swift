@@ -60,10 +60,11 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         }
         let scene = SacredTenmonView()
         scene.page = SoramitsuThemeType.light.palette.color(.bgPage)
-        var wait = Self.sceneWait
-        #if !F_RELEASE
+        #if F_RELEASE
+        let wait = Self.sceneWait
+        #else
         // `-SacredSceneWait 8` on a slow simulator, to film the traced scene there.
-        wait = max(wait, UserDefaults.standard.double(forKey: "SacredSceneWait"))
+        let wait = max(Self.sceneWait, UserDefaults.standard.double(forKey: "SacredSceneWait"))
         #endif
         SacredTenmonPipeline.shared.whenReady(within: wait) { [weak self] ready in
             guard let self, self.animationPhase == .intro, self.flight == nil else { return }
