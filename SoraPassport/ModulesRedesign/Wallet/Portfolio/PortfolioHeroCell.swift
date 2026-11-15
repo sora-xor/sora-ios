@@ -20,6 +20,11 @@ final class PortfolioHeroItem: NSObject {
         didSet { if isSkyVisible != oldValue { onVisibilityChange?(isSkyVisible) } }
     }
 
+    /// How far the page has scrolled, for the sky's parallax.
+    var scrollOffset: CGFloat = 0 {
+        didSet { if scrollOffset != oldValue { onScroll?(scrollOffset) } }
+    }
+
     var onScope: (() -> Void)?
     var onChip: (() -> Void)?
     var onCaption: (() -> Void)?
@@ -28,6 +33,7 @@ final class PortfolioHeroItem: NSObject {
 
     fileprivate var onModelChange: (() -> Void)?
     fileprivate var onVisibilityChange: ((Bool) -> Void)?
+    fileprivate var onScroll: ((CGFloat) -> Void)?
 }
 
 extension PortfolioHeroItem: SoramitsuTableViewItemProtocol {
@@ -45,7 +51,6 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
     private let sky = PortfolioSkyView()
     private let scopeButton = PortfolioScopeButton()
     private let card = GlassView()
-    private let cardLight = PortfolioCardLightView()
     private let stack = UIStackView()
     private let eyebrow = UILabel.portfolio(FontType.eyebrow, .caption2, color: PortfolioTheme.textSecondary, maximum: 18)
     private let chip = PortfolioFreshnessChip()
@@ -69,6 +74,8 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
     private lazy var emptyReceive = PortfolioPrimaryButton(title: PortfolioStrings.receive) { [weak self] in
         self?.item?.onQuickAction?(.receive)
     }
+    private var hasEntered = false
+    private var wasLoading = false
     private var skyHeight: NSLayoutConstraint?
     private var scopeTop: NSLayoutConstraint?
     private lazy var parallax = PortfolioParallaxController(layers: [
@@ -85,7 +92,11 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         clipsToBounds = false
         contentView.clipsToBounds = false
         setupViews()
-        parallax.onRender = { [weak self] x, y in self?.sky.setTilt(x: x, y: y) }
+        parallax.onRender = { [weak self] x, y in
+            self?.sky.setTilt(x: x, y: y)
+            // The same light falls on every plate.
+            LitLightRig.shared.set(x: x, y: y)
+        }
         SoramitsuUI.updates.addObserver(self)
     }
 
@@ -98,10 +109,13 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
             $0.translatesAutoresizingMaskIntoConstraints = false
             contentView.addSubview($0)
         }
-        card.shape = .rounded(24)
+        card.shape = .rounded(26)
         card.fill = .strong
-        cardLight.translatesAutoresizingMaskIntoConstraints = false
-        card.contentView.addSubview(cardLight)
+        card.elevation = 18
+        // The ring passes just above this plate; the planet's red falls on its top edge.
+        card.plate.haloStrength = 0.45
+        card.plate.setShowsSheen(true)
+        card.plate.setBounce(color: PortfolioTheme.soraGlow, centerX: 0.5, strength: 0.9)
 
         stack.axis = .vertical
         stack.spacing = 0
@@ -177,10 +191,6 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
             card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             card.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6),
-            cardLight.topAnchor.constraint(equalTo: card.contentView.topAnchor),
-            cardLight.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor),
-            cardLight.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor),
-            cardLight.bottomAnchor.constraint(equalTo: card.contentView.bottomAnchor),
             stack.topAnchor.constraint(equalTo: card.contentView.topAnchor, constant: 18),
             stack.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor, constant: 18),
             stack.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor, constant: -18),
@@ -198,7 +208,10 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         guard let item = item as? PortfolioHeroItem else { return }
         self.item?.onModelChange = nil
         self.item?.onVisibilityChange = nil
+        self.item?.onScroll = nil
         self.item = item
+        item.onScroll = { [weak self] offset in self?.sky.setScroll(offset: offset) }
+        sky.setScroll(offset: item.scrollOffset)
         item.onModelChange = { [weak self] in self?.reload(animated: true) }
         item.onVisibilityChange = { [weak self] visible in
             self?.parallax.setHeroVisible(visible)
@@ -218,6 +231,7 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
                 parallax.inject(x: tilt.x, y: tilt.y)
             }
             #endif
+            if item?.model != nil { runEntranceIfNeeded(empty: item?.model?.isEmpty ?? true) }
         } else {
             parallax.stop()
         }
@@ -238,13 +252,14 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         let wholeFont = PortfolioTheme.font(FontType.displayHero, .largeTitle, maximum: 64)
         let fractionFont = PortfolioTheme.font(FontType.displayHero, size: 26, .title2)
         let primary = model.isDimmed ? tokens.textSecondary : tokens.textPrimary
-        let total = NSMutableAttributedString(string: model.totalWhole, attributes: [
-            .font: wholeFont, .foregroundColor: primary, .kern: -0.5
-        ])
-        total.append(NSAttributedString(string: model.totalFraction, attributes: [
-            .font: fractionFont, .foregroundColor: tokens.textSecondary
+        // Pressed into the plate; digits of one width, so only the ones that change move.
+        let total = NSMutableAttributedString(attributedString: .letterpress(model.totalWhole, attributes: [
+            .font: wholeFont.litTabularDigits, .foregroundColor: primary, .kern: -0.5
         ]))
-        totalLabel.attributedText = total
+        total.append(.letterpress(model.totalFraction, attributes: [
+            .font: fractionFont.litTabularDigits, .foregroundColor: tokens.textSecondary
+        ]))
+        LitRoller.setText(total, on: totalLabel, animated: animated, rollsUp: model.direction != .down)
         totalLabel.accessibilityLabel = model.accessibilityTotal
 
         changeRow.isHidden = model.isEmpty || model.changeAmount == nil
@@ -285,10 +300,13 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         }
 
         configureLegend(model.legend)
-        cardLight.applyTheme()
         sky.applyTheme()
         sky.apply(PortfolioSkyView.Model(segments: model.sky.segments, highlightedKey: model.sky.highlightedKey,
                                          showsFan: model.sky.showsFan), animated: animated)
+        // When a read finishes, fresh light crosses the plate.
+        if wasLoading, !model.isLoading, animated { card.plate.sweepSheen() }
+        wasLoading = model.isLoading
+        sky.setReading(model.isLoading)
         actionViews.forEach { $0.applyTheme() }
         layoutForContentSize()
 
@@ -303,6 +321,16 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
 
         accessibilityElements = [scopeButton, totalLabel, captionButton, chip] + legendStack.arrangedSubviews +
             actionViews + [emptyTitle, emptyDetail, emptyReceive]
+        runEntranceIfNeeded(empty: empty)
+    }
+
+    /// The first time the card is seen it rises into place and the glass buttons pop up in turn.
+    private func runEntranceIfNeeded(empty: Bool) {
+        guard !hasEntered, !empty, window != nil, FxPolicy.current.litMotion else { return }
+        hasEntered = true
+        LitMotion.rise(card, by: 22)
+        card.plate.sweepSheen()
+        actionViews.enumerated().forEach { index, view in view.popIn(after: 0.18 + 0.065 * Double(index)) }
     }
 
     private func configureLegend(_ chips: [PortfolioLegendChip]) {
@@ -425,11 +453,11 @@ final class PortfolioScopeButton: UIControl {
     }
 
     override var isHighlighted: Bool {
-        didSet { alpha = isHighlighted ? 0.7 : 1 }
+        didSet { if isHighlighted != oldValue { LitMotion.press(self, pressed: isHighlighted) } }
     }
 }
 
-/// The app's primary call to action: the Neon gradient capsule.
+/// The app's primary call to action: a lacquered capsule.
 final class PortfolioPrimaryButton: UIControl {
     enum Style {
         case primary
@@ -437,6 +465,7 @@ final class PortfolioPrimaryButton: UIControl {
     }
 
     private let gradient = NeonGradientView()
+    private let lacquer = LitLacquer()
     private let label = UILabel.portfolio(FontType.buttonM, .headline, maximum: 28)
     private let glyph = UIImageView()
     private let content = UIStackView()
@@ -448,10 +477,11 @@ final class PortfolioPrimaryButton: UIControl {
         self.style = style
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        layer.cornerCurve = .continuous
-        clipsToBounds = true
         gradient.translatesAutoresizingMaskIntoConstraints = false
+        gradient.clipsToBounds = true
+        gradient.isUserInteractionEnabled = false
         addSubview(gradient)
+        layer.insertSublayer(lacquer.layer, above: gradient.layer)
         content.axis = .horizontal
         content.spacing = 8
         content.alignment = .center
@@ -513,12 +543,15 @@ final class PortfolioPrimaryButton: UIControl {
     }
 
     override var isHighlighted: Bool {
-        didSet { alpha = isHighlighted ? 0.85 : (isEnabled ? 1 : 0.45) }
+        didSet { if isHighlighted != oldValue { LitMotion.press(self, pressed: isHighlighted) } }
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        layer.cornerRadius = bounds.height / 2
+        gradient.layer.cornerRadius = bounds.height / 2
+        let tokens = PortfolioTheme.tokens
+        lacquer.layout(in: self, radius: bounds.height / 2,
+                       color: (style == .swap ? tokens.ctaSwap : tokens.ctaPrimary).colors.last)
     }
 
     @objc private func tapped() { handler() }

@@ -46,6 +46,9 @@ public struct FxPolicy {
     public var glows: Bool { false }
     public var pulses: Bool { false }
     public var ambientDetail: Bool { false }
+    /// Decorative motion the lit materials may run: the hero's comet, entrances. Off under Reduce
+    /// Motion, in Low Power Mode, on a hot device and under Reduce Transparency.
+    public var litMotion: Bool { tier == .full && !reduceMotion }
 }
 
 public extension Notification.Name {

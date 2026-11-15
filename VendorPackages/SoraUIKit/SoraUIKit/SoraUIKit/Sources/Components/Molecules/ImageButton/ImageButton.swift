@@ -25,6 +25,16 @@ public final class ImageButton: UIButton, Molecule {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        // UIButton adds its image view lazily, under anything already placed behind it.
+        if let imageView { bringSubviewToFront(imageView) }
+    }
+
+    public override var isHighlighted: Bool {
+        didSet { if isHighlighted != oldValue { LitMotion.press(self, pressed: isHighlighted, scale: 0.92) } }
+    }
 }
 
 private extension ImageButton {

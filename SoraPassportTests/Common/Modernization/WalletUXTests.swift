@@ -2893,8 +2893,9 @@ final class SoraNeonDesignTests: XCTestCase {
         controller.loadViewIfNeeded()
         let bar = try XCTUnwrap(controller.tabBar as? TabBar)
         XCTAssertEqual(bar.drawsLegacyChrome, !NeonChrome.usesLiquidGlass)
-        // The classic disc: white, with the Polkaswap mark in its own colours.
-        XCTAssertEqual(bar.middleButton.backgroundColor, .white)
+        // The classic disc: a white ceramic dome behind the Polkaswap mark in its own colours.
+        XCTAssertEqual(bar.middleButton.backgroundColor, .clear)
+        XCTAssertTrue(bar.middleButton.subviews.contains { $0 is LitCabochonView })
         XCTAssertEqual(bar.tintColor, SoramitsuUI.shared.theme.palette.color(.accentPrimary))
 
         // Fallback: the disc moves as a whole.
@@ -2960,8 +2961,8 @@ final class SoraNeonDesignTests: XCTestCase {
         XCTAssertEqual(controller.selectedIndex, 0, "the centre tab is the Polkaswap disc")
         controller.selectTab(at: 3)
         XCTAssertEqual(controller.selectedIndex, 3)
-        // The cover is only drawn where the system bar is Liquid Glass.
-        XCTAssertEqual(controller.classicCover != nil, NeonChrome.usesLiquidGlass)
+        // The porcelain bar is drawn over the system one on every system.
+        XCTAssertNotNil(controller.classicCover)
     }
 
     /// iOS 26+ hosts the bar in a container that covers only the bar, so the

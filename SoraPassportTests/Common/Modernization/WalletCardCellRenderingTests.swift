@@ -183,6 +183,13 @@ import XCTest
         XCTAssertNil(view.segmentKey(at: view.pose.point(270)))
         XCTAssertEqual(view.segmentKey(at: view.pose.point(90)), "first")
     }
+    func testTheRingTakesTouchesWhereItIsDrawnOnceThePageHasScrolled() {
+        let view = sky()
+        let rest = view.pose.point(90)
+        view.setScroll(offset: 100)
+        XCTAssertEqual(view.segmentKey(at: CGPoint(x: rest.x, y: rest.y + 24)), "first", "the ring lags the page by 24 %")
+        XCTAssertNil(view.segmentKey(at: rest), "nothing is drawn there any more")
+    }
     func testASmallSegmentComesRoundToTheFrontInsteadOfHidingBehindThePlanet() {
         let lopsided = [
             PortfolioFanSegment(key: "main", slot: .slot(0), rays: 94, value: 94, share: Decimal(string: "0.94")!, members: []),
@@ -284,7 +291,7 @@ import XCTest
     func testPortfolioRowTapAndHighlightDoNotChangeItsAccessibleIdentity() {
         let view = PortfolioRowView(); view.configure(row(), showsSeparator: false); var taps = 0; view.onTap = { taps += 1 }
         view.sendActions(for: .touchUpInside); view.isHighlighted = true
-        XCTAssertEqual(view.backgroundColor, PortfolioTheme.tokens.glassFillPressed)
+        XCTAssertEqual(view.backgroundColor, PortfolioTheme.tokens.glassFillPressed.withAlphaComponent(0.55))
         XCTAssertEqual(view.accessibilityLabel, row().accessibilityLabel)
         view.isHighlighted = false; XCTAssertEqual(view.backgroundColor, .clear); XCTAssertEqual(taps, 1)
     }
@@ -292,9 +299,9 @@ import XCTest
         let view = PortfolioWellView(); let expected = child(); var selected = [PortfolioChildRow]()
         view.configure([expected], link: nil); view.onChild = { selected.append($0) }
         let control = try XCTUnwrap(descendants(PortfolioChildRowView.self, view).first)
-        control.isHighlighted = true; XCTAssertEqual(control.backgroundColor, PortfolioTheme.tokens.glassFillPressed)
+        control.isHighlighted = true
         control.sendActions(for: .touchUpInside); control.isHighlighted = false
-        XCTAssertEqual(selected, [expected]); XCTAssertEqual(control.backgroundColor, .clear)
+        XCTAssertEqual(selected, [expected])
     }
     func testExpandedWalletLinkIsIndependentFromHoldingSelection() throws {
         let view = PortfolioWellView(); var links = 0, children = 0

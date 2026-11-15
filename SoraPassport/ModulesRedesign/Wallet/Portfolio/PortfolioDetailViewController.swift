@@ -508,11 +508,11 @@ final class PortfolioDetailHoldingRow: UIControl {
 final class PortfolioBreakdownView: UIView {
     private let bar = PortfolioBreakdownBar()
     private let rows = UIStackView()
+    private lazy var backing = LitBacking(host: self)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        layer.cornerRadius = 16
-        layer.cornerCurve = .continuous
+        backing.style = .pressed(floor: nil, depth: 2.6)
         rows.axis = .vertical
         rows.spacing = 10
         let stack = UIStackView(arrangedSubviews: [bar, rows])
@@ -534,13 +534,16 @@ final class PortfolioBreakdownView: UIView {
     }
 
     func configure(_ panel: PortfolioDetailModel.Panel) {
-        let tokens = PortfolioTheme.tokens
-        backgroundColor = PortfolioTheme.isDark ? UIColor.black.withAlphaComponent(0.28) : tokens.layer1
         bar.fraction = CGFloat(panel.transferableFraction)
         rows.arrangedSubviews.forEach { $0.removeFromSuperview() }
         rows.addArrangedSubview(row(swatch: .solid, title: PortfolioStrings.transferable, value: panel.transferable))
         rows.addArrangedSubview(row(swatch: .striped, title: PortfolioStrings.locked, value: panel.locked))
         rows.addArrangedSubview(row(swatch: nil, title: PortfolioStrings.totalCounted, value: panel.total))
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        backing.layout(radius: 16)
     }
 
     private enum Swatch {
@@ -655,12 +658,10 @@ final class PortfolioBreakdownBar: UIView {
 final class PortfolioRouteCard: UIView {
     private let chips = UIStackView()
     private let text = UILabel.portfolio(FontType.paragraphS, .subheadline, lines: 0, maximum: 28)
+    private lazy var backing = LitBacking(host: self)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        layer.cornerRadius = 16
-        layer.cornerCurve = .continuous
-        layer.borderWidth = 1
         chips.axis = .horizontal
         chips.spacing = 8
         chips.alignment = .center
@@ -691,26 +692,27 @@ final class PortfolioRouteCard: UIView {
         case .ready:
             chips.addArrangedSubview(arrow(dashed: false))
             chips.addArrangedSubview(polkaswapChip(dimmed: false))
-            backgroundColor = tokens.polkaswapContainer.withAlphaComponent(PortfolioTheme.isDark ? 0.6 : 1)
-            layer.borderColor = PortfolioTheme.flowerPink.withAlphaComponent(0.35).cgColor
+            backing.style = .pressed(floor: PortfolioTheme.tintedFloor(PortfolioTheme.flowerPink), depth: 2.2)
         case .noRoute:
             chips.addArrangedSubview(arrow(dashed: true))
             chips.addArrangedSubview(polkaswapChip(dimmed: true))
-            backgroundColor = .clear
-            layer.borderColor = tokens.hairline.cgColor
+            backing.style = .pressed(floor: nil, depth: 2.2)
         case .notListed:
-            backgroundColor = .clear
-            layer.borderColor = tokens.hairline.cgColor
+            backing.style = .pressed(floor: nil, depth: 2.2)
         case .test:
             let tag = PortfolioTagView()
             tag.configure(.network(.testnet))
             chips.addArrangedSubview(tag)
-            backgroundColor = tokens.warningContainer.withAlphaComponent(PortfolioTheme.isDark ? 0.6 : 1)
-            layer.borderColor = tokens.warning.withAlphaComponent(0.3).cgColor
+            backing.style = .pressed(floor: PortfolioTheme.tintedFloor(tokens.warning), depth: 2.2)
         }
         text.text = route.text
         text.textColor = tokens.textPrimary
         accessibilityLabel = route.text
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        backing.layout(radius: 16)
     }
 
     private func networkChip(_ network: PortfolioNetwork) -> UIView {
@@ -753,15 +755,13 @@ final class PortfolioSecondaryButton: UIControl {
     private let label = UILabel.portfolio(FontType.buttonM, .headline, maximum: 26)
     private let glyph = UIImageView()
     private let handler: () -> Void
+    private lazy var backing = LitBacking(host: self)
 
     init(action: PortfolioDetailModel.Action, handler: @escaping () -> Void) {
         self.handler = handler
         super.init(frame: .zero)
         let tokens = PortfolioTheme.tokens
-        layer.borderWidth = 1
-        layer.borderColor = (PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.18) : tokens.hairline).cgColor
-        layer.cornerCurve = .continuous
-        backgroundColor = PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.04) : tokens.surface
+        backing.style = .raised(elevation: 8)
         switch action.kind {
         case .send: glyph.image = PortfolioGlyphs.symbol("arrow.up.right", pointSize: 15, color: tokens.textPrimary)
         case .move: glyph.image = PortfolioGlyphs.moveImage(size: 20, color: tokens.textPrimary)
@@ -801,11 +801,11 @@ final class PortfolioSecondaryButton: UIControl {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        layer.cornerRadius = bounds.height / 2
+        backing.layout(radius: bounds.height / 2)
     }
 
     override var isHighlighted: Bool {
-        didSet { alpha = isHighlighted ? 0.7 : (isEnabled ? 1 : 0.45) }
+        didSet { if isHighlighted != oldValue { LitMotion.press(self, pressed: isHighlighted) } }
     }
 
     @objc private func tapped() { handler() }

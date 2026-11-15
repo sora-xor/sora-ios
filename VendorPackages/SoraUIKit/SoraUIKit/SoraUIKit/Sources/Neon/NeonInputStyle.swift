@@ -15,6 +15,8 @@ enum NeonInputStyle {
                       focusGlow: Bool = true, tokens: NeonTokens = .current, fx: FxPolicy = .current) {
         view.layer.cornerRadius = cornerRadius
         view.layer.cornerCurve = .continuous
+        // A field is a well pressed into the plate.
+        well(in: view, cornerRadius: cornerRadius).isHidden = !isEnabled || state == .disabled
         guard isEnabled, state != .disabled else {
             view.backgroundColor = tokens.ctaDisabled
             view.layer.borderColor = tokens.hairline.cgColor
@@ -22,12 +24,12 @@ enum NeonInputStyle {
             clearGlow(view)
             return
         }
-        view.backgroundColor = tokens.inputFill
+        view.backgroundColor = .clear
         let width: CGFloat = fx.highContrast ? 2 : 1
         switch state {
         case .default, .disabled:
             view.layer.borderColor = tokens.borderInput.cgColor
-            view.layer.borderWidth = width
+            view.layer.borderWidth = fx.highContrast ? width : 0
         case .focused:
             view.layer.borderColor = tokens.cyan.cgColor
             view.layer.borderWidth = width + 0.5
@@ -48,6 +50,21 @@ enum NeonInputStyle {
         layout(view)
     }
 
+    private static func well(in view: UIView, cornerRadius: CGFloat) -> LitWellLayer {
+        let existing = view.layer.sublayers?.compactMap { $0 as? LitWellLayer }.first
+        let well = existing ?? LitWellLayer()
+        if existing == nil {
+            well.depth = 2.6
+            view.layer.insertSublayer(well, at: 0)
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        well.cornerRadiusValue = cornerRadius
+        well.place(in: view.bounds)
+        CATransaction.commit()
+        return well
+    }
+
     private static func clearGlow(_ view: UIView) {
         view.layer.shadowOpacity = 0
         view.layer.shadowPath = nil
@@ -62,6 +79,12 @@ enum NeonInputStyle {
     /// corners, and a glow is never drawn inside a table or collection cell
     /// (spec §4.5). The focused border is always there.
     static func layout(_ view: UIView) {
+        if let well = view.layer.sublayers?.compactMap({ $0 as? LitWellLayer }).first {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            well.place(in: view.bounds)
+            CATransaction.commit()
+        }
         guard let alpha = view.layer.value(forKey: glowAlphaKey) as? Float else { return }
         let reach = glowReach(of: view.layer)
         guard hasRoom(for: view, reach: reach) else {

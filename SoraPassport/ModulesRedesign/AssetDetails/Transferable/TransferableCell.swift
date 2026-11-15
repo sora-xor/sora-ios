@@ -214,7 +214,8 @@ final class TransferableCell: SoramitsuTableViewCell {
     private lazy var swapButton: AssetActionView = {
         let view = AssetActionView()
         view.titleLabel.sora.text = R.string.localizable.historySwap(preferredLanguages: .currentLocale)
-        view.button.sora.leftImage = R.image.wallet.swap()
+        // Polkaswap is the only swap the wallet has: its flower, in its own colour.
+        view.button.sora.leftImage = R.image.wallet.polkaswap()?.withRenderingMode(.alwaysOriginal)
         view.button.sora.horizontalOffset = 16
         view.accessibilityIdentifier = "assetDetails.swap"
         view.sora.addHandler(for: .touchUpInside) { [weak self] in

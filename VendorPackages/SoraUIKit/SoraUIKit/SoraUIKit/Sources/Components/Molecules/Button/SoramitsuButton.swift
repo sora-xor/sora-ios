@@ -80,11 +80,60 @@ public final class SoramitsuButton: UIControl, Molecule {
         fatalError("init(coder:) has not been implemented")
     }
 
+    private let lacquer = LitLacquer()
+    private var plate: LitPlateLayer?
+
     override public func layoutSubviews() {
         super.layoutSubviews()
+        applyMaterial()
+    }
 
-        guard case .bleached = type else { return }
-        applyShadowPath()
+    public override var isHighlighted: Bool {
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            switch type {
+            case .text: break
+            default: LitMotion.press(self, pressed: isHighlighted)
+            }
+        }
+    }
+
+    /// Filled buttons are lacquer with a shadow of their own colour; surface-coloured ones are raised plates.
+    private func applyMaterial() {
+        let palette = sora.supportsPaletteMode ? sora.style.palette : LightPalette()
+        var isFilled = false
+        if case .filled = type { isFilled = true }
+        var isPlate = false
+        if case .bleached = type { isPlate = true }
+        if case .bgSurface? = sora.explicitBackgroundColor { isPlate = true }
+        let radius = sora.style.radii.radius(sora.cornerRadius, size: bounds.size)
+        if isFilled, !isPlate, isEnabled {
+            if lacquer.layer.superlayer == nil { layer.insertSublayer(lacquer.layer, at: 0) }
+            let base = palette.color(sora.explicitBackgroundColor ?? type.enabledBackgroundColor)
+            lacquer.layout(in: self, radius: radius, color: base)
+            layer.masksToBounds = false
+        } else {
+            lacquer.layer.removeFromSuperlayer()
+            if !isPlate { layer.shadowOpacity = 0 }
+        }
+        if isPlate, isEnabled, bounds.height > 0 {
+            let target = plate ?? LitPlateLayer()
+            if plate == nil {
+                plate = target
+                layer.insertSublayer(target, at: 0)
+            }
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            target.cornerRadiusValue = min(radius, bounds.height / 2)
+            target.elevation = 8
+            target.frame = bounds
+            CATransaction.commit()
+            layer.masksToBounds = false
+            layer.shadowOpacity = 0
+        } else {
+            plate?.removeFromSuperlayer()
+            plate = nil
+        }
     }
 
     public override var isEnabled: Bool {
@@ -114,10 +163,6 @@ public final class SoramitsuButton: UIControl, Molecule {
             layer.borderWidth = 1
         }
 
-        if case .bleached = type {
-            sora.shadow = .default
-        }
-
         let palette = sora.supportsPaletteMode ? sora.style.palette : LightPalette()
 
         let borderColor = palette.color((isEnabled ? type.tintColor : type.disabledBorderColor) ?? .fgPrimary).cgColor
@@ -139,6 +184,7 @@ public final class SoramitsuButton: UIControl, Molecule {
         titleLabel.sora.font = size.font
 
         pressingView.sora.backgroundColor = .custom(uiColor: palette.color(type.pressedSublayerColor).withAlphaComponent(0.12))
+        setNeedsLayout()
     }
 }
 
@@ -178,16 +224,6 @@ private extension SoramitsuButton {
 
             heightAnchor.constraint(equalToConstant: size.height)
         ])
-    }
-
-    func applyShadowPath() {
-        layer.shadowColor = UIColor(red: 153 / 255.0, green: 153 / 255.0, blue: 153 / 255.0, alpha: 0.24).cgColor
-        layer.shadowOpacity = 1
-        layer.shadowOffset = CGSize(width: 0.0, height: 10.0)
-        layer.shadowRadius = size.height / 2
-        layer.shouldRasterize = true
-        layer.rasterizationScale = UIScreen.main.scale
-        layer.shadowPath = UIBezierPath(rect: bounds).cgPath
     }
 }
 

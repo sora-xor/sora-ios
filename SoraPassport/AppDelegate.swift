@@ -56,6 +56,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         if !isUnitTesting {
             setupLanguage()
             protectLegacyAccountExports(application)
+            // Not for a launch in the background: nobody is about to look at the hero.
+            if application.applicationState != .background { LitHeroView.preload() }
         }
 
         return true
