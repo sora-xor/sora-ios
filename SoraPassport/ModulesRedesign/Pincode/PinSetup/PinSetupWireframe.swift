@@ -18,6 +18,7 @@
 import UIKit
 import SoraFoundation
 import SoraKeystore
+import SoraUIKit
 
 class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPresentable {
     lazy var rootAnimator: RootControllerAnimationCoordinatorProtocol = RootControllerAnimationCoordinator()
@@ -55,6 +56,13 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
             } else {
                 animator.animateTransition(to: controller)
             }
+        }
+        // The PIN screen's planet goes through its gate and lands on the home's planet.
+        if let window, let emblem = (view?.controller as? PincodeViewController)?.emblemView {
+            let arrival = PortfolioArrival()
+            SacredUnlockFlight.begin(from: emblem, in: window,
+                                     destination: { [weak window] in arrival.destination(in: window) },
+                                     landed: { arrival.landed() })
         }
         let opening = WalletOpeningViewController(
             makeWallet: mainViewFactory,

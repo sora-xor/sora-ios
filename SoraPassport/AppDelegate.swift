@@ -57,7 +57,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             setupLanguage()
             protectLegacyAccountExports(application)
             // Not for a launch in the background: nobody is about to look at the hero.
-            if application.applicationState != .background { LitHeroView.preload() }
+            if application.applicationState != .background {
+                // The launch scene first: the splash flies it within the half second.
+                SacredTenmonPipeline.shared.prepare()
+                LitHeroView.preload()
+            }
         }
 
         return true

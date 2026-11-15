@@ -303,8 +303,11 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         sky.applyTheme()
         sky.apply(PortfolioSkyView.Model(segments: model.sky.segments, highlightedKey: model.sky.highlightedKey,
                                          showsFan: model.sky.showsFan), animated: animated)
-        // When a read finishes, fresh light crosses the plate.
-        if wasLoading, !model.isLoading, animated { card.plate.sweepSheen() }
+        // When a read finishes, fresh light crosses the plate and a ring goes out from the chip's light.
+        if wasLoading, !model.isLoading, animated {
+            card.plate.sweepSheen()
+            chip.ping()
+        }
         wasLoading = model.isLoading
         sky.setReading(model.isLoading)
         actionViews.forEach { $0.applyTheme() }

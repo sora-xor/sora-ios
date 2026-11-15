@@ -100,6 +100,11 @@ final class PincodeViewController: SoramitsuViewController {
     private var circleViews: [PincodeDotView] = []
     private var enteredDigits = 0
 
+    /// The planet in its ring, where the launch flight sets it down. The ring is the lock: each digit
+    /// draws one more of its circles. Screens too short for it and the title both go without.
+    let emblemView = SacredEmblemView()
+    private var hasEntered = false
+
     var cooldownTimerFactory: (TimeInterval, @escaping @Sendable (Timer) -> Void) -> Timer = { interval, block in
         Timer.scheduledTimer(withTimeInterval: interval, repeats: true, block: block)
     }
@@ -124,6 +129,21 @@ final class PincodeViewController: SoramitsuViewController {
         presenter.start()
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        guard !hasEntered else { return }
+        hasEntered = true
+        guard FxPolicy.current.litMotion else { return }
+        LitMotion.rise(titleLabel, by: 8)
+        LitMotion.rise(circlesStackView, by: 8, after: 0.03)
+        LitMotion.rise(numpadView, by: 18, after: 0.05)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        layoutEmblem()
+    }
+
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         timer?.invalidate()
@@ -141,6 +161,7 @@ private extension PincodeViewController {
         
         numpadView.delegate = self
         
+        view.addSubview(emblemView)
         view.addSubview(containerView)
         view.addSubview(numpadView)
         
@@ -166,6 +187,18 @@ private extension PincodeViewController {
             circlesStackView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
         ])
         
+    }
+
+    func layoutEmblem() {
+        // Once unlocking has taken it across to the home it is no longer this screen's to place.
+        guard emblemView.superview === view else { return }
+        guard let place = SacredEmblemLayout.pinPlacement(bounds: view.bounds, safeArea: view.safeAreaInsets) else {
+            emblemView.isHidden = true
+            return
+        }
+        emblemView.frame = place.frame
+        // A title that wraps grows upwards into the emblem's room; the words win.
+        emblemView.isHidden = place.frame.maxY > titleLabel.convert(titleLabel.bounds, to: view).minY - 6
     }
 
     func updateTitleLabelState() {
@@ -335,6 +368,8 @@ extension PincodeViewController: PinSetupViewProtocol {
         for (index, view) in circleViews.enumerated() {
             view.setFilled(index < count, color: palette.color(.accentPrimary))
         }
+        emblemView.setShare(circleViews.isEmpty ? 0 : CGFloat(enteredDigits) / CGFloat(circleViews.count),
+                            animated: true)
     }
     
     func setupDeleteButton(isHidden: Bool) {
@@ -351,6 +386,7 @@ extension PincodeViewController: PinSetupViewProtocol {
         titleLabel.sora.text = R.string.localizable.commonWrongPin(preferredLanguages: .currentLocale)
         let errorColor = SoramitsuUI.shared.theme.palette.color(.statusError)
         circleViews.forEach { $0.setFilled(true, color: errorColor) }
+        emblemView.showError(color: errorColor)
         if FxPolicy.current.reduceMotion {
             circlesStackView.transform = .identity
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { completion(true) }

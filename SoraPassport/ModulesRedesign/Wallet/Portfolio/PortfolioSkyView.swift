@@ -859,3 +859,53 @@ final class PortfolioLayerView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 }
+
+// MARK: - Arrival from the PIN screen
+
+extension PortfolioSkyView {
+    /// Where the planet is drawn, in this view.
+    var planetFrame: CGRect {
+        let radius = PortfolioTheme.Sky.planetRadius
+        return CGRect(x: planetCenter.x - radius, y: planetCenter.y - radius, width: radius * 2, height: radius * 2)
+    }
+
+    fileprivate static func first(in view: UIView) -> PortfolioSkyView? {
+        if let sky = view as? PortfolioSkyView { return sky }
+        for subview in view.subviews {
+            if let sky = first(in: subview) { return sky }
+        }
+        return nil
+    }
+}
+
+/// Hands the planet that flies in from the PIN screen to the home's own. The home's sky stays unseen
+/// until the flying one lands on it, so there are never two planets.
+@MainActor
+final class PortfolioArrival {
+    private weak var sky: PortfolioSkyView?
+    private var homeSeen: CFTimeInterval?
+
+    func destination(in window: UIWindow?) -> SacredUnlockFlight.Destination {
+        guard let window else { return .nowhere }
+        guard let home = window.rootViewController as? MainTabBarViewController, home.isViewLoaded else {
+            return .waiting
+        }
+        if let sky = PortfolioSkyView.first(in: home.view), sky.window === window, sky.bounds.width > 0 {
+            self.sky = sky
+            sky.alpha = 0
+            return .planet(sky.convert(sky.planetFrame, to: window))
+        }
+        // The home is up. One that shows no sky has nowhere to land; its first layout gets a moment.
+        let now = CACurrentMediaTime()
+        guard let seen = homeSeen else {
+            homeSeen = now
+            return .waiting
+        }
+        return now - seen > 0.4 ? .nowhere : .waiting
+    }
+
+    func landed() {
+        guard let sky else { return }
+        UIView.animate(withDuration: SacredGeometry.beat(1)) { sky.alpha = 1 }
+    }
+}

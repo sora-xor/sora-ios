@@ -49,13 +49,16 @@ final class ActivityIndicatorViewController: SoramitsuViewController {
             $0.size.equalTo(CGSize(width: 64, height: 64))
         }
         
-        let activityIndicatorView = UIActivityIndicatorView()
-        activityIndicatorView.style = .large
-        backgroundView.addSubview(activityIndicatorView)
-        activityIndicatorView.snp.makeConstraints {
+        // What was sent is in flight: the open circle of heaven turns round the square of earth.
+        let seal = SacredSealView()
+        seal.workingColor = SoramitsuUI.shared.theme.palette.color(.fgSecondary)
+        seal.isAccessibilityElement = true
+        seal.accessibilityTraits = .updatesFrequently
+        seal.accessibilityLabel = R.string.localizable.launchScreenLoadingTitle(preferredLanguages: .currentLocale)
+        backgroundView.addSubview(seal)
+        seal.snp.makeConstraints {
             $0.center.equalToSuperview()
+            $0.size.equalTo(CGSize(width: 38, height: 38))
         }
-        
-        activityIndicatorView.startAnimating()
     }
 }

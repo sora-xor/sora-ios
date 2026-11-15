@@ -627,6 +627,7 @@ final class NexusActivityDetailsViewModel {
         var headerDetails = [DetailViewModel(
             title: R.string.localizable.walletTxDetailsStatus(preferredLanguages: .currentLocale),
             statusAssetImage: model.status.image,
+            seal: model.status.seal,
             assetAmountText: detailText(model.statusText, color: model.status.color))]
         if let date = model.date {
             headerDetails.append(DetailViewModel(

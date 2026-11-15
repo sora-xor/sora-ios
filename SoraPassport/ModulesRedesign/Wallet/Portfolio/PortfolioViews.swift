@@ -284,6 +284,7 @@ final class PortfolioFreshnessChip: UIControl {
     private let well = LitWellLayer()
     private let dot = LitLEDView(diameter: 7)
     private let label = UILabel()
+    private var lightColor = UIColor.clear
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -327,9 +328,39 @@ final class PortfolioFreshnessChip: UIControl {
         case .offline: color = tokens.error
         }
         dot.setColor(color)
+        lightColor = color
         label.textColor = tokens.textSecondary
         accessibilityLabel = text
         accessibilityTraits = tone == .live ? .staticText : .button
+    }
+
+    /// Fresh numbers have just arrived: one ring goes out from the light, like a drop in still water.
+    func ping() {
+        guard LitMotion.allowed, window != nil else { return }
+        let ring = CAShapeLayer()
+        let side = dot.bounds.width
+        ring.bounds = CGRect(x: 0, y: 0, width: side, height: side)
+        ring.position = dot.center
+        ring.path = UIBezierPath(ovalIn: ring.bounds).cgPath
+        ring.fillColor = nil
+        ring.strokeColor = lightColor.cgColor
+        ring.lineWidth = 1.2
+        ring.opacity = 0
+        layer.addSublayer(ring)
+        let widen = CABasicAnimation(keyPath: "transform.scale")
+        widen.fromValue = 1
+        widen.toValue = 1 + 2 * SacredGeometry.phi
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0.75
+        fade.toValue = 0
+        let wave = CAAnimationGroup()
+        wave.animations = [widen, fade]
+        wave.duration = SacredGeometry.beat(4)
+        wave.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { ring.removeFromSuperlayer() }
+        ring.add(wave, forKey: "sacred.ping")
+        CATransaction.commit()
     }
 
     override func layoutSubviews() {

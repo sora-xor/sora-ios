@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import UIKit
-import Lottie
 import XCTest
 import SoraUIKit
 import SoraKeystore
@@ -527,33 +526,40 @@ final class WalletUXTests: XCTestCase {
     }
 
     @MainActor
-    func testLaunchScreenIsTheClassicLightPage() throws {
+    func testLaunchScreenIsTheNightTheFlightRisesOutOf() throws {
         let launch = try XCTUnwrap(Bundle.main.loadNibNamed("LaunchScreen", owner: nil)?.compactMap { $0 as? UIView }.first)
         for style in [UIUserInterfaceStyle.light, .dark] {
             let color = try XCTUnwrap(launch.backgroundColor).resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
             var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
             XCTAssertTrue(color.getRed(&red, green: &green, blue: &blue, alpha: &alpha))
-            // 3.8.6's launch page: the light page the splash animation continues on.
-            // Calibrated (0.965, 0.949, 0.949) in the xib, a warm near-white in sRGB.
-            XCTAssertEqual(red, 0.965, accuracy: 0.01)
-            XCTAssertEqual(green, 0.959, accuracy: 0.01)
-            XCTAssertEqual(blue, 0.959, accuracy: 0.01)
+            // The launch page is the dark the flight rises out of (#06060B), the same as the splash
+            // behind it and as Android's launch window.
+            XCTAssertEqual(red, 0x06 / 255, accuracy: 0.01)
+            XCTAssertEqual(green, 0x06 / 255, accuracy: 0.01)
+            XCTAssertEqual(blue, 0x0B / 255, accuracy: 0.01)
         }
+        let splash = SplashViewController()
+        splash.loadViewIfNeeded()
+        XCTAssertEqual(splash.view.backgroundColor, SacredInk.night)
     }
 
     @MainActor
-    func testFastStartupPlaysTheOriginalSplashBeforeLeaving() async throws {
+    func testFastStartupStillFliesToTheGateBeforeLeaving() async throws {
         let previousTheme = SoramitsuUI.shared.themeMode
         let previousEffects = FxPolicy.reduceEffects
+        let previousScene = SacredTenmonView.isEnabled
         defer {
             SoramitsuUI.shared.themeMode = previousTheme
             FxPolicy.reduceEffects = previousEffects
+            SacredTenmonView.isEnabled = previousScene
         }
         SoramitsuUI.shared.themeMode = .manual(.dark)
         FxPolicy.reduceEffects = false
+        // The plain flight has the same phases and times as the traced scene and needs no shader.
+        SacredTenmonView.isEnabled = false
         let controller = SplashViewController()
         let window = makeSceneHostedWindow(frame: UIScreen.main.bounds)
-        let finished = expectation(description: "Original splash finishes after fast startup")
+        let finished = expectation(description: "The flight finishes after fast startup")
         var completions = 0
         let start = CACurrentMediaTime()
         // Startup may be ready even before UIKit displays its root controller.
@@ -562,38 +568,44 @@ final class WalletUXTests: XCTestCase {
         window.rootViewController = controller
         window.makeKeyAndVisible()
         defer { window.isHidden = true }
-        let animation = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? LottieAnimationView }.first)
         try await Task.sleep(nanoseconds: 200_000_000)
-        XCTAssertTrue(animation.isAnimationPlaying)
-        XCTAssertLessThan(animation.realtimeAnimationProgress, 0.8, "Fast readiness must not skip the ring introduction")
+        let gates = try XCTUnwrap(controller.flight as? SacredGateView)
+        XCTAssertEqual(gates.phase, .intro, "Fast readiness must not skip the flight to the gate")
         XCTAssertEqual(completions, 0)
-        XCTAssertEqual(controller.view.backgroundColor, SoramitsuThemeType.light.palette.color(.bgPage),
-                       "The splash is the classic light page whatever theme was stored")
+        XCTAssertEqual(controller.view.backgroundColor, SacredInk.night,
+                       "The splash is the dark launch page whatever theme was stored")
         await fulfillment(of: [finished], timeout: 6)
-        XCTAssertGreaterThan(CACurrentMediaTime() - start, 2.5)
+        XCTAssertGreaterThan(CACurrentMediaTime() - start,
+                             SacredGateScene.introDuration + SacredGateScene.outroDuration - 0.1)
+        XCTAssertEqual(gates.phase, .arrived)
         XCTAssertEqual(completions, 1)
         controller.animate(duration: 2) { XCTFail("Duplicate readiness must not navigate twice") }
     }
 
     @MainActor
-    func testSlowStartupWaitsAtTheLogoUntilReady() async throws {
+    func testSlowStartupWaitsAtTheGateUntilReady() async throws {
         let previousEffects = FxPolicy.reduceEffects
+        let previousScene = SacredTenmonView.isEnabled
         FxPolicy.reduceEffects = false
-        defer { FxPolicy.reduceEffects = previousEffects }
+        SacredTenmonView.isEnabled = false
+        defer {
+            FxPolicy.reduceEffects = previousEffects
+            SacredTenmonView.isEnabled = previousScene
+        }
         let controller = SplashViewController()
         let window = makeSceneHostedWindow(frame: UIScreen.main.bounds)
         window.rootViewController = controller
         window.makeKeyAndVisible()
         defer { window.isHidden = true }
-        let animation = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? LottieAnimationView }.first)
-        try await Task.sleep(nanoseconds: 3_000_000_000)
-        XCTAssertEqual(animation.currentProgress, 0.8, accuracy: 0.01)
-        XCTAssertFalse(animation.isAnimationPlaying)
-        let finished = expectation(description: "Ready startup leaves the held logo")
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        let gates = try XCTUnwrap(controller.flight as? SacredGateView)
+        XCTAssertEqual(gates.phase, .holding, "It waits in front of the inner gate")
+        let finished = expectation(description: "Ready startup goes through the gate")
         let start = CACurrentMediaTime()
         controller.animate(duration: 2) { finished.fulfill() }
         await fulfillment(of: [finished], timeout: 2)
-        XCTAssertLessThan(CACurrentMediaTime() - start, 1.5, "Slow startup must not replay the introduction")
+        XCTAssertLessThan(CACurrentMediaTime() - start, 1.5, "Slow startup must not replay the flight")
+        XCTAssertEqual(gates.phase, .arrived)
     }
 
     @MainActor
@@ -632,9 +644,10 @@ final class WalletUXTests: XCTestCase {
         window.makeKeyAndVisible()
         defer { window.isHidden = true }
         controller.viewDidAppear(false)
-        let animation = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? LottieAnimationView }.first)
-        XCTAssertFalse(animation.isAnimationPlaying)
-        XCTAssertEqual(animation.currentProgress, 0.8, accuracy: 0.01)
+        // No flight: the planet stands in its ring where the flight would have set it down.
+        let still = try XCTUnwrap(controller.flight as? SacredGateView)
+        XCTAssertEqual(still.phase, .arrived)
+        XCTAssertNil(still.layer.sublayers?.first { !($0.animationKeys() ?? []).isEmpty })
         var retries = 0
         controller.showStorageSpaceRetry { retries += 1 }
         let retry = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }.first {
@@ -645,7 +658,7 @@ final class WalletUXTests: XCTestCase {
         var completions = 0
         controller.animate(duration: 2) { completions += 1 }
         XCTAssertEqual(completions, 1)
-        XCTAssertFalse(animation.isAnimationPlaying)
+        XCTAssertNil(still.layer.sublayers?.first { !($0.animationKeys() ?? []).isEmpty })
     }
 
     @MainActor

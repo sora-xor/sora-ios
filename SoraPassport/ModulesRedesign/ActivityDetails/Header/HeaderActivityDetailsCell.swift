@@ -18,6 +18,14 @@
 import SoraUIKit
 
 final class HeaderActivityDetailsCell: SoramitsuTableViewCell {
+    /// The seal the status row last showed, so a change of status can be shown as one.
+    private var shownSeal: SacredSealView.State?
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        shownSeal = nil
+    }
+
     
     private var poolDetailsItem: HeaderActivityDetailsItem?
     
@@ -225,8 +233,20 @@ extension HeaderActivityDetailsCell: SoramitsuTableViewCellProtocol {
             view.titleLabel.sora.text = detailModel.title
             view.valueLabel.sora.attributedText = detailModel.assetAmountText
             view.infoButton.sora.isHidden = detailModel.infoHandler == nil
-            view.assetImageView.isHidden = detailModel.statusAssetImage == nil
+            view.assetImageView.isHidden = detailModel.statusAssetImage == nil || detailModel.seal != nil
             view.assetImageView.image = detailModel.statusAssetImage
+            if let seal = detailModel.seal {
+                view.sealView.isHidden = false
+                // A status that changes while the screen is open is shown changing: the circle closes and
+                // the stamp comes down as the transaction settles.
+                if let shown = shownSeal, shown != seal {
+                    view.sealView.setState(shown, animated: false)
+                    DispatchQueue.main.async { [weak view] in view?.sealView.setState(seal, animated: true) }
+                } else {
+                    view.sealView.setState(seal, animated: false)
+                }
+                shownSeal = seal
+            }
             view.infoButton.sora.addHandler(for: .touchUpInside) { [weak detailModel] in
                 detailModel?.infoHandler?()
             }
