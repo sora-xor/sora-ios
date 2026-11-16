@@ -10,7 +10,7 @@ trap 'rm -rf "$WORK"' EXIT
 
 build() {
     out=$1; shift
-    xcrun clang -O2 -w "$@" \
+    xcrun clang -O2 -w -DED25519_NO_INLINE_ASM "$@" \
         -I"$SRC/sr25519lib/include/sr25519lib" -I"$SRC/sr25519lib/include" -I"$SRC/sr25519lib" \
         -I"$SRC/libed25519/include/libed25519" -I"$SRC/libed25519/iroha/include" \
         -I"$SRC/blake2lib/include/blake2lib" \
@@ -38,10 +38,10 @@ for variant in 64 32; do
     check "$old" 0 "$variant-bit: all 300 signatures made by the old binary verify"
 done
 
-xcrun clang -O2 -w -I"$SRC/sr25519lib/include" -I"$SRC/sr25519lib" "$HERE/kat.c" \
+xcrun clang -O2 -w -DED25519_NO_INLINE_ASM -I"$SRC/sr25519lib/include" -I"$SRC/sr25519lib" "$HERE/kat.c" \
     "$SRC/sr25519lib/sr25519.c" "$SRC/sr25519lib/donna/"*.c -o "$WORK/kat"
 if "$WORK/kat" > "$WORK/kat.txt"; then
-    echo "ok   $(grep -c '^PASS' "$WORK/kat.txt") known-answer tests (RFC 9496, //Alice, //Bob, rejections)"
+    echo "ok   $(grep -c '^PASS' "$WORK/kat.txt") known-answer tests (RFC 9496, //Alice, //Bob, mismatched soft derivation, rejections)"
 else
     grep -v '^PASS' "$WORK/kat.txt"; fail=1
 fi

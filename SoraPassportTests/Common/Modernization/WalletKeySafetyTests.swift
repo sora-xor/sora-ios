@@ -2322,6 +2322,39 @@ final class WalletKeySafetyTests: XCTestCase {
         XCTAssertEqual(publicChild.rawData(), child.publicKey().rawData())
     }
 
+    func testInvalidSr25519KeyMaterialThrowsInsteadOfEndingTheProcess() throws {
+        // The C library ends the process on a secret scalar that is not
+        // canonical or a public key that is not a Ristretto point. The
+        // IrohaCrypto wrappers check first and throw, as Android's JNI layer
+        // does. Before that check, every call below aborted the test process.
+        let factory = SNKeyFactory()
+        let parent = try factory.createKeypair(fromSeed: Data(repeating: 0x2a, count: 32))
+        let secret = parent.privateKey().rawData()
+        var nonCanonical = secret
+        nonCanonical[31] |= 0x80
+        let badSecret = try SNPrivateKey(rawData: nonCanonical)
+        let badPublic = try SNPublicKey(rawData: Data(repeating: 0xff, count: 32))
+        let payload = Data("payload".utf8)
+        let chaincode = Data(repeating: 7, count: 32)
+        let badPairs = [SNKeypair(privateKey: badSecret, publicKey: parent.publicKey()),
+                        SNKeypair(privateKey: parent.privateKey(), publicKey: badPublic)]
+        for pair in badPairs {
+            XCTAssertThrowsError(try SNSigner(keypair: pair).sign(payload))
+            XCTAssertThrowsError(try factory.createKeypairHard(pair, chaincode: chaincode))
+            XCTAssertThrowsError(try factory.createKeypairSoft(pair, chaincode: chaincode))
+        }
+        XCTAssertThrowsError(try factory.createPublicKeySoft(badPublic, chaincode: chaincode))
+        XCTAssertThrowsError(try badSecret.toEd25519Data())
+        // An Ed25519-form secret whose scalar divided by 8 is not below the
+        // group order cannot sign; schnorrkel 0.11 rejects it at conversion.
+        XCTAssertThrowsError(try SNPrivateKey(fromEd25519: Data(repeating: 0xff, count: 64)))
+
+        // Valid key material behaves as before.
+        XCTAssertEqual(try SNPrivateKey(fromEd25519: parent.privateKey().toEd25519Data()).rawData(), secret)
+        let signature = try SNSigner(keypair: parent).sign(payload)
+        XCTAssertTrue(SNSignatureVerifier().verify(signature, forOriginalData: payload, using: parent.publicKey()))
+    }
+
     // MARK: (l) Interrupted ordinary create or import
 
     func testInterruptedImportBeforeCoreDataIsSetAsideAndTheItemsAreAdopted() throws {

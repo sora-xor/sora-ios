@@ -1,6 +1,7 @@
 // Known-answer tests for the in-repo sr25519 sources: RFC 9496 ristretto255
 // encodings (A.1 multiples of the generator, A.2 invalid encodings), the
-// Substrate development keys, and verify() on invalid public keys.
+// Substrate development keys, soft derivation of keypairs whose stored public
+// key is not secret*B, and verify() on invalid public keys.
 #include <stdio.h>
 #include <string.h>
 #include "sr25519lib/sr25519.h"
@@ -120,6 +121,37 @@ int main(void) {
     sr25519_derive_keypair_hard(bob, kp, cc);
     unhex("8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48", want);
     check(memcmp(bob + 64, want, 32) == 0, "//Bob public key 8eaf0415...");
+
+    // Soft derivation of a keypair whose stored public key is not secret*B
+    // commits the stored key, as schnorrkel 0.9.1's Keypair::derived_key,
+    // sr25519-crust and the prebuilt library do (SOFTMM vectors of the
+    // 2026-11 review). The scalar and public key are deterministic; the
+    // nonce is random.
+    static const char *SOFT_MISMATCHED[2][4] = {
+        {"eef53b4beacc2daf6d1af9e5b7f7d8e7c5b4d48b58861a58a5b9a77fc509f60d"
+         "5f40d05e0001598398559446af20adfaaaf42aed4fa8837e4af1541fb662cc60"
+         "484869599eeee0ba621808fc4e776058509df3c42cd287862656aa3e78c35f2a",
+         "aa5c7173770f12589f5e5d040764a7aed982909e403e034f5240b345f8add706",
+         "91504b856e0f94bbdebeb58a7808da0dc3ba0afd9c310e123b2516f18a37e508",
+         "5ae1d2d160016651ff6e44b4516605d2f2505c211e33c5819d118f7cb3c13208"},
+        {"1c3ccee232db77daad6c1aa7e8ae50dc2d3f38c4b971369911cfedfe31461d09"
+         "ea542856f6fb307829debeaf1b0fb1d30f5860967a54bdbc43aa63218b379291"
+         "165ea98108a4970271776df8109e1d2c32ac6a8181dc2fad152fb3a318315a6a",
+         "7d4e1d9d0b91bda2d1af3152d57fdee68b19731468f91260c49c11422e969013",
+         "94762f90391f3e4f266498e3dc7f4b2aa15fb93236a8ae5efb5ecd4843898401",
+         "66fc64d62fff26d477493b1352e4c1045d3c0c9ce98225ef07a03d9f5c3aa85a"},
+    };
+    for (int i = 0; i < 2; i++) {
+        uint8_t pair[96], code[32], scalar[32], pub[32], child[96];
+        unhex(SOFT_MISMATCHED[i][0], pair);
+        unhex(SOFT_MISMATCHED[i][1], code);
+        unhex(SOFT_MISMATCHED[i][2], scalar);
+        unhex(SOFT_MISMATCHED[i][3], pub);
+        sr25519_derive_keypair_soft(child, pair, code);
+        char what[96];
+        snprintf(what, sizeof what, "soft derivation of mismatched keypair %d uses its stored public key", i + 1);
+        check(memcmp(child, scalar, 32) == 0 && memcmp(child + 64, pub, 32) == 0, what);
+    }
 
     // Signature malleability: s + l must be rejected; unmarked signature too.
     uint8_t sig[64], msg[5] = "hello";

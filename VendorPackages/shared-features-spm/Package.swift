@@ -78,7 +78,10 @@ let package = Package(
         ),
         .target(
             name: "sr25519lib",
-            exclude: ["README.md", "donna/LICENSE"]
+            exclude: ["README.md", "donna/LICENSE"],
+            // The portable constant-time table select, not ed25519-donna's
+            // x86-64 inline asm, whose clobber list leaves out xmm15.
+            cSettings: [.define("ED25519_NO_INLINE_ASM")]
         ),
         .target(
             name: "scrypt",

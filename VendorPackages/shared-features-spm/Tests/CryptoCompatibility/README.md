@@ -19,5 +19,7 @@ prebuilt libraries they replaced produced.
   signatures verified with the new code, and every new signature verified
   with the old library.
 - `kat.c` covers the RFC 9496 ristretto255 encodings (valid and invalid) and
-  the Substrate `//Alice` and `//Bob` keys. It also checks that verify()
-  rejects a missing marker bit, another message or another key.
+  the Substrate `//Alice` and `//Bob` keys. It checks that soft derivation of
+  a keypair whose stored public key is not secret·B uses the stored key, as
+  schnorrkel 0.9.1's `Keypair` and the old library do. It also checks that
+  verify() rejects a missing marker bit, another message or another key.
