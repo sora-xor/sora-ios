@@ -261,4 +261,30 @@ final class PrivacyDeclarationTests: XCTestCase {
             }
         }
     }
+
+    /// The backup warnings said "you will loose your wallet" (English and 23 copies) and "full
+    /// reponsibility" (14 copies of the English export warnings). Android fixed the same text.
+    func testShippedWarningsAreSpelledCorrectlyInEveryLanguage() throws {
+        let tables = Bundle.main.paths(forResourcesOfType: "lproj", inDirectory: nil)
+            .compactMap { lproj -> (String, [String: String])? in
+                let path = (lproj as NSString).appendingPathComponent("Localizable.strings")
+                guard let table = NSDictionary(contentsOfFile: path) as? [String: String] else {
+                    return nil
+                }
+                return ((lproj as NSString).lastPathComponent, table)
+            }
+        XCTAssertGreaterThan(tables.count, 20)
+        for (language, table) in tables {
+            for (key, value) in table {
+                let lowered = value.lowercased()
+                XCTAssertFalse(lowered.contains("loose your"), "\(language) \(key)")
+                XCTAssertFalse(lowered.contains("reponsibility"), "\(language) \(key)")
+            }
+        }
+        let english = try XCTUnwrap(tables.first { $0.0 == "en.lproj" }?.1)
+        XCTAssertEqual(
+            english["import.account.not.backed.up.alert.description"],
+            "If your device gets lost or stolen, you will lose your wallet and all your funds forever."
+        )
+    }
 }

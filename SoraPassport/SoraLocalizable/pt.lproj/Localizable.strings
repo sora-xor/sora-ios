@@ -627,13 +627,13 @@
 "export.protection.seed.description" = "In the next step you will see Raw Seed (a long hash) that allow you to recover an account.";
 "export.protection.json.1" = "If I lose my JSON, my funds will be lost forever.";
 "export.protection.json.2" = "If I expose or share my JSON to anybody, my funds can get stolen.";
-"export.protection.json.3" = "It is my full reponsibility to keep my JSON secure.";
+"export.protection.json.3" = "It is my full responsibility to keep my JSON secure.";
 "export.protection.passphrase.1" = "If I lose my passphrase, my funds will be lost forever.";
 "export.protection.passphrase.2" = "If I expose or share my passphrase to anybody, my funds can get stolen.";
-"export.protection.passphrase.3" = "It is my full reponsibility to keep my passphrase secure.";
+"export.protection.passphrase.3" = "It is my full responsibility to keep my passphrase secure.";
 "export.protection.seed.1" = "If I lose my raw seed, my funds will be lost forever.";
 "export.protection.seed.2" = "If I expose or share my raw seed to anybody, my funds can get stolen.";
-"export.protection.seed.3" = "It is my full reponsibility to keep my raw seed secure.";
+"export.protection.seed.3" = "It is my full responsibility to keep my raw seed secure.";
 "account.import.default.error" = "Errado";
 "common.add.liquidity" = "ADICIONAR";
 "export.json.description" = "Password is required to encrypt your account and store as Restore JSON. Please, create password to continue operation.";
@@ -822,7 +822,7 @@
 "succesfully.imported.account.title" = "You have succesfully imported an account";
 "import.more.title" = "Import more";
 "import.account.not.backed.up" = "Not backed up!";
-"import.account.not.backed.up.alert.description" = "If your device gets lost or stolen, you will loose your wallet and all your funds forever.";
+"import.account.not.backed.up.alert.description" = "If your device gets lost or stolen, you will lose your wallet and all your funds forever.";
 "import.account.not.backed.up.alert.action.title" = "I will risk it";
 "passphrase.write" = "Write down your passphrase";
 "account.options.delete.backup" = "Delete Google backup";

@@ -823,7 +823,7 @@
 "succesfully.imported.account.title" = "You have succesfully imported an account";
 "import.more.title" = "Import more";
 "import.account.not.backed.up" = "Not backed up!";
-"import.account.not.backed.up.alert.description" = "If your device gets lost or stolen, you will loose your wallet and all your funds forever.";
+"import.account.not.backed.up.alert.description" = "If your device gets lost or stolen, you will lose your wallet and all your funds forever.";
 "import.account.not.backed.up.alert.action.title" = "I will risk it";
 "passphrase.write" = "Write down your passphrase";
 "account.options.delete.backup" = "Delete Google backup";
