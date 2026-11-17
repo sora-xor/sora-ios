@@ -17,6 +17,10 @@
 
 import PackageDescription
 
+// SORA vendors only the GoogleSignIn library the app links (Google Drive
+// backups). GoogleSignInSwift, the upstream unit tests and their OCMock and
+// GoogleUtilities dependencies were removed on 2026-11-18.
+
 let googleSignInVersion = "7.1.0"
 
 let package = Package(
@@ -33,12 +37,6 @@ let package = Package(
         "GoogleSignIn",
       ]
     ),
-    .library(
-      name: "GoogleSignInSwift",
-      targets: [
-        "GoogleSignInSwift",
-      ]
-    ),
   ],
   dependencies: [
     .package(
@@ -53,14 +51,6 @@ let package = Package(
       name: "GTMSessionFetcher",
       url: "https://github.com/google/gtm-session-fetcher.git",
       .exact("3.5.0")),
-    .package(
-      name: "OCMock",
-      url: "https://github.com/firebase/ocmock.git",
-      .revision("7291762d3551c5c7e31c49cce40a0e391a52e889")),
-    .package(
-      name: "GoogleUtilities",
-      url: "https://github.com/google/GoogleUtilities.git",
-      .exact("8.1.5")),
   ],
   targets: [
     .target(
@@ -90,39 +80,6 @@ let package = Package(
         .linkedFramework("AppKit", .when(platforms: [.macOS])),
         .linkedFramework("UIKit", .when(platforms: [.iOS])),
       ]
-    ),
-    .target(
-      name: "GoogleSignInSwift",
-      dependencies: [
-        "GoogleSignIn",
-      ],
-      path: "GoogleSignInSwift/Sources",
-      resources: [
-        .copy("Resources/PrivacyInfo.xcprivacy")
-      ]
-    ),
-    .testTarget(
-      name: "GoogleSignIn-UnitTests",
-      dependencies: [
-        "GoogleSignIn",
-        "OCMock",
-        .product(name: "AppAuthCore", package: "AppAuth"),
-        .product(name: "AppAuth", package: "AppAuth"),
-        .product(name: "GTMAppAuth", package: "GTMAppAuth"),
-        .product(name: "GTMSessionFetcherCore", package: "GTMSessionFetcher"),
-        .product(name: "GULMethodSwizzler", package: "GoogleUtilities"),
-        .product(name: "GULSwizzlerTestHelpers", package: "GoogleUtilities"),
-      ],
-      path: "GoogleSignIn/Tests/Unit",
-      cSettings: [
-        .headerSearchPath("../../../"),
-        .define("GID_SDK_VERSION", to: googleSignInVersion),
-      ]
-    ),
-    .testTarget(
-      name: "GoogleSignInSwift-UnitTests",
-      dependencies: ["GoogleSignInSwift"],
-      path: "GoogleSignInSwift/Tests/Unit"
     )
   ]
 )

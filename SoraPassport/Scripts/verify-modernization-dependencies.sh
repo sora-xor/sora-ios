@@ -2068,13 +2068,13 @@ if ! /usr/bin/grep -Fq '// swift-tools-version:5.0' "${rswift_manifest}" ||
 fi
 
 if ! /usr/bin/grep -Fq '// swift-tools-version:5.6' "${google_signin_manifest}" ||
-   [ "$(/usr/bin/grep -Fc '.exact("' "${google_signin_manifest}")" != "4" ] ||
-   [ "$(/usr/bin/grep -Fc 'url: "https://' "${google_signin_manifest}")" != "5" ] ||
+   [ "$(/usr/bin/grep -Fc '.exact("' "${google_signin_manifest}")" != "3" ] ||
+   [ "$(/usr/bin/grep -Fc 'url: "https://' "${google_signin_manifest}")" != "3" ] ||
    ! /usr/bin/grep -Fq '.exact("1.7.6"))' "${google_signin_manifest}" ||
    ! /usr/bin/grep -Fq '.exact("4.1.1"))' "${google_signin_manifest}" ||
    ! /usr/bin/grep -Fq '.exact("3.5.0"))' "${google_signin_manifest}" ||
-   ! /usr/bin/grep -Fq '.exact("8.1.5"))' "${google_signin_manifest}" ||
-   ! /usr/bin/grep -Fq '.revision("7291762d3551c5c7e31c49cce40a0e391a52e889")' "${google_signin_manifest}"; then
+   /usr/bin/grep -Fq '.revision(' "${google_signin_manifest}" ||
+   /usr/bin/grep -Fq '.branch(' "${google_signin_manifest}"; then
     echo "error: vendored GoogleSignIn dependencies are not exact immutable requirements"
     exit 1
 fi
