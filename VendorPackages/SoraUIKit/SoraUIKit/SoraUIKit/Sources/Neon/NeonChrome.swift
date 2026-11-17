@@ -22,26 +22,13 @@ public enum NeonChrome {
         return false
     }
 
-    /// A chrome background: `UIGlassEffect` on iOS 26+, an ultra-thin
-    /// material with the chrome tint below, or an opaque fill when glass is
-    /// reduced. Never put one in a table or collection cell.
+    /// A chrome background: the classic design draws chrome solid (no glass,
+    /// whatever the tier). Never put one in a table or collection cell.
     public static func makeBackgroundView(tokens: NeonTokens = .current, fx: FxPolicy = .current) -> UIView {
-        if fx.opaqueGlass {
-            let view = UIView()
-            view.backgroundColor = tokens.isDark ? tokens.layer1 : tokens.surface
-            view.isUserInteractionEnabled = false
-            return view
-        }
-        let effectView = UIVisualEffectView(effect: effect(tokens: tokens))
-        effectView.isUserInteractionEnabled = false
-        if !usesLiquidGlass {
-            // Never set alpha < 1 on an effect view; tint with a subview.
-            let tint = UIView(frame: effectView.contentView.bounds)
-            tint.backgroundColor = tokens.chromeTint16
-            tint.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            effectView.contentView.addSubview(tint)
-        }
-        return effectView
+        let view = UIView()
+        view.backgroundColor = tokens.isDark ? tokens.layer1 : tokens.surface
+        view.isUserInteractionEnabled = false
+        return view
     }
 
     /// The material for custom chrome.

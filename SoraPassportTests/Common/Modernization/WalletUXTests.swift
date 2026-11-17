@@ -3143,8 +3143,6 @@ final class SoraNeonDesignTests: XCTestCase {
         XCTAssertNil(UserDefaults.standard.object(forKey: FxPolicy.reduceEffectsKey),
                      "the app's own Reduce effects preference is cleared before every test")
         XCTAssertEqual(FxPolicy.current.tier, .full)
-        // The classic design draws no glow on any tier.
-        XCTAssertFalse(FxPolicy.current.glows)
     }
 
     /// Lets pending button configuration updates and layout run.

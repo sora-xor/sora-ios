@@ -216,7 +216,7 @@ final class PortfolioSkyView: UIView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         let dark = PortfolioTheme.isDark
-        let glows = FxPolicy.current.glows
+        let glows = false
         gradient.colors = PortfolioTheme.skyColors()
         starsView.isHidden = !dark || usesLitHero
         starLayers.enumerated().forEach { index, layer in
@@ -454,7 +454,7 @@ final class PortfolioSkyView: UIView {
     private func applyHighlight(animated: Bool) {
         applyLitSegments()
         let duration = animated && !UIAccessibility.isReduceMotionEnabled ? NeonMotion.base : 0
-        let glows = FxPolicy.current.glows
+        let glows = false
         CATransaction.begin()
         CATransaction.setAnimationDuration(duration)
         CATransaction.setAnimationTimingFunction(NeonMotion.standard)
@@ -464,11 +464,11 @@ final class PortfolioSkyView: UIView {
         CATransaction.commit()
     }
 
-    /// The comet, twinkles and halo breath repeat forever, so they follow the
-    /// pulse rule: off with Reduce Motion, and off in Low Power Mode or on a
-    /// hot device (the reduced tier keeps static glows only).
+    /// The comet, twinkles and halo breath repeat forever. The classic design
+    /// runs no looping pulse at any tier (only the lit hero's comet, which
+    /// follows `FxPolicy.litMotion`).
     private var loopsAllowed: Bool {
-        FxPolicy.current.pulses
+        false
     }
 
     private func updateLoops() {
@@ -678,7 +678,7 @@ private final class PortfolioRingHalf {
             layer.insertSublayer(shape, below: pulses[0])
             return shape
         }
-        glints.forEach { $0.isHidden = !front || !FxPolicy.current.glows || segments.isEmpty }
+        glints.forEach { $0.isHidden = !front || !false || segments.isEmpty }
     }
 
     func applyHighlight(_ key: String?, duration: CFTimeInterval, glows: Bool) {

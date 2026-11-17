@@ -286,7 +286,7 @@ class WalletTableViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
         var background = tableView.style == .plain ? UIBackgroundConfiguration.listPlainCell()
                                                    : UIBackgroundConfiguration.listGroupedCell()
-        background.backgroundColor = FxPolicy.current.opaqueGlass ? WalletUX.tokens.glassSolid : WalletUX.tokens.cardFill
+        background.backgroundColor = WalletUX.tokens.glassSolid
         cell.backgroundConfiguration = background
         cell.tintColor = WalletUX.tokens.cyan
         if var content = cell.contentConfiguration as? UIListContentConfiguration {
@@ -531,30 +531,11 @@ final class WalletNeonButton: UIButton {
         layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: bounds.height / 2).cgPath
     }
 
-    /// Glow at rest (pressed while highlighted), a ring in the MINIMAL tier,
-    /// nothing in a table or collection cell (spec §4.5, §10.3).
+    /// The classic design draws no glow at any tier.
     private func applyGlow(fx: FxPolicy) {
-        guard let glowSpec, fx.glows, !neonIsInsideListCell else {
-            layer.shadowOpacity = 0
-            ring?.removeFromSuperlayer()
-            ring = nil
-            return
-        }
-        if fx.tier == .minimal {
-            layer.shadowOpacity = 0
-            let ring = self.ring ?? NeonRingLayer()
-            if self.ring == nil {
-                layer.addSublayer(ring)
-                self.ring = ring
-            }
-            ring.apply(glowSpec)
-            ring.layout(around: bounds, cornerRadius: bounds.height / 2)
-            return
-        }
+        layer.shadowOpacity = 0
         ring?.removeFromSuperlayer()
         ring = nil
-        layer.applyNeonGlow(glowSpec, path: UIBezierPath(roundedRect: bounds, cornerRadius: bounds.height / 2).cgPath,
-                            alpha: isHighlighted ? glowSpec.pressed : glowSpec.rest)
     }
 
     override func layoutSubviews() {

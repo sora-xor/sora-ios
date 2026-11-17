@@ -97,61 +97,9 @@ public final class AuroraView: UIView {
 
         gridContainer.sublayers?.forEach { $0.removeFromSuperlayer() }
         gridContainer.frame = bounds
-        if showsGrid, style == .standard, FxPolicy.current.ambientDetail {
-            gridContainer.addSublayer(gridLayer(color: tokens.gridMinor, major: false))
-            gridContainer.addSublayer(gridLayer(color: tokens.gridMajor, major: true))
-            // Static texture: rasterising once is safe and keeps scrolling cheap.
-            gridContainer.shouldRasterize = true
-            gridContainer.rasterizationScale = traitCollection.displayScale
-        }
         CATransaction.commit()
     }
 
-    /// Lines every 24 pt (major every 4th), fading radially from the top-end corner.
-    private func gridLayer(color: UIColor, major: Bool) -> CALayer {
-        let step: CGFloat = 24
-        let lines = UIBezierPath()
-        var index = 0
-        var x: CGFloat = 0
-        while x <= bounds.width {
-            if (index % 4 == 0) == major {
-                lines.move(to: CGPoint(x: x + 0.5, y: 0))
-                lines.addLine(to: CGPoint(x: x + 0.5, y: bounds.height))
-            }
-            x += step
-            index += 1
-        }
-        index = 0
-        var y: CGFloat = 0
-        while y <= bounds.height {
-            if (index % 4 == 0) == major {
-                lines.move(to: CGPoint(x: 0, y: y + 0.5))
-                lines.addLine(to: CGPoint(x: bounds.width, y: y + 0.5))
-            }
-            y += step
-            index += 1
-        }
-        let mask = CAShapeLayer()
-        mask.frame = bounds
-        mask.path = lines.cgPath
-        mask.strokeColor = UIColor.black.cgColor
-        mask.lineWidth = 1
-        mask.fillColor = nil
-
-        let fade = CAGradientLayer()
-        fade.type = .radial
-        let radius = bounds.width * 1.1
-        fade.frame = CGRect(x: bounds.width * 0.85 - radius, y: -radius, width: radius * 2, height: radius * 2)
-        fade.colors = [color.cgColor, color.withAlphaComponent(0).cgColor]
-        fade.startPoint = CGPoint(x: 0.5, y: 0.5)
-        fade.endPoint = CGPoint(x: 1, y: 1)
-
-        let holder = CALayer()
-        holder.frame = bounds
-        holder.addSublayer(fade)
-        holder.mask = mask
-        return holder
-    }
 }
 
 extension AuroraView: SoramitsuObserver {

@@ -117,30 +117,13 @@ public final class GlowHostView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// The classic design draws no glow at any tier, so the host stays dark;
+    /// the spec is kept for callers that read it back.
     public func configure(_ glow: GlowSpec?, fx: FxPolicy = .current) {
         spec = glow
-        guard let glow, fx.glows else {
-            layer.shadowOpacity = 0
-            ring?.removeFromSuperlayer()
-            ring = nil
-            return
-        }
-        if fx.tier == .minimal {
-            // Ring fallback: no blur, still a clear signal. Drawn outside the
-            // control, which sits on top of this view with the same frame.
-            layer.shadowOpacity = 0
-            let ring = self.ring ?? NeonRingLayer()
-            if self.ring == nil {
-                layer.addSublayer(ring)
-                self.ring = ring
-            }
-            ring.apply(glow)
-            setNeedsLayout()
-            return
-        }
+        layer.shadowOpacity = 0
         ring?.removeFromSuperlayer()
         ring = nil
-        layer.applyNeonGlow(glow, path: shape.path(in: bounds).cgPath)
     }
 
     public override func layoutSubviews() {
@@ -155,20 +138,6 @@ public final class GlowHostView: UIView {
         layer.cornerRadius = radius
         layer.shadowPath = shape.path(in: bounds).cgPath
         ring?.layout(around: bounds, cornerRadius: radius)
-    }
-
-    /// Finite pulse for the whitelisted CTAs only (spec §4.7.2): 3 cycles.
-    public func startPulse() {
-        guard let spec, FxPolicy.current.pulses, layer.shadowOpacity > 0 else { return }
-        let animation = CABasicAnimation(keyPath: "shadowOpacity")
-        animation.fromValue = spec.rest
-        animation.toValue = spec.peak
-        animation.duration = 1.2
-        animation.autoreverses = true
-        animation.repeatCount = 3
-        animation.timingFunction = NeonMotion.sine
-        animation.beginTime = CACurrentMediaTime() + 0.6
-        layer.add(animation, forKey: "neon.pulse")
     }
 
     public func stopPulse() {

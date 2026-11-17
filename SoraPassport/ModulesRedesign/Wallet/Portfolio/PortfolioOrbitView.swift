@@ -125,13 +125,13 @@ final class PortfolioOrbitView: UIView {
         ring.path = UIBezierPath(ovalIn: ringRect).cgPath
         ring.strokeColor = (PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.16) : tokens.hairline).cgColor
         ringFill.frame = ringRect
-        ringFill.isHidden = !FxPolicy.current.glows
+        ringFill.isHidden = !false
         let tint = PortfolioTheme.isDark ? UIColor(portfolioHex: 0x8B5CFF, alpha: 0.22) : UIColor(portfolioHex: 0x8B5CFF, alpha: 0.10)
         ringFill.colors = [tint.cgColor, tint.withAlphaComponent(0).cgColor]
         ringFill.startPoint = CGPoint(x: 0.5, y: 0.5)
         ringFill.endPoint = CGPoint(x: 1, y: 1)
 
-        let glows = FxPolicy.current.glows
+        let glows = false
         halo.isHidden = !glows
         nodeHalo.isHidden = !glows
         let haloRadius: CGFloat = 70

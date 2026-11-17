@@ -40,12 +40,6 @@ public struct FxPolicy {
 
     public var reduceMotion: Bool { UIAccessibility.isReduceMotionEnabled }
     public var highContrast: Bool { UIAccessibility.isDarkerSystemColorsEnabled }
-    /// The classic SORA design draws every surface solid, with no glow, no
-    /// looping motion and no ambient texture, whatever the tier.
-    public var opaqueGlass: Bool { true }
-    public var glows: Bool { false }
-    public var pulses: Bool { false }
-    public var ambientDetail: Bool { false }
     /// Decorative motion the lit materials may run: the hero's comet, entrances. Off under Reduce
     /// Motion, in Low Power Mode, on a hot device and under Reduce Transparency.
     public var litMotion: Bool { tier == .full && !reduceMotion }
