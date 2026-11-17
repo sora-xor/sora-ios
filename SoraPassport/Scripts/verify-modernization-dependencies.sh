@@ -1036,7 +1036,7 @@ project_local_package_count="$(
 project_vendored_local_count="$(
     /usr/bin/grep -c 'relativePath = .*VendorPackages/' "${project}"
 )"
-if [ "${project_remote_package_count}" != "12" ] ||
+if [ "${project_remote_package_count}" != "11" ] ||
    [ "${project_exact_requirement_count}" != "${project_remote_package_count}" ] ||
    [ "${project_local_package_count}" != "11" ] ||
    [ "${project_vendored_local_count}" != "${project_local_package_count}" ] ||

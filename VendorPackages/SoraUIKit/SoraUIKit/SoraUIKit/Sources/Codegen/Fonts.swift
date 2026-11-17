@@ -12,7 +12,8 @@ enum FontWeight: String, CaseIterable {
 }
 
 enum FontFamily: String, CaseIterable {
-    /// Body text. Inter 4.1 is bundled with the app under the SIL OFL 1.1.
+    /// Body text. Drawn in the system font like every family (see
+    /// `FontData.makeFont`); the unused Inter files were removed from the app.
     case text = "Inter"
     /// Display, headlines, buttons, hero numerals, PIN digits. Bundled
     /// (`Sora-*.otf`, registered through `UIAppFonts`).

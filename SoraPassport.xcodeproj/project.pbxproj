@@ -474,7 +474,6 @@
 		117C32F9ED920D01EC794255 /* RootPresenterFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EF22179B0080011250E /* RootPresenterFactory.swift */; };
 		124B1F14F5D7B0D2DC0470F7 /* RobinHood in Frameworks */ = {isa = PBXBuildFile; productRef = 22919EC5908831C3C880BD6F /* RobinHood */; };
 		12C0108A68801D300CB8DB45 /* TypeRegistryPrepared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945A56D625DE7A7D003E4023 /* TypeRegistryPrepared.swift */; };
-		12D1239E2C6D0DC1D18FECC0 /* soraSplash.json in Resources */ = {isa = PBXBuildFile; fileRef = 94DA85A9270F0B5F00CBC15E /* soraSplash.json */; };
 		131F33D297393EFFCC350284 /* WalletServiceProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364BA31F293D07360099CB0D /* WalletServiceProtocols.swift */; };
 		139AC1D3ED8A1F0BD6E4251F /* ConfirmAssetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364BB476292A3EB000DE90A6 /* ConfirmAssetView.swift */; };
 		14261DB3AEBA5BD92AF42080 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5ED216A7294886A90052C740 /* Localizable.strings */; };
@@ -1133,7 +1132,6 @@
 		408113814F162A00D0BFE032 /* Rswift in Frameworks */ = {isa = PBXBuildFile; productRef = 18F59088A40070BA478D517C /* Rswift */; };
 		4085634859AB83119289FC30 /* InvoiceLocalSearchEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FE82BA07956005A44BC /* InvoiceLocalSearchEngine.swift */; };
 		40CA42C3C9409A6DF3A64B79 /* ControllerBackedProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EFA2179D0E10011250E /* ControllerBackedProtocol.swift */; };
-		40ED20F7B32EBF0579EDA177 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = D5A3D4E660E09939EAA99FE7 /* Lottie */; };
 		40EEFB88E547BFA5ABB104A7 /* Block.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9E625C9823400775559 /* Block.swift */; };
 		41069C7C9165E96F785DC811 /* AccountConfirmInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441FB1025CAE32800775559 /* AccountConfirmInteractor.swift */; };
 		4131E289278A6ABE81248B01 /* Navigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34F8E2BA0557E005A44BC /* Navigation.swift */; };
@@ -1930,7 +1928,6 @@
 		946E57B5287E5EC300B954C0 /* FeeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946E57B4287E5EC300B954C0 /* FeeProvider.swift */; };
 		94795D442507C0AB004BC0C8 /* ModalInputPresentationExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94795D432507C0AB004BC0C8 /* ModalInputPresentationExtensions.swift */; };
 		947C155DBC5E3496D6ACB9B1 /* ChangeAccountWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B36260B296F220B007B9525 /* ChangeAccountWireframe.swift */; };
-		947C4650272C0ED400BE6967 /* soraLoader.json in Resources */ = {isa = PBXBuildFile; fileRef = 947C464F272C0ED300BE6967 /* soraLoader.json */; };
 		947E1F92268B2650006C5A70 /* ImageProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947E1F91268B264F006C5A70 /* ImageProcessing.swift */; };
 		9481B466286EFC2200A472E2 /* SpecVersionSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B45E286EFC1E00A472E2 /* SpecVersionSubscription.swift */; };
 		9481B467286EFC2200A472E2 /* ChainSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B45F286EFC1F00A472E2 /* ChainSyncService.swift */; };
@@ -2007,7 +2004,6 @@
 		94D4B66428C0B7DB007F98EB /* StorageMigrator+Sync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D4B66328C0B7DB007F98EB /* StorageMigrator+Sync.swift */; };
 		94D4B66628C0C44F007F98EB /* SnapshotHotBootBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D4B66528C0C44F007F98EB /* SnapshotHotBootBuilder.swift */; };
 		94D4B66828C0C485007F98EB /* RuntimeHotBootSnapshotFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D4B66728C0C485007F98EB /* RuntimeHotBootSnapshotFactory.swift */; };
-		94DA85AA270F0B6000CBC15E /* soraSplash.json in Resources */ = {isa = PBXBuildFile; fileRef = 94DA85A9270F0B5F00CBC15E /* soraSplash.json */; };
 		94F68B11277473CB00226F20 /* UISearchBar+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F68B10277473CB00226F20 /* UISearchBar+Style.swift */; };
 		950B9850827AAE715AD20DF6 /* AddImportedWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441FC1A25D1535A00775559 /* AddImportedWireframe.swift */; };
 		9593B3C4A6EA1E83F926448F /* AppSettingsFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 553069DF290A82CD00F265A3 /* AppSettingsFactory.swift */; };
@@ -2059,7 +2055,6 @@
 		A18E4F8B931EAD4B68D7280C /* AccountExportWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E62A31AE030047BCA2 /* AccountExportWireframe.swift */; };
 		A1A972714E775C2AB5E47CC9 /* UINavigationBar+Shadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EB777925418CB0000123B9 /* UINavigationBar+Shadow.swift */; };
 		A1B644C63C38805297450DC7 /* FriendsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02D10B6F46781199B35B755C /* FriendsWireframe.swift */; };
-		A2B805F2FE48A6B25C5F0BF5 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = E8D2B50532E8E2EBDBC77136 /* Lottie */; };
 		A37E7AC658AB27AAD6A1F291 /* WalletNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34F902BA055BC005A44BC /* WalletNavigationController.swift */; };
 		A398217F8349C005AF3CE1F3 /* TransferInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FAA2BA059D3005A44BC /* TransferInfo.swift */; };
 		A3B35D3F7E5940FDA98BE06B /* WalletNavigationBarStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34F922BA055EE005A44BC /* WalletNavigationBarStyle.swift */; };
@@ -2297,7 +2292,6 @@
 		CC8627942FB8B7F5E44ECC31 /* StorageSubscriptionProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441FBE825CC035700775559 /* StorageSubscriptionProtocols.swift */; };
 		CCFE2EEE9DE99BD7051364B5 /* WalletItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 361EF5AA2917DCA500D0DCCF /* WalletItemFactory.swift */; };
 		CD0FE336B2EDF744CCC1EFA9 /* StorageSubscriptionContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441FBE425CC035100775559 /* StorageSubscriptionContainer.swift */; };
-		CD62447E657825F28A3528A1 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = ED467EA3F5597C9AC25A4C1A /* Lottie */; };
 		CDC0C85CC6557CE2933E2D6F /* PolkaswapNetworkOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 556980BB2795D6EF0012D207 /* PolkaswapNetworkOperationFactory.swift */; };
 		4EA1016097C17395B08EC982 /* DexInfoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E034FA71154F763A8BDBC29B /* DexInfoService.swift */; };
 		CE0488572BD354FE76F23C94 /* SendAssetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363DA8082A08E15700806A5B /* SendAssetView.swift */; };
@@ -2371,13 +2365,11 @@
 		DEFD2F946CA18FC926C4B402 /* ProjectFavoriteToggleEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8409323B2341FCB40013C871 /* ProjectFavoriteToggleEvent.swift */; };
 		DF2223EAAFAE6F8791BF1226 /* DateFormatter+Common.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32C6161D222E94B00092BB86 /* DateFormatter+Common.swift */; };
 		DF565BD29F7EF8483BF6611E /* PinSetupProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362DAD8429F53283005562B0 /* PinSetupProtocol.swift */; };
-		E042C69CCDF56A88D713CA33 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = B88630892113C9A3AB888D8A /* Lottie */; };
 		E08618AE52F6CF9A696BE448 /* AppEventService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D61BC29929AE0004938FA /* AppEventService.swift */; };
 		E142753AF71998FD12EE06B9 /* AssetInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9440709826DCDB3C00666306 /* AssetInfo.swift */; };
 		E16A63786541B8296E5D1ADD /* CDChainStorageItem+CoreDataDecodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9C625C9815E00775559 /* CDChainStorageItem+CoreDataDecodable.swift */; };
 		E1780544073F8CA8B3876AA5 /* AccountConfirmProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441FB0F25CAE32700775559 /* AccountConfirmProtocols.swift */; };
 		E1B7ED2EFD028A1879AA7A9F /* AssetTransactionFee.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FB02BA05BA1005A44BC /* AssetTransactionFee.swift */; };
-		E1C1C6C062572211B1D78FE8 /* soraLoader.json in Resources */ = {isa = PBXBuildFile; fileRef = 947C464F272C0ED300BE6967 /* soraLoader.json */; };
 		E2000CA11A4D42769553662C /* ExtricsicSubmittedEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36AAB6E62AB7470200202DC8 /* ExtricsicSubmittedEvent.swift */; };
 		E20D5A50FB9B8491BF486706 /* ExtrinsicCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A0CE242B1D870500187E3C /* ExtrinsicCheck.swift */; };
 		E210B179D986C3A3719343DD /* WalletRemoteHistoryProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3001E26FB782200F239D7 /* WalletRemoteHistoryProtocols.swift */; };
@@ -2499,14 +2491,6 @@
 		FE722E12B0FD4D6837B786B9 /* SubqueryHistoryOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3657043D284643EA00B783D2 /* SubqueryHistoryOperation.swift */; };
 		FE80F1C394A9727F8CFA2708 /* SoraKeystore in Frameworks */ = {isa = PBXBuildFile; productRef = 2FFFD6AF43210B79AE7D802B /* SoraKeystore */; };
 		FF3AD4F4EC3875BF5F9135AB /* appConfig.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0208CEDB217F04D80043FCD7 /* appConfig.plist */; };
-		D78E6F60FC684AE61864AD50 /* Inter-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 39442F1B24CDF7A3ECEFEFD2 /* Inter-Regular.ttf */; };
-		843DEB673E9B89BC5DD435F9 /* Inter-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 39442F1B24CDF7A3ECEFEFD2 /* Inter-Regular.ttf */; };
-		4FCE5A2F1FE5B183371467C2 /* Inter-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F2D2C49C7A09766DE2DD1DE7 /* Inter-SemiBold.ttf */; };
-		9B7010482202132123C1B8E8 /* Inter-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F2D2C49C7A09766DE2DD1DE7 /* Inter-SemiBold.ttf */; };
-		7EB5BD4BCF3ECDADE7678620 /* Inter-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 729D25BB164AA875C0963DE1 /* Inter-Bold.ttf */; };
-		7B18837AA69BEE5AD9A28D99 /* Inter-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 729D25BB164AA875C0963DE1 /* Inter-Bold.ttf */; };
-		5AC68FE4A78F9D43A025B7ED /* Inter-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = D86E621EB87B6232EF8679DD /* Inter-LICENSE.txt */; };
-		A354FC02ECAF7D8075754793 /* Inter-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = D86E621EB87B6232EF8679DD /* Inter-LICENSE.txt */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -3808,7 +3792,6 @@
 		94653DE828870FBA00311EC7 /* MultiAddress+Query.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "MultiAddress+Query.swift"; sourceTree = "<group>"; };
 		946E57B4287E5EC300B954C0 /* FeeProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeeProvider.swift; sourceTree = "<group>"; };
 		94795D432507C0AB004BC0C8 /* ModalInputPresentationExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModalInputPresentationExtensions.swift; sourceTree = "<group>"; };
-		947C464F272C0ED300BE6967 /* soraLoader.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = soraLoader.json; sourceTree = "<group>"; };
 		947E1F91268B264F006C5A70 /* ImageProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageProcessing.swift; sourceTree = "<group>"; };
 		9481B45E286EFC1E00A472E2 /* SpecVersionSubscription.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SpecVersionSubscription.swift; sourceTree = "<group>"; };
 		9481B45F286EFC1F00A472E2 /* ChainSyncService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChainSyncService.swift; sourceTree = "<group>"; };
@@ -3884,7 +3867,6 @@
 		94D4B66328C0B7DB007F98EB /* StorageMigrator+Sync.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "StorageMigrator+Sync.swift"; sourceTree = "<group>"; };
 		94D4B66528C0C44F007F98EB /* SnapshotHotBootBuilder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SnapshotHotBootBuilder.swift; sourceTree = "<group>"; };
 		94D4B66728C0C485007F98EB /* RuntimeHotBootSnapshotFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RuntimeHotBootSnapshotFactory.swift; sourceTree = "<group>"; };
-		94DA85A9270F0B5F00CBC15E /* soraSplash.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = soraSplash.json; sourceTree = "<group>"; };
 		94F68B10277473CB00226F20 /* UISearchBar+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UISearchBar+Style.swift"; sourceTree = "<group>"; };
 		9DCBC906343F060484760364 /* AccountOptionsProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsProtocols.swift; sourceTree = "<group>"; };
 		A6A9D15582E943505D261C8C /* MainTabBarInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractor.swift; sourceTree = "<group>"; };
@@ -3956,10 +3938,6 @@
 		EC9F6901510AF8A4769C7B41 /* SoraPassportDev.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SoraPassportDev.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsViewFactory.swift; sourceTree = "<group>"; };
 		F654FC832472135F94052F7E /* NetworkAvailabilityLayerProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkAvailabilityLayerProtocols.swift; sourceTree = "<group>"; };
-		39442F1B24CDF7A3ECEFEFD2 /* Inter-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-Regular.ttf"; sourceTree = "<group>"; };
-		F2D2C49C7A09766DE2DD1DE7 /* Inter-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-SemiBold.ttf"; sourceTree = "<group>"; };
-		729D25BB164AA875C0963DE1 /* Inter-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-Bold.ttf"; sourceTree = "<group>"; };
-		D86E621EB87B6232EF8679DD /* Inter-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-LICENSE.txt"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -3987,7 +3965,6 @@
 				6908D8878403DBE7A2632058 /* Starscream in Frameworks */,
 				FB2D9C35FA6B03364A557B18 /* SwiftyBeaver in Frameworks */,
 				BC67C8889AAFCD4BD6A8C9FE /* Then in Frameworks */,
-				A2B805F2FE48A6B25C5F0BF5 /* Lottie in Frameworks */,
 				470917B9C7D57A9EED0D51C5 /* Nantes in Frameworks */,
 				16E76BA08804A88456CCE452 /* SnapKit in Frameworks */,
 				5370ADB9CDC8ECB476A58BB6 /* Rswift in Frameworks */,
@@ -4021,7 +3998,6 @@
 				B356613D26B5AA1FAD8F1A62 /* Starscream in Frameworks */,
 				A74F585A8B554F91859751D9 /* SwiftyBeaver in Frameworks */,
 				8E20360FD2391202C127E1DD /* Then in Frameworks */,
-				CD62447E657825F28A3528A1 /* Lottie in Frameworks */,
 				FDAFC4EA77B84E310F357004 /* Nantes in Frameworks */,
 				A9E24969D5F18704E7C43A4D /* SnapKit in Frameworks */,
 				C626651ED17EECE2FDAF0DE5 /* Rswift in Frameworks */,
@@ -4065,7 +4041,6 @@
 				327D1B03890056E45292F348 /* Starscream in Frameworks */,
 				7337E04ED1C194C43025C727 /* SwiftyBeaver in Frameworks */,
 				5815745D81BC72AC6DFFC149 /* Then in Frameworks */,
-				E042C69CCDF56A88D713CA33 /* Lottie in Frameworks */,
 				F51BD03B9CDF6BA96A99B49F /* Nantes in Frameworks */,
 				59C0149EE418E6CA1DC8CFB6 /* SnapKit in Frameworks */,
 				94083DA246645AFF2567224B /* FLEX in Frameworks */,
@@ -4100,7 +4075,6 @@
 				DE161B8757C1B71119E09E84 /* Starscream in Frameworks */,
 				E89EFA94833EA8604626D838 /* SwiftyBeaver in Frameworks */,
 				673F20C75AC8C6B8EC59BCFA /* Then in Frameworks */,
-				40ED20F7B32EBF0579EDA177 /* Lottie in Frameworks */,
 				CA1A3737D6E15BD60FB44160 /* Nantes in Frameworks */,
 				4370ACFF59741FC5EC0660FB /* SnapKit in Frameworks */,
 				DC89154889711C99A19790CB /* Rswift in Frameworks */,
@@ -4741,10 +4715,6 @@
 			children = (
 				A66F00012F5D000000000101 /* NotoSansEgyptianHieroglyphs-Regular.ttf */,
 				A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */,
-				39442F1B24CDF7A3ECEFEFD2 /* Inter-Regular.ttf */,
-				F2D2C49C7A09766DE2DD1DE7 /* Inter-SemiBold.ttf */,
-				729D25BB164AA875C0963DE1 /* Inter-Bold.ttf */,
-				D86E621EB87B6232EF8679DD /* Inter-LICENSE.txt */,
 				55A85FEB27628BD300A6C6AC /* Sora-Light.otf */,
 				84FA009F226A1D57005DA950 /* sora-Bold.otf */,
 				84FA009D226A1D57005DA950 /* sora-ExtraBold.otf */,
@@ -4925,7 +4895,6 @@
 		02CFE82C218B3EF60032259A /* Animation */ = {
 			isa = PBXGroup;
 			children = (
-				947C464F272C0ED300BE6967 /* soraLoader.json */,
 				02CFE82D218B3F310032259A /* RootControllerAnimationCoordinator.swift */,
 			);
 			path = Animation;
@@ -7148,7 +7117,6 @@
 			isa = PBXGroup;
 			children = (
 				94960C8325AF32A40072379D /* LaunchScreen.xib */,
-				94DA85A9270F0B5F00CBC15E /* soraSplash.json */,
 				94960C8525AF41FB0072379D /* SplashPresenter.swift */,
 				943712FC26C28C4D00BBE2CD /* SplashViewController.swift */,
 				9437130226C28DA800BBE2CD /* SplashInteractor.swift */,
@@ -7499,7 +7467,6 @@
 				E8858BBEAB92EECD0E628B34 /* Starscream */,
 				DB2E54768CEB5CD794CA198C /* SwiftyBeaver */,
 				C0002C51E601E713E29DBAFD /* Then */,
-				E8D2B50532E8E2EBDBC77136 /* Lottie */,
 				58883BAD0A6BB57B3A19164E /* Nantes */,
 				9A099EF5C37C027FFB73219A /* SnapKit */,
 				324F8B6E84FBAD847E5D46FD /* Rswift */,
@@ -7546,7 +7513,6 @@
 				11A72198A6A877678A68CF40 /* Starscream */,
 				8E1BC7ACE03CA75FF0557D79 /* SwiftyBeaver */,
 				7C5B6902B522C2F32E92466E /* Then */,
-				ED467EA3F5597C9AC25A4C1A /* Lottie */,
 				7D7A33DC65DACD4091BDCCC4 /* Nantes */,
 				95BF0507DF2A639FB3BC813D /* SnapKit */,
 				3192E5B7B594233B555187CB /* Rswift */,
@@ -7612,7 +7578,6 @@
 				614A9425263D85BD29F57F8B /* Starscream */,
 				6D69ACB3F9FCD7DFCA20A244 /* SwiftyBeaver */,
 				7D3D21B67075A6A98780D210 /* Then */,
-				D5A3D4E660E09939EAA99FE7 /* Lottie */,
 				BFFCD3891E50ACFF2D3BAD85 /* Nantes */,
 				E19BA4E663507E7197AD870C /* SnapKit */,
 				087F34FBC8179DCE37FCF6CC /* Rswift */,
@@ -7661,7 +7626,6 @@
 				65D72B5BCB0A03340F9A4A7E /* Starscream */,
 				3FE2187DADE60349516C6774 /* SwiftyBeaver */,
 				F341D2F2B3976CCD74601B94 /* Then */,
-				B88630892113C9A3AB888D8A /* Lottie */,
 				0D0CE5B854D8A0FADAE5AD55 /* Nantes */,
 				396087DC619BBC1CFBF95805 /* SnapKit */,
 				18F59088A40070BA478D517C /* Rswift */,
@@ -7782,7 +7746,6 @@
 				3A88E0425D19F5A82627748F /* XCLocalSwiftPackageReference "fearless-starscream" */,
 				6BC235F778D917FA997250D0 /* XCRemoteSwiftPackageReference "SwiftyBeaver" */,
 				8DB9CFBE23A428AD08D9B430 /* XCRemoteSwiftPackageReference "Then" */,
-				AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */,
 				52A0155256AFC2CA527689B6 /* XCRemoteSwiftPackageReference "Nantes" */,
 				5042D9A859C7F367351B3D59 /* XCRemoteSwiftPackageReference "SnapKit" */,
 				B78E6CE55B4DCDD6AE3EDE86 /* XCRemoteSwiftPackageReference "FLEX" */,
@@ -7825,16 +7788,10 @@
 				5ED216D7294886AA0052C740 /* Localizable.strings in Resources */,
 				5ED216D9294886AA0052C740 /* Localizable.stringsdict in Resources */,
 				02623EC02178C0930011250E /* Assets.xcassets in Resources */,
-				D78E6F60FC684AE61864AD50 /* Inter-Regular.ttf in Resources */,
-				4FCE5A2F1FE5B183371467C2 /* Inter-SemiBold.ttf in Resources */,
-				7EB5BD4BCF3ECDADE7678620 /* Inter-Bold.ttf in Resources */,
-				5AC68FE4A78F9D43A025B7ED /* Inter-LICENSE.txt in Resources */,
 				55A85FEC27628CFF00A6C6AC /* Sora-Light.otf in Resources */,
 				5ED216E0294888090052C740 /* runtime-polkadot.json in Resources */,
 				0208CEDC217F04D80043FCD7 /* appConfig.plist in Resources */,
 				94960C8425AF32A50072379D /* LaunchScreen.xib in Resources */,
-				94DA85AA270F0B6000CBC15E /* soraSplash.json in Resources */,
-				947C4650272C0ED400BE6967 /* soraLoader.json in Resources */,
 				04986BEFB824A5BFA5F801A6 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -7883,16 +7840,10 @@
 				14261DB3AEBA5BD92AF42080 /* Localizable.strings in Resources */,
 				913A53EEA71B1D993B161ACB /* Localizable.stringsdict in Resources */,
 				44F4D3475AE4C0CDCB0B2C52 /* Assets.xcassets in Resources */,
-				843DEB673E9B89BC5DD435F9 /* Inter-Regular.ttf in Resources */,
-				9B7010482202132123C1B8E8 /* Inter-SemiBold.ttf in Resources */,
-				7B18837AA69BEE5AD9A28D99 /* Inter-Bold.ttf in Resources */,
-				A354FC02ECAF7D8075754793 /* Inter-LICENSE.txt in Resources */,
 				E35B378368A7CC9F4980F50B /* Sora-Light.otf in Resources */,
 				2AC120A9ADFDE0075F86E3FF /* runtime-polkadot.json in Resources */,
 				FF3AD4F4EC3875BF5F9135AB /* appConfig.plist in Resources */,
 				5BADFA40B83FD1CCC6839A96 /* LaunchScreen.xib in Resources */,
-				12D1239E2C6D0DC1D18FECC0 /* soraSplash.json in Resources */,
-				E1C1C6C062572211B1D78FE8 /* soraLoader.json in Resources */,
 				F9080187F00E03BDE6ED47C7 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -11724,14 +11675,6 @@
 				version = 7.12.0;
 			};
 		};
-		AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/airbnb/lottie-ios.git";
-			requirement = {
-				kind = exactVersion;
-				version = 4.4.3;
-			};
-		};
 		B78E6CE55B4DCDD6AE3EDE86 /* XCRemoteSwiftPackageReference "FLEX" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/FLEXTool/FLEX.git";
@@ -12115,11 +12058,6 @@
 			package = 5FDAF7C5BD3FA665FAD6EBEC /* XCLocalSwiftPackageReference "SoraFoundation" */;
 			productName = SoraFoundation;
 		};
-		B88630892113C9A3AB888D8A /* Lottie */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */;
-			productName = Lottie;
-		};
 		BA7BE8650BE6E7E69BA08A1C /* Reachability */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = ECCF9F0190BEFF028BFBEDC5 /* XCRemoteSwiftPackageReference "Reachability.swift" */;
@@ -12195,11 +12133,6 @@
 			package = 14D2D31BA68E53309B71377E /* XCLocalSwiftPackageReference "google-api-objectivec-client-for-rest" */;
 			productName = GoogleAPIClientForREST_Drive;
 		};
-		D5A3D4E660E09939EAA99FE7 /* Lottie */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */;
-			productName = Lottie;
-		};
 		D70A19141DEC4CC73943E383 /* SoraUIKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 5839749B2E77D80750D70109 /* XCLocalSwiftPackageReference "SoraUIKit" */;
@@ -12239,16 +12172,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 3A88E0425D19F5A82627748F /* XCLocalSwiftPackageReference "fearless-starscream" */;
 			productName = Starscream;
-		};
-		E8D2B50532E8E2EBDBC77136 /* Lottie */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */;
-			productName = Lottie;
-		};
-		ED467EA3F5597C9AC25A4C1A /* Lottie */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */;
-			productName = Lottie;
 		};
 		EE4803001A8597D8059DB25F /* SSFSingleValueCache */ = {
 			isa = XCSwiftPackageProductDependency;
