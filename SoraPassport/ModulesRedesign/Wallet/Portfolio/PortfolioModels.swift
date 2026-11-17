@@ -72,8 +72,10 @@ struct PortfolioHolding: Hashable {
     let amount: Decimal
     /// The part that can move now.
     let transferable: Decimal
-    /// Hidden by the wallet's own asset visibility settings.
+    /// Hidden by the wallet's own asset visibility settings, or by the Polkaswap token blacklist.
     let isHidden: Bool
+    /// Hidden because the token is on the Polkaswap token blacklist (`isHidden` is set too).
+    var isBlacklisted = false
 
     var id: String { "\(walletId)|\(network.rawValue)|\(token.id)" }
 

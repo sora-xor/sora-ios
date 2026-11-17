@@ -285,6 +285,7 @@
 		1A4D0E010000000000000003 /* PIIndexerFixtures in Resources */ = {isa = PBXBuildFile; fileRef = 1A4D0E010000000000000004 /* PIIndexerFixtures */; };
 		57E01641FD61545FE1281BCE /* DexInfoServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B827C0EEAE933BF7A19F26CF /* DexInfoServiceTests.swift */; };
 		21A02DD6A1A781C91C176F50 /* AssetWhitelistTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */; };
+		671DBC786D1AA15571155B28 /* AssetBlacklistTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C9FA8EA9CFE9F9E5598DE26 /* AssetBlacklistTests.swift */; };
 		1B1A57A27F00000000000001 /* StartupNetworkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B1A57A27F00000000000002 /* StartupNetworkTests.swift */; };
 		1324FAF556DDEB75C48678C3 /* SubstrateStoreMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */; };
 		C3000003000000000000000A /* Sora2MainnetLiveSigningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */; };
@@ -459,6 +460,7 @@
 		104BD29F25694381007719DF /* Localizable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 104BD29E25694381007719DF /* Localizable.swift */; };
 		106D88BC8676472DF46C0CE2 /* InputRewardAmountInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364AD3AC286A243D000DBDFB /* InputRewardAmountInteractor.swift */; };
 		107262EA8CF3ED7F2E410208 /* whitelist.json in Resources */ = {isa = PBXBuildFile; fileRef = 5ED216DD294888090052C740 /* whitelist.json */; };
+		896F0AFFA745B7B467D9D07F /* blacklist.json in Resources */ = {isa = PBXBuildFile; fileRef = 6E39E08186F7213F0784D6E1 /* blacklist.json */; };
 		107672B1DFA67F0506A4953E /* ExploreFarmItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364E6E882B1C88F600002EE3 /* ExploreFarmItem.swift */; };
 		107A6AA9EBD3A44E86AB8F73 /* EditViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DAA2A7A5A1800B16F8A /* EditViewModel.swift */; };
 		108A0500254994A5007F992D /* UIView+Empty.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108A04FF254994A5007F992D /* UIView+Empty.swift */; };
@@ -1342,6 +1344,7 @@
 		5ED216DF294888090052C740 /* runtime-default.json in Resources */ = {isa = PBXBuildFile; fileRef = 5ED216DB294888090052C740 /* runtime-default.json */; };
 		5ED216E0294888090052C740 /* runtime-polkadot.json in Resources */ = {isa = PBXBuildFile; fileRef = 5ED216DC294888090052C740 /* runtime-polkadot.json */; };
 		5ED216E1294888090052C740 /* whitelist.json in Resources */ = {isa = PBXBuildFile; fileRef = 5ED216DD294888090052C740 /* whitelist.json */; };
+		1A4CD9E4B2747CE16611F8EE /* blacklist.json in Resources */ = {isa = PBXBuildFile; fileRef = 6E39E08186F7213F0784D6E1 /* blacklist.json */; };
 		5ED216F22948892D0052C740 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5ED216E22948892C0052C740 /* InfoPlist.strings */; };
 		5F5231E3D61B5F8E00B75113 /* ExploreFarmViewModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364E6E852B1C88F600002EE3 /* ExploreFarmViewModelService.swift */; };
 		5F6C79DE42A0EEBEC353CCB2 /* Amount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 361EF5952915229A00D0DCCF /* Amount.swift */; };
@@ -1454,6 +1457,7 @@
 		7281B5789FCD693829CEB363 /* SoramitsuNumpadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36AC2EE02979B26D00AD7732 /* SoramitsuNumpadView.swift */; };
 		7323E91D91D7445094E09248 /* ChainSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B45F286EFC1F00A472E2 /* ChainSyncService.swift */; };
 		743CD907C09DE1702DFBE92F /* AssetWhitelist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9B75F4EFF0ADF3CE9007A3 /* AssetWhitelist.swift */; };
+		D08728467F06AD26DC9B0907 /* AssetBlacklist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DDD9F7CF68804A525C4902 /* AssetBlacklist.swift */; };
 		7331FC531831355C7A95758E /* RedesignWalletViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 361EF59F29155DC000D0DCCF /* RedesignWalletViewFactory.swift */; };
 		7337E04ED1C194C43025C727 /* SwiftyBeaver in Frameworks */ = {isa = PBXBuildFile; productRef = 3FE2187DADE60349516C6774 /* SwiftyBeaver */; };
 		7390B9A7C342C6D23BC29F1D /* BalanceData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34F9A2BA056FB005A44BC /* BalanceData.swift */; };
@@ -1932,6 +1936,7 @@
 		9481B466286EFC2200A472E2 /* SpecVersionSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B45E286EFC1E00A472E2 /* SpecVersionSubscription.swift */; };
 		9481B467286EFC2200A472E2 /* ChainSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B45F286EFC1F00A472E2 /* ChainSyncService.swift */; };
 		5F5945137FD17E482F41767E /* AssetWhitelist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9B75F4EFF0ADF3CE9007A3 /* AssetWhitelist.swift */; };
+		8466D6317859F87FC795B3FB /* AssetBlacklist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DDD9F7CF68804A525C4902 /* AssetBlacklist.swift */; };
 		9481B468286EFC2200A472E2 /* ChainRegistryFacade.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B460286EFC2000A472E2 /* ChainRegistryFacade.swift */; };
 		9481B469286EFC2200A472E2 /* SpecVersionSubscriptionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B461286EFC2000A472E2 /* SpecVersionSubscriptionFactory.swift */; };
 		9481B46A286EFC2200A472E2 /* RuntimeFilesOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B462286EFC2000A472E2 /* RuntimeFilesOperationFactory.swift */; };
@@ -2749,6 +2754,7 @@
 		1A4D0E010000000000000004 /* PIIndexerFixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; path = PIIndexerFixtures; sourceTree = "<group>"; };
 		B827C0EEAE933BF7A19F26CF /* DexInfoServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DexInfoServiceTests.swift; sourceTree = "<group>"; };
 		E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetWhitelistTests.swift; sourceTree = "<group>"; };
+		4C9FA8EA9CFE9F9E5598DE26 /* AssetBlacklistTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetBlacklistTests.swift; sourceTree = "<group>"; };
 		1B1A57A27F00000000000002 /* StartupNetworkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupNetworkTests.swift; sourceTree = "<group>"; };
 		238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubstrateStoreMigrationTests.swift; sourceTree = "<group>"; };
 		C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sora2MainnetLiveSigningTests.swift; sourceTree = "<group>"; };
@@ -3454,6 +3460,7 @@
 		5ED216DB294888090052C740 /* runtime-default.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = "runtime-default.json"; sourceTree = "<group>"; };
 		5ED216DC294888090052C740 /* runtime-polkadot.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = "runtime-polkadot.json"; sourceTree = "<group>"; };
 		5ED216DD294888090052C740 /* whitelist.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = whitelist.json; sourceTree = "<group>"; };
+		6E39E08186F7213F0784D6E1 /* blacklist.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = blacklist.json; sourceTree = "<group>"; };
 		5ED216E32948892C0052C740 /* id */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = id; path = id.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		5ED216E42948892C0052C740 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		5ED216E52948892C0052C740 /* de-DE */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "de-DE"; path = "de-DE.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
@@ -3796,6 +3803,7 @@
 		9481B45E286EFC1E00A472E2 /* SpecVersionSubscription.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SpecVersionSubscription.swift; sourceTree = "<group>"; };
 		9481B45F286EFC1F00A472E2 /* ChainSyncService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChainSyncService.swift; sourceTree = "<group>"; };
 		9A9B75F4EFF0ADF3CE9007A3 /* AssetWhitelist.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AssetWhitelist.swift; sourceTree = "<group>"; };
+		36DDD9F7CF68804A525C4902 /* AssetBlacklist.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AssetBlacklist.swift; sourceTree = "<group>"; };
 		9481B460286EFC2000A472E2 /* ChainRegistryFacade.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChainRegistryFacade.swift; sourceTree = "<group>"; };
 		9481B461286EFC2000A472E2 /* SpecVersionSubscriptionFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SpecVersionSubscriptionFactory.swift; sourceTree = "<group>"; };
 		9481B462286EFC2000A472E2 /* RuntimeFilesOperationFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RuntimeFilesOperationFactory.swift; sourceTree = "<group>"; };
@@ -4348,6 +4356,7 @@
 				1A4D0E010000000000000004 /* PIIndexerFixtures */,
 				CD1012269012000000000011 /* HistoricalCrypto */,
 				B827C0EEAE933BF7A19F26CF /* DexInfoServiceTests.swift */,
+				4C9FA8EA9CFE9F9E5598DE26 /* AssetBlacklistTests.swift */,
 				E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */,
 				1B1A57A27F00000000000002 /* StartupNetworkTests.swift */,
 				238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */,
@@ -7142,6 +7151,7 @@
 				5ED216DB294888090052C740 /* runtime-default.json */,
 				5ED216DC294888090052C740 /* runtime-polkadot.json */,
 				5ED216DA294888090052C740 /* runtime-sora.json */,
+				6E39E08186F7213F0784D6E1 /* blacklist.json */,
 				5ED216DD294888090052C740 /* whitelist.json */,
 			);
 			path = Resources;
@@ -7182,6 +7192,7 @@
 				9481B460286EFC2000A472E2 /* ChainRegistryFacade.swift */,
 				9481B464286EFC2100A472E2 /* ChainRegistryFactory.swift */,
 				9481B45F286EFC1F00A472E2 /* ChainSyncService.swift */,
+				36DDD9F7CF68804A525C4902 /* AssetBlacklist.swift */,
 				9A9B75F4EFF0ADF3CE9007A3 /* AssetWhitelist.swift */,
 				9481B462286EFC2000A472E2 /* RuntimeFilesOperationFactory.swift */,
 				9481B45E286EFC1E00A472E2 /* SpecVersionSubscription.swift */,
@@ -7781,6 +7792,7 @@
 				84FA00A1226A1D57005DA950 /* sora-ExtraBold.otf in Resources */,
 				84FA00A2226A1D57005DA950 /* sora-SemiBold.otf in Resources */,
 				5ED216E1294888090052C740 /* whitelist.json in Resources */,
+				1A4CD9E4B2747CE16611F8EE /* blacklist.json in Resources */,
 				84FA00A3226A1D57005DA950 /* sora-Bold.otf in Resources */,
 				5ED216DF294888090052C740 /* runtime-default.json in Resources */,
 				5ED216F22948892D0052C740 /* InfoPlist.strings in Resources */,
@@ -7833,6 +7845,7 @@
 				1D2E863FA0F938D00511D1CF /* sora-ExtraBold.otf in Resources */,
 				3345BC8DE12AED181B21BD0E /* sora-SemiBold.otf in Resources */,
 				107262EA8CF3ED7F2E410208 /* whitelist.json in Resources */,
+				896F0AFFA745B7B467D9D07F /* blacklist.json in Resources */,
 				0FBAF3138B04646919D430A3 /* sora-Bold.otf in Resources */,
 				0469434EC855F2A7DBFB019C /* runtime-default.json in Resources */,
 				63061B5B7FDE478A72EE883F /* InfoPlist.strings in Resources */,
@@ -8096,6 +8109,7 @@
 				364D64C32A96191400072106 /* Sequence+Async.swift in Sources */,
 				9481B467286EFC2200A472E2 /* ChainSyncService.swift in Sources */,
 				5F5945137FD17E482F41767E /* AssetWhitelist.swift in Sources */,
+				8466D6317859F87FC795B3FB /* AssetBlacklist.swift in Sources */,
 				9441FBF125CC035700775559 /* StorageSubscriptionProtocols.swift in Sources */,
 				5599B6D1292570ED00567396 /* SettingsInformationFactory.swift in Sources */,
 				364526B128C4D13400260340 /* SelectedNodeChangedEvent.swift in Sources */,
@@ -9265,6 +9279,7 @@
 				1A4D0E010000000000000001 /* PIIndexerLiveContractTests.swift in Sources */,
 				57E01641FD61545FE1281BCE /* DexInfoServiceTests.swift in Sources */,
 				21A02DD6A1A781C91C176F50 /* AssetWhitelistTests.swift in Sources */,
+				671DBC786D1AA15571155B28 /* AssetBlacklistTests.swift in Sources */,
 				1B1A57A27F00000000000001 /* StartupNetworkTests.swift in Sources */,
 				1324FAF556DDEB75C48678C3 /* SubstrateStoreMigrationTests.swift in Sources */,
 				C3000003000000000000000A /* Sora2MainnetLiveSigningTests.swift in Sources */,
@@ -9418,6 +9433,7 @@
 				C1E68DAE704BB0288B839B2E /* Sequence+Async.swift in Sources */,
 				7323E91D91D7445094E09248 /* ChainSyncService.swift in Sources */,
 				743CD907C09DE1702DFBE92F /* AssetWhitelist.swift in Sources */,
+				D08728467F06AD26DC9B0907 /* AssetBlacklist.swift in Sources */,
 				CC8627942FB8B7F5E44ECC31 /* StorageSubscriptionProtocols.swift in Sources */,
 				1B7E0644FE89206A95BB4BF5 /* SettingsInformationFactory.swift in Sources */,
 				8499A7B04FD6675ADB8EEED6 /* SelectedNodeChangedEvent.swift in Sources */,

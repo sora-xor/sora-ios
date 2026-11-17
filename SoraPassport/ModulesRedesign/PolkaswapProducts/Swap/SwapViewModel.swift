@@ -218,6 +218,8 @@ final class SwapViewModel {
     private weak var assetsProvider: AssetProviderProtocol?
     private var lpServiceFee: LPFeeServiceProtocol
     private let marketCapService: MarketCapServiceProtocol
+    /// The token pickers leave out tokens on the Polkaswap token blacklist.
+    var assetBlacklist: AssetBlacklistStoring = AssetBlacklistStore.shared
     
     private var warningViewModelFactory: WarningViewModelFactory
     private var warningViewModel: WarningViewModel? {
@@ -390,7 +392,7 @@ extension SwapViewModel: LiquidityViewModelProtocol {
                                        fiatService: fiatService,
                                        assetViewModelFactory: factory,
                                        assetsProvider: assetsProvider,
-                                       assetIds: assets.map { $0.identifier },
+                                       assetIds: assetBlacklist.current().pickable(assets.map { $0.identifier }),
                                        marketCapService: marketCapService) { [weak self] assetId in
             self?.firstAssetId = assetId
         }
@@ -410,7 +412,7 @@ extension SwapViewModel: LiquidityViewModelProtocol {
                                        fiatService: fiatService,
                                        assetViewModelFactory: factory,
                                        assetsProvider: assetsProvider,
-                                       assetIds: assets.map { $0.identifier },
+                                       assetIds: assetBlacklist.current().pickable(assets.map { $0.identifier }),
                                        marketCapService: marketCapService) { [weak self] assetId in
             self?.secondAssetId = assetId
         }

@@ -163,6 +163,27 @@ final class ProductListBehaviorTests: XCTestCase {
         model.mode = .edit; model.mode = .view
         XCTAssertEqual(manager.saved.last?.first { $0.identifier == manager.assets[2].identifier }?.visible, true)
     }
+    func testManagedListKeepsAHeldBlacklistedAssetMarkedHiddenAndDropsAnUnheldOne() async throws {
+        let val = manager.assets[1].identifier, zero = manager.assets[2].identifier
+        provider.balances = [BalanceData(identifier: val, balance: AmountDecimal(value: 3)),
+                             BalanceData(identifier: zero, balance: AmountDecimal(value: 0))]
+        let model = manage()
+        model.assetBlacklist = FixedAssetBlacklist(AssetBlacklist(assetIds: [val, zero], source: .remote))
+        model.processBalance(data: provider.balances)
+        for _ in 0..<100 where model.assetItems.isEmpty { try? await Task.sleep(nanoseconds: 10_000_000) }
+        XCTAssertEqual(model.assetItems.map(\.assetInfo.identifier), [val])
+        XCTAssertEqual(identifiers, [val], "the held token is listed, not behind the zero-balance toggle")
+        let row = try XCTUnwrap(model.assetItems.first)
+        XCTAssertTrue(row.isHiddenByBlacklist); XCTAssertFalse(row.canFavorite)
+        XCTAssertTrue(row.assetViewModel.subtitle.hasSuffix(AssetBlacklist.hiddenNote))
+        model.isActiveSearch = true; model.searchText = "ZERO"
+        XCTAssertTrue(identifiers.isEmpty, "an unheld blacklisted token cannot be found by search")
+        model.isActiveSearch = false; model.searchText = ""
+        model.mode = .edit; model.mode = .view
+        let saved = try XCTUnwrap(manager.saved.last)
+        XCTAssertEqual(Set(saved.map(\.identifier)), Set(manager.assets.map(\.identifier)), "every asset is kept")
+        XCTAssertEqual(saved.first { $0.identifier == val }?.visible, true, "the saved choice is not changed")
+    }
     private func poolModel() -> (PoolListViewModel, ProductPools) {
         let network = WalletNetworkOperationFactoryProtocolMock(); let pools = ProductPools()
         let model = PoolListViewModel(poolsService: pools, assetManager: manager, fiatService: fiat,

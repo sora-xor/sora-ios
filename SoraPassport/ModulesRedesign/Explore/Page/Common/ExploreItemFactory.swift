@@ -25,6 +25,8 @@ import IrohaCrypto
 final class ExploreItemFactory {
     let assetManager: AssetManagerProtocol
     let localizationManager = LocalizationManager.shared
+    /// Explore does not list tokens on the Polkaswap token blacklist.
+    var assetBlacklist: AssetBlacklistStoring = AssetBlacklistStore.shared
 
     init(assetManager: AssetManagerProtocol) {
         self.assetManager = assetManager
@@ -39,7 +41,8 @@ extension ExploreItemFactory {
         deltaPrice: LoadingState<SoramitsuAttributedText?>,
         marketCap: LoadingState<String>
     ) -> ExploreAssetViewModel? {
-        guard let assetInfo = assetManager.assetInfo(for: assetId) else { return nil }
+        guard let assetInfo = assetManager.assetInfo(for: assetId),
+              !assetBlacklist.current().hides(assetId: assetId) else { return nil }
         
         let fiatText = price.priceText()
         

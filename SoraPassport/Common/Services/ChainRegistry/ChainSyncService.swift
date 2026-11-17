@@ -92,12 +92,15 @@ final class ChainSyncService {
 
     let typesUrl: URL?
     let assetsUrl: URL?
+    /// The Polkaswap token blacklist, fetched with the whitelist. `nil`: not fetched.
+    let blacklistUrl: URL?
     let repository: AnyDataProviderRepository<ChainModel>
     let dataFetchFactory: DataOperationFactoryProtocol
     let eventCenter: EventCenterProtocol
     let retryStrategy: ReconnectionStrategyProtocol
     let operationQueue: OperationQueue
     let whitelistStore: AssetWhitelistStoring
+    let blacklistStore: AssetBlacklistStoring
     let storeRepair: ChainStoreRepairing?
     let logger: LoggerProtocol?
 
@@ -126,17 +129,21 @@ final class ChainSyncService {
         operationQueue: OperationQueue,
         retryStrategy: ReconnectionStrategyProtocol = ExponentialReconnection(),
         whitelistStore: AssetWhitelistStoring = AssetWhitelistStore.shared,
+        blacklistUrl: URL? = nil,
+        blacklistStore: AssetBlacklistStoring = AssetBlacklistStore.shared,
         storeRepair: ChainStoreRepairing? = nil,
         logger: LoggerProtocol? = nil
     ) {
         self.typesUrl = typesUrl
         self.assetsUrl = assetsUrl
+        self.blacklistUrl = blacklistUrl
         self.dataFetchFactory = dataFetchFactory
         self.repository = repository
         self.eventCenter = eventCenter
         self.operationQueue = operationQueue
         self.retryStrategy = retryStrategy
         self.whitelistStore = whitelistStore
+        self.blacklistStore = blacklistStore
         self.storeRepair = storeRepair
         self.logger = logger
     }
@@ -298,6 +305,8 @@ final class ChainSyncService {
         }
         mutex.unlock()
 
+        beginBlacklistRefresh()
+
         let operation = dataFetchFactory.fetchData(from: url)
         operation.completionBlock = { [weak self] in
             guard let self = self else { return }
@@ -312,6 +321,24 @@ final class ChainSyncService {
             } else {
                 self.complete(result: bootstrapResult)
             }
+        }
+        operationQueue.addOperation(operation)
+    }
+
+    /// Fetches the token blacklist alongside the whitelist. It decides what lists show, not
+    /// what the chain store keeps, so no pass waits for it. Without a usable answer the last
+    /// good (or bundled) list stays in force.
+    private func beginBlacklistRefresh() {
+        guard let blacklistUrl else {
+            return
+        }
+        let operation = dataFetchFactory.fetchData(from: blacklistUrl)
+        operation.completionBlock = { [blacklistStore, logger] in
+            guard let data = try? operation.extractNoCancellableResultData() else {
+                logger?.debug("Asset blacklist: no answer; keeping the last good list")
+                return
+            }
+            _ = blacklistStore.acceptRemote(data)
         }
         operationQueue.addOperation(operation)
     }

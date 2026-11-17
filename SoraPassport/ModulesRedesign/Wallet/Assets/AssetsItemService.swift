@@ -38,6 +38,7 @@ final class AssetsItemService {
     var fiatService: FiatServiceProtocol?
     let assetViewModelsFactory: AssetViewModelFactory
     private let priceInfoService: PriceInfoServiceProtocol
+    private let assetBlacklist: AssetBlacklistStoring
     var priceInfo: PriceInfo?
     var assetManager: AssetManagerProtocol
     var updateHandler: (() -> Void)?
@@ -61,6 +62,7 @@ final class AssetsItemService {
     private var priceRetry: Task<Void, Never>?
     private var priceFailures = 0
     private var pricesObserver: NSObjectProtocol?
+    private var blacklistObserver: NSObjectProtocol?
     private var valuationID = UUID()
 
     /// A retry is waiting to run. For tests.
@@ -75,6 +77,9 @@ final class AssetsItemService {
         if let pricesObserver {
             NotificationCenter.default.removeObserver(pricesObserver)
         }
+        if let blacklistObserver {
+            NotificationCenter.default.removeObserver(blacklistObserver)
+        }
     }
 
     init(
@@ -83,7 +88,8 @@ final class AssetsItemService {
         assetViewModelsFactory: AssetViewModelFactory,
         assetManager: AssetManagerProtocol,
         assetProvider: AssetProviderProtocol,
-        priceInfoService: PriceInfoServiceProtocol = PriceInfoService.shared
+        priceInfoService: PriceInfoServiceProtocol = PriceInfoService.shared,
+        assetBlacklist: AssetBlacklistStoring = AssetBlacklistStore.shared
     ) {
         self.assetProvider = assetProvider
         self.marketCapService = marketCapService
@@ -91,10 +97,19 @@ final class AssetsItemService {
         self.assetViewModelsFactory = assetViewModelsFactory
         self.assetManager = assetManager
         self.priceInfoService = priceInfoService
+        self.assetBlacklist = assetBlacklist
         // Prices were refreshed in the background, or the app came back to
         // the foreground: value the wallet again.
         pricesObserver = NotificationCenter.default.addObserver(
             forName: PICatalogs.pricesDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.setup()
+        }
+        // A new token blacklist arrived: the card lists other assets.
+        blacklistObserver = NotificationCenter.default.addObserver(
+            forName: AssetBlacklistStore.didChange,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -107,8 +122,13 @@ final class AssetsItemService {
         }
     }
 
+    /// The assets the card lists: the visible ones, without those on the Polkaswap token
+    /// blacklist (a held one stays in the full asset list, marked hidden).
     private func visibleAssetIds() -> [String] {
-        (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId }
+        let blacklist = assetBlacklist.current()
+        return (assetManager.getAssetList() ?? [])
+            .filter { $0.visible && !blacklist.hides(assetId: $0.assetId) }
+            .map { $0.assetId }
     }
 
     /// One balance's row, valued with `priceInfo` once a price read has

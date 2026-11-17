@@ -36,6 +36,8 @@ struct PortfolioAssetSource: Equatable {
     let name: String
     let icon: String?
     let precision: Int16
+    /// On the Polkaswap token blacklist: a holding of it is hidden (`AssetBlacklist`).
+    var isBlacklisted = false
 }
 
 /// The latest reads of one wallet.
@@ -99,9 +101,13 @@ enum PortfolioSnapshotBuilder {
             let read = reads[wallet.id] ?? PortfolioWalletReadState()
             for (assetId, balance) in (read.sora2 ?? [:]).sorted(by: { $0.key < $1.key }) where balance.total > 0 {
                 guard let asset = byId[assetId] else { continue }
+                // A blacklisted token is hidden like one the user turned off: out of the lists and
+                // the total, counted in the note under it. The wallet's full asset list still
+                // shows it, marked hidden.
                 holdings.append(PortfolioHolding(walletId: wallet.id, network: .sora2, token: token(asset),
                                                  amount: balance.total, transferable: balance.transferable,
-                                                 isHidden: !isVisible(assetId: assetId, wallet: wallet)))
+                                                 isHidden: asset.isBlacklisted || !isVisible(assetId: assetId, wallet: wallet),
+                                                 isBlacklisted: asset.isBlacklisted))
             }
             if let xor = byId[xorId] {
                 for network in networks where network != .sora2 {
@@ -332,9 +338,11 @@ final class LivePortfolioDataSource: PortfolioDataSource {
     }
 
     private var assets: [PortfolioAssetSource] {
-        (assetManager.getAssetList() ?? []).map {
+        let blacklist = AssetBlacklistStore.shared.current()
+        return (assetManager.getAssetList() ?? []).map {
             PortfolioAssetSource(id: $0.assetId, symbol: $0.symbol, name: $0.name, icon: $0.icon,
-                                 precision: Int16(clamping: $0.precision))
+                                 precision: Int16(clamping: $0.precision),
+                                 isBlacklisted: blacklist.hides(assetId: $0.assetId))
         }
     }
 

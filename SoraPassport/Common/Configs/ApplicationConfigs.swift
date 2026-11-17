@@ -305,6 +305,11 @@ extension ApplicationConfig: ApplicationConfigProtocol {
         return URL(string: "https://whitelist.polkaswap2.io/whitelist.json")!
     }
 
+    /// Asset ids the lists hide (`AssetBlacklist`); published next to the whitelist.
+    var assetBlacklistURL: URL? {
+        return URL(string: "https://whitelist.polkaswap2.io/blacklist.json")!
+    }
+
     var caseName: String {
     #if F_RELEASE
     return "0"

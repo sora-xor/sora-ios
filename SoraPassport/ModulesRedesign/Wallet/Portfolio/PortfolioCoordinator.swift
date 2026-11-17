@@ -191,8 +191,14 @@ final class PortfolioCoordinator {
             PortfolioStrings.text("All wallets adds each wallet's own total. The rows always add up to the total.")
         ]
         var bullets: [String] = []
-        if summary.hiddenCount > 0 {
-            bullets.append(PortfolioStrings.format("%d hidden: tokens you hid in a wallet's asset list.", summary.hiddenCount))
+        let hiddenByUser = summary.hiddenCount - summary.blacklistedCount
+        if hiddenByUser > 0 {
+            bullets.append(PortfolioStrings.format("%d hidden: tokens you hid in a wallet's asset list.", hiddenByUser))
+        }
+        if summary.blacklistedCount > 0 {
+            bullets.append(PortfolioStrings.format(
+                "%d hidden by Polkaswap: tokens on the official Polkaswap blacklist. They stay in the wallet's full asset list, marked hidden.",
+                summary.blacklistedCount))
         }
         if summary.unpricedCount > 0 {
             bullets.append(PortfolioStrings.format("%d unpriced: there is no price for them, so they cannot be counted.",
@@ -338,7 +344,8 @@ final class PortfolioCoordinator {
         sheet.holding = holding
         sheet.walletName = walletName
         sheet.isSelectedWallet = holding.walletId == effectiveSelectedWalletId
-        sheet.targets = Self.swapTargets.filter { $0 != holding.token.id }.compactMap { id in
+        let blacklist = AssetBlacklistStore.shared.current()
+        sheet.targets = Self.swapTargets.filter { $0 != holding.token.id && !blacklist.hides(assetId: $0) }.compactMap { id in
             if let token = snapshot.holdings.first(where: { $0.token.id == id })?.token {
                 return .init(id: id, symbol: token.symbol, icon: token.icon)
             }

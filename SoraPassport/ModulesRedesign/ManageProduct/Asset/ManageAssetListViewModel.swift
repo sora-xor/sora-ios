@@ -121,6 +121,8 @@ final class ManageAssetListViewModel {
     private let farmingService: DemeterFarmingServiceProtocol
     private var marketCapService: MarketCapServiceProtocol
     private let priceInfoService: PriceInfoServiceProtocol
+    /// The Polkaswap token blacklist this list follows.
+    var assetBlacklist: AssetBlacklistStoring = AssetBlacklistStore.shared
 
     init(assetViewModelFactory: AssetViewModelFactory,
          fiatService: FiatServiceProtocol,
@@ -204,6 +206,25 @@ extension ManageAssetListViewModel {
         let editedIds = Set(edited.map(\.identifier))
         return edited + current.filter { !editedIds.contains($0.identifier) }
     }
+
+    /// The rows of the full asset list under the Polkaswap token blacklist. A blacklisted
+    /// asset the wallet holds, or whose balance could not be read, keeps its row, marked
+    /// hidden: this list is where such funds stay in view, can be opened and sent away. One
+    /// with a known zero balance is not listed. Other rows are left as they are.
+    static func applyingBlacklist(_ items: [AssetListItem], blacklist: AssetBlacklist) -> [AssetListItem] {
+        items.compactMap { item in
+            let assetId = item.assetInfo.assetId
+            guard blacklist.hides(assetId: assetId) else {
+                return item
+            }
+            guard blacklist.keepsRow(assetId: assetId, balance: item.balance,
+                                     balanceUnavailable: item.balanceUnavailable) else {
+                return nil
+            }
+            item.markHiddenByBlacklist()
+            return item
+        }
+    }
 }
 
 private extension ManageAssetListViewModel {
@@ -218,7 +239,7 @@ private extension ManageAssetListViewModel {
         // An asset whose balance could not be read keeps its row. Leaving
         // it out would also drop it from the list that is saved after
         // editing.
-        let items = factory.assetListItems(
+        let rows = factory.assetListItems(
             assetIds: ids,
             balances: balanceItems,
             unavailable: assetsProvider?.unavailableBalanceAssetIds(among: ids) ?? [],
@@ -230,6 +251,7 @@ private extension ManageAssetListViewModel {
                                          mode: mode,
                                          priceDelta: marketCapInfo.first(where: { $0.assetId == balance.identifier })?.hourDelta)
         }
+        let items = Self.applyingBlacklist(rows, blacklist: assetBlacklist.current())
         items.forEach { item in
             let assetInfo = item.assetInfo
             item.assetHandler = { [weak self] identifier in

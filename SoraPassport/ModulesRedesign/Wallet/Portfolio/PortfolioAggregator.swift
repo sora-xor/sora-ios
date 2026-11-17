@@ -18,6 +18,8 @@ struct PortfolioSummary: Equatable {
     /// Percent change over 24 h; `nil` without an earlier value to compare with.
     let changePercent: Decimal?
     let hiddenCount: Int
+    /// The hidden holdings that the Polkaswap token blacklist hides (included in `hiddenCount`).
+    let blacklistedCount: Int
     let unpricedCount: Int
     let testnetCount: Int
     let freshness: PortfolioFreshness
@@ -134,10 +136,12 @@ enum PortfolioAggregator {
         let hasChange = scopedHoldings(snapshot, scope: scope).contains { isCounted($0) && $0.token.change24h != nil }
         let percent: Decimal? = hasChange && previous > 0 ? change / previous * 100 : nil
 
-        var hidden = 0, unpriced = 0, testnet = 0
+        var hidden = 0, blacklisted = 0, unpriced = 0, testnet = 0
         for holding in scopedHoldings(snapshot, scope: scope) {
             switch exclusion(for: holding) {
-            case .hidden: hidden += 1
+            case .hidden:
+                hidden += 1
+                if holding.isBlacklisted { blacklisted += 1 }
             case .unpriced: unpriced += 1
             case .testnet: testnet += 1
             case .none: break
@@ -148,6 +152,7 @@ enum PortfolioAggregator {
                                 change24h: change,
                                 changePercent: percent,
                                 hiddenCount: hidden,
+                                blacklistedCount: blacklisted,
                                 unpricedCount: unpriced,
                                 testnetCount: testnet,
                                 freshness: PortfolioFreshnessPolicy.combined(wallets.map(\.freshness)))

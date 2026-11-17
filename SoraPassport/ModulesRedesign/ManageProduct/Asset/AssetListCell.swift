@@ -86,7 +86,7 @@ extension AssetListCell: SoramitsuTableViewCellProtocol {
         assetView.sora.titleText = item.assetViewModel.title
         assetView.sora.subtitleText = item.assetViewModel.subtitle
         assetView.sora.mode = item.assetViewModel.mode
-        assetView.sora.isFavorite = item.assetInfo.visible
+        assetView.sora.isFavorite = item.showsAsFavorite
         assetView.sora.upAmountText = item.assetViewModel.fiatText
         assetView.dragDropImageView.isHidden = true
         assetView.amountDownLabel.sora.attributedText = item.assetViewModel.deltaPriceText
