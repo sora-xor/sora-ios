@@ -74,11 +74,15 @@ final class ExplorePoolsViewModelService {
     private let progress = Progress()
     private var loading: Task<Void, Never>?
     private var pricesObserver: NSObjectProtocol?
+    private var blacklistObserver: NSObjectProtocol?
 
     deinit {
         loading?.cancel()
         if let pricesObserver {
             NotificationCenter.default.removeObserver(pricesObserver)
+        }
+        if let blacklistObserver {
+            NotificationCenter.default.removeObserver(blacklistObserver)
         }
     }
 
@@ -117,6 +121,30 @@ final class ExplorePoolsViewModelService {
                 self?.pricesChanged()
             }
         }
+        if blacklistObserver == nil {
+            blacklistObserver = NotificationCenter.default.addObserver(
+                forName: AssetBlacklistStore.didChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.blacklistChanged()
+            }
+        }
+        reload()
+    }
+
+    /// A new Polkaswap token blacklist: the pools it hides leave the list (and search) at once,
+    /// and a new round lists again the ones it no longer hides.
+    private func blacklistChanged() {
+        var listed = viewModels.filter {
+            itemFactory.listsPool(baseAssetId: $0.baseAssetId ?? "", targetAssetId: $0.targetAssetId ?? "")
+        }
+        if listed.count != viewModels.count {
+            for index in listed.indices {
+                listed[index].serialNumber = String(index + 1)
+            }
+            viewModels = listed
+        }
         reload()
     }
 
@@ -153,8 +181,12 @@ final class ExplorePoolsViewModelService {
     /// One round. `false` when there was nothing to show.
     private func loadOnce() async -> Bool {
         let fiatData = await fiatService.getFiat()
-        let pools = (try? await poolsService.getPools(with: fiatData)) ?? []
+        let allPools = (try? await poolsService.getPools(with: fiatData)) ?? []
         guard !Task.isCancelled else { return true }
+        // Explore does not list a pool with a token on the Polkaswap token blacklist.
+        let pools = allPools.filter {
+            itemFactory.listsPool(baseAssetId: $0.baseAssetId, targetAssetId: $0.targetAssetId)
+        }
 
         // The first time, the list appears with its values while the rates
         // are still loading. A list that is already on screen is replaced in
@@ -172,7 +204,7 @@ final class ExplorePoolsViewModelService {
         }) ?? []
         guard !Task.isCancelled else { return true }
 
-        guard !result.isEmpty else { return false }
+        guard !allPools.isEmpty, pools.isEmpty || !result.isEmpty else { return false }
         viewModels = result
         return true
     }

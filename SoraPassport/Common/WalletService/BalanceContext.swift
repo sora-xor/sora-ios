@@ -147,3 +147,13 @@ extension BalanceContext {
     }
 
 }
+
+extension BalanceData {
+    /// What the wallet owns of the asset: free plus reserved. `balance` is what can be spent,
+    /// and is zero when all of it is reserved or locked although the wallet still holds it.
+    var owned: Decimal {
+        let available = balance.decimalValue
+        guard let context else { return available }
+        return max(BalanceContext(context: context).total, available)
+    }
+}

@@ -57,6 +57,14 @@ extension ExploreItemFactory {
         )
     }
 
+    /// Whether Explore lists a pool: not when either token is on the Polkaswap token blacklist.
+    /// Liquidity the wallet already holds in such a pool stays in the wallet's own pool list,
+    /// where it can be managed and withdrawn.
+    func listsPool(baseAssetId: String, targetAssetId: String) -> Bool {
+        let blacklist = assetBlacklist.current()
+        return !blacklist.hides(assetId: baseAssetId) && !blacklist.hides(assetId: targetAssetId)
+    }
+
     /// - Parameter apyLoaded: The APY read has finished. Without a rate to
     ///   show, the cell then ends its loading placeholder instead of
     ///   shimmering for good.

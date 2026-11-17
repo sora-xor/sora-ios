@@ -102,6 +102,26 @@ final class LivePortfolioReadFlowTests: XCTestCase {
         XCTAssertEqual(PortfolioAggregator.summary(f.subject.snapshot, scope: .allWallets).total, 30)
     }
 
+    /// A blacklist that arrives after the portfolio is on screen hides the holding at once,
+    /// without waiting for the next balance read.
+    func testABlacklistThatArrivesLaterHidesTheHoldingAtOnce() async {
+        let f = make(cached: true)
+        f.cache.reads["wallet-a"] = PortfolioWalletReadState(sora2: [f.xor: PortfolioRawBalance(free: 5, reserved: 0, frozen: 0),
+                                                                     f.val: PortfolioRawBalance(free: 4, reserved: 0, frozen: 0)],
+                                                             lastRead: Date(), lastAttempt: Date())
+        let blacklist = FixedAssetBlacklist(AssetBlacklist(assetIds: [], source: .remote))
+        f.subject.assetBlacklist = blacklist
+        var updates = 0
+        f.subject.onChange = { _ in updates += 1 }
+        XCTAssertEqual(f.subject.snapshot.holdings.first { $0.token.id == f.val }?.isBlacklisted, false)
+        blacklist.list = AssetBlacklist(assetIds: [f.val], source: .remote)
+        NotificationCenter.default.post(name: AssetBlacklistStore.didChange, object: nil)
+        await wait { f.subject.snapshot.holdings.first { $0.token.id == f.val }?.isBlacklisted == true }
+        XCTAssertEqual(f.subject.snapshot.holdings.first { $0.token.id == f.val }?.isHidden, true)
+        XCTAssertGreaterThan(updates, 0)
+        XCTAssertTrue(f.reader.calls.isEmpty, "no balance is read for it")
+    }
+
     func testAZeroRefreshReplacesSavedHoldingsAndSurvivesAnOfflineRefresh() async {
         let defaults = UserDefaults(suiteName: UUID().uuidString)!
         let f = make(cached: true, store: PortfolioReadStore(defaults: defaults))

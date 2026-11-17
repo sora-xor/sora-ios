@@ -37,6 +37,8 @@ final class InputSendInfoViewModel {
     @Published var balanceFiatText: String?
     @Published var inputedFiatAmountText: String?
     @Published var state: InputFieldState?
+    /// The token chooser leaves out tokens on the Polkaswap blacklist.
+    var assetBlacklist: AssetBlacklistStoring = AssetBlacklistStore.shared
     
     var assetBalance: BalanceData = BalanceData(identifier: WalletAssetId.xor.rawValue, balance: AmountDecimal(value: 0)) {
         didSet {
@@ -124,7 +126,7 @@ final class InputSendInfoViewModel {
                                           fiatService: fiatService,
                                           assetViewModelFactory: factory,
                                           assetsProvider: assetsProvider,
-                                          assetIds: assets.map { $0.assetId },
+                                          assetIds: assetBlacklist.current().pickable(assets.map { $0.assetId }),
                                           marketCapService: marketCapService) { [weak self] selected in
                 self?.asset = assetManager.assetInfo(for: selected)
             }

@@ -24,7 +24,10 @@ final class AssetListItem: NSObject {
     var assetViewModel: AssetViewModel
     var assetHandler: ((String) -> Void)?
     var favoriteHandle: ((AssetListItem) -> Void)?
+    /// What can be spent: the balance Send uses.
     var balance: Decimal
+    /// What the wallet owns: free plus reserved. It can be above zero while `balance` is zero.
+    var owned: Decimal
     /// The balance could not be read: the row says "Balance unavailable",
     /// `balance` is a placeholder and no value is worked out from it.
     var balanceUnavailable = false
@@ -64,10 +67,11 @@ final class AssetListItem: NSObject {
         assetViewModel = marked
     }
 
-    init(assetInfo: AssetInfo, assetViewModel: AssetViewModel, balance: Decimal) {
+    init(assetInfo: AssetInfo, assetViewModel: AssetViewModel, balance: Decimal, owned: Decimal? = nil) {
         self.assetInfo = assetInfo
         self.assetViewModel = assetViewModel
         self.balance = balance
+        self.owned = owned ?? balance
     }
 }
 

@@ -5,7 +5,8 @@ import Foundation
 
 /// The official Polkaswap token blacklist, `https://whitelist.polkaswap2.io/blacklist.json`: the
 /// ids of assets Polkaswap has withdrawn (scam copies, compromised tokens). The wallet does not
-/// list them in the portfolio, the asset lists or the swap pickers.
+/// list them in the portfolio, the asset lists, the token choosers or Explore (pools with one
+/// of them included), and a list that arrives later is applied to screens already open.
 ///
 /// It is applied where lists are shown, never to the chain store, so the balance of a
 /// blacklisted asset is still read. A wallet that holds one keeps it in its full asset list,
@@ -63,8 +64,10 @@ struct AssetBlacklist: Equatable {
     /// response that is not JSON, not an array, or has an element that is not a string (an
     /// unknown format; the whitelist's objects among them), or a non-empty array without a
     /// single asset id. An undecodable answer never means "nothing is blacklisted". Strings
-    /// that are not asset ids are skipped: they can never match an asset. An empty array is
-    /// the list's own statement that nothing is blacklisted, and is accepted.
+    /// that are not asset ids are skipped: they can never match an asset. An asset id is "0x"
+    /// and 64 ASCII hex digits, nothing else: look-alike digits from other scripts (fullwidth
+    /// ones among them) would match no asset, so a list of only those would hide nothing. An
+    /// empty array is the list's own statement that nothing is blacklisted, and is accepted.
     static func decode(_ data: Data, source: Source) -> AssetBlacklist? {
         guard let items = (try? JSONSerialization.jsonObject(with: data)) as? [Any] else {
             return nil
@@ -74,8 +77,7 @@ struct AssetBlacklist: Equatable {
             guard let text = item as? String else {
                 return nil
             }
-            let id = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            if isAssetId(id) {
+            if let id = canonicalAssetId(text.trimmingCharacters(in: .whitespacesAndNewlines)) {
                 ids.append(id)
             }
         }
@@ -87,8 +89,19 @@ struct AssetBlacklist: Equatable {
 
     private static let xorId = WalletAssetId.xor.rawValue.lowercased()
 
-    private static func isAssetId(_ value: String) -> Bool {
-        value.count == 66 && value.hasPrefix("0x") && value.dropFirst(2).allSatisfy(\.isHexDigit)
+    /// The asset id in lower case when `text` is exactly "0x" (or "0X") and 64 ASCII hex
+    /// digits: 66 UTF-8 bytes. `Character.isHexDigit` is not used: it accepts fullwidth digits.
+    private static func canonicalAssetId(_ text: String) -> String? {
+        var bytes = Array(text.utf8)
+        guard bytes.count == 66 else { return nil }
+        for index in bytes.indices where (UInt8(ascii: "A") ... UInt8(ascii: "Z")).contains(bytes[index]) {
+            bytes[index] += 0x20
+        }
+        guard bytes[0] == UInt8(ascii: "0"), bytes[1] == UInt8(ascii: "x") else { return nil }
+        let isHex = bytes[2...].allSatisfy {
+            (UInt8(ascii: "0") ... UInt8(ascii: "9")).contains($0) || (UInt8(ascii: "a") ... UInt8(ascii: "f")).contains($0)
+        }
+        return isHex ? String(decoding: bytes, as: UTF8.self) : nil
     }
 }
 

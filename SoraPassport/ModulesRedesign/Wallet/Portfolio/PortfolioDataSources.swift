@@ -261,6 +261,10 @@ final class LivePortfolioDataSource: PortfolioDataSource {
     /// Until every wallet has been tried once, the snapshot says it is loading, so the hero shows
     /// neither the empty state nor OFFLINE for a wallet not read yet. Saved balances show meanwhile.
     private var firstPassDone: Bool
+    /// The Polkaswap token blacklist: a blacklisted holding is hidden like one the user turned
+    /// off. A new list is applied at once, without reading any balance.
+    var assetBlacklist: AssetBlacklistStoring = AssetBlacklistStore.shared
+    private var blacklistObserver: NSObjectProtocol?
 
     init(assetManager: AssetManagerProtocol,
          sora2Reader: PortfolioSora2BalanceReading = PortfolioSora2BalanceReader(),
@@ -291,12 +295,22 @@ final class LivePortfolioDataSource: PortfolioDataSource {
         }
         firstPassDone = !wallets.isEmpty && !cache.reads.isEmpty
         EventCenter.shared.add(observer: self, dispatchIn: .main)
+        blacklistObserver = NotificationCenter.default.addObserver(
+            forName: AssetBlacklistStore.didChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.publish() }
+        }
         publish()
     }
 
     deinit {
         timer?.invalidate()
         refreshTask?.cancel()
+        if let blacklistObserver {
+            NotificationCenter.default.removeObserver(blacklistObserver)
+        }
     }
 
     func start() {
@@ -338,7 +352,7 @@ final class LivePortfolioDataSource: PortfolioDataSource {
     }
 
     private var assets: [PortfolioAssetSource] {
-        let blacklist = AssetBlacklistStore.shared.current()
+        let blacklist = assetBlacklist.current()
         return (assetManager.getAssetList() ?? []).map {
             PortfolioAssetSource(id: $0.assetId, symbol: $0.symbol, name: $0.name, icon: $0.icon,
                                  precision: Int16(clamping: $0.precision),

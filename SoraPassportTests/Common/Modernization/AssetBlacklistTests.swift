@@ -108,6 +108,33 @@ final class AssetBlacklistTests: XCTestCase {
         }
     }
 
+    /// An asset id is "0x" and 64 ASCII hex digits: 66 UTF-8 bytes. Look-alike digits from other
+    /// scripts (`Character.isHexDigit` accepts fullwidth ones) never make an id, so a list made
+    /// only of them is not a list and cannot replace the last good one.
+    func testOnlyAsciiHexIdsAreAssetIds() throws {
+        let fullwidthDigits = "0x" + String(repeating: "\u{FF11}", count: 64)
+        let fullwidthLetters = "0x" + String(repeating: "\u{FF41}", count: 64)
+        let arabicIndic = "0x" + String(repeating: "\u{0661}", count: 64)
+        let fullwidthPrefix = "\u{FF10}\u{FF58}" + String(repeating: "1", count: 64)
+        let combining = "0x" + String(repeating: "1", count: 63) + "a\u{0301}"
+        let tooLong = tokenId + "0"
+        let impostors = [fullwidthDigits, fullwidthLetters, arabicIndic, fullwidthPrefix, combining, tooLong,
+                         "0x" + String(repeating: "g", count: 64)]
+        for impostor in impostors {
+            XCTAssertNil(AssetBlacklist.decode(try json([impostor]), source: .remote), impostor)
+        }
+        let mixed = try XCTUnwrap(AssetBlacklist.decode(try json(impostors + [tokenId]), source: .remote))
+        XCTAssertEqual(mixed.assetIds, [tokenId], "only the real id is kept")
+
+        let store = makeStore()
+        let lastGood = try json([tokenId])
+        XCTAssertNotNil(store.acceptRemote(lastGood))
+        XCTAssertNil(store.acceptRemote(try json([fullwidthDigits])))
+        XCTAssertEqual(store.current().assetIds, [tokenId])
+        XCTAssertEqual(try Data(contentsOf: savedURL), lastGood)
+        XCTAssertEqual(makeStore().current().assetIds, [tokenId], "and after a restart")
+    }
+
     func testEmptyListIsTheListsOwnStatementAndStrayStringsAreSkipped() throws {
         let empty = try XCTUnwrap(AssetBlacklist.decode(try json([String]()), source: .remote))
         XCTAssertEqual(empty.count, 0)
@@ -333,6 +360,35 @@ final class AssetBlacklistTests: XCTestCase {
         XCTAssertEqual(held.assetViewModel.subtitle, "5 TKN · " + AssetBlacklist.hiddenNote)
     }
 
+    /// What the wallet owns is free plus reserved. A blacklisted token whose whole balance is
+    /// reserved has nothing to send, yet it is held: its row stays, marked, above the "show
+    /// zero balances" fold. The spendable balance on the row is still the one Send uses.
+    func testFullAssetListKeepsABlacklistedTokenWhoseWholeBalanceIsReserved() throws {
+        let token = asset(tokenId, symbol: "TKN", visible: false)
+        let other = asset(otherId, symbol: "OTH", visible: false)
+        let manager = Assets([token, other])
+        let factory = AssetViewModelFactory(walletAssets: [token, other], assetManager: manager, fiatService: nil)
+        func balance(_ id: String, free: Decimal, reserved: Decimal) -> BalanceData {
+            let context = BalanceContext(free: free, reserved: reserved, miscFrozen: 0, feeFrozen: 0, bonded: 0,
+                                         redeemable: 0, unbonding: 0, price: 0, priceChange: 0)
+            return BalanceData(identifier: id, balance: AmountDecimal(value: context.available), context: context.toContext())
+        }
+        let rows = factory.assetListItems(
+            assetIds: [tokenId, otherId],
+            balances: [balance(tokenId, free: 0, reserved: 5), balance(otherId, free: 0, reserved: 0)],
+            unavailable: [], mode: .view
+        ) { balance, info in
+            factory.createAssetViewModel(with: balance, assetInfo: info, fiatData: [], mode: .view)
+        }
+        let held = try XCTUnwrap(rows.first { $0.assetInfo.assetId == tokenId })
+        XCTAssertEqual(held.balance, 0, "nothing of it can be sent")
+
+        let kept = ManageAssetListViewModel.applyingBlacklist(
+            rows, blacklist: AssetBlacklist(assetIds: [tokenId, otherId], source: .remote))
+        XCTAssertEqual(kept.map(\.assetInfo.symbol), ["TKN"], "held, though all of it is reserved")
+        XCTAssertTrue(held.isHiddenByBlacklist)
+    }
+
     func testAssetListCellShowsAHeldBlacklistedTokenUnstarredAndLocked() throws {
         let item = row(asset(tokenId, symbol: "TKN", visible: true), balance: 5)
         item.markHiddenByBlacklist()
@@ -428,6 +484,152 @@ final class AssetBlacklistTests: XCTestCase {
         }
         XCTAssertEqual(service.assetViewModels.map(\.identifier), [xorId, tokenId])
     }
+}
+
+// MARK: - Explore
+
+@MainActor
+final class AssetBlacklistExploreTests: XCTestCase {
+    private let tokenId = "0x00aa" + String(repeating: "1", count: 60)
+    private let xorId = WalletAssetId.xor.rawValue
+    private let valId = WalletAssetId.val.rawValue
+
+    private func asset(_ id: String, symbol: String) -> AssetInfo {
+        AssetInfo(id: id, symbol: symbol, chainId: "", precision: 18, icon: nil, displayName: symbol, visible: true)
+    }
+
+    private func until(_ condition: () -> Bool) async {
+        for _ in 0 ..< 300 where !condition() {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
+
+    private func changeList(_ blacklist: FixedAssetBlacklist, to ids: [String]) {
+        blacklist.list = AssetBlacklist(assetIds: ids, source: .remote)
+        NotificationCenter.default.post(name: AssetBlacklistStore.didChange, object: nil)
+    }
+
+    private func factory(_ blacklist: FixedAssetBlacklist) -> ExploreItemFactory {
+        let factory = ExploreItemFactory(assetManager: ExploreAssets([
+            asset(xorId, symbol: "XOR"), asset(valId, symbol: "VAL"), asset(tokenId, symbol: "TKN")
+        ]))
+        factory.assetBlacklist = blacklist
+        return factory
+    }
+
+    /// Pool discovery and the search that uses it leave out a pair with a blacklisted token,
+    /// numbered without a gap, and follow a list that arrives after the screen loaded.
+    func testExplorePoolsLeaveOutPairsWithABlacklistedTokenAndFollowANewList() async {
+        let blacklist = FixedAssetBlacklist(AssetBlacklist(assetIds: [tokenId], source: .remote))
+        let pools = ExplorePoolsViewModelService(
+            itemFactory: factory(blacklist),
+            poolsService: ExplorePools([
+                ExplorePool(id: "xor-tkn", baseAssetId: xorId, targetAssetId: tokenId, tvl: 3),
+                ExplorePool(id: "xor-val", baseAssetId: xorId, targetAssetId: valId, tvl: 2)
+            ]),
+            apyService: ExploreAPY(), fiatService: ExploreFiat(), pause: { _ in }
+        )
+        pools.setup()
+        await until { pools.viewModels.map(\.poolId) == ["xor-val"] }
+        XCTAssertEqual(pools.viewModels.map(\.poolId), ["xor-val"])
+        XCTAssertEqual(pools.viewModels.map(\.serialNumber), ["1"])
+
+        let search = ExploreSearchPageViewModel(
+            wireframe: ExploreRoute(),
+            assetViewModelsService: ExploreAssetViewModelService(
+                marketCapService: ExploreMarket(), fiatService: nil, itemFactory: factory(blacklist), assetInfos: []),
+            poolViewModelsService: pools,
+            farmsViewModelsService: ExploreFarmsViewModelService(demeterFarmingService: ExploreFarms()))
+        search.assetViewModelsService.viewModels = []
+        search.setup()
+        search.searchTextChanged(with: "TKN")
+        XCTAssertEqual(search.snapshot.numberOfItems, 0, "search finds no pool with the blacklisted token")
+
+        changeList(blacklist, to: [valId])
+        await until { pools.viewModels.map(\.poolId) == ["xor-tkn"] }
+        XCTAssertEqual(pools.viewModels.map(\.poolId), ["xor-tkn"])
+        XCTAssertEqual(pools.viewModels.map(\.serialNumber), ["1"])
+        XCTAssertEqual(search.snapshot.numberOfItems, 1)
+        search.searchTextChanged(with: "VAL")
+        XCTAssertEqual(search.snapshot.numberOfItems, 0)
+    }
+
+    /// The Explore token list follows a blacklist that arrives after it loaded.
+    func testExploreAssetsFollowANewList() async {
+        let blacklist = FixedAssetBlacklist(AssetBlacklist(assetIds: [tokenId], source: .remote))
+        let itemFactory = factory(blacklist)
+        let service = ExploreAssetViewModelService(
+            marketCapService: ExploreMarket(), fiatService: nil, itemFactory: itemFactory,
+            assetInfos: [asset(xorId, symbol: "XOR"), asset(valId, symbol: "VAL"), asset(tokenId, symbol: "TKN")],
+            priceInfoService: ExplorePrices())
+        let page = ExploreAssetsPageViewModel(wireframe: ExploreRoute(), assetViewModelsService: service)
+        func shown() -> [String] {
+            page.snapshot.itemIdentifiers.compactMap { item in
+                guard case let .asset(row) = item else { return nil }
+                return row.assetViewModel.assetId
+            }
+        }
+        page.setup()
+        await until { shown() == [valId, xorId] }
+        XCTAssertEqual(shown(), [valId, xorId])
+
+        changeList(blacklist, to: [valId])
+        await until { shown() == [tokenId, xorId] }
+        XCTAssertEqual(shown(), [tokenId, xorId])
+        XCTAssertEqual(service.viewModels.compactMap(\.assetId), [tokenId, xorId], "and what search uses")
+    }
+}
+
+private final class ExploreAssets: AssetManagerProtocol {
+    static var networkAssets: [AssetInfo] = []
+    let assets: [AssetInfo]
+    init(_ assets: [AssetInfo]) { self.assets = assets }
+    func assetInfo(for identifier: String) -> AssetInfo? { assets.first { $0.assetId == identifier } }
+    func getAssetList() -> [AssetInfo]? { assets }
+    func updateAssetList(_: [AssetInfo]) {}
+    func saveAssetList(_: [AssetInfo]) {}
+    func sortedAssets(_ list: [WalletAsset], onlyVisible _: Bool) -> [WalletAsset] { list }
+    func visibleCount() -> UInt { UInt(assets.count) }
+    func setup(for _: SelectedWalletSettings) {}
+}
+
+private final class ExplorePools: ExplorePoolsServiceInputProtocol {
+    let pools: [ExplorePool]
+    init(_ pools: [ExplorePool]) { self.pools = pools }
+    func getPools(with _: [PIExactFiatData]) async throws -> [ExplorePool] { pools }
+}
+
+private actor ExploreAPY: APYServiceProtocol {
+    func getApy(for _: String, targetAssetId _: String) async -> Decimal? { 1 }
+    func setup(factory _: PolkaswapNetworkOperationFactoryProtocol) {}
+}
+
+private actor ExploreFiat: FiatServiceProtocol {
+    func getFiat() async -> [PIExactFiatData] { [] }
+}
+
+private final class ExploreMarket: MarketCapServiceProtocol {
+    func getMarketCap(for _: [String]) async -> Set<MarketCapInfo> { [] }
+}
+
+private final class ExplorePrices: PriceInfoServiceProtocol {
+    func getPriceInfo(for _: [String]) async -> PriceInfo { PriceInfo(fiatData: [], marketCapInfo: []) }
+}
+
+private final class ExploreRoute: ExploreWireframeProtocol {
+    func showAssetDetails(on _: UIViewController?, assetId _: String) {}
+    func showAccountPoolDetails(on _: UIViewController?, poolInfo _: PoolInfo) {}
+    func showLiquidity(on _: UIViewController?) {}
+    func showFarmDetails(on _: UIViewController?, farm _: Farm) {}
+}
+
+private final class ExploreFarms: DemeterFarmingServiceProtocol {
+    func getUserFarmInfos(baseAssetId _: String?, targetAssetId _: String?) async -> [UserFarm] { [] }
+    func loadUserFarmInfos(baseAssetId _: String?, targetAssetId _: String?, accountId _: Data) async throws -> [UserFarm] { [] }
+    func getAllFarms() async throws -> [Farm] { [] }
+    func getFarm(with _: String) -> Farm? { nil }
+    func getFarmDetails(baseAssetId _: String, poolAssetId _: String, rewardAssetId _: String) async throws -> [Farm] { [] }
+    func getSingleSidedXorFarmedPools(completion: @escaping ([UserFarmInfo]) -> Void) { completion([]) }
 }
 
 /// A blacklist store that answers with the list a test sets.

@@ -121,8 +121,15 @@ final class ManageAssetListViewModel {
     private let farmingService: DemeterFarmingServiceProtocol
     private var marketCapService: MarketCapServiceProtocol
     private let priceInfoService: PriceInfoServiceProtocol
-    /// The Polkaswap token blacklist this list follows.
+    /// The Polkaswap token blacklist this list follows, also when it changes while the list is open.
     var assetBlacklist: AssetBlacklistStoring = AssetBlacklistStore.shared
+    private var blacklistObserver: NSObjectProtocol?
+
+    deinit {
+        if let blacklistObserver {
+            NotificationCenter.default.removeObserver(blacklistObserver)
+        }
+    }
 
     init(assetViewModelFactory: AssetViewModelFactory,
          fiatService: FiatServiceProtocol,
@@ -171,15 +178,26 @@ extension ManageAssetListViewModel: ManageAssetListViewModelProtocol {
 
     func viewDidLoad() {
         setupNavigationBar?(mode)
-        
+        loadRows()
+        assetsProvider?.add(observer: self)
+        if blacklistObserver == nil {
+            blacklistObserver = NotificationCenter.default.addObserver(
+                forName: AssetBlacklistStore.didChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadRows()
+            }
+        }
+    }
+
+    private func loadRows() {
         let ids = (assetManager?.getAssetList() ?? []).map { $0.identifier }
         let balanceData = assetsProvider?.getBalances(with: ids) ?? []
 
         Task { @MainActor [weak self] in
             await self?.items(with: balanceData)
         }
-
-        assetsProvider?.add(observer: self)
     }
     
     func viewdismissed() {
@@ -208,16 +226,17 @@ extension ManageAssetListViewModel {
     }
 
     /// The rows of the full asset list under the Polkaswap token blacklist. A blacklisted
-    /// asset the wallet holds, or whose balance could not be read, keeps its row, marked
-    /// hidden: this list is where such funds stay in view, can be opened and sent away. One
-    /// with a known zero balance is not listed. Other rows are left as they are.
+    /// asset the wallet holds (free plus reserved, even if none of it can be spent now), or
+    /// whose balance could not be read, keeps its row, marked hidden: this list is where such
+    /// funds stay in view, can be opened and sent away. One with a known zero balance is not
+    /// listed. Other rows are left as they are.
     static func applyingBlacklist(_ items: [AssetListItem], blacklist: AssetBlacklist) -> [AssetListItem] {
         items.compactMap { item in
             let assetId = item.assetInfo.assetId
             guard blacklist.hides(assetId: assetId) else {
                 return item
             }
-            guard blacklist.keepsRow(assetId: assetId, balance: item.balance,
+            guard blacklist.keepsRow(assetId: assetId, balance: item.owned,
                                      balanceUnavailable: item.balanceUnavailable) else {
                 return nil
             }
@@ -289,10 +308,11 @@ private extension ManageAssetListViewModel {
             return
         }
 
-        // An asset whose balance could not be read is not a zero balance:
-        // it is never put behind "show zero balances".
-        let aboveZero = items.filter { WalletAssetId(rawValue: $0.assetInfo.assetId) != nil || $0.assetInfo.visible || !$0.balance.isZero || $0.balanceUnavailable }
-        let underZero = items.filter { WalletAssetId(rawValue: $0.assetInfo.assetId) == nil && !$0.assetInfo.visible && $0.balance.isZero && !$0.balanceUnavailable }
+        // An asset whose balance could not be read is not a zero balance,
+        // nor is one the wallet holds all reserved: neither is put behind
+        // "show zero balances".
+        let aboveZero = items.filter { WalletAssetId(rawValue: $0.assetInfo.assetId) != nil || $0.assetInfo.visible || !$0.owned.isZero || $0.balanceUnavailable }
+        let underZero = items.filter { WalletAssetId(rawValue: $0.assetInfo.assetId) == nil && !$0.assetInfo.visible && $0.owned.isZero && !$0.balanceUnavailable }
         var resultItems: [SoramitsuTableViewItemProtocol] = aboveZero
         
         if aboveZero.count < items.count, underZero.count > 0 {

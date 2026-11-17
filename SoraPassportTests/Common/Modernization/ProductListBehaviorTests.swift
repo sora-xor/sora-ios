@@ -19,10 +19,10 @@ final class ProductListBehaviorTests: XCTestCase {
     private var shown: [SoramitsuTableViewItemProtocol] = []
     override func setUp() { super.setUp(); language = LocalizationManager.shared.selectedLocalization; LocalizationManager.shared.selectedLocalization = "en" }
     override func tearDown() { LocalizationManager.shared.selectedLocalization = language; super.tearDown() }
-    private func item(_ asset: AssetInfo, balance: Decimal = 1, unavailable: Bool = false) -> AssetListItem {
+    private func item(_ asset: AssetInfo, balance: Decimal = 1, owned: Decimal? = nil, unavailable: Bool = false) -> AssetListItem {
         let result = AssetListItem(assetInfo: asset,
             assetViewModel: AssetViewModel(identifier: asset.identifier, title: asset.name, subtitle: asset.symbol,
-                fiatText: unavailable ? WalletUX.balanceUnavailableText : "$2", mode: .selection, isFavorite: asset.visible), balance: balance)
+                fiatText: unavailable ? WalletUX.balanceUnavailableText : "$2", mode: .selection, isFavorite: asset.visible), balance: balance, owned: owned)
         result.balanceUnavailable = unavailable; return result
     }
     private func selection() -> SelectAssetViewModel {
@@ -82,6 +82,12 @@ final class ProductListBehaviorTests: XCTestCase {
         XCTAssertEqual(identifiers, [manager.assets[0].identifier, manager.assets[1].identifier, manager.assets[3].identifier])
         XCTAssertEqual(shown.compactMap { $0 as? ZeroBalanceItem }.count, 1)
     }
+    /// A balance that is all reserved is owned, not zero: it stays above the fold.
+    func testManageKeepsAReservedOnlyBalanceAboveTheZeroFold() {
+        let model = manage()
+        model.assetItems = [item(manager.assets[0]), item(manager.assets[2], balance: 0, owned: 5), item(manager.assets[3], balance: 0)]
+        XCTAssertEqual(identifiers, [manager.assets[0].identifier, manager.assets[2].identifier])
+    }
     func testManageShowZeroToggleCanExpandAndCollapseRepeatedly() throws {
         let model = manage(); model.assetItems = [item(manager.assets[0]), item(manager.assets[2], balance: 0)]
         try XCTUnwrap(shown.compactMap { $0 as? ZeroBalanceItem }.first).buttonHandler?()
@@ -117,6 +123,41 @@ final class ProductListBehaviorTests: XCTestCase {
     }
     private func settleRows(_ model: SelectAssetViewModel) async {
         for _ in 0..<100 where model.assetItems.isEmpty { try? await Task.sleep(nanoseconds: 10_000_000) }
+    }
+    private func postBlacklist(_ blacklist: FixedAssetBlacklist, _ ids: [String]) {
+        blacklist.list = AssetBlacklist(assetIds: ids, source: .remote)
+        NotificationCenter.default.post(name: AssetBlacklistStore.didChange, object: nil)
+    }
+    private func until(_ condition: () -> Bool) async {
+        for _ in 0..<300 where !condition() { try? await Task.sleep(nanoseconds: 10_000_000) }
+    }
+    /// Every token chooser leaves out blacklisted tokens, also when the list changes while it is open.
+    func testSelectionLeavesOutBlacklistedTokensAndFollowsANewList() async {
+        provider.balances = manager.assets.map { BalanceData(identifier: $0.identifier, balance: AmountDecimal(value: 1)) }
+        let blacklist = FixedAssetBlacklist(AssetBlacklist(assetIds: [manager.assets[1].identifier], source: .remote))
+        let model = selection(); model.assetBlacklist = blacklist
+        model.viewDidLoad(); await settleRows(model)
+        XCTAssertEqual(Set(model.assetItems.map(\.assetInfo.identifier)), Set([0, 2, 3].map { manager.assets[$0].identifier }))
+        postBlacklist(blacklist, [manager.assets[2].identifier])
+        let expected = Set([0, 1, 3].map { manager.assets[$0].identifier })
+        await until { Set(model.assetItems.map(\.assetInfo.identifier)) == expected }
+        XCTAssertEqual(Set(model.assetItems.map(\.assetInfo.identifier)), expected)
+    }
+    /// The full asset list follows a list that arrives while it is open: a blacklisted token
+    /// with a known zero balance goes, a held one stays, marked.
+    func testManageListFollowsANewBlacklist() async throws {
+        provider.balances = [BalanceData(identifier: manager.assets[0].identifier, balance: AmountDecimal(value: 1)),
+                             BalanceData(identifier: manager.assets[1].identifier, balance: AmountDecimal(value: 0)),
+                             BalanceData(identifier: manager.assets[2].identifier, balance: AmountDecimal(value: 2))]
+        let blacklist = FixedAssetBlacklist(AssetBlacklist(assetIds: [], source: .remote))
+        let model = manage(); model.assetBlacklist = blacklist
+        model.viewDidLoad(); await until { model.assetItems.count == 3 }
+        XCTAssertEqual(model.assetItems.count, 3)
+        postBlacklist(blacklist, [manager.assets[1].identifier, manager.assets[2].identifier])
+        let expected = Set([0, 2].map { manager.assets[$0].identifier })
+        await until { Set(model.assetItems.map(\.assetInfo.identifier)) == expected }
+        XCTAssertEqual(Set(model.assetItems.map(\.assetInfo.identifier)), expected)
+        XCTAssertTrue(try XCTUnwrap(model.assetItems.first { $0.assetInfo.identifier == manager.assets[2].identifier }).isHiddenByBlacklist)
     }
     func testSelectionLoadsKnownAndUnavailableBalancesBeforePricesAndChoosesCurrentAsset() async throws {
         provider.balances = [BalanceData(identifier: manager.assets[0].identifier, balance: AmountDecimal(value: 3))]

@@ -69,11 +69,15 @@ final class ExploreAssetsPageViewModel {
     var assetViewModelsService: ExploreAssetViewModelService
     private var loading: Task<Void, Never>?
     private var pricesObserver: NSObjectProtocol?
+    private var blacklistObserver: NSObjectProtocol?
 
     deinit {
         loading?.cancel()
         if let pricesObserver {
             NotificationCenter.default.removeObserver(pricesObserver)
+        }
+        if let blacklistObserver {
+            NotificationCenter.default.removeObserver(blacklistObserver)
         }
     }
 
@@ -125,6 +129,16 @@ extension ExploreAssetsPageViewModel: ExplorePageViewModelProtocol {
             // Prices arrived or were refreshed: list the assets again.
             pricesObserver = NotificationCenter.default.addObserver(
                 forName: PICatalogs.pricesDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadAssets()
+            }
+        }
+        if blacklistObserver == nil {
+            // A new Polkaswap token blacklist: list the assets again, here and in search.
+            blacklistObserver = NotificationCenter.default.addObserver(
+                forName: AssetBlacklistStore.didChange,
                 object: nil,
                 queue: .main
             ) { [weak self] _ in

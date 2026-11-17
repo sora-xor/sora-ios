@@ -35,6 +35,10 @@ final class RequestAmountFlowTests: XCTestCase {
         let f = make(); f.send(.choiseAsset); XCTAssertEqual(f.route.selections, [f.assets.assets.map(\.assetId)])
         f.route.selection?(WalletAssetId.val.rawValue); XCTAssertEqual(f.model.assetSymbol, "VAL")
     }
+    func testAssetChooserLeavesOutBlacklistedTokens() {
+        let f = make(); f.model.assetBlacklist = FixedAssetBlacklist(AssetBlacklist(assetIds: [WalletAssetId.val.rawValue], source: .remote))
+        f.send(.choiseAsset); XCTAssertEqual(f.route.selections, [[WalletAssetId.xor.rawValue]])
+    }
     func testChangingAssetCannotRetainAnotherTokensBalance() {
         let f = make(); f.model.asset = f.assets.assets[0]; XCTAssertEqual(f.model.assetBalance.balance.decimalValue, 12)
         f.model.asset = f.assets.assets[1]; XCTAssertEqual(f.model.assetBalance.identifier, WalletAssetId.val.rawValue); XCTAssertEqual(f.model.assetBalance.balance.decimalValue, 0)

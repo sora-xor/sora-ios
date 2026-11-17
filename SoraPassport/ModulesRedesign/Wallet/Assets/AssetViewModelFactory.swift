@@ -140,7 +140,8 @@ extension AssetViewModelFactory {
               let viewModel = build(balance, assetInfo) else {
             return nil
         }
-        return AssetListItem(assetInfo: assetInfo, assetViewModel: viewModel, balance: balance.balance.decimalValue)
+        return AssetListItem(assetInfo: assetInfo, assetViewModel: viewModel,
+                             balance: balance.balance.decimalValue, owned: balance.owned)
     }
 
     func createAssetViewModel(with balanceData: BalanceData, assetInfo: AssetInfo, fiatData: [PIExactFiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {
