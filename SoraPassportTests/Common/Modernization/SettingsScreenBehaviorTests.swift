@@ -26,7 +26,7 @@ final class SettingsScreenBehaviorTests: XCTestCase {
         let (_, capture) = settings()
         XCTAssertFalse(rows(capture).contains { $0 is AppAppearanceItem })
         let titles = rows(capture).compactMap { $0 as? AppSettingsCardItem }.flatMap(\.menuItems).map(\.title)
-        XCTAssertFalse(titles.contains(R.string.localizable.neonReduceEffects(preferredLanguages: LocalizationManager.shared.preferredLocalizations)))
+        XCTAssertFalse(titles.contains("Reduce effects"))
         XCTAssertEqual(SoramitsuUI.shared.theme, .light)
     }
     func testAppearanceCellForwardsTheCurrentSelection() throws {

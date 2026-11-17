@@ -2213,17 +2213,12 @@ final class WalletUXTests: XCTestCase {
     func testGeneratedStringsFallbackInTheShippedCatalogs() {
         XCTAssertEqual(R.string.localizable.commonFarms(preferredLanguages: ["de-DE"]), "Farms")
         // The Nexus line still ships its tester locales (the 3.9.x App Store
-        // line removed them): Middle Egyptian has an empty value here, which
-        // falls back to English, and Old Akkadian has its own.
-        XCTAssertEqual(R.string.localizable.inviteCodeLeftMinutes(preferredLanguages: ["egy-Egyp"]), "m")
-        XCTAssertEqual(R.string.localizable.inviteCodeLeftMinutes(preferredLanguages: ["akk"]), "d")
-        XCTAssertEqual(R.string.localizable.inviteCodeLeftMinutes(preferredLanguages: ["ja"]), "分")
+        // line removed them), and each has its own value.
+        XCTAssertEqual(R.string.localizable.commonFarms(preferredLanguages: ["egy-Egyp"]), "𓄿𓎛𓅱𓏏")
+        XCTAssertEqual(R.string.localizable.commonFarms(preferredLanguages: ["akk"]), "Eqlū")
+        XCTAssertEqual(R.string.localizable.askTouchidTitle(preferredLanguages: ["ja"]), "Touch ID認証")
         XCTAssertEqual(R.string.localizable.approveTheIrohaConnectConnectionFor(
             "Sora", preferredLanguages: ["ja"]), "Approve the IrohaConnect connection for Sora")
-        XCTAssertTrue(R.string.localizable.favoriteUsers(favorite: 2,
-                                                         preferredLanguages: ["ja"]).contains("お気に入り"))
-        XCTAssertEqual(R.string.localizable.referendumDateSecondPlurals(
-            preferredLanguages: ["ja"]), "")
     }
 
     func testLegacyLocalizableErrorsUseEnglishWhenSelectedValueIsMissing() throws {

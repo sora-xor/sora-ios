@@ -98,7 +98,7 @@ final class ShippedLocalizationTests: XCTestCase {
         XCTAssertEqual(R.string.localizable.changeLanguage(preferredLanguages: ["egy-Egyp"]), expected)
         XCTAssertEqual(WalletUX.text(key, language: "egy-Egyp"), expected)
         XCTAssertEqual(L10n.getFormat(for: key, localization: "egy-Egyp", bundle: .main), expected)
-        XCTAssertEqual(R.string.localizable.inviteCodeLeftMinutes(preferredLanguages: ["egy-Egyp"]), "m")
+        XCTAssertEqual(R.string.localizable.commonFarms(preferredLanguages: ["egy-Egyp"]), "𓄿𓎛𓅱𓏏")
 
         let settings = InMemorySettingsManager()
         settings.set(value: "egy-Egyp", for: "language")
