@@ -18,6 +18,7 @@
 import Foundation
 import SSFUtils
 import BigInt
+@testable import SoraPassport
 
 struct DyAccountInfo: Codable, Equatable {
     @StringCodable var nonce: UInt32

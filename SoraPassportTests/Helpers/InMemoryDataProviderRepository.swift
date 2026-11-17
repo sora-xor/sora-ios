@@ -17,6 +17,7 @@
 
 import Foundation
 import RobinHood
+@testable import SoraPassport
 
 enum InMemoryDataProviderRepositoryError: Error {
     case unsupported
@@ -102,7 +103,9 @@ final class InMemoryDataProviderRepository<T: Identifiable>: DataProviderReposit
         by _: RepositorySliceRequest,
         options _: RepositoryFetchOptions
     ) -> BaseOperation<[Model]> {
-        BaseOperation.createWithError(InMemoryDataProviderRepositoryError.unsupported)
+        let operation = BaseOperation<[Model]>()
+        operation.result = .failure(InMemoryDataProviderRepositoryError.unsupported)
+        return operation
     }
 
     func saveOperation(
