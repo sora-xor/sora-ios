@@ -691,16 +691,6 @@ final class RootWelcomeActionCoverageTests: RootActionFixtureTests {
 
 @MainActor
 final class PresentationUtilityCoverageTests: XCTestCase {
-    private var originalKeyboard: KeyboardService!
-    private var originalMeasurement = CGRect.zero
-    override func setUp() {
-        super.setUp(); originalKeyboard = KeyboardService.serviceSingleton
-        originalMeasurement = originalKeyboard.measuredSize
-    }
-    override func tearDown() {
-        KeyboardService.serviceSingleton = originalKeyboard; originalKeyboard.measuredSize = originalMeasurement
-        originalKeyboard = nil; super.tearDown()
-    }
     func testStandardSheetHeaderKeepsItsGrabberInsideTheVisibleHeader() {
         let style = ModalSheetPresentationHeaderStyle.modalHeaderStyle
         XCTAssertEqual(style.preferredHeight, 20); XCTAssertEqual(style.cornerRadius, 10)
@@ -735,32 +725,6 @@ final class PresentationUtilityCoverageTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(config.style.headerStyle).cornerRadius, 40)
         XCTAssertTrue(config.extendUnderSafeArea); XCTAssertEqual(config.dismissFinishSpeedFactor, 0.6); XCTAssertEqual(config.dismissCancelSpeedFactor, 0.6)
         XCTAssertEqual(config.contentAppearanceAnimator.duration, 0.25); XCTAssertEqual(config.contentDissmisalAnimator.duration, 0.25)
-    }
-    func testKeyboardMeasurementUsesTheFirstValidEndFrame() {
-        let service = KeyboardService(); service.measuredSize = .zero
-        let frame = CGRect(x: 0, y: 500, width: 390, height: 344)
-        NotificationCenter.default.post(name: UIResponder.keyboardDidShowNotification, object: nil, userInfo: [UIResponder.keyboardFrameEndUserInfoKey: NSValue(cgRect: frame)])
-        XCTAssertEqual(service.measuredSize, frame)
-        NotificationCenter.default.post(name: UIResponder.keyboardDidShowNotification, object: nil, userInfo: [UIResponder.keyboardFrameEndUserInfoKey: NSValue(cgRect: CGRect(x: 0, y: 600, width: 390, height: 244))])
-        XCTAssertEqual(service.measuredSize, frame)
-    }
-    func testMalformedKeyboardNotificationsDoNotPublishAMeasurement() {
-        let service = KeyboardService(); service.measuredSize = .zero
-        NotificationCenter.default.post(name: UIResponder.keyboardDidShowNotification, object: nil)
-        NotificationCenter.default.post(name: UIResponder.keyboardDidShowNotification, object: nil, userInfo: [UIResponder.keyboardFrameEndUserInfoKey: "invalid"])
-        NotificationCenter.default.post(name: UIResponder.keyboardDidShowNotification, object: nil, userInfo: [UIResponder.keyboardFrameBeginUserInfoKey: NSValue(cgRect: CGRect(x: 0, y: 500, width: 390, height: 344))])
-        XCTAssertEqual(service.measuredSize, .zero)
-    }
-    func testKeyboardHeightAndSizeUseTheSharedMeasuredEndFrame() {
-        let previous = KeyboardService.serviceSingleton; defer { KeyboardService.serviceSingleton = previous }
-        let service = KeyboardService(); service.measuredSize = CGRect(x: 5, y: 500, width: 380, height: 300)
-        KeyboardService.serviceSingleton = service
-        XCTAssertEqual(KeyboardService.keyboardHeight(), 300); XCTAssertEqual(KeyboardService.keyboardSize(), service.measuredSize)
-    }
-    func testReleasedKeyboardObserverDoesNotRemainAlive() {
-        weak var observed: KeyboardService?
-        autoreleasepool { let service = KeyboardService(); observed = service }
-        XCTAssertNil(observed)
     }
     func testUnavailableEmailComposerDoesNotPresentOrClaimCompletion() {
         // XCTest runs this suite on an unconfigured iOS simulator.

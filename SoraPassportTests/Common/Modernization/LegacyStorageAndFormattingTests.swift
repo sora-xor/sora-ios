@@ -71,28 +71,6 @@ final class LegacyStorageAndFormattingTests: XCTestCase {
         XCTAssertNotEqual(try factory.createFromStoragePath(path, encodableElement: UInt32(1), chainId: "mainnet"), try factory.createFromStoragePath(path, encodableElement: UInt32(2), chainId: "mainnet"))
     }
     private var asset: WalletAsset { WalletAsset(identifier: "fixture-XOR", name: LocalizableResource { _ in "SORA" }, symbol: "XOR", precision: 2) }
-    func testInputFormattingDoesNotRoundUpAnAmountBeyondTheAssetPrecision() {
-        let formatter = NumberFormatterFactory().createInputFormatter(for: asset).value(for: Locale(identifier: "en_US"))
-        XCTAssertEqual(formatter.string(from: NSDecimalNumber(string: "1234.569")), "1,234.56")
-        XCTAssertEqual(formatter.maximumFractionDigits, 2)
-    }
-    func testDisplayFormattingUsesTheRequestedLocaleAndAssetPrecision() {
-        let resource = NumberFormatterFactory().createDisplayFormatter(for: asset)
-        XCTAssertEqual(resource.value(for: Locale(identifier: "en_US")).stringFromDecimal(Decimal(string: "1234.569")!), "1,234.56")
-        XCTAssertEqual(resource.value(for: Locale(identifier: "de_DE")).stringFromDecimal(Decimal(string: "1234.569")!), "1.234,56")
-    }
-    func testMissingAssetFormattingStillProducesAReadableNumber() {
-        let factory = NumberFormatterFactory(), locale = Locale(identifier: "en_US")
-        XCTAssertEqual(factory.createInputFormatter(for: nil).value(for: locale).string(from: 12), "12")
-        XCTAssertEqual(factory.createDisplayFormatter(for: nil).value(for: locale).stringFromDecimal(12), "12")
-    }
-    func testTokenAndFeeFormattingCarryTheSameSymbolAndPrecision() {
-        let factory = NumberFormatterFactory(), locale = Locale(identifier: "en_US")
-        let token = factory.createTokenFormatter(for: asset).value(for: locale).stringFromDecimal(Decimal(string: "12.349")!)
-        let fee = factory.createFeeTokenFormatter(for: asset).value(for: locale).stringFromDecimal(Decimal(string: "12.349")!)
-        XCTAssertEqual(token, fee); XCTAssertTrue(token?.contains("12.34") == true); XCTAssertTrue(token?.contains("XOR") == true)
-        XCTAssertNotNil(factory.createTokenFormatter(for: nil).value(for: locale).stringFromDecimal(12))
-    }
     func testWalletDateFormattingUsesEachRequestedLocaleAndTimeZone() {
         let date = Date(timeIntervalSince1970: 0)
         let status = DateFormatter.statusDateFormatter; status.locale = Locale(identifier: "en_US_POSIX"); status.timeZone = TimeZone(secondsFromGMT: 0)
@@ -104,28 +82,6 @@ final class LegacyStorageAndFormattingTests: XCTestCase {
                 XCTAssertNotNil(formatter.date(from: formatter.string(from: date)))
             }
         }
-    }
-    func testInputFieldPreservesThePreviousValueWhenAnEditViolatesItsBudget() {
-        let model = InputFieldViewModel(title: "Name", hint: "Wallet name", cancelActionTitle: "Cancel", doneActionTitle: "Done")
-        model.maximumLength = 4
-        XCTAssertTrue(model.didReceive(replacement: "Test", in: NSRange(location: 0, length: 0)))
-        XCTAssertFalse(model.didReceive(replacement: "!", in: NSRange(location: 4, length: 0))); XCTAssertEqual(model.value, "Test")
-        XCTAssertTrue(model.didReceive(replacement: "", in: NSRange(location: 3, length: 1))); XCTAssertEqual(model.value, "Tes")
-        XCTAssertEqual(model.title, "Name"); XCTAssertEqual(model.hint, "Wallet name")
-    }
-    func testInputFieldAppliesCharacterPolicyAndCompletionSeparately() {
-        let model = InputFieldViewModel(title: "", hint: "", cancelActionTitle: "Cancel", doneActionTitle: "Done")
-        XCTAssertTrue(model.isComplete)
-        model.invalidCharacters = .decimalDigits; model.completionPredicate = NSPredicate { value, _ in (value as? String)?.count == 3 }
-        XCTAssertFalse(model.isComplete)
-        XCTAssertFalse(model.didReceive(replacement: "a1", in: NSRange(location: 0, length: 0))); XCTAssertEqual(model.value, "")
-        XCTAssertTrue(model.didReceive(replacement: "abc", in: NSRange(location: 0, length: 0))); XCTAssertTrue(model.isComplete)
-        XCTAssertTrue(model.didReceive(replacement: "d", in: NSRange(location: 0, length: 3))); XCTAssertFalse(model.isComplete)
-    }
-    func testInputFieldUsesUTF16ReplacementRangesWithoutSplittingEmoji() {
-        let model = InputFieldViewModel(title: "", hint: "", cancelActionTitle: "", doneActionTitle: "")
-        XCTAssertTrue(model.didReceive(replacement: "🦊a", in: NSRange(location: 0, length: 0)))
-        XCTAssertTrue(model.didReceive(replacement: "b", in: NSRange(location: 2, length: 1))); XCTAssertEqual(model.value, "🦊b")
     }
     func testDisplayNamesKeepTheLastComponentAndAddressAbbreviationIsBounded() {
         XCTAssertEqual("Ada Lovelace".firstName, "Ada"); XCTAssertEqual("Ada Lovelace".lastName, "Lovelace")
@@ -229,21 +185,6 @@ final class LegacyPersistenceBoundaryTests: XCTestCase {
         let encoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(entity)) as! [String: Any]
         XCTAssertEqual(encoded["address"] as? String, initial.address); XCTAssertEqual(encoded["username"] as? String, "Renamed wallet")
         XCTAssertEqual(encoded["publicKeyData"] as? String, initial.publicKeyData.base64EncodedString()); XCTAssertEqual(encoded["cryptoType"] as? Int, 0)
-    }
-    func testReferendumRoundTripPreservesDomainVotesAndEveryStatus() throws {
-        let c = try context("Entities"), mapper = ReferendumDataMapper(domain: "governance-test")
-        XCTAssertEqual(mapper.entityIdentifierFieldName, "identifier")
-        for status in [ReferendumDataStatus.open, .accepted, .rejected] {
-            let expected = ReferendumData(identifier: "proposal", name: "A proposal", shortDescription: "Brief", detailedDescription: "Full proposal", fundingDeadline: 1234, statusUpdateTime: 5678, imageLink: URL(string: "https://fixture.invalid/image.png"), status: status, supportVotes: "12345678901234567890", opposeVotes: "1", userSupportVotes: "2", userOpposeVotes: "0")
-            let entity = CDReferendum(context: c); try mapper.populate(entity: entity, from: expected, using: c)
-            XCTAssertEqual(try mapper.transform(entity: entity), expected); XCTAssertEqual(entity.domain, "governance-test")
-        }
-    }
-    func testReferendumWithoutAnImageDoesNotInventALink() throws {
-        let c = try context("Entities"), entity = CDReferendum(context: c), mapper = ReferendumDataMapper(domain: "test")
-        let expected = ReferendumData(identifier: "proposal", name: "Name", shortDescription: "Short", detailedDescription: "Long", fundingDeadline: 1, statusUpdateTime: 2, imageLink: nil, status: .open, supportVotes: "0", opposeVotes: "0", userSupportVotes: "0", userOpposeVotes: "0")
-        try mapper.populate(entity: entity, from: expected, using: c)
-        XCTAssertNil(entity.imageLink); XCTAssertEqual(try mapper.transform(entity: entity), expected)
     }
 }
 

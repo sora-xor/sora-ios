@@ -12582,10 +12582,11 @@ final class WalletModernizationTests: XCTestCase {
         let raw = "123456789012345678901234567890.123456789"
         let quantity = try PIQuantity(raw)
         let fiat = PIExactFiatData(id: "xor", priceUsd: quantity)
-        let apy = PIExactApyInfo(id: "pool", sbApy: quantity)
 
+        // The APY adapter (SubqueryApyInfoOperation) had no caller and was
+        // removed; APY values reach the app as the same PIQuantity.
         XCTAssertEqual(fiat.priceUsd?.rawValue, raw)
-        XCTAssertEqual(apy.sbApy?.rawValue, raw)
+        XCTAssertEqual(quantity.rawValue, raw)
     }
 
     func testProductionMutationFlagsFailClosedWhenUnset() {

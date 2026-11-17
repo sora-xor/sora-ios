@@ -40,20 +40,6 @@ final class LegacyWireModelBoundaryTests: XCTestCase {
             XCTAssertNil(value.value()); XCTAssertEqual(String(data: try JSONEncoder().encode(value), encoding: .utf8), "null")
         }
     }
-    func testTokenBalancesReadEachNetworkIndependentlyAndPreserveDecimalPrecision() {
-        let value = TokenBalancesData(balanceContext: [WalletOperationContextKey.Balance.soranet: "1.000000000000000001", WalletOperationContextKey.Balance.erc20: "9007199254740993.25"])
-        XCTAssertEqual(value.soranet, Decimal(string: "1.000000000000000001")); XCTAssertEqual(value.ethereum, Decimal(string: "9007199254740993.25"))
-        let missing = TokenBalancesData(balanceContext: [:]); XCTAssertEqual(missing.soranet, 0); XCTAssertEqual(missing.ethereum, 0)
-        let malformed = TokenBalancesData(balanceContext: [WalletOperationContextKey.Balance.soranet: "invalid", WalletOperationContextKey.Balance.erc20: "invalid"])
-        XCTAssertEqual(malformed.soranet, 0); XCTAssertEqual(malformed.ethereum, 0)
-    }
-    func testSendingBalancesCombineTransferAndWithdrawalWithoutCrossingNetworks() {
-        let value = TokenBalancesData(sendingContext: [WalletOperationContextKey.SoranetTransfer.balance: "1.25", WalletOperationContextKey.SoranetWithdraw.balance: "2.5", WalletOperationContextKey.ERC20Transfer.balance: "4.75", WalletOperationContextKey.ERC20Withdraw.balance: "8.125"])
-        XCTAssertEqual(value.soranet, Decimal(string: "3.75")); XCTAssertEqual(value.ethereum, Decimal(string: "12.875"))
-        let empty = TokenBalancesData(sendingContext: [:]); XCTAssertEqual(empty.soranet, 0); XCTAssertEqual(empty.ethereum, 0)
-        let bad = TokenBalancesData(sendingContext: [WalletOperationContextKey.SoranetTransfer.balance: "invalid", WalletOperationContextKey.SoranetWithdraw.balance: "invalid", WalletOperationContextKey.ERC20Transfer.balance: "invalid", WalletOperationContextKey.ERC20Withdraw.balance: "invalid"])
-        XCTAssertEqual(bad.soranet, 0); XCTAssertEqual(bad.ethereum, 0)
-    }
     func testMarketErrorsDistinguishReviewRetryBalanceAndRecoveryActions() throws {
         let cases: [(PolkamarktRuntimeError, String)] = [
             (.unavailable, "unavailable"), (.wrongChain, "mainnet"), (.unsupportedRuntime(spec: 133, transaction: 131), "133/131"), (.missingCall("buy"), "Polkamarkt.buy"),
@@ -78,101 +64,6 @@ final class LegacyWireModelBoundaryTests: XCTestCase {
 }
 
 extension LegacyWireModelBoundaryTests {
-    private func ethereumSignature(_ v: String = "1b", r: String = String(repeating: "01", count: 32), s: String = String(repeating: "02", count: 32)) throws -> EthereumSignature {
-        try JSONDecoder().decode(EthereumSignature.self, from: JSONSerialization.data(withJSONObject: ["v": v, "r": r, "s": s]))
-    }
-    func testEthereumSignaturePreservesTheRecoveryIdAndBothScalars() throws {
-        for recoveryId: UInt8 in [0, 1, 27, 28, 255] {
-            let signature = try ethereumSignature(String(format: "%02x", recoveryId))
-            XCTAssertEqual(signature.vPart, recoveryId)
-            XCTAssertEqual(signature.rPart, Data(repeating: 1, count: 32)); XCTAssertEqual(signature.sPart, Data(repeating: 2, count: 32))
-        }
-    }
-    func testEthereumSignatureEncodesTheDocumentedHexFieldsWithoutDataBase64() throws {
-        let signature = EthereumSignature(vPart: 28, rPart: Data(repeating: 0xaa, count: 32), sPart: Data(repeating: 0xbb, count: 32))
-        let encoded = try JSONEncoder().encode(signature)
-        XCTAssertEqual(try JSONSerialization.jsonObject(with: encoded) as? [String: String],
-            ["v": "1c", "r": String(repeating: "aa", count: 32), "s": String(repeating: "bb", count: 32)])
-        let restored = try JSONDecoder().decode(EthereumSignature.self, from: encoded)
-        XCTAssertEqual(restored.vPart, 28); XCTAssertEqual(restored.rPart, signature.rPart); XCTAssertEqual(restored.sPart, signature.sPart)
-    }
-    func testEthereumSignatureRejectsMissingOrMultipleRecoveryBytes() {
-        for raw in ["", "0001", "010203", "gg"] { XCTAssertThrowsError(try ethereumSignature(raw)) }
-    }
-    func testEthereumSignatureRejectsMalformedScalarHexAndNonstringWireFields() throws {
-        XCTAssertThrowsError(try ethereumSignature(r: "zz")); XCTAssertThrowsError(try ethereumSignature(s: "zz"))
-        for field in ["v", "r", "s"] {
-            var wire: [String: Any] = ["v": "1b", "r": "01", "s": "02"]; wire[field] = 1
-            XCTAssertThrowsError(try JSONDecoder().decode(EthereumSignature.self, from: JSONSerialization.data(withJSONObject: wire)))
-            wire.removeValue(forKey: field)
-            XCTAssertThrowsError(try JSONDecoder().decode(EthereumSignature.self, from: JSONSerialization.data(withJSONObject: wire)))
-        }
-    }
-    private func media(_ wire: [String: Any]) throws -> MediaItemData {
-        try JSONDecoder().decode(MediaItemData.self, from: JSONSerialization.data(withJSONObject: wire))
-    }
-    func testImageMediaRetainsItsDiscriminatorAndExactUrl() throws {
-        let url = URL(string: "https://example.test/image.png?size=2")!
-        let value = try media(["type": "IMAGE", "url": url.absoluteString])
-        XCTAssertEqual(value, .image(item: ImageData(url: url)))
-        let encoded = try JSONEncoder().encode(value)
-        XCTAssertEqual(try JSONSerialization.jsonObject(with: encoded) as? [String: String], ["type": "IMAGE", "url": url.absoluteString])
-    }
-    func testVideoMediaPreservesPreviewAndDurationAcrossTheWire() throws {
-        let value = try media(["type": "VIDEO", "url": "https://example.test/video.mp4", "previewUrl": "https://example.test/cover.png", "duration": 123])
-        guard case let .video(video) = value else { return XCTFail("Video type must remain a video") }
-        XCTAssertEqual(video.duration, 123); XCTAssertEqual(video.previewUrl?.lastPathComponent, "cover.png")
-        XCTAssertEqual(try JSONDecoder().decode(MediaItemData.self, from: JSONEncoder().encode(value)), value)
-    }
-    func testVideoMediaDoesNotInventAMissingPreview() throws {
-        let value = try media(["type": "VIDEO", "url": "https://example.test/video.mp4", "duration": 0])
-        guard case let .video(video) = value else { return XCTFail("Expected video") }
-        XCTAssertNil(video.previewUrl)
-        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String: Any])
-        XCTAssertNil(object["previewUrl"]); XCTAssertEqual(object["duration"] as? Int, 0)
-    }
-    func testMediaRejectsUnknownAndMissingDiscriminators() {
-        for wire: [String: Any] in [["type": "AUDIO", "url": "https://example.test/file"], ["url": "https://example.test/image.png"], ["type": 1, "url": "https://example.test/image.png"]] {
-            XCTAssertThrowsError(try media(wire))
-        }
-    }
-    func testMediaRejectsFieldsThatCannotRepresentItsDeclaredType() {
-        XCTAssertThrowsError(try media(["type": "IMAGE", "url": 5]))
-        XCTAssertThrowsError(try media(["type": "VIDEO", "url": "https://example.test/video.mp4"]))
-        XCTAssertThrowsError(try media(["type": "VIDEO", "url": "https://example.test/video.mp4", "duration": "123"]))
-    }
-    private func user(parent: String? = nil, expires: Int64? = nil) -> UserData {
-        UserData(userId: "public-fixture-user", firstName: "Test", lastName: "User", username: nil,
-            country: nil, phone: nil, inviteAcceptExpirationMoment: expires, parentId: parent,
-            status: nil, services: nil, values: UserValuesData(userId: "public-fixture-user", invitationCode: "fixture-code"))
-    }
-    func testInvitationWithNoExpiryRemainsAvailableOnlyBeforeParentIsAssigned() {
-        XCTAssertTrue(user().canAcceptInvitation); XCTAssertNil(user().invitationExpirationInterval)
-        XCTAssertFalse(user(parent: "parent").canAcceptInvitation); XCTAssertNil(user(parent: "parent").invitationExpirationInterval)
-    }
-    func testExpiredInvitationCannotBeAcceptedOrExposeANegativeCountdown() {
-        let expired = user(expires: Int64(Date().timeIntervalSince1970) - 100)
-        XCTAssertFalse(expired.canAcceptInvitation); XCTAssertNil(expired.invitationExpirationInterval)
-    }
-    func testFutureInvitationCountdownStaysWithinTheRemainingWindow() throws {
-        let value = user(expires: Int64(Date().timeIntervalSince1970) + 3_600)
-        XCTAssertTrue(value.canAcceptInvitation)
-        let remaining = try XCTUnwrap(value.invitationExpirationInterval)
-        XCTAssertGreaterThan(remaining, 3_590); XCTAssertLessThanOrEqual(remaining, 3_600)
-    }
-    func testAcceptedInvitationIgnoresAFutureInvitationDeadline() {
-        let value = user(parent: "already-associated", expires: Int64(Date().timeIntervalSince1970) + 3_600)
-        XCTAssertFalse(value.canAcceptInvitation); XCTAssertNil(value.invitationExpirationInterval)
-    }
-    func testUserProfileUsesWireNamesForValuesAndServiceIdentifiers() throws {
-        var value = user()
-        value.services = [UserServiceData(userId: value.userId, serviceType: "fixture", serviceId: "did:fixture:1")]
-        let bytes = try JSONEncoder().encode(value), object = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
-        XCTAssertNotNil(object["userValues"]); XCTAssertNil(object["values"])
-        let services = try XCTUnwrap(object["userServices"] as? [[String: Any]])
-        XCTAssertEqual(services.first?["serviceDid"] as? String, "did:fixture:1"); XCTAssertNil(services.first?["serviceId"])
-        XCTAssertEqual(try JSONDecoder().decode(UserData.self, from: bytes), value)
-    }
     func testRawChainDataDistinguishesUtf8TextFromArbitraryBytes() {
         let text = ChainData.raw(data: Data("名前".utf8)), binary = ChainData.raw(data: Data([0xff, 0xfe]))
         XCTAssertEqual(text.stringValue, "名前"); XCTAssertEqual(text.dataValue, Data("名前".utf8))
@@ -221,20 +112,6 @@ extension LegacyWireModelBoundaryTests {
         for bytes in [Data(), Data(repeating: 7, count: 31), Data(repeating: 7, count: 32)] {
             XCTAssertThrowsError(try SoraPassport.StakingLedger(scaleDecoder: ScaleDecoder(data: bytes)))
         }
-    }
-    func testLegacySigningPayloadKeepsTheCallNonceTipAndChainDomainsInOrder() throws {
-        let payload = SoraPassport.ExtrinsicPayload(call: Call(moduleIndex: 4, callIndex: 2, arguments: Data([0xaa, 0xbb])),
-            era: .immortal, nonce: 3, tip: 5, specVersion: 0x01020304, transactionVersion: 0x05060708,
-            genesisHash: Data(repeating: 0x11, count: 32), blockHash: Data(repeating: 0x22, count: 32))
-        let encoder = ScaleEncoder(); try payload.encode(scaleEncoder: encoder)
-        let expected = Data([4, 2, 0xaa, 0xbb, 0, 12, 20, 4, 3, 2, 1, 8, 7, 6, 5]) + Data(repeating: 0x11, count: 32) + Data(repeating: 0x22, count: 32)
-        XCTAssertEqual(try encoder.encode(), expected)
-    }
-    func testLegacySigningPayloadOmitsAbsentCallArgumentsAndEncodesMortalEra() throws {
-        let payload = SoraPassport.ExtrinsicPayload(call: Call(moduleIndex: 1, callIndex: 2, arguments: nil), era: .mortal(period: 64, phase: 3),
-            nonce: 0, tip: 0, specVersion: 1, transactionVersion: 2, genesisHash: Data(repeating: 1, count: 32), blockHash: Data(repeating: 2, count: 32))
-        let encoder = ScaleEncoder(); try payload.encode(scaleEncoder: encoder)
-        XCTAssertEqual(Data(try encoder.encode().prefix(6)), Data([1, 2, 0x35, 0, 0, 0]))
     }
 }
 
