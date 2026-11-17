@@ -49,17 +49,6 @@ final class MoreMenuNavigationFlowTests: XCTestCase {
     XCTAssertNotNil(view.presenter)
     XCTAssertEqual(SelectedWalletSettings.shared.currentAccount?.address, previous)
   }
-  func testNexusRoutePushesThePortfolioOnTheCurrentNavigationStack() throws {
-    let f = try make()
-    let nav = MenuRouteNavigation()
-    nav.addChild(f.host)
-    f.route.showNexusPortfolio(from: f.host)
-    let view = try XCTUnwrap(nav.pushed.last as? NexusPortfolioViewController)
-    XCTAssertTrue(view.hidesBottomBarWhenPushed)
-    XCTAssertTrue(f.host.shown.isEmpty)
-    XCTAssertEqual(nav.flags, [true])
-    XCTAssertFalse(view.isViewLoaded)
-  }
   func testPolkamarktRoutePushesTheMarketCatalogOnTheCurrentNavigationStack() throws {
     let f = try make()
     let nav = MenuRouteNavigation()
@@ -70,11 +59,6 @@ final class MoreMenuNavigationFlowTests: XCTestCase {
     XCTAssertTrue(view.localizationManager === f.language)
     XCTAssertEqual(nav.flags, [true])
     XCTAssertFalse(view.isViewLoaded)
-  }
-  func testNexusRouteRequiresANavigationStack() throws {
-    let f = try make()
-    f.route.showNexusPortfolio(from: f.host)
-    XCTAssertTrue(f.host.shown.isEmpty)
   }
   func testPolkamarktRouteRequiresANavigationStack() throws {
     let f = try make()
@@ -109,11 +93,6 @@ final class MoreMenuNavigationFlowTests: XCTestCase {
   func testFriendsRouteHandlesAMissingPresenter() throws {
     let f = try make()
     f.route.showFriendsView(from: nil)
-    XCTAssertTrue(f.host.shown.isEmpty)
-  }
-  func testNexusRouteHandlesAMissingPresenter() throws {
-    let f = try make()
-    f.route.showNexusPortfolio(from: nil)
     XCTAssertTrue(f.host.shown.isEmpty)
   }
   func testPolkamarktRouteHandlesAMissingPresenter() throws {

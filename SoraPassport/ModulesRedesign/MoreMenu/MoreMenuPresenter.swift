@@ -142,10 +142,6 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
         wireframe.showChangeAccountView(from: view)
     }
 
-    func showNexusPortfolio() {
-        wireframe.showNexusPortfolio(from: view)
-    }
-
     func showPolkamarkt() {
         wireframe.showPolkamarkt(from: view)
     }
