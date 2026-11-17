@@ -56,6 +56,11 @@ Jenkins and GitHub Actions are retired. Run validation on the local build machin
 with an installed Xcode 26 or 27 and a matching iOS simulator. Use the same Xcode
 version for validation and release archives, and retain the local results.
 
+The build gate, `verify-modernization-dependencies.sh`, is the first build phase of both
+app targets and takes seconds: source lints, the migration test inventory, the reviewed
+dependency pins and a scan for prebuilt binaries. `scripts/archive-app-store.sh` runs it in
+lint mode for every App Store archive; any other Release build stops at its end.
+
 ```sh
 xcodebuild -version
 /bin/sh SoraPassport/Scripts/verify-modernization-dependencies.sh --lint-ios-migration-release-source-gate
@@ -136,8 +141,9 @@ python3 SoraPassport/Scripts/test-swiftpm-advisories.py
 python3 SoraPassport/Scripts/audit-swiftpm-advisories.py --output /absolute/path/swiftpm-advisories.json
 ```
 
-It checks immutable SwiftPM source revisions; vendored source and native binaries
-retain their separate qualification requirements. An incomplete scan fails.
+It checks immutable SwiftPM source revisions. Prebuilt binaries are kept out of the
+tree by the build gate's repository scan (`SoraPassport/Scripts/scan-repository-binaries.py`).
+An incomplete scan fails.
 
 ## License
 

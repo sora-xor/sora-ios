@@ -23,20 +23,13 @@ tree without build outputs) and fails on:
 - a SwiftPM `.binaryTarget(` in a tracked Package.swift;
 - a pin for a closed-source or binary-only package in a tracked Package.resolved.
 
-Commands (the interface the dependency gate and release scripts call):
-
-  --scan-repository        run the scan; prints nothing when the tree is clean.
-  --lint-templates         check the blocked template; prints nothing. Release
-                           scripts call it many times per run, so it does not
-                           scan; the gate's test suite runs the scan once.
-  --print-contract-sha256  SHA-256 of this tool and the blocked template.
-  --verify-qualified       production promotion. Fails closed: the promotion
-                           receipt for a binary-free tree has not been produced.
+Usage: scan-repository-binaries.py --scan-repository
+(prints nothing and exits 0 when the tree is clean). The build gate,
+verify-modernization-dependencies.sh, runs it on every build and archive.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -46,8 +39,6 @@ from pathlib import Path
 from typing import Iterable, List, Optional
 
 ROOT = Path(__file__).resolve().parents[2]
-FIXTURES = ROOT / "Fixtures" / "Modernization"
-BLOCKED_RECEIPT = FIXTURES / "ios-vendored-binary-qualification.blocked.json"
 GIT = "/usr/bin/git"
 
 BINARY_DIRECTORY_SUFFIXES = (".xcframework", ".framework")
@@ -86,20 +77,6 @@ SKIPPED_DIRECTORIES = {
     "__pycache__",
 }
 BINARY_TARGET_RE = re.compile(r"\.binaryTarget\s*\(")
-
-EXPECTED_BLOCKED_RECEIPT = {
-    "schemaVersion": 2,
-    "contractId": "sora-ios-vendored-binary-qualification-v2",
-    "platform": "ios",
-    "status": "blocked",
-    "vendoredBinaryCount": 0,
-    "artifacts": [],
-    "blockingReasons": [
-        "No prebuilt binary is vendored: the crypto libraries and the indexer models are built "
-        "from source. A promotion receipt for this source tree has not been produced."
-    ],
-}
-
 
 def fail(message: str) -> None:
     raise SystemExit(f"error: {message}")
@@ -182,49 +159,11 @@ def require_no_binaries(root: Path = ROOT) -> None:
         fail("prebuilt or closed-source binaries are not allowed:\n  " + "\n  ".join(findings))
 
 
-def lint_templates(root: Path = ROOT) -> None:
-    receipt_path = root / BLOCKED_RECEIPT.relative_to(ROOT)
-    if receipt_path.is_symlink() or not receipt_path.is_file():
-        fail("blocked vendored-binary template is absent or symbolic")
-    try:
-        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-    except ValueError as error:
-        fail(f"blocked vendored-binary template is not JSON: {error}")
-    if receipt != EXPECTED_BLOCKED_RECEIPT:
-        fail("blocked vendored-binary template drifted from the binary-free contract")
-
-
-def contract_sha256(root: Path = ROOT) -> str:
-    digest = hashlib.sha256()
-    for path in (Path(__file__).resolve(), root / BLOCKED_RECEIPT.relative_to(ROOT)):
-        data = path.read_bytes()
-        digest.update(len(data).to_bytes(8, "big"))
-        digest.update(data)
-    return digest.hexdigest()
-
-
 def main() -> None:
     if sys.argv[1:] == ["--scan-repository"]:
         require_no_binaries()
         return
-    if sys.argv[1:] == ["--lint-templates"]:
-        lint_templates()
-        return
-    if sys.argv[1:] == ["--print-contract-sha256"]:
-        lint_templates()
-        print(contract_sha256())
-        return
-    if sys.argv[1:] == ["--verify-qualified"]:
-        lint_templates()
-        require_no_binaries()
-        fail(
-            "no vendored-binary promotion receipt: the tree holds no prebuilt binary, "
-            "but no reviewed receipt for it has been produced"
-        )
-    fail(
-        "usage: verify-ios-vendored-binary-qualification.py "
-        "--scan-repository|--lint-templates|--print-contract-sha256|--verify-qualified"
-    )
+    fail("usage: scan-repository-binaries.py --scan-repository")
 
 
 if __name__ == "__main__":

@@ -20096,37 +20096,11 @@ final class WalletModernizationTests: XCTestCase {
             )
         }
 
-        // The Nexus line keeps its Release verifier (now run by CI, not as a
-        // build phase); it must keep the Polkamarkt parity gate.
-        let releaseVerifierURL = fixtureURL
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent(
-                "SoraPassport/Scripts/verify-modernization-dependencies.sh"
-            )
-        let releaseVerifier = try XCTUnwrap(
-            String(
-                data: Data(contentsOf: releaseVerifierURL),
-                encoding: .utf8
-            )
-        )
-        for requiredParityGate in [
-            "POLKAMARKT_ANDROID_SOURCE_ROOT",
-            "POLKAMARKT_ANDROID_SOURCE_REVISION",
-            "POLKAMARKT_ANDROID_FIXTURE_PATH",
-            "POLKAMARKT_NODE_BINARY",
-            "POLKAMARKT_NODE_BINARY_SHA256",
-            "--validate-qualified",
-            "POLKAMARKT_QUALIFIED_FIXTURE_VALID",
-            "/usr/bin/git -C",
-            "/usr/bin/cmp -s"
-        ] {
-            XCTAssertTrue(
-                releaseVerifier.contains(requiredParityGate),
-                "missing iOS Release parity gate: \(requiredParityGate)"
-            )
-        }
+        // The Android/iOS Polkamarkt extrinsic parity check lived in the
+        // never-run part of the build gate, with the production-promotion
+        // framework removed on 2026-11-18. Polkamarkt mutations stay hard
+        // denied (ProductionMutationQualification.polkamarktMutations), so
+        // re-qualifying them needs that parity check written again.
 
         let translationKeys = try XCTUnwrap(
             fixture["translationKeys"] as? [String: String]

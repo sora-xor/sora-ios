@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for the no-prebuilt-binaries check (verify-ios-vendored-binary-qualification)."""
+"""Tests for the no-prebuilt-binaries check (scan-repository-binaries.py)."""
 
 from __future__ import annotations
 
@@ -12,8 +12,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "SoraPassport" / "Scripts" / "verify-ios-vendored-binary-qualification.py"
-WRAPPER = ROOT / "SoraPassport" / "Scripts" / "verify-ios-vendored-binary-qualification.sh"
+SCRIPT = ROOT / "SoraPassport" / "Scripts" / "scan-repository-binaries.py"
 
 spec = importlib.util.spec_from_file_location("vendored", SCRIPT)
 vendored = importlib.util.module_from_spec(spec)
@@ -32,10 +31,9 @@ class NoPrebuiltBinariesTests(unittest.TestCase):
         return vendored.binary_findings(self.root, vendored.walked_files(self.root))
 
     def test_repository_has_no_prebuilt_binaries(self) -> None:
-        # The dependency gate runs this suite on every build; this is where the
-        # repository scan is enforced (--lint-templates does not scan).
         self.assertEqual(vendored.scan(ROOT), [])
-        result = subprocess.run(["/bin/sh", str(WRAPPER), "--scan-repository"], capture_output=True, text=True)
+        result = subprocess.run(["/usr/bin/python3", "-B", "-I", "-S", str(SCRIPT), "--scan-repository"],
+                                capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "")
 
@@ -95,21 +93,6 @@ class NoPrebuiltBinariesTests(unittest.TestCase):
             path.mkdir(parents=True)
             (path / "Info.plist").write_text("<plist/>")
         self.assertEqual(self.findings(), [])
-
-    def test_lint_templates_succeeds_silently_on_the_repository(self) -> None:
-        result = subprocess.run(["/bin/sh", str(WRAPPER), "--lint-templates"], capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, "")
-        digest = subprocess.run(
-            ["/bin/sh", str(WRAPPER), "--print-contract-sha256"], capture_output=True, text=True, check=True
-        ).stdout.strip()
-        self.assertRegex(digest, r"^[0-9a-f]{64}$")
-
-    def test_production_promotion_fails_closed_without_a_receipt(self) -> None:
-        result = subprocess.run(["/bin/sh", str(WRAPPER), "--verify-qualified"], capture_output=True, text=True)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertNotIn("receiptSha256=", result.stdout)
-        self.assertIn("no vendored-binary promotion receipt", result.stderr)
 
 
 if __name__ == "__main__":
