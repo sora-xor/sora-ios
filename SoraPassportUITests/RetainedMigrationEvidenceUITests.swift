@@ -20,8 +20,6 @@ final class RetainedMigrationEvidenceUITests: XCTestCase {
         "sora.migrationEvidence.v3.receiptSha256"
     private static let receiptBase64Identifier =
         "sora.migrationEvidence.v3.receiptBase64"
-    private static let continueUpgradeIdentifier =
-        "sora.migrationEvidence.v3.continueUpgrade"
     private static let recoveryExportIdentifier =
         "sora.migrationEvidence.v3.recoveryExport"
     private static let recoveryExportConfirmIdentifier =
@@ -59,7 +57,6 @@ final class RetainedMigrationEvidenceUITests: XCTestCase {
     private func driveLaunch(
         _ application: XCUIApplication
     ) throws -> Bool {
-        var confirmedUpgrade = false
         var requestedRecoveryExport = false
         let deadline = Date(timeIntervalSinceNow: 300)
         while Date() < deadline {
@@ -88,17 +85,6 @@ final class RetainedMigrationEvidenceUITests: XCTestCase {
                     status == "inactive" ||
                     status == "awaiting-signed-authorization" {
                     throw RunnerFailure.rejectedStatus(status)
-                }
-                if status == "awaiting-legacy-upgrade-confirmation",
-                   !confirmedUpgrade {
-                    let button = application.buttons[
-                        Self.continueUpgradeIdentifier
-                    ]
-                    guard button.waitForExistence(timeout: 30) else {
-                        throw RunnerFailure.launchTimedOut
-                    }
-                    button.tap()
-                    confirmedUpgrade = true
                 }
                 if status == "awaiting-recovery-archive-export",
                    !requestedRecoveryExport {

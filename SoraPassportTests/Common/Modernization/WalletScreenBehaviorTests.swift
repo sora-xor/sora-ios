@@ -883,7 +883,6 @@ extension WalletScreenBehaviorTests {
         XCTAssertTrue(RetainedMigrationEvidenceApplicationRoute.localAuthentication.isSuccessfulWalletRoute)
         XCTAssertTrue(RetainedMigrationEvidenceApplicationRoute.pincodeSetup.isSuccessfulWalletRoute)
         XCTAssertFalse(RetainedMigrationEvidenceApplicationRoute.onboarding.isSuccessfulWalletRoute)
-        XCTAssertFalse(RetainedMigrationEvidenceApplicationRoute.legacyUpgradeReady.isSuccessfulWalletRoute)
         XCTAssertFalse(RetainedMigrationEvidenceApplicationRoute.recovery.isSuccessfulWalletRoute)
     }
 

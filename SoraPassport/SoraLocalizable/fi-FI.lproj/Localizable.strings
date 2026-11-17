@@ -499,16 +499,6 @@
 "Restore them now" = "Palauta ne nyt";
 "Continue without them" = "Jatka ilman niitä";
 "Create or import an account" = "Luo tai tuo tili";
-"Upgrade wallet" = "Päivitä lompakko";
-"Upgrade your wallet" = "Päivitä lompakkosi";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Tämä versio siirtää lompakkosi turvallisempaan tallennusmuotoon. Siihen menee vain hetki.";
-"Your original keys are not deleted or replaced" = "Alkuperäisiä avaimiasi ei poisteta tai korvata";
-"If a check fails, SORA stops safely and shows your options" = "Jos tarkistus epäonnistuu, SORA pysähtyy turvallisesti ja näyttää vaihtoehtosi";
-"What happens during the upgrade?" = "Mitä päivityksen aikana tapahtuu?";
-"SORA found a wallet created by an older app version." = "SORA löysi sovelluksen vanhemmalla versiolla luodun lompakon.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA tarkistaa vanhemman version tallentamat palautustiedot, johtaa niistä saman SORA-tilin ja tallentaa tilin tavalla, joka kestää keskeytykset.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "Alkuperäistä Avainnipun tietuetta ei poisteta tai korvata tässä julkaisussa. Jos tarkistus epäonnistuu, SORA pysähtyy ja näyttää palautusvaihtoehdot toisen lompakon luomisen sijaan.";
-"Updating your wallet. Keep SORA open until this finishes." = "Lompakkoasi päivitetään. Pidä SORA auki, kunnes päivitys valmistuu.";
 "We paused to keep your wallet safe" = "Keskeytimme lompakkosi suojaamiseksi";
 "Copy recovery details" = "Kopioi palautustiedot";
 "Create protected recovery export" = "Luo suojattu palautusvienti";

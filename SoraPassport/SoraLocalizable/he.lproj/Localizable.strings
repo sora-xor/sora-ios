@@ -499,16 +499,6 @@
 "Restore them now" = "שחזור עכשיו";
 "Continue without them" = "המשך בלעדיהם";
 "Create or import an account" = "יצירה או ייבוא של חשבון";
-"Upgrade wallet" = "שדרוג הארנק";
-"Upgrade your wallet" = "שדרוג הארנק שלך";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "הגרסה הזאת מעבירה את הארנק לפורמט אחסון בטוח יותר. זה לוקח רק רגע.";
-"Your original keys are not deleted or replaced" = "המפתחות המקוריים שלך לא נמחקים או מוחלפים";
-"If a check fails, SORA stops safely and shows your options" = "אם בדיקה נכשלת, SORA עוצרת בבטחה ומציגה את האפשרויות";
-"What happens during the upgrade?" = "מה קורה במהלך השדרוג?";
-"SORA found a wallet created by an older app version." = "SORA מצאה ארנק שנוצר בגרסה ישנה יותר של האפליקציה.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA בודקת את נתוני השחזור שהגרסה הישנה שמרה, גוזרת מהם את אותו חשבון SORA ושומרת אותו באופן שעמיד להפרעות בתהליך.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "רשומת צרור המפתחות המקורית אינה נמחקת או מוחלפת במהדורה הזאת. אם בדיקה כלשהי נכשלת, SORA עוצרת ומציגה אפשרויות שחזור במקום ליצור ארנק אחר.";
-"Updating your wallet. Keep SORA open until this finishes." = "הארנק מתעדכן. יש להשאיר את SORA פתוחה עד לסיום.";
 "We paused to keep your wallet safe" = "עצרנו כדי לשמור על בטיחות הארנק שלך";
 "Copy recovery details" = "העתקת פרטי השחזור";
 "Create protected recovery export" = "יצירת ייצוא שחזור מוגן";

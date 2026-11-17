@@ -499,16 +499,6 @@
 "Restore them now" = "Restaura-les ara";
 "Continue without them" = "Continua sense elles";
 "Create or import an account" = "Crea o importa un compte";
-"Upgrade wallet" = "Actualitza la cartera";
-"Upgrade your wallet" = "Actualitza la teva cartera";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Aquesta versió trasllada la cartera a un format d'emmagatzematge més segur. Només triga un moment.";
-"Your original keys are not deleted or replaced" = "Les claus originals no se suprimeixen ni se substitueixen";
-"If a check fails, SORA stops safely and shows your options" = "Si una comprovació falla, SORA s'atura de manera segura i mostra les opcions";
-"What happens during the upgrade?" = "Què passa durant l'actualització?";
-"SORA found a wallet created by an older app version." = "SORA ha trobat una cartera creada amb una versió anterior de l'app.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA comprova les dades de recuperació desades per la versió anterior, en deriva el mateix compte SORA i desa el compte d'una manera resistent a les interrupcions.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "L'entrada original del clauer no se suprimeix ni se substitueix en aquesta versió. Si alguna comprovació falla, SORA s'atura i mostra les opcions de recuperació en lloc de crear una altra cartera.";
-"Updating your wallet. Keep SORA open until this finishes." = "S'està actualitzant la cartera. Mantén SORA oberta fins que acabi.";
 "We paused to keep your wallet safe" = "Hem fet una pausa per protegir la cartera";
 "Copy recovery details" = "Copia els detalls de recuperació";
 "Create protected recovery export" = "Crea una exportació de recuperació protegida";

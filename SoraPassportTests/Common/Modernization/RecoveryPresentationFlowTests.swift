@@ -289,31 +289,6 @@ final class RecoveryPresentationFlowTests: XCTestCase {
     XCTAssertFalse(
       all(UILabel.self, in: c.view).compactMap(\.text).contains { $0.contains("Try again to run") })
   }
-  func testUpgradeDetailsDescribePreservationWithoutConfirming() throws {
-    var n = 0
-    let c = LegacyWalletUpgradeViewController { n += 1 }
-    mount(c)
-    try tap("What happens during the upgrade?", in: c)
-    let alert = try XCTUnwrap(c.presentedViewController as? UIAlertController)
-    XCTAssertTrue(alert.message?.contains("not deleted or replaced") == true)
-    XCTAssertEqual(n, 0)
-  }
-  func testUpgradeConfirmationRunsOnceAndShowsProgress() throws {
-    var n = 0
-    let c = LegacyWalletUpgradeViewController { n += 1 }
-    mount(c)
-    try tap("Upgrade wallet", in: c)
-    try tap("Upgrade wallet", in: c)
-    XCTAssertEqual(n, 1)
-    XCTAssertFalse(try button("Upgrade wallet", in: c).isEnabled)
-    XCTAssertTrue(all(UIActivityIndicatorView.self, in: c.view).contains(where: \.isAnimating))
-  }
-  func testUpgradeAssuranceIsMultilineAndDoesNotAnnounceDecorativeIcon() {
-    let row = LegacyWalletUpgradeViewController.assurance("Public assurance")
-    XCTAssertEqual(all(UILabel.self, in: row).first?.text, "Public assurance")
-    XCTAssertEqual(all(UILabel.self, in: row).first?.numberOfLines, 0)
-    XCTAssertFalse(all(UIImageView.self, in: row).first?.isAccessibilityElement ?? true)
-  }
   func testReleasedRecoveryScreenIsNotRetainedByItsOptionsRead() async {
     var c: WalletRecoveryViewController? = await open()
     weak var weakController = c

@@ -499,16 +499,6 @@
 "Restore them now" = "Şimdi geri yükle";
 "Continue without them" = "Onlar olmadan devam et";
 "Create or import an account" = "Hesap oluştur veya içe aktar";
-"Upgrade wallet" = "Cüzdanı yükselt";
-"Upgrade your wallet" = "Cüzdanınızı yükseltin";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Bu sürüm cüzdanınızı daha güvenli bir depolama biçimine taşır. Yalnızca kısa bir süre alır.";
-"Your original keys are not deleted or replaced" = "Orijinal anahtarlarınız silinmez veya değiştirilmez";
-"If a check fails, SORA stops safely and shows your options" = "Bir kontrol başarısız olursa SORA güvenli şekilde durur ve seçeneklerinizi gösterir";
-"What happens during the upgrade?" = "Yükseltme sırasında ne olur?";
-"SORA found a wallet created by an older app version." = "SORA, uygulamanın eski bir sürümüyle oluşturulmuş bir cüzdan buldu.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA, eski sürümün kaydettiği kurtarma verilerini kontrol eder, bunlardan aynı SORA hesabını türetir ve hesabı kesintilere dayanıklı şekilde kaydeder.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "Orijinal Anahtar Zinciri kaydı bu sürümde silinmez veya değiştirilmez. Herhangi bir kontrol başarısız olursa SORA başka bir cüzdan oluşturmak yerine durur ve kurtarma seçeneklerinizi gösterir.";
-"Updating your wallet. Keep SORA open until this finishes." = "Cüzdanınız güncelleniyor. İşlem bitene kadar SORA'yı açık tutun.";
 "We paused to keep your wallet safe" = "Cüzdanınızı güvende tutmak için duraklattık";
 "Copy recovery details" = "Kurtarma ayrıntılarını kopyala";
 "Create protected recovery export" = "Korumalı kurtarma dışa aktarımı oluştur";

@@ -3120,8 +3120,7 @@ final class WalletKeySafetyTests: XCTestCase {
                     wireframe: RootWireframe(keystore: device.keychain, settings: device.settings))
                 presenter.loadOnLaunch()
             }
-            XCTAssertFalse((window.rootViewController as? UINavigationController)?.viewControllers.first
-                is LegacyWalletUpgradeViewController, "hasPIN: \(hasPIN)")
+            XCTAssertNil(window.rootViewController, "No screen while it upgrades (hasPIN: \(hasPIN))")
             XCTAssertEqual(importer.requests.count, 1, "hasPIN: \(hasPIN)")
             XCTAssertEqual(importer.requests.first?.mnemonic.split(separator: " ").count, 15)
             // The completion reaches the module as well: a failure opens recovery.
@@ -3133,28 +3132,38 @@ final class WalletKeySafetyTests: XCTestCase {
         }
     }
 
-    /// The typed-PIN upgrade path stays correct for a direct call.
-    func testLegacyUpgradeWithAConfirmationStillRunsAfterLaunchRoutingReturns() throws {
-        let device = try Installation()
-        try HistoricalWriter.version1(phrase: phrase(entropy: 0x12, bytes: 20), keystore: device.keychain.base)
-        let importer = LegacyUpgradeImportSpy()
-        let window = SoraWindow(frame: UIScreen.main.bounds)
-        let interactor = try device.rootInteractor(selected: nil, legacyImporter: importer)
-        try autoreleasepool {
-            let presenter = RootPresenterFactory.createPresenter(
-                with: window, interactor: interactor,
-                wireframe: RootWireframe(keystore: device.keychain, settings: device.settings))
-            _ = presenter
+    /// The automatic upgrade proves the candidate again before it imports anything. Called
+    /// when the Keychain is not a SORA 1.x wallet (an account is already selected, or the
+    /// entropy is not a 1.x phrase), it imports nothing, changes no Keychain item and opens
+    /// recovery.
+    func testAutomaticLegacyUpgradeImportsNothingFromABadCandidate() throws {
+        let selected = AccountItem(address: "selected", cryptoType: .sr25519, networkType: Chain.sora.addressType(),
+                                   username: "Selected", publicKeyData: Data(repeating: 4, count: 32),
+                                   settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+                                   order: 0, isSelected: true)
+        for (label, alreadySelected) in [("an account is selected", true), ("the entropy is not a phrase", false)] {
+            let device = try Installation()
+            if alreadySelected {
+                try HistoricalWriter.version1(phrase: phrase(entropy: 0x12, bytes: 20), keystore: device.keychain.base)
+            } else {
+                try device.keychain.base.addKey(Data(repeating: 7, count: 7), with: KeystoreTag.legacyEntropy.rawValue)
+            }
+            let importer = LegacyUpgradeImportSpy()
+            let window = SoraWindow(frame: UIScreen.main.bounds)
+            let interactor = try device.rootInteractor(selected: alreadySelected ? selected : nil, legacyImporter: importer)
+            try autoreleasepool {
+                let presenter = RootPresenterFactory.createPresenter(
+                    with: window, interactor: interactor,
+                    wireframe: RootWireframe(keystore: device.keychain, settings: device.settings))
+                _ = presenter
+            }
+            interactor.performAutomaticLegacyWalletUpgrade()
+            XCTAssertTrue(importer.requests.isEmpty, label)
+            XCTAssertTrue((window.rootViewController as? UINavigationController)?.viewControllers.first
+                is WalletRecoveryViewController, label)
+            XCTAssertTrue(device.keychain.added.isEmpty, label)
+            XCTAssertFalse(device.keychain.changedExistingItems, label)
         }
-        interactor.performLegacyWalletUpgrade(pin: nil)
-        XCTAssertEqual(importer.requests.count, 1)
-        XCTAssertEqual(importer.requests.first?.mnemonic.split(separator: " ").count, 15)
-        // The completion reaches the module as well: a failure opens recovery.
-        importer.completions.first?(.failure(WalletIntegrityError.legacyWalletUpgradeVerificationFailed))
-        XCTAssertTrue((window.rootViewController as? UINavigationController)?.viewControllers.first
-            is WalletRecoveryViewController)
-        XCTAssertTrue(device.keychain.added.isEmpty)
-        XCTAssertFalse(device.keychain.changedExistingItems)
     }
 
     /// Welcome back, then the phrase import commits, then the app stops

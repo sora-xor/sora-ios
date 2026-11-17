@@ -19,7 +19,6 @@ enum RetainedMigrationEvidenceCheckpoint: String, Codable {
 
 enum RetainedMigrationEvidenceApplicationRoute: String {
     case onboarding
-    case legacyUpgradeReady = "legacy-upgrade-ready"
     case localAuthentication = "local-authentication"
     case pincodeSetup = "pincode-setup"
     case recovery
@@ -266,25 +265,6 @@ final class RetainedMigrationEvidenceHarness {
     ) {
         lock.lock()
         guard context != nil else {
-            lock.unlock()
-            return
-        }
-        if route == .legacyUpgradeReady {
-            if var active = context {
-                do {
-                    try transition(
-                        &active,
-                        phase: "awaiting-legacy-upgrade-confirmation",
-                        kind: "application-route",
-                        checkpoint: route.rawValue
-                    )
-                    context = active
-                    setStatusLocked("awaiting-legacy-upgrade-confirmation")
-                } catch {
-                    context = nil
-                    setStatusLocked("harness-failed-closed")
-                }
-            }
             lock.unlock()
             return
         }
@@ -3368,8 +3348,6 @@ extension RetainedMigrationEvidenceHarness {
         "sora.migrationEvidence.v3.receiptSha256"
     static let receiptBase64AccessibilityIdentifier =
         "sora.migrationEvidence.v3.receiptBase64"
-    static let continueUpgradeAccessibilityIdentifier =
-        "sora.migrationEvidence.v3.continueUpgrade"
     static let recoveryAccessibilityIdentifier =
         "sora.migrationEvidence.v3.recovery"
     static let recoveryExportAccessibilityIdentifier =

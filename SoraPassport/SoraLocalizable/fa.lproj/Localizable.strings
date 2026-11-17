@@ -499,16 +499,6 @@
 "Restore them now" = "اکنون بازیابی شود";
 "Continue without them" = "ادامه بدون آن‌ها";
 "Create or import an account" = "ایجاد یا وارد کردن حساب";
-"Upgrade wallet" = "ارتقای کیف پول";
-"Upgrade your wallet" = "کیف پول خود را ارتقا دهید";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "این نسخه کیف پول شما را به قالب ذخیره‌سازی امن‌تری منتقل می‌کند. فقط چند لحظه طول می‌کشد.";
-"Your original keys are not deleted or replaced" = "کلیدهای اصلی شما حذف یا جایگزین نمی‌شوند";
-"If a check fails, SORA stops safely and shows your options" = "اگر بررسی ناموفق باشد، SORA با ایمنی متوقف می‌شود و گزینه‌ها را نشان می‌دهد";
-"What happens during the upgrade?" = "هنگام ارتقا چه اتفاقی می‌افتد؟";
-"SORA found a wallet created by an older app version." = "SORA کیف پولی پیدا کرد که با نسخه قدیمی‌تر برنامه ساخته شده است.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA داده‌های بازیابی ذخیره‌شده توسط نسخه قدیمی‌تر را بررسی می‌کند، همان حساب SORA را از آن‌ها مشتق می‌کند و حساب را به روشی مقاوم در برابر وقفه ذخیره می‌کند.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "ورودی اصلی دسته‌کلید در این انتشار حذف یا جایگزین نمی‌شود. اگر هر بررسی ناموفق باشد، SORA متوقف می‌شود و به‌جای ایجاد کیف پول دیگر، گزینه‌های بازیابی را نشان می‌دهد.";
-"Updating your wallet. Keep SORA open until this finishes." = "در حال به‌روزرسانی کیف پول. SORA را تا پایان باز نگه دارید.";
 "We paused to keep your wallet safe" = "برای ایمن نگه‌داشتن کیف پول شما مکث کردیم";
 "Copy recovery details" = "کپی جزئیات بازیابی";
 "Create protected recovery export" = "ایجاد خروجی بازیابی محافظت‌شده";

@@ -499,16 +499,6 @@
 "Restore them now" = "अभी बहाल करें";
 "Continue without them" = "उनके बिना जारी रखें";
 "Create or import an account" = "खाता बनाएँ या आयात करें";
-"Upgrade wallet" = "वॉलेट अपग्रेड करें";
-"Upgrade your wallet" = "अपना वॉलेट अपग्रेड करें";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "यह संस्करण आपके वॉलेट को अधिक सुरक्षित संग्रहण प्रारूप में ले जाता है। इसमें बस थोड़ा समय लगता है।";
-"Your original keys are not deleted or replaced" = "आपकी मूल कुंजियाँ हटाई या बदली नहीं जातीं";
-"If a check fails, SORA stops safely and shows your options" = "अगर कोई जाँच विफल हो, तो SORA सुरक्षित रूप से रुककर आपके विकल्प दिखाता है";
-"What happens during the upgrade?" = "अपग्रेड के दौरान क्या होता है?";
-"SORA found a wallet created by an older app version." = "SORA को ऐप के पुराने संस्करण से बनाया गया वॉलेट मिला।";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA पुराने संस्करण के सहेजे गए रिकवरी डेटा की जाँच करता है, उससे वही SORA खाता व्युत्पन्न करता है और खाते को इस तरह सहेजता है कि प्रक्रिया बाधित होने पर भी सुरक्षित रहे।";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "इस रिलीज़ में मूल कीचेन प्रविष्टि हटाई या बदली नहीं जाती। कोई जाँच विफल होने पर SORA दूसरा वॉलेट बनाने के बजाय रुककर रिकवरी विकल्प दिखाता है।";
-"Updating your wallet. Keep SORA open until this finishes." = "आपका वॉलेट अपडेट हो रहा है। पूरा होने तक SORA खुला रखें।";
 "We paused to keep your wallet safe" = "आपके वॉलेट को सुरक्षित रखने के लिए हमने विराम लिया";
 "Copy recovery details" = "रिकवरी विवरण कॉपी करें";
 "Create protected recovery export" = "सुरक्षित रिकवरी निर्यात बनाएँ";

@@ -1157,9 +1157,9 @@ final class StartupNetworkTests: XCTestCase {
     }
 
     /// A 1.x wallet (only the old global Keychain items, no account store).
-    /// Startup ends at the upgrade screen and boots no registry
+    /// Startup hands over to the automatic upgrade and boots no registry
     /// (`SplashInteractor.performStorageMigration`, "deferred for legacy
-    /// upgrade"). After "Upgrade wallet" and the PIN the wallet is opened
+    /// upgrade"). After the upgrade and the PIN the wallet is opened
     /// without another run of startup, and `MainTabBarInteractor` starts the
     /// registry through `ServiceCoordinator.setup()`. Nobody told the
     /// coordinator, so the asset list was never requested: the upgraded
@@ -1167,7 +1167,7 @@ final class StartupNetworkTests: XCTestCase {
     ///
     /// This runs the production `SplashInteractor`, `MainTabBarInteractor`,
     /// `ServiceCoordinator`, `StartupNetworkCoordinator` and loader. The
-    /// storage checks stand for the checks that end at the upgrade screen.
+    /// storage checks stand for the checks that defer to the upgrade.
     func testAWalletOpenedAfterAStartupThatBootedNoRegistryStillGetsItsAssetList() {
         node.answer = healthy()
         let config = StubConfigService()
@@ -1182,9 +1182,9 @@ final class StartupNetworkTests: XCTestCase {
         splash.setup()
         wait(for: [deferred], timeout: 5)
         settle()
-        XCTAssertTrue(node.calls.isEmpty, "the upgrade screen needs no list")
+        XCTAssertTrue(node.calls.isEmpty, "the upgrade needs no list")
 
-        // "Upgrade wallet", then the PIN: the wallet's tab bar is created.
+        // The upgrade, then the PIN: the wallet's tab bar is created.
         let log = BootLog()
         let registry = RecordingRegistry(log: log)
         let services = ServiceCoordinator(

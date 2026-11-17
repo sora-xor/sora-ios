@@ -499,16 +499,6 @@
 "Restore them now" = "Pulihkan sekarang";
 "Continue without them" = "Teruskan tanpanya";
 "Create or import an account" = "Cipta atau import akaun";
-"Upgrade wallet" = "Naik taraf dompet";
-"Upgrade your wallet" = "Naik taraf dompet anda";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Versi ini memindahkan dompet anda ke format storan yang lebih selamat. Proses ini hanya mengambil masa seketika.";
-"Your original keys are not deleted or replaced" = "Kunci asal anda tidak dipadam atau diganti";
-"If a check fails, SORA stops safely and shows your options" = "Jika semakan gagal, SORA berhenti dengan selamat dan menunjukkan pilihan anda";
-"What happens during the upgrade?" = "Apakah yang berlaku semasa naik taraf?";
-"SORA found a wallet created by an older app version." = "SORA menemui dompet yang dicipta oleh versi aplikasi yang lebih lama.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA menyemak data pemulihan yang disimpan oleh versi lama, menerbitkan akaun SORA yang sama daripadanya, dan menyimpan akaun dengan cara yang tahan gangguan.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "Entri Rantai Kunci asal tidak dipadam atau diganti dalam keluaran ini. Jika sebarang semakan gagal, SORA berhenti dan menunjukkan pilihan pemulihan anda dan tidak mencipta dompet lain.";
-"Updating your wallet. Keep SORA open until this finishes." = "Mengemas kini dompet anda. Pastikan SORA terbuka sehingga selesai.";
 "We paused to keep your wallet safe" = "Kami berhenti seketika untuk memastikan dompet anda selamat";
 "Copy recovery details" = "Salin butiran pemulihan";
 "Create protected recovery export" = "Cipta eksport pemulihan terlindung";

@@ -499,16 +499,6 @@
 "Restore them now" = "Przywróć je teraz";
 "Continue without them" = "Kontynuuj bez nich";
 "Create or import an account" = "Utwórz lub zaimportuj konto";
-"Upgrade wallet" = "Zaktualizuj portfel";
-"Upgrade your wallet" = "Zaktualizuj swój portfel";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Ta wersja przenosi portfel do bezpieczniejszego formatu przechowywania. Zajmie to tylko chwilę.";
-"Your original keys are not deleted or replaced" = "Oryginalne klucze nie są usuwane ani zastępowane";
-"If a check fails, SORA stops safely and shows your options" = "Jeśli sprawdzenie się nie powiedzie, SORA bezpiecznie się zatrzyma i pokaże dostępne opcje";
-"What happens during the upgrade?" = "Co dzieje się podczas aktualizacji?";
-"SORA found a wallet created by an older app version." = "SORA znalazła portfel utworzony w starszej wersji aplikacji.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA sprawdza dane odzyskiwania zapisane przez starszą wersję, wyprowadza z nich to samo konto SORA i zapisuje je w sposób odporny na przerwanie.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "W tej wersji oryginalny wpis Pęku kluczy nie jest usuwany ani zastępowany. Jeśli sprawdzenie się nie powiedzie, SORA zatrzyma się i pokaże opcje odzyskiwania zamiast tworzyć inny portfel.";
-"Updating your wallet. Keep SORA open until this finishes." = "Aktualizowanie portfela. Nie zamykaj SORA do zakończenia.";
 "We paused to keep your wallet safe" = "Wstrzymaliśmy działanie, aby chronić Twój portfel";
 "Copy recovery details" = "Kopiuj szczegóły odzyskiwania";
 "Create protected recovery export" = "Utwórz chroniony eksport odzyskiwania";

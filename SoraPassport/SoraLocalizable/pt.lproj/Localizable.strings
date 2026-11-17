@@ -499,16 +499,6 @@
 "Restore them now" = "Restaurar agora";
 "Continue without them" = "Continuar sem elas";
 "Create or import an account" = "Criar ou importar uma conta";
-"Upgrade wallet" = "Atualizar carteira";
-"Upgrade your wallet" = "Atualize sua carteira";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Esta versão transfere sua carteira para um formato de armazenamento mais seguro. Leva apenas um instante.";
-"Your original keys are not deleted or replaced" = "Suas chaves originais não são excluídas nem substituídas";
-"If a check fails, SORA stops safely and shows your options" = "Se uma verificação falhar, a SORA para com segurança e mostra suas opções";
-"What happens during the upgrade?" = "O que acontece durante a atualização?";
-"SORA found a wallet created by an older app version." = "A SORA encontrou uma carteira criada por uma versão anterior do app.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "A SORA verifica os dados de recuperação salvos pela versão anterior, deriva deles a mesma conta SORA e a salva de uma forma que resiste a interrupções.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "A entrada original nas Chaves não é excluída nem substituída nesta versão. Se alguma verificação falhar, a SORA para e mostra as opções de recuperação em vez de criar outra carteira.";
-"Updating your wallet. Keep SORA open until this finishes." = "Atualizando sua carteira. Mantenha a SORA aberta até concluir.";
 "We paused to keep your wallet safe" = "Pausamos para proteger sua carteira";
 "Copy recovery details" = "Copiar detalhes de recuperação";
 "Create protected recovery export" = "Criar exportação de recuperação protegida";

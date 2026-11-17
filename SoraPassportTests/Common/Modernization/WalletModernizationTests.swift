@@ -7303,9 +7303,10 @@ final class WalletModernizationTests: XCTestCase {
             wordCount: 15, entropyBytes: 20, corruptCommitJournal: false,
             retainsIrohaPrivateKey: true
         )
-        // SORA 1.x kept its PIN beside `seedEntropy`. The upgrade imports
-        // nothing until that PIN is typed, so whoever holds the iPhone cannot
-        // upgrade, choose a new PIN and read the phrase.
+        // SORA 1.x kept its PIN beside `seedEntropy`. The upgrade asks nothing
+        // and keeps that PIN as the wallet's PIN: the PIN screen asks for it
+        // next, so whoever holds the iPhone cannot choose a new PIN and read
+        // the phrase.
         try exerciseFullLegacyWalletUpgrade(wordCount: 12, entropyBytes: 16, corruptCommitJournal: false,
                                             legacyPIN: "1234")
         try exerciseFullLegacyWalletUpgrade(wordCount: 24, entropyBytes: 32, corruptCommitJournal: false,
@@ -20627,6 +20628,14 @@ final class WalletModernizationTests: XCTestCase {
                                 recoveryGate: recoveryGate
                             )
                     },
+                    beforeInsert: { prepared in
+                        // As AccountImportViewFactory.createLegacyUpgradeInteractor:
+                        // nobody typed a PIN for this account, so while a 1.x PIN
+                        // exists the upgrade grants no PIN setup.
+                        if (try? retainedKeystore.checkKey(for: KeystoreTag.pincode.rawValue)) != false {
+                            prepared.restrictToRetainedOwnership(nil)
+                        }
+                    },
                     lifecycleCoordinator: lifecycleCoordinator
                 )
             },
@@ -20649,23 +20658,19 @@ final class WalletModernizationTests: XCTestCase {
 
         root.decideModuleSynchroniously()
         XCTAssertEqual(presenter.decisions, [.legacyWalletUpgrade])
-        XCTAssertEqual(root.legacyUpgradeRequiresPIN, legacyPIN != nil)
-        if let legacyPIN {
-            root.performLegacyWalletUpgrade(pin: nil)
-            root.performLegacyWalletUpgrade(pin: legacyPIN == "1234" ? "4321" : "654321")
-            XCTAssertEqual(presenter.rejections, 2)
-            XCTAssertFalse(importFactoryCalled.value, "A missing or wrong 1.x PIN imports nothing")
-            XCTAssertFalse(legacySettings.walletMigrationRecoveryRequired, "A wrong PIN is not a broken wallet")
-            XCTAssertEqual(presenter.decisions, [.legacyWalletUpgrade])
-            XCTAssertEqual(try keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data(legacyPIN.utf8))
-        }
-        root.performLegacyWalletUpgrade(pin: legacyPIN)
+        XCTAssertFalse(importFactoryCalled.value, "Routing alone imports nothing")
+        // An update asks nothing: the presenter runs the upgrade with no screen
+        // (RootPresenter.didDecideLegacyWalletUpgrade), then routing runs again.
+        root.performAutomaticLegacyWalletUpgrade()
+        root.performAutomaticLegacyWalletUpgrade()
         wait(for: [terminalDecision], timeout: 5)
         XCTAssertTrue(importFactoryCalled.value)
-        if legacyPIN != nil {
+        if let legacyPIN {
+            // The 1.x PIN is not asked for before the upgrade, nor replaced by
+            // it: the ordinary PIN screen asks for it next.
             XCTAssertFalse(presenter.decisions.contains(.broken))
-            XCTAssertFalse(try keychain.checkKey(for: WalletOwnerPIN.appThrottleTag),
-                           "The correct PIN clears the attempt counter")
+            XCTAssertEqual(try keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data(legacyPIN.utf8))
+            XCTAssertFalse(try keychain.checkKey(for: WalletOwnerPIN.appThrottleTag), "No PIN was tried")
         }
 
         let storedAccounts = try fetchAll(
@@ -20713,9 +20718,11 @@ final class WalletModernizationTests: XCTestCase {
                 .coreDataCommitted
             )
         } else {
+            // Without a 1.x PIN a new one is set up; with one, the PIN
+            // screen asks for that PIN.
             XCTAssertEqual(
                 presenter.decisions,
-                [.legacyWalletUpgrade, .pincodeSetup]
+                [.legacyWalletUpgrade, legacyPIN == nil ? .pincodeSetup : .localAuthentication]
             )
             XCTAssertFalse(legacySettings.walletMigrationRecoveryRequired)
             XCTAssertEqual(storedAccounts.count, 1)
@@ -20870,25 +20877,31 @@ final class WalletModernizationTests: XCTestCase {
         // importer. This isolated fixture must do so too: the exact import
         // journal grants initial PIN setup before any account row is inserted.
         let setupTag = WalletOwnerPIN.setupPrefix + expectedAddress
-        let setupIntent = try JSONDecoder().decode(WalletOwnerPIN.SetupIntent.self,
-            from: keychain.fetchKey(for: setupTag))
-        XCTAssertEqual(setupIntent.account.address, expectedAddress)
-        XCTAssertEqual(setupIntent.account.publicKeyData, expectedPublicKey)
-        let commitURL = try XCTUnwrap(FileManager.default.contentsOfDirectory(
-            at: directory.appendingPathComponent("SORA/WalletAccountCommits"),
-            includingPropertiesForKeys: nil).first { $0.lastPathComponent.hasPrefix("wallet-account-") })
-        let commitDecoder = JSONDecoder()
-        commitDecoder.dateDecodingStrategy = .iso8601
-        let setupCommit = try commitDecoder.decode(WalletAccountCommitJournal.self,
-            from: Data(contentsOf: commitURL))
-        XCTAssertEqual(setupIntent.operationID, setupCommit.id)
-        XCTAssertEqual(setupIntent.account.address, setupCommit.walletId)
+        if legacyPIN != nil {
+            // Nobody typed a PIN for the upgrade, so it grants no PIN setup in
+            // which someone holding the iPhone could choose a new PIN.
+            XCTAssertFalse(try keychain.checkKey(for: setupTag))
+        } else {
+            let setupIntent = try JSONDecoder().decode(WalletOwnerPIN.SetupIntent.self,
+                from: keychain.fetchKey(for: setupTag))
+            XCTAssertEqual(setupIntent.account.address, expectedAddress)
+            XCTAssertEqual(setupIntent.account.publicKeyData, expectedPublicKey)
+            let commitURL = try XCTUnwrap(FileManager.default.contentsOfDirectory(
+                at: directory.appendingPathComponent("SORA/WalletAccountCommits"),
+                includingPropertiesForKeys: nil).first { $0.lastPathComponent.hasPrefix("wallet-account-") })
+            let commitDecoder = JSONDecoder()
+            commitDecoder.dateDecodingStrategy = .iso8601
+            let setupCommit = try commitDecoder.decode(WalletAccountCommitJournal.self,
+                from: Data(contentsOf: commitURL))
+            XCTAssertEqual(setupIntent.operationID, setupCommit.id)
+            XCTAssertEqual(setupIntent.account.address, setupCommit.walletId)
+        }
         XCTAssertEqual(try keychain.checkKey(for: KeystoreTag.pincode.rawValue), legacyPIN != nil,
-                       "A 1.x PIN stays until the new PIN replaces it")
+                       "A 1.x PIN stays the wallet's PIN")
         XCTAssertFalse(try keychain.checkKey(for: expectedAddress + WalletOwnerPIN.bindingSuffix))
         XCTAssertEqual(
             Set(try keychain.allKeyIdentifiers()),
-            originalIdentifiers.union(scopedCopies).union([setupTag])
+            originalIdentifiers.union(scopedCopies).union(legacyPIN == nil ? [setupTag] : [])
         )
         for (identifier, expectedValue) in originalValues {
             XCTAssertEqual(
@@ -21159,25 +21172,12 @@ private final class LegacyUpgradeRootPresenterSpy:
 
     private let lock = NSLock()
     private var storedDecisions: [Decision] = []
-    private var storedRejections = 0
     var onDecision: ((Decision) -> Void)?
 
     var decisions: [Decision] {
         lock.lock()
         defer { lock.unlock() }
         return storedDecisions
-    }
-
-    var rejections: Int {
-        lock.lock()
-        defer { lock.unlock() }
-        return storedRejections
-    }
-
-    func didRejectLegacyWalletUpgradePIN(_ error: Error) {
-        lock.lock()
-        storedRejections += 1
-        lock.unlock()
     }
 
     func didDecideOnboarding() {

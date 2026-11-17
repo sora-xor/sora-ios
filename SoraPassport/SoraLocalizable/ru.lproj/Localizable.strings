@@ -499,16 +499,6 @@
 "Restore them now" = "Восстановить сейчас";
 "Continue without them" = "Продолжить без них";
 "Create or import an account" = "Создать или импортировать аккаунт";
-"Upgrade wallet" = "Обновить кошелёк";
-"Upgrade your wallet" = "Обновите свой кошелёк";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Эта версия переносит кошелёк в более безопасный формат хранения. Это займёт немного времени.";
-"Your original keys are not deleted or replaced" = "Исходные ключи не удаляются и не заменяются";
-"If a check fails, SORA stops safely and shows your options" = "При ошибке проверки SORA безопасно остановится и покажет доступные действия";
-"What happens during the upgrade?" = "Что происходит при обновлении?";
-"SORA found a wallet created by an older app version." = "SORA обнаружила кошелёк, созданный старой версией приложения.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA проверяет данные восстановления, сохранённые старой версией, выводит из них тот же аккаунт SORA и сохраняет его способом, устойчивым к прерываниям.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "В этой версии исходная запись Связки ключей не удаляется и не заменяется. Если проверка не пройдёт, SORA остановится и покажет варианты восстановления, а не создаст другой кошелёк.";
-"Updating your wallet. Keep SORA open until this finishes." = "Кошелёк обновляется. Не закрывайте SORA до завершения.";
 "We paused to keep your wallet safe" = "Мы приостановили работу, чтобы защитить кошелёк";
 "Copy recovery details" = "Копировать сведения о восстановлении";
 "Create protected recovery export" = "Создать защищённый экспорт для восстановления";

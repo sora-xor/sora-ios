@@ -42,10 +42,6 @@ extension RootPresenter: RootInteractorOutputProtocol {
         interactor.performAutomaticLegacyWalletUpgrade()
     }
 
-    func didRejectLegacyWalletUpgradePIN(_ error: Error) {
-        wireframe.showLegacyWalletUpgradePINRejected(on: view, error: error)
-    }
-
     func didDecideLocalAuthentication() {
         wireframe.showLocalAuthentication(on: view)
     }

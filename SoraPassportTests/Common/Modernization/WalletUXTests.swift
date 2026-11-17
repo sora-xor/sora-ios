@@ -1112,7 +1112,6 @@ final class WalletUXTests: XCTestCase {
                                 walletsWithPhrase: bound ? 1 : 0, retainedPinUsable: bound).options)
                         }
                     }
-                    try await capture(prefix + "-legacy", LegacyWalletUpgradeViewController(onConfirm: {}), category: category)
                     let keys = InMemoryKeychain(), settings = InMemorySettingsManager()
                     let gate = WalletRecoveryCapabilityGate(settings: settings, unresolvedMigrationJournal: { false },
                         unresolvedWalletCommitJournal: { false }, credentialRepairPending: { false })
@@ -2697,7 +2696,7 @@ final class SoraNeonDesignTests: XCTestCase {
     }
 
     @MainActor
-    func testRecoveryAndUpgradeScreensUseTheAppTheme() throws {
+    func testRecoveryAndWelcomeBackScreensUseTheAppTheme() throws {
         let previous = SoramitsuUI.shared.themeMode
         defer { SoramitsuUI.shared.themeMode = previous }
         for theme in [SoramitsuThemeType.dark, .light] {
@@ -2710,14 +2709,6 @@ final class SoraNeonDesignTests: XCTestCase {
                 .first { $0.accessibilityIdentifier == "wallet-recovery-retry" })
             XCTAssertEqual(retry.neonStyle, .safe)
             XCTAssertFalse(descendants(recovery.view).contains { $0.backgroundColor == .systemBackground })
-
-            let upgrade = LegacyWalletUpgradeViewController(onConfirm: {})
-            upgrade.loadViewIfNeeded()
-            XCTAssertEqual(upgrade.view.backgroundColor, canvas)
-            let upgradeButton = try XCTUnwrap(descendants(upgrade.view).compactMap { $0 as? UIButton }.first {
-                $0.accessibilityIdentifier == RetainedMigrationEvidenceHarness.continueUpgradeAccessibilityIdentifier
-            })
-            XCTAssertEqual(upgradeButton.title(for: .normal), WalletUX.text("Upgrade wallet"))
 
             let welcome = WalletWelcomeBackViewController(onContinueToOnboarding: {}, onWalletsRestored: {})
             welcome.loadViewIfNeeded()
@@ -2986,7 +2977,7 @@ final class SoraNeonDesignTests: XCTestCase {
         XCTAssertTrue(root.hitTest(raised, with: nil) === content)
     }
 
-    /// On a small screen or at a large text size the 1.x upgrade screen
+    /// On a small screen or at a large text size a Safe Mode panel once
     /// centred its content on the visible frame, so the content followed the
     /// scroll offset and its last actions could never be scrolled into view;
     /// the low-storage panel did not scroll at all.
@@ -3011,28 +3002,7 @@ final class SoraNeonDesignTests: XCTestCase {
             XCTAssertTrue(visible.contains(view.convert(view.bounds, to: nil)), message, file: file, line: line)
         }
 
-        let upgrade = LegacyWalletUpgradeViewController(onConfirm: {})
-        window.rootViewController = upgrade
         window.isHidden = false
-        upgrade.view.layoutIfNeeded()
-        let upgradeScroll = try XCTUnwrap(descendants(upgrade.view).compactMap { $0 as? UIScrollView }.first)
-        let details = try XCTUnwrap(descendants(upgradeScroll).compactMap { $0 as? UIButton }.last)
-        XCTAssertEqual(details.title(for: .normal), WalletUX.text("What happens during the upgrade?"))
-        assertReachable(details, in: upgradeScroll, "the last action can be scrolled into view")
-        let confirm = try XCTUnwrap(descendants(upgradeScroll).compactMap { $0 as? UIButton }.first {
-            $0.accessibilityIdentifier == RetainedMigrationEvidenceHarness.continueUpgradeAccessibilityIdentifier
-        })
-        XCTAssertTrue(CGRect(origin: .zero, size: upgradeScroll.contentSize)
-            .contains(confirm.convert(confirm.bounds, to: upgradeScroll)), "Upgrade wallet is inside the scrollable content")
-        // And the top is still there after scrolling back.
-        upgradeScroll.contentOffset = .zero
-        upgrade.view.setNeedsLayout()
-        upgrade.view.layoutIfNeeded()
-        let title = try XCTUnwrap(descendants(upgradeScroll).compactMap { $0 as? UILabel }
-            .first { $0.text == WalletUX.text("Upgrade your wallet") })
-        XCTAssertTrue(upgradeScroll.convert(upgradeScroll.bounds, to: nil).insetBy(dx: -1, dy: -1)
-            .contains(title.convert(title.bounds, to: nil)))
-
         let splashWindow = SoraWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 300))
         let presenter = SplashPresenter(window: splashWindow)
         let splash = SplashViewController()
@@ -3047,17 +3017,34 @@ final class SoraNeonDesignTests: XCTestCase {
             .compactMap { $0 as? UIScrollView }.first, "the low-storage panel scrolls")
         assertReachable(retry, in: panelScroll, "Check again can be scrolled into view")
 
+        // And the top is still there after scrolling back.
+        panelScroll.contentOffset = .zero
+        splash.view.setNeedsLayout()
+        splash.view.layoutIfNeeded()
+        let emblem = try XCTUnwrap(sequence(first: retry as UIView, next: \.superview)
+            .compactMap { $0 as? UIStackView }.first?.arrangedSubviews.first)
+        XCTAssertTrue(panelScroll.convert(panelScroll.bounds, to: nil).insetBy(dx: -1, dy: -1)
+            .contains(emblem.convert(emblem.bounds, to: nil)))
+
         // Content that fits is centred, not pinned to the top.
         let tall = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 1400))
         defer { tall.isHidden = true; tall.rootViewController = nil }
-        let roomy = LegacyWalletUpgradeViewController(onConfirm: {})
+        let roomyPresenter = SplashPresenter(window: SoraWindow(frame: tall.bounds))
+        let roomy = SplashViewController()
+        roomy.presenter = roomyPresenter
+        roomyPresenter.view = roomy
         tall.rootViewController = roomy
         tall.isHidden = false
+        roomy.showStorageSpaceRetry {}
         roomy.view.layoutIfNeeded()
-        let roomyScroll = try XCTUnwrap(descendants(roomy.view).compactMap { $0 as? UIScrollView }.first)
-        let stack = try XCTUnwrap(roomyScroll.subviews.compactMap { $0 as? UIStackView }.first)
+        let roomyRetry = try XCTUnwrap(descendants(roomy.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-upgrade-storage-retry" })
+        let roomyScroll = try XCTUnwrap(sequence(first: roomyRetry as UIView, next: \.superview)
+            .compactMap { $0 as? UIScrollView }.first)
+        let content = try XCTUnwrap(sequence(first: roomyRetry as UIView, next: \.superview)
+            .first { $0.superview === roomyScroll })
         XCTAssertEqual(roomyScroll.contentSize.height, roomyScroll.bounds.height, accuracy: 0.5)
-        XCTAssertEqual(stack.frame.midY, roomyScroll.bounds.height / 2, accuracy: 1)
+        XCTAssertEqual(content.frame.midY, roomyScroll.bounds.height / 2, accuracy: 1)
     }
 
     /// Terms links are SORA red and underlined, so colour is never the only

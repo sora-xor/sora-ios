@@ -499,16 +499,6 @@
 "Restore them now" = "Obnovit nyní";
 "Continue without them" = "Pokračovat bez nich";
 "Create or import an account" = "Vytvořit nebo importovat účet";
-"Upgrade wallet" = "Upgradovat peněženku";
-"Upgrade your wallet" = "Upgradujte svou peněženku";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Tato verze převede vaši peněženku do bezpečnějšího formátu úložiště. Zabere to jen chvíli.";
-"Your original keys are not deleted or replaced" = "Vaše původní klíče nebudou smazány ani nahrazeny";
-"If a check fails, SORA stops safely and shows your options" = "Pokud kontrola selže, SORA se bezpečně zastaví a zobrazí možnosti";
-"What happens during the upgrade?" = "Co se děje během upgradu?";
-"SORA found a wallet created by an older app version." = "SORA našla peněženku vytvořenou starší verzí aplikace.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA zkontroluje data pro obnovu uložená starší verzí, odvodí z nich stejný účet SORA a uloží jej způsobem odolným vůči přerušení.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "Původní záznam v Klíčence se v této verzi nemaže ani nenahrazuje. Pokud některá kontrola selže, SORA se zastaví a zobrazí možnosti obnovy místo vytvoření další peněženky.";
-"Updating your wallet. Keep SORA open until this finishes." = "Aktualizace peněženky. Nechte SORA otevřenou, dokud nebude dokončena.";
 "We paused to keep your wallet safe" = "Pozastavili jsme postup, aby vaše peněženka zůstala v bezpečí";
 "Copy recovery details" = "Kopírovat podrobnosti obnovy";
 "Create protected recovery export" = "Vytvořit chráněný export pro obnovu";

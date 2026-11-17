@@ -940,44 +940,6 @@ extension RootInteractor: RootInteractorInputProtocol {
         }
     }
 
-    var legacyUpgradeRequiresPIN: Bool {
-        // A Keychain read error counts as "a PIN exists": the upgrade asks
-        // for it rather than skipping the check.
-        (try? keystore.checkKey(for: KeystoreTag.pincode.rawValue)) ?? true
-    }
-
-    /// SORA 1.x kept its PIN beside `seedEntropy`. Whoever upgrades must type
-    /// it. Without a saved PIN, 1.x showed the wallet to anyone, so there is
-    /// no PIN to check.
-    private func verifyLegacyUpgradePIN(_ pin: String?) throws {
-        guard try keystore.checkKey(for: KeystoreTag.pincode.rawValue) else { return }
-        guard let pin else { throw WalletOwnerPIN.Failure.authenticationRequired }
-        try WalletOwnerPIN(keystore: keystore, settings: settings).verifyLegacyUpgradePIN(pin)
-    }
-
-    func performLegacyWalletUpgrade(pin: String?) {
-        legacyUpgradeLock.lock()
-        guard !didStartLegacyWalletUpgrade else {
-            legacyUpgradeLock.unlock()
-            return
-        }
-        didStartLegacyWalletUpgrade = true
-        legacyUpgradeLock.unlock()
-
-        do {
-            try verifyLegacyUpgradePIN(pin)
-        } catch {
-            // Nothing was imported or changed: stay on the upgrade screen.
-            legacyUpgradeLock.lock()
-            didStartLegacyWalletUpgrade = false
-            legacyUpgradeLock.unlock()
-            presenter?.didRejectLegacyWalletUpgradePIN(error)
-            return
-        }
-
-        runLegacyWalletUpgrade()
-    }
-
     func performAutomaticLegacyWalletUpgrade() {
         legacyUpgradeLock.lock()
         guard !didStartLegacyWalletUpgrade else {

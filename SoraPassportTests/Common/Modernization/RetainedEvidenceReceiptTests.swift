@@ -111,7 +111,7 @@ final class RetainedEvidenceReceiptTests: XCTestCase {
     func testOrdinaryCredentialAndReinstallRoutesMustReachAWalletAuthenticationScreen() throws {
         for kind in [Harness.EvidenceCase.mnemonic12, .reinstallUpgrade] {
             var value = try load(state(kind), kind); value.credentialBehaviorProbePassed = true; value.signingExpectedObserved = true; value.signingSucceededObserved = true
-            for route in [RetainedMigrationEvidenceApplicationRoute.onboarding, .legacyUpgradeReady, .localAuthentication, .pincodeSetup, .recovery] {
+            for route in [RetainedMigrationEvidenceApplicationRoute.onboarding, .localAuthentication, .pincodeSetup, .recovery] {
                 let result = try observation(kind, state: value, route: route)
                 let expected = route == .localAuthentication || route == .pincodeSetup
                 XCTAssertEqual(result.outcome, expected ? (kind == .mnemonic12 ? "passed" : "observed") : "failed")

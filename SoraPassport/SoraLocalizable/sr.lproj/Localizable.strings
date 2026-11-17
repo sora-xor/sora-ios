@@ -499,16 +499,6 @@
 "Restore them now" = "Врати их сада";
 "Continue without them" = "Настави без њих";
 "Create or import an account" = "Направи или увези налог";
-"Upgrade wallet" = "Надогради новчаник";
-"Upgrade your wallet" = "Надогради свој новчаник";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Ова верзија премешта новчаник у безбеднији формат складиштења. Траје само тренутак.";
-"Your original keys are not deleted or replaced" = "Твоји оригинални кључеви се не бришу нити замењују";
-"If a check fails, SORA stops safely and shows your options" = "Ако провера не успе, SORA безбедно стаје и приказује могућности";
-"What happens during the upgrade?" = "Шта се дешава током надоградње?";
-"SORA found a wallet created by an older app version." = "SORA је пронашла новчаник направљен старијом верзијом апликације.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA проверава податке за опоравак које је сачувала старија верзија, из њих изводи исти SORA налог и чува га на начин отпоран на прекиде.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "Оригинални унос у Привеску за кључеве се у овом издању не брише нити замењује. Ако било која провера не успе, SORA стаје и приказује могућности опоравка уместо да направи други новчаник.";
-"Updating your wallet. Keep SORA open until this finishes." = "Ажурирање новчаника. Остави SORA отворену док се не заврши.";
 "We paused to keep your wallet safe" = "Застали смо да бисмо заштитили твој новчаник";
 "Copy recovery details" = "Копирај детаље опоравка";
 "Create protected recovery export" = "Направи заштићени извоз за опоравак";

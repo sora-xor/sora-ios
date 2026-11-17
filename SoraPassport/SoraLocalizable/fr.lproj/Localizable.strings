@@ -499,16 +499,6 @@
 "Restore them now" = "Les restaurer maintenant";
 "Continue without them" = "Continuer sans eux";
 "Create or import an account" = "Créer ou importer un compte";
-"Upgrade wallet" = "Mettre à niveau le portefeuille";
-"Upgrade your wallet" = "Mettez à niveau votre portefeuille";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Cette version transfère votre portefeuille vers un format de stockage plus sûr. Cela ne prend qu’un instant.";
-"Your original keys are not deleted or replaced" = "Vos clés d’origine ne sont ni supprimées ni remplacées";
-"If a check fails, SORA stops safely and shows your options" = "Si une vérification échoue, SORA s’arrête en toute sécurité et affiche vos options";
-"What happens during the upgrade?" = "Que se passe-t-il pendant la mise à niveau ?";
-"SORA found a wallet created by an older app version." = "SORA a trouvé un portefeuille créé par une ancienne version de l’app.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA vérifie les données de récupération enregistrées par l’ancienne version, en dérive le même compte SORA et l’enregistre de façon à résister aux interruptions.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "L’entrée d’origine du trousseau n’est ni supprimée ni remplacée dans cette version. Si une vérification échoue, SORA s’arrête et affiche les options de récupération au lieu de créer un autre portefeuille.";
-"Updating your wallet. Keep SORA open until this finishes." = "Mise à jour du portefeuille. Gardez SORA ouvert jusqu’à la fin.";
 "We paused to keep your wallet safe" = "Nous avons fait une pause pour protéger votre portefeuille";
 "Copy recovery details" = "Copier les détails de récupération";
 "Create protected recovery export" = "Créer une exportation de récupération protégée";

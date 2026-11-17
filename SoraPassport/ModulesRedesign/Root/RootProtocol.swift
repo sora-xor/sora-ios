@@ -24,14 +24,6 @@ protocol RootPresenterProtocol: AnyObject {
 protocol RootWireframeProtocol: AnyObject {
     func showLocalAuthentication(on view: UIWindow)
     func showOnboarding(on view: UIWindow)
-    /// `requiresPIN`: SORA 1.x saved a PIN, and the upgrade asks for it.
-    func showLegacyWalletUpgrade(
-        on view: UIWindow,
-        requiresPIN: Bool,
-        onConfirm: @escaping (String?) -> Void
-    )
-    /// The PIN typed for the upgrade was wrong, or attempts are paused.
-    func showLegacyWalletUpgradePINRejected(on view: UIWindow, error: Error)
     func showBroken(on view: UIWindow)
     func showPincodeSetup(on view: UIWindow)
     /// Keychain items from an earlier install, and no wallet database.
@@ -41,12 +33,9 @@ protocol RootWireframeProtocol: AnyObject {
 protocol RootInteractorInputProtocol: AnyObject {
     func setup()
     func decideModuleSynchroniously()
-    /// True when SORA 1.x saved a PIN, so the upgrade needs it.
-    var legacyUpgradeRequiresPIN: Bool { get }
-    /// `pin` is the SORA 1.x PIN the user typed, or nil if none was asked.
-    func performLegacyWalletUpgrade(pin: String?)
-    /// The same upgrade with no screen, as App Store 3.8.6 did it. The PIN
-    /// screen that follows is the check.
+    /// Turns a SORA 1.x wallet into the same account with no screen, as App
+    /// Store 3.8.6 did it. The PIN screen that follows is the check: a saved
+    /// 1.x PIN stays the wallet's PIN and is asked for there.
     func performAutomaticLegacyWalletUpgrade()
 }
 
@@ -57,12 +46,6 @@ protocol RootInteractorOutputProtocol: AnyObject {
     func didDecideBroken()
     func didDecidePincodeSetup()
     func didDecideWelcomeBack()
-    /// The upgrade did not start: the 1.x PIN was wrong, missing or locked.
-    func didRejectLegacyWalletUpgradePIN(_ error: Error)
-}
-
-extension RootInteractorOutputProtocol {
-    func didRejectLegacyWalletUpgradePIN(_ error: Error) {}
 }
 
 protocol RootPresenterFactoryProtocol: AnyObject {

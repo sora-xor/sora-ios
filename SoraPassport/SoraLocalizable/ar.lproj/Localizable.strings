@@ -499,16 +499,6 @@
 "Restore them now" = "استعادتها الآن";
 "Continue without them" = "المتابعة دونها";
 "Create or import an account" = "إنشاء حساب أو استيراده";
-"Upgrade wallet" = "ترقية المحفظة";
-"Upgrade your wallet" = "ترقية محفظتك";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "ينقل هذا الإصدار محفظتك إلى تنسيق تخزين أكثر أمانًا. يستغرق ذلك لحظة فقط.";
-"Your original keys are not deleted or replaced" = "لا تُحذف مفاتيحك الأصلية ولا تُستبدل";
-"If a check fails, SORA stops safely and shows your options" = "إذا فشل أحد الفحوص، يتوقف SORA بأمان ويعرض خياراتك";
-"What happens during the upgrade?" = "ماذا يحدث أثناء الترقية؟";
-"SORA found a wallet created by an older app version." = "عثر SORA على محفظة أُنشئت بإصدار أقدم من التطبيق.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "يفحص SORA بيانات الاسترداد التي حفظها الإصدار الأقدم، ويشتق منها حساب SORA نفسه، ويحفظ الحساب بطريقة تتحمل انقطاع العملية.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "لا يُحذف إدخال سلسلة المفاتيح الأصلي ولا يُستبدل في هذا الإصدار. إذا فشل أي فحص، يتوقف SORA ويعرض خيارات الاسترداد بدلًا من إنشاء محفظة أخرى.";
-"Updating your wallet. Keep SORA open until this finishes." = "جارٍ تحديث محفظتك. أبقِ SORA مفتوحًا حتى ينتهي.";
 "We paused to keep your wallet safe" = "توقفنا مؤقتًا للحفاظ على أمان محفظتك";
 "Copy recovery details" = "نسخ تفاصيل الاسترداد";
 "Create protected recovery export" = "إنشاء تصدير استرداد محمي";

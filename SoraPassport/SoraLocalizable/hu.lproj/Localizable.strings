@@ -499,16 +499,6 @@
 "Restore them now" = "Visszaállítás most";
 "Continue without them" = "Folytatás nélkülük";
 "Create or import an account" = "Fiók létrehozása vagy importálása";
-"Upgrade wallet" = "Tárca frissítése";
-"Upgrade your wallet" = "Frissítsd a tárcádat";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Ez a verzió biztonságosabb tárolási formátumba helyezi a tárcádat. Csak egy pillanatig tart.";
-"Your original keys are not deleted or replaced" = "Az eredeti kulcsaid nem törlődnek és nem lesznek lecserélve";
-"If a check fails, SORA stops safely and shows your options" = "Ha egy ellenőrzés sikertelen, a SORA biztonságosan leáll, és megmutatja a lehetőségeket";
-"What happens during the upgrade?" = "Mi történik a frissítés során?";
-"SORA found a wallet created by an older app version." = "A SORA egy régebbi alkalmazásverzióval létrehozott tárcát talált.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "A SORA ellenőrzi a régebbi verzió által mentett helyreállítási adatokat, ugyanazt a SORA-fiókot származtatja belőlük, és megszakításokat tűrő módon menti a fiókot.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "Az eredeti Kulcskarika-bejegyzés ebben a kiadásban nem törlődik és nem lesz lecserélve. Ha bármely ellenőrzés sikertelen, a SORA leáll, és a helyreállítási lehetőségeket mutatja meg újabb tárca létrehozása helyett.";
-"Updating your wallet. Keep SORA open until this finishes." = "A tárca frissítése folyamatban. Tartsd nyitva a SORA-t, amíg befejeződik.";
 "We paused to keep your wallet safe" = "A tárcád biztonsága érdekében megálltunk";
 "Copy recovery details" = "Helyreállítási részletek másolása";
 "Create protected recovery export" = "Védett helyreállítási export létrehozása";

@@ -499,16 +499,6 @@
 "Restore them now" = "Khôi phục ngay";
 "Continue without them" = "Tiếp tục mà không có các ví này";
 "Create or import an account" = "Tạo hoặc nhập tài khoản";
-"Upgrade wallet" = "Nâng cấp ví";
-"Upgrade your wallet" = "Nâng cấp ví của bạn";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Phiên bản này chuyển ví sang định dạng lưu trữ an toàn hơn. Chỉ mất một chút thời gian.";
-"Your original keys are not deleted or replaced" = "Khóa gốc của bạn không bị xóa hay thay thế";
-"If a check fails, SORA stops safely and shows your options" = "Nếu một bước kiểm tra thất bại, SORA dừng an toàn và hiện các lựa chọn";
-"What happens during the upgrade?" = "Điều gì diễn ra khi nâng cấp?";
-"SORA found a wallet created by an older app version." = "SORA tìm thấy một ví được tạo bằng phiên bản ứng dụng cũ hơn.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA kiểm tra dữ liệu khôi phục do phiên bản cũ lưu, dẫn xuất đúng tài khoản SORA đó từ dữ liệu này và lưu tài khoản theo cách chịu được gián đoạn.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "Mục Chuỗi khóa gốc không bị xóa hay thay thế trong bản phát hành này. Nếu bất kỳ bước kiểm tra nào thất bại, SORA dừng và hiện các lựa chọn khôi phục thay vì tạo ví khác.";
-"Updating your wallet. Keep SORA open until this finishes." = "Đang cập nhật ví. Giữ SORA mở cho đến khi hoàn tất.";
 "We paused to keep your wallet safe" = "Chúng tôi đã tạm dừng để bảo vệ ví của bạn";
 "Copy recovery details" = "Sao chép chi tiết khôi phục";
 "Create protected recovery export" = "Tạo bản xuất khôi phục được bảo vệ";

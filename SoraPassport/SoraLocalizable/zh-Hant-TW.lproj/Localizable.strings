@@ -499,16 +499,6 @@
 "Restore them now" = "立即復原";
 "Continue without them" = "暫不復原並繼續";
 "Create or import an account" = "創建或導入帳戶";
-"Upgrade wallet" = "升級錢包";
-"Upgrade your wallet" = "升級您的錢包";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "此版本會將錢包遷移到更安全的儲存格式。只需片刻。";
-"Your original keys are not deleted or replaced" = "不會刪除或替換您的原始金鑰";
-"If a check fails, SORA stops safely and shows your options" = "如果檢查失敗，SORA 會安全停止並顯示可選操作";
-"What happens during the upgrade?" = "升級期間會發生什麼？";
-"SORA found a wallet created by an older app version." = "SORA 找到了由舊版App創建的錢包。";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA 會檢查舊版保存的恢複資料，從中衍生相同的 SORA 帳戶，並以可在操作中斷後復原的方式保存該帳戶。";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "此版本不會刪除或替換原始鑰匙圈條目。如果任何檢查失敗，SORA 會停止並顯示復原選項，而不會創建另一個錢包。";
-"Updating your wallet. Keep SORA open until this finishes." = "正在更新錢包。完成之前請保持 SORA 打開。";
 "We paused to keep your wallet safe" = "我們已暫停操作以保護您的錢包";
 "Copy recovery details" = "複製復原詳情";
 "Create protected recovery export" = "創建受保護的復原導出檔案";

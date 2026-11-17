@@ -499,16 +499,6 @@
 "Restore them now" = "İndi bərpa et";
 "Continue without them" = "Onlarsız davam et";
 "Create or import an account" = "Hesab yarat və ya idxal et";
-"Upgrade wallet" = "Pulqabını təkmilləşdir";
-"Upgrade your wallet" = "Pulqabınızı təkmilləşdirin";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Bu versiya pulqabınızı daha təhlükəsiz saxlama formatına keçirir. Bu, yalnız bir an çəkir.";
-"Your original keys are not deleted or replaced" = "Orijinal açarlarınız silinmir və ya əvəz edilmir";
-"If a check fails, SORA stops safely and shows your options" = "Yoxlama uğursuz olarsa, SORA təhlükəsiz şəkildə dayanır və seçimləri göstərir";
-"What happens during the upgrade?" = "Təkmilləşdirmə zamanı nə baş verir?";
-"SORA found a wallet created by an older app version." = "SORA tətbiqin köhnə versiyası ilə yaradılmış pulqabı tapdı.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA köhnə versiyanın saxladığı bərpa məlumatlarını yoxlayır, onlardan eyni SORA hesabını törədir və hesabı kəsintilərə davamlı şəkildə saxlayır.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "Orijinal Açar zənciri qeydi bu buraxılışda silinmir və ya əvəz edilmir. Hər hansı yoxlama uğursuz olarsa, SORA başqa pulqabı yaratmaq əvəzinə dayanır və bərpa seçimlərini göstərir.";
-"Updating your wallet. Keep SORA open until this finishes." = "Pulqabınız yenilənir. Bitənədək SORA-nı açıq saxlayın.";
 "We paused to keep your wallet safe" = "Pulqabınızı qorumaq üçün fasilə verdik";
 "Copy recovery details" = "Bərpa təfərrüatlarını kopyala";
 "Create protected recovery export" = "Qorunan bərpa ixracı yarat";

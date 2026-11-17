@@ -499,16 +499,6 @@
 "Restore them now" = "Nu herstellen";
 "Continue without them" = "Zonder deze wallets doorgaan";
 "Create or import an account" = "Een account aanmaken of importeren";
-"Upgrade wallet" = "Wallet upgraden";
-"Upgrade your wallet" = "Upgrade je wallet";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Deze versie zet je wallet om naar een veiliger opslagformaat. Dit duurt maar even.";
-"Your original keys are not deleted or replaced" = "Je oorspronkelijke sleutels worden niet verwijderd of vervangen";
-"If a check fails, SORA stops safely and shows your options" = "Als een controle mislukt, stopt SORA veilig en toont je opties";
-"What happens during the upgrade?" = "Wat gebeurt er tijdens de upgrade?";
-"SORA found a wallet created by an older app version." = "SORA heeft een wallet gevonden die met een oudere appversie is aangemaakt.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA controleert de herstelgegevens die door de oudere versie zijn opgeslagen, leidt daar hetzelfde SORA-account uit af en slaat dat account op een manier op die bestand is tegen onderbrekingen.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "De oorspronkelijke sleutelhangervermelding wordt in deze versie niet verwijderd of vervangen. Als een controle mislukt, stopt SORA en toont je herstelopties in plaats van een andere wallet aan te maken.";
-"Updating your wallet. Keep SORA open until this finishes." = "Je wallet wordt bijgewerkt. Houd SORA open totdat dit klaar is.";
 "We paused to keep your wallet safe" = "We zijn gestopt om je wallet te beschermen";
 "Copy recovery details" = "Hersteldetails kopiëren";
 "Create protected recovery export" = "Beveiligde herstelexport maken";

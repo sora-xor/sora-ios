@@ -496,16 +496,6 @@
 "Restore them now" = "Jetzt wiederherstellen";
 "Continue without them" = "Ohne sie fortfahren";
 "Create or import an account" = "Konto erstellen oder importieren";
-"Upgrade wallet" = "Wallet aktualisieren";
-"Upgrade your wallet" = "Aktualisiere deine Wallet";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Diese Version überträgt deine Wallet in ein sichereres Speicherformat. Das dauert nur einen Moment.";
-"Your original keys are not deleted or replaced" = "Deine ursprünglichen Schlüssel werden weder gelöscht noch ersetzt";
-"If a check fails, SORA stops safely and shows your options" = "Schlägt eine Prüfung fehl, hält SORA sicher an und zeigt deine Optionen";
-"What happens during the upgrade?" = "Was geschieht bei der Aktualisierung?";
-"SORA found a wallet created by an older app version." = "SORA hat eine Wallet gefunden, die mit einer älteren App-Version erstellt wurde.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA prüft die von der älteren Version gespeicherten Wiederherstellungsdaten, leitet daraus dasselbe SORA-Konto ab und speichert es so, dass Unterbrechungen abgefangen werden.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "Der ursprüngliche Schlüsselbundeintrag wird in dieser Version weder gelöscht noch ersetzt. Schlägt eine Prüfung fehl, hält SORA an und zeigt Wiederherstellungsoptionen, statt eine andere Wallet zu erstellen.";
-"Updating your wallet. Keep SORA open until this finishes." = "Deine Wallet wird aktualisiert. Lass SORA bis zum Abschluss geöffnet.";
 "We paused to keep your wallet safe" = "Zum Schutz deiner Wallet wurde der Vorgang angehalten";
 "Copy recovery details" = "Wiederherstellungsdetails kopieren";
 "Create protected recovery export" = "Geschützten Wiederherstellungsexport erstellen";

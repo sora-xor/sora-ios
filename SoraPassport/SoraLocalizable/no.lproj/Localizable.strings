@@ -496,16 +496,6 @@
 "Restore them now" = "Gjenopprett dem nå";
 "Continue without them" = "Fortsett uten dem";
 "Create or import an account" = "Opprett eller importer en konto";
-"Upgrade wallet" = "Oppgrader lommebok";
-"Upgrade your wallet" = "Oppgrader lommeboken din";
-"This version moves your wallet to a safer storage format. It only takes a moment." = "Denne versjonen flytter lommeboken til et sikrere lagringsformat. Det tar bare et øyeblikk.";
-"Your original keys are not deleted or replaced" = "De opprinnelige nøklene dine blir ikke slettet eller erstattet";
-"If a check fails, SORA stops safely and shows your options" = "Hvis en kontroll mislykkes, stopper SORA trygt og viser alternativene dine";
-"What happens during the upgrade?" = "Hva skjer under oppgraderingen?";
-"SORA found a wallet created by an older app version." = "SORA fant en lommebok opprettet av en eldre appversjon.";
-"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA kontrollerer gjenopprettingsdataene lagret av den eldre versjonen, utleder den samme SORA-kontoen fra dem og lagrer kontoen på en måte som tåler avbrudd.";
-"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "Den opprinnelige nøkkelringoppføringen slettes eller erstattes ikke i denne utgaven. Hvis en kontroll mislykkes, stopper SORA og viser gjenopprettingsalternativene i stedet for å opprette en ny lommebok.";
-"Updating your wallet. Keep SORA open until this finishes." = "Oppdaterer lommeboken. Hold SORA åpen til dette er ferdig.";
 "We paused to keep your wallet safe" = "Vi tok en pause for å beskytte lommeboken din";
 "Copy recovery details" = "Kopier gjenopprettingsdetaljer";
 "Create protected recovery export" = "Opprett beskyttet gjenopprettingseksport";
