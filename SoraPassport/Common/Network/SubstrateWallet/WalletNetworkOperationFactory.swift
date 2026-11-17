@@ -180,10 +180,6 @@ final class WalletNetworkOperationFactory {
         }
     }
 
-    func createRuntimeVersionOperation() -> BaseOperation<RuntimeVersion> {
-        return JSONRPCListOperation(engine: engine, method: RPCMethod.getRuntimeVersion)
-    }
-
     func createExtrinsicServiceOperation(closure: @escaping ExtrinsicBuilderClosure) -> BaseOperation<String> {
         let signer = accountSigner
         let service = extrinsicService

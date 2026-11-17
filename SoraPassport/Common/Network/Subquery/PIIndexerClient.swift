@@ -2943,17 +2943,6 @@ final class PIIndexerClient {
         return result.map(\.mobileConfig)
     }
 
-    /// Explicit fail-closed gate for callers that require a PI account-balance query. Never
-    /// interpret the schema-v1 untyped `account` JSON object as a balance response.
-    func requireTypedAccountBalancesCapability(
-        requireLive: Bool = true
-    ) async throws {
-        let config = try await mobileConfig(requireLive: requireLive)
-        guard config.typedAccountBalancesAvailable else {
-            throw PIIndexerError.typedAccountBalancesUnavailable
-        }
-    }
-
     func assets(first: Int = 100, after: String? = nil) async throws -> PIConnection<PIAsset> {
         try await assetsRead(first: first, after: after).value
     }

@@ -77,23 +77,6 @@ extension UsernameSetupPresenter: UsernameSetupPresenterProtocol {
 }
 
 private extension UsernameSetupPresenter {
-    func showOldFlow() {
-        let value = viewModel.inputHandler.value
-
-        let rLanguages = localizationManager?.selectedLocale.rLanguages
-        let actionTitle = R.string.localizable.commonOk(preferredLanguages: rLanguages)
-        let action = AlertPresentableAction(title: actionTitle) { [weak self] in
-            self?.wireframe.proceed(from: self?.view, username: value)
-        }
-
-        let title = R.string.localizable.screenshotAlertTitle(preferredLanguages: rLanguages)
-        let message = R.string.localizable.screenshotAlertText(preferredLanguages: rLanguages)
-        let viewModel = AlertPresentableViewModel(title: title,
-                                                  message: message,
-                                                  actions: [action],
-                                                  closeAction: nil)
-        wireframe.present(viewModel: viewModel, style: .alert, from: view)
-    }
     
     func showNewFlow() {
         wireframe.showWarning(from: view) { [weak self] in

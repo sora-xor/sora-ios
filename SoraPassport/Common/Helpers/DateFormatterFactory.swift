@@ -47,27 +47,3 @@ struct EventListDateFormatterFactory: DateFormatterFactoryProtocol {
     }
 }
 
-struct FinishedProjectDateFormatterFactory: DateFormatterFactoryProtocol {
-    static func createDateFormatter() -> DateFormatter {
-        let dateFormatterBuilder = CompoundDateFormatterBuilder()
-
-        let today = LocalizableResource { locale in
-            R.string.localizable.commonToday(preferredLanguages: locale.rLanguages)
-        }
-
-        let yesterday = LocalizableResource { locale in
-            R.string.localizable.commonYesterday(preferredLanguages: locale.rLanguages)
-        }
-
-        let defaultFormat = R.string.localizable
-            .finishedProjectYearFormat(preferredLanguages: Locale.current.rLanguages)
-
-        let dateFormatter = dateFormatterBuilder
-            .withToday(title: today)
-            .withYesterday(title: yesterday)
-            .withThisYear(dateFormatter: DateFormatter.shortThisYear.localizableResource())
-            .build(defaultFormat: defaultFormat)
-
-        return dateFormatter
-    }
-}

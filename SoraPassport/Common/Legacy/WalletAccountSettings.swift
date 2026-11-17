@@ -28,7 +28,4 @@ extension WalletAccountSettingsProtocol {
         return assets.first { $0.identifier == identifier }
     }
 
-    func withdrawOption(for identifier: String) -> WalletWithdrawOption? {
-        return withdrawOptions.first { $0.identifier == identifier }
-    }
 }

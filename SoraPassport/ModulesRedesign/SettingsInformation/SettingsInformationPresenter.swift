@@ -228,12 +228,6 @@ final class SettingsInformationPresenter: SettingsInformationPresenterProtocol {
                    completionHandler: nil)
     }
     
-    private func pushView(_ viewToPush: ControllerBackedProtocol) {
-        guard let navigationController = view?.controller.navigationController else { return }
-        
-        viewToPush.controller.hidesBottomBarWhenPushed = true
-        navigationController.pushViewController(viewToPush.controller, animated: true)
-    }
 }
 
 extension SettingsInformationPresenter: Localizable {

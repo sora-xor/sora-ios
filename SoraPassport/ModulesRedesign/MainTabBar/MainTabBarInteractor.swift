@@ -43,21 +43,6 @@ final class MainTabBarInteractor {
 }
 
 extension MainTabBarInteractor: MainTabBarInteractorInputProtocol {
-    func configureNotifications() {
-
-    }
-
-    func configureDeepLink() {
-
-    }
-
-    func searchPendingDeepLink() {
-
-    }
-
-    func resolvePendingDeepLink() {
-
-    }
 
     func setup() {
         eventCenter.add(observer: self, dispatchIn: .main)

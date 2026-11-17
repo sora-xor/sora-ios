@@ -146,15 +146,4 @@ extension BalanceContext {
                               priceChange: priceChange)
     }
 
-    func byChangingPrice(_ newPrice: Decimal, newPriceChange: Decimal) -> BalanceContext {
-        BalanceContext(free: free,
-                       reserved: reserved,
-                       miscFrozen: miscFrozen,
-                       feeFrozen: feeFrozen,
-                       bonded: bonded,
-                       redeemable: redeemable,
-                       unbonding: unbonding,
-                       price: newPrice,
-                       priceChange: newPriceChange)
-    }
 }

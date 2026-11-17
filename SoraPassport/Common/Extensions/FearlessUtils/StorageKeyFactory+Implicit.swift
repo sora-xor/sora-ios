@@ -91,13 +91,6 @@ extension StorageKeyFactoryProtocol {
         try createStorageKey(moduleName: "PoolXYK", storageName: "PoolProviders") + reservesAccountId + accountId
     }
 
-    func bondedKeyForId(_ identifier: Data) throws -> Data {
-        try createStorageKey(moduleName: "Staking",
-                             storageName: "Bonded",
-                             key: identifier,
-                             hasher: .twox64Concat)
-    }
-
     func stakingInfoForControllerId(_ identifier: Data) throws -> Data {
         try createStorageKey(moduleName: "Staking",
                              storageName: "Ledger",
@@ -170,12 +163,6 @@ extension StorageKeyFactoryProtocol {
                              hasher: .blake128Concat)
     }
 
-    func referralsKeyForId(_ identifier: Data) throws -> Data {
-        try createStorageKey(moduleName: "Referrals",
-                             storageName: "Referrals",
-                             key: identifier,
-                             hasher: .blake128Concat)
-    }
     
     func xstPoolBaseFee() throws -> Data {
         try createStorageKey(moduleName: "XstPool",

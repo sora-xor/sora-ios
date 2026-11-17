@@ -464,46 +464,15 @@ final class PortfolioSkyView: UIView {
         CATransaction.commit()
     }
 
-    /// The comet, twinkles and halo breath repeat forever. The classic design
-    /// runs no looping pulse at any tier (only the lit hero's comet, which
-    /// follows `FxPolicy.litMotion`).
-    private var loopsAllowed: Bool {
-        false
-    }
-
+    /// The comet, twinkles and halo breath of the old sky repeat forever, and the classic design
+    /// runs no looping pulse at any tier: only the lit hero's comet runs, following
+    /// `FxPolicy.litMotion`. The ring comets, star twinkles and halo breath stay stopped.
     private func updateLoops() {
         litHero.isCometRunning = usesLitHero && wantsLoops && window != nil && FxPolicy.current.litMotion
-        guard wantsLoops, loopsAllowed, window != nil else {
-            ringBack.stopComet()
-            ringFront.stopComet()
-            flareLayers.forEach { $0.removeAnimation(forKey: "twinkle") }
-            halo.removeAnimation(forKey: "breath")
-            return
-        }
-        guard !ringFront.isCometRunning else { return }
-        let now = CACurrentMediaTime()
-        ringBack.startComet(at: now)
-        ringFront.startComet(at: now)
-        for (index, flare) in flareLayers.enumerated() {
-            let twinkle = CABasicAnimation(keyPath: "opacity")
-            twinkle.fromValue = 1
-            twinkle.toValue = 0.25
-            twinkle.duration = 1.3 + 0.5 * Double(index)
-            twinkle.timeOffset = 0.37 * Double(index)
-            twinkle.autoreverses = true
-            twinkle.repeatCount = .infinity
-            twinkle.isRemovedOnCompletion = false
-            flare.add(twinkle, forKey: "twinkle")
-        }
-        let breath = CABasicAnimation(keyPath: "opacity")
-        breath.fromValue = 1
-        breath.toValue = 0.78
-        breath.duration = 3
-        breath.autoreverses = true
-        breath.repeatCount = .infinity
-        breath.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        breath.isRemovedOnCompletion = false
-        halo.add(breath, forKey: "breath")
+        ringBack.stopComet()
+        ringFront.stopComet()
+        flareLayers.forEach { $0.removeAnimation(forKey: "twinkle") }
+        halo.removeAnimation(forKey: "breath")
     }
 
     // MARK: Touch
@@ -640,8 +609,6 @@ private final class PortfolioRingHalf {
         layer.addSublayer(carrier)
     }
 
-    var isCometRunning: Bool { carrier.animation(forKey: "comet") != nil }
-
     func applyTheme(dark: Bool, glows: Bool) {
         let line = PortfolioTheme.ringLine
         outer.strokeColor = line.withAlphaComponent(dark ? 0.16 : 0.12).cgColor
@@ -709,45 +676,6 @@ private final class PortfolioRingHalf {
             draw.duration = timing.1
             draw.fillMode = .backwards
             shape.add(draw, forKey: "intro")
-        }
-    }
-
-    /// One lap of light from the front, clockwise, every `PortfolioTheme.Sky.cometLap` seconds. Both
-    /// halves start at the same instant, so the light passes behind the planet and out again.
-    func startComet(at beginTime: CFTimeInterval) {
-        let lap = PortfolioTheme.Sky.cometLap
-        let r = PortfolioTheme.Sky.ringRadius
-        let frontAngle: CGFloat = .pi / 2
-        let move = CAKeyframeAnimation(keyPath: "position")
-        move.path = UIBezierPath(arcCenter: mid, radius: r, startAngle: frontAngle, endAngle: frontAngle + 2 * .pi,
-                                 clockwise: true).cgPath
-        move.calculationMode = .paced
-        move.duration = lap
-        move.repeatCount = .infinity
-        move.beginTime = beginTime
-        move.isRemovedOnCompletion = false
-        carrier.add(move, forKey: "comet")
-        carrier.isHidden = false
-        // Two laps, so the tail of the light never wraps round the path's start.
-        let twoLaps = UIBezierPath(arcCenter: mid, radius: r, startAngle: frontAngle - 2 * .pi,
-                                   endAngle: frontAngle + 2 * .pi, clockwise: true).cgPath
-        for (pulse, span) in zip(pulses, [34, 20, 9] as [CGFloat]) {
-            pulse.path = twoLaps
-            let tail = span / 720
-            let head = CABasicAnimation(keyPath: "strokeEnd")
-            head.fromValue = 0.5
-            head.toValue = 1
-            let rear = CABasicAnimation(keyPath: "strokeStart")
-            rear.fromValue = 0.5 - tail
-            rear.toValue = 1 - tail
-            let lapAnimation = CAAnimationGroup()
-            lapAnimation.animations = [head, rear]
-            lapAnimation.duration = lap
-            lapAnimation.repeatCount = .infinity
-            lapAnimation.beginTime = beginTime
-            lapAnimation.isRemovedOnCompletion = false
-            pulse.add(lapAnimation, forKey: "comet")
-            pulse.isHidden = false
         }
     }
 

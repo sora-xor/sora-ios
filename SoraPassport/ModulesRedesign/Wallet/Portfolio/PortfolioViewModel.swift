@@ -207,12 +207,6 @@ final class PortfolioViewModel {
         update()
     }
 
-    func clearHighlight() {
-        guard state.highlighted != nil else { return }
-        state.highlighted = nil
-        update()
-    }
-
     func openRow(_ row: PortfolioRow) {
         switch row.kind {
         case .token:
