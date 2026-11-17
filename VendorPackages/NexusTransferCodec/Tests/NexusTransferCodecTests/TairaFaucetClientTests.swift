@@ -128,7 +128,7 @@ final class TairaFaucetClientTests: XCTestCase {
         let progress = "Preparing your test XOR… %@\nThis can take a few minutes."
         XCTAssertEqual(english[progress], progress)
         let languages = try FileManager.default.contentsOfDirectory(atPath: catalogs.path).filter { $0.hasSuffix(".lproj") }.map { String($0.dropLast(6)) }
-        XCTAssertEqual(languages.count, 33)
+        XCTAssertEqual(languages.count, 30) // 28 shipped + akk and egy-Egyp (unbuilt de, it, nn-NO deleted)
         for language in languages where language != "en" {
             let table = try catalog(language)
             if ["akk", "egy-Egyp"].contains(language) {

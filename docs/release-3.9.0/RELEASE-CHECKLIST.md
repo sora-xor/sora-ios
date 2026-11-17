@@ -134,9 +134,9 @@ existing wallet:
 - [ ] Unused images (for example `KatanaGirl`, 1.6 MB, and some old
       PIN/profile icons) are left for the UI redesign owner, who may reuse
       some of them.
-- [ ] `SoraLocalizable/de.lproj`, `it.lproj` and `nn-NO.lproj` exist but are
-      not in the project, so they never ship. Localization owner to add or
-      delete them.
+- [x] `SoraLocalizable/de.lproj`, `it.lproj` and `nn-NO.lproj` were not in
+      the project, so they never shipped (the shipped locales are `de-DE`,
+      `it-IT` and `no`). Deleted 2026-11-18.
 - [ ] Legal: `RecaptchaEnterprise` (Google) and `MPQRCoreSDK` (Mastercard)
       binaries remain in the public git history. `MPQRCoreSDK.xcframework`
       is also still in `VendorPackages/shared-features-spm/Binaries`, but it

@@ -20163,9 +20163,10 @@ final class WalletModernizationTests: XCTestCase {
                 options: [.skipsHiddenFiles]
             )
             .filter { $0.pathExtension == "lproj" }
-        // 33 catalogs in the source tree: the Nexus line keeps akk and
-        // egy-Egyp, which the 3.9.x App Store line removed (31 there).
-        XCTAssertEqual(localeDirectories.count, 33)
+        // 30 catalogs in the source tree: the 28 shipped by the 3.9.x App
+        // Store line plus akk and egy-Egyp, which the Nexus line keeps. (The
+        // unbuilt de, it and nn-NO copies were deleted on 2026-11-18.)
+        XCTAssertEqual(localeDirectories.count, 30)
         for localeDirectory in localeDirectories {
             let strings = try String(
                 contentsOf: localeDirectory.appendingPathComponent(
