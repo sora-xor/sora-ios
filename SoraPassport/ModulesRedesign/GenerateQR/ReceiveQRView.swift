@@ -177,11 +177,21 @@ final class ReceiveQRView: SoramitsuView {
         addSubview(scanQrButton)
     }
 
+    private lazy var qrSquare = qrContainerView.heightAnchor.constraint(equalTo: qrContainerView.widthAnchor)
+    private lazy var codeSide = WalletCodeSide(card: qrContainerView, square: qrSquare)
+
+    /// The code's card is as tall as it is wide on a phone, and no taller than leaves the address and
+    /// Share in view in a window that is short for its width.
+    override func layoutSubviews() {
+        codeSide.update(columnWidth: bounds.width - 48, canvas: WalletDisplay.canvas(for: self))
+        super.layoutSubviews()
+    }
+
     private func setupConstrains() {
         NSLayoutConstraint.activate([
             qrContainerView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
             qrContainerView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            qrContainerView.heightAnchor.constraint(equalTo: qrContainerView.widthAnchor),
+            qrSquare,
             qrContainerView.topAnchor.constraint(equalTo: topAnchor),
             
             qrImageView.leadingAnchor.constraint(equalTo: qrContainerView.leadingAnchor, constant: 24),

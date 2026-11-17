@@ -47,8 +47,13 @@ public struct SacredTenmonScene: Equatable {
         self.keepsPlanet = keepsPlanet
     }
 
-    /// Lens length in pixels: a wide lens, so the gates rush past.
-    public var focal: Float { 1.15 * size.x }
+    /// Lens length in pixels: a wide lens, so the gates rush past. It is set by the width on every
+    /// phone. A window that is wide for its height (an unfolded screen, a folded cover) would crop
+    /// the gates' beams with that lens, so there it is set by the height: the corridor is seen as
+    /// tall as on a phone, with more of the night to either side. No classic iPhone is wider than
+    /// 0.6 of its height, so none changes.
+    public var focal: Float { 1.15 * min(size.x, size.y * Self.widestFrame) }
+    static let widestFrame: Float = 0.6
     /// Where the camera ends: as far from the planet as shows it at its landing size.
     public var endZ: Float { Self.planetZ - focal * Self.planetRadius / landingRadius }
 

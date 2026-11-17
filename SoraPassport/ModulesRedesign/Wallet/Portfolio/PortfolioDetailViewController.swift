@@ -67,12 +67,11 @@ final class PortfolioDetailViewController: UIViewController {
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            content.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
-            content.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
             content.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
-            content.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -32),
-            content.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
+            content.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -32)
         ])
+        // The same place on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(content, inScroll: scrollView, margin: 0)
 
         orbit.translatesAutoresizingMaskIntoConstraints = false
         orbit.heightAnchor.constraint(equalToConstant: 250).isActive = true

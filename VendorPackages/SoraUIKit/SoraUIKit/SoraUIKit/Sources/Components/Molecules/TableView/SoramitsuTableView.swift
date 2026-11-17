@@ -27,6 +27,12 @@ public final class SoramitsuTableView: UITableView, Molecule {
 
 	public weak var scrollViewDelegate: UIScrollViewDelegate?
 
+	/// The width rows are drawn at: the table's, or the readable width in a table wider than that
+	/// (see `SoramitsuTableViewCell.readableFrame(for:)`). Row heights are worked out for this width.
+	public var readableRowWidth: CGFloat {
+		bounds.width - LayoutCanvas.readableInset(forWidth: bounds.width) * 2
+	}
+
 	fileprivate var shouldHandlePagination = true
 
 	public weak var tableViewObserver: SoramitsuTableViewObserver?
@@ -90,6 +96,27 @@ public final class SoramitsuTableView: UITableView, Molecule {
 	public override func reloadData() {
 		super.reloadData()
 		reloadEmptyView()
+	}
+
+	private var measuredWidth: CGFloat = 0
+
+	/// Rows measure themselves for the table's width. When a table that is already showing rows gets
+	/// another width (its window was resized: a phone folded or unfolded), they are measured again.
+	/// A table on a classic phone gets its width once and keeps it.
+	public override func layoutSubviews() {
+		super.layoutSubviews()
+		let width = bounds.width
+		guard width != measuredWidth else { return }
+		let resized = measuredWidth > 0
+		measuredWidth = width
+		guard resized else { return }
+		DispatchQueue.main.async { [weak self] in
+			guard let self, self.window != nil, self.sora.doesHaveAnyRows() else { return }
+			UIView.performWithoutAnimation {
+				self.beginUpdates()
+				self.endUpdates()
+			}
+		}
 	}
 
 	@objc public func resetPagination() {
@@ -206,11 +233,11 @@ extension SoramitsuTableView: UITableViewDelegate {
 
 	public func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
 		guard indexPath.section < sora.sections.count else { return 0 }
-		return sora.sections[indexPath.section].heightForRow(at: indexPath, boundingWidth: tableView.bounds.width)
+		return sora.sections[indexPath.section].heightForRow(at: indexPath, boundingWidth: readableRowWidth)
 	}
 
 	public func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
-		if let height = sora.sections[indexPath.section].estimatedHeightForRow(at: indexPath, boundingWidth: tableView.bounds.width) {
+		if let height = sora.sections[indexPath.section].estimatedHeightForRow(at: indexPath, boundingWidth: readableRowWidth) {
 			return height
 		} else {
 			return estimatedRowHeight

@@ -149,6 +149,7 @@ public final class SacredTenmonView: UIView, SacredFlight {
     // Main thread only.
     private var pixelsPerPoint: CGFloat = min(UIScreen.main.scale, 2) * 0.75
     private var clock = 0
+    private var laidOutSize: CGSize?
 
     /// Frames drawn so far.
     public var framesDrawn: Int {
@@ -189,7 +190,19 @@ public final class SacredTenmonView: UIView, SacredFlight {
         CATransaction.setDisableActions(true)
         renderLayer.frame = bounds
         CATransaction.commit()
+        let resized = laidOutSize != bounds.size
+        laidOutSize = bounds.size
         rebuildScene()
+        // A scene at rest drew its one frame for the old size. When the window is resized under it
+        // (a phone folded or unfolded mid-launch), that frame is drawn again for the new one.
+        if resized, phase == .holding || phase == .arrived { redrawIfResting() }
+    }
+
+    private func redrawIfResting() {
+        lock.lock()
+        let resting = !wantsFrames
+        lock.unlock()
+        if resting { drawOnce() }
     }
 
     private func rebuildScene() {

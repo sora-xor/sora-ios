@@ -89,8 +89,9 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
         super.viewDidLoad()
         soramitsuView.sora.backgroundColor = .bgPage
         configure()
+        // Also when the scene moves to another screen (a phone folded or unfolded).
         [UIApplication.willResignActiveNotification, UIScreen.capturedDidChangeNotification,
-         UIApplication.userDidTakeScreenshotNotification].forEach {
+         UIApplication.userDidTakeScreenshotNotification, WalletDisplay.screenDidChangeNotification].forEach {
             NotificationCenter.default.addObserver(self, selector: #selector(hideSeed), name: $0, object: nil)
         }
         presenter.exportRawSeed()
@@ -175,12 +176,11 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            containerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
-            containerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
             containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
-            containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
-            containerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32)
+            containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16)
         ])
+        // 16 from each side on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(containerView, inScroll: scrollView, margin: 16)
         stackView.do {
             $0.horizontalAnchors == containerView.horizontalAnchors + 24
             $0.verticalAnchors == containerView.verticalAnchors + 24

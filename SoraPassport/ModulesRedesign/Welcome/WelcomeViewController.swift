@@ -239,9 +239,6 @@ final class WelcomeViewController: SoramitsuViewController {
             scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 72),
             containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
-            containerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
-            containerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
-            containerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32),
             
             logo.topAnchor.constraint(equalTo: containerView.topAnchor, constant: -56),
             logo.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
@@ -267,6 +264,8 @@ final class WelcomeViewController: SoramitsuViewController {
             loadingView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             loadingView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
+        // 16 from each side on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(containerView, inScroll: scrollView, margin: 16)
     }
 }
 

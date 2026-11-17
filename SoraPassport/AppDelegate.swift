@@ -121,6 +121,15 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         defaults.set(true, forKey: marker)
     }
 
+    // MARK: - Orientation
+
+    /// Portrait on phone-sized screens, as Info.plist says; any way up on a roomy screen such as an
+    /// unfolded inner one (see `WalletDisplay`). On iOS 27 the scene delegate answers this per scene.
+    func application(_ application: UIApplication,
+                     supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        WalletDisplay.supportedOrientations(for: window?.windowScene ?? application.soraWindowScene)
+    }
+
     // MARK: - Scene life cycle
 
     func application(

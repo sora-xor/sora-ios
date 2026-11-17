@@ -42,6 +42,10 @@ class SplashViewController: UIViewController, SplashViewProtocol {
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
 
+    // The launch scene fills the screen; nothing of it belongs in a bar down the side.
+    @available(iOS 27.1, *)
+    override var preferredVerticalBarBehavior: UIVerticalBarBehavior { .disabled }
+
     private func install(_ view: UIView & SacredFlight) {
         flight?.removeFromSuperview()
         // The flight measures its scene from its size, so the screen is laid out first.
@@ -229,6 +233,8 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         landed.translatesAutoresizingMaskIntoConstraints = true
         landed.frame = window.bounds
         window.addSubview(landed)
+        // It fills the window while it fades, also when the window is resized under it.
+        landed.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         UIView.animate(withDuration: SacredGeometry.beat(2), delay: 0, options: [.curveEaseOut]) {
             landed.alpha = 0
         } completion: { _ in

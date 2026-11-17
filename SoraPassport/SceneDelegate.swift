@@ -33,6 +33,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
 
         window = appDelegate.attachRootWindow(to: windowScene)
+        // Where the scene starts; a later move to another screen is told to screens showing a secret.
+        WalletDisplay.sceneGeometryDidChange(windowScene)
+        if let window { WalletDisplay.observeHinge(on: window) }
 
         // Cold launch through a URL or a universal link. These are delivered
         // only here; UIKit does not call the open-URL callbacks for them.
@@ -47,6 +50,23 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Never tear down Splash, the migration flow or any window here.
         appDelegate?.sceneDidDisconnect(scene)
         window = nil
+    }
+
+    /// Which way up the wallet may be on the screen this scene is on: portrait on a phone-sized
+    /// screen, any way on a roomy one. Replaces the Info.plist value for this scene.
+    @available(iOS 27.0, *)
+    func supportedInterfaceOrientations(for windowScene: UIWindowScene) -> UIInterfaceOrientationMask {
+        WalletDisplay.supportedOrientations(for: windowScene)
+    }
+
+    /// Always called when the scene moves between screens, and when it is resized or turned.
+    @available(iOS 26.0, *)
+    func windowScene(_ windowScene: UIWindowScene,
+                     didUpdateEffectiveGeometry previousEffectiveGeometry: UIWindowScene.Geometry) {
+        guard windowScene.session.role.isSoraWalletScene else {
+            return
+        }
+        WalletDisplay.sceneGeometryDidChange(windowScene)
     }
 
     func sceneWillEnterForeground(_ scene: UIScene) {

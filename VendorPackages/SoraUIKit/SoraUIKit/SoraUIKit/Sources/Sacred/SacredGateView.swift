@@ -79,6 +79,17 @@ public final class SacredGateView: UIView {
         CATransaction.setDisableActions(true)
         for shape in gateLayers + [lockLayer] { shape.frame = bounds }
         CATransaction.commit()
+        // A window resized under a flight at rest (a phone folded or unfolded mid-launch): the still
+        // is drawn again for the new size. A flight on its way finishes as it began.
+        guard let drawn = scene, drawn.size != bounds.size, bounds.width > 0, bounds.height > 0 else { return }
+        switch phase {
+        case .holding:
+            if prepare(), let scene { show(scene.frame(.intro, at: 1)) }
+        case .arrived:
+            if prepare(), let scene { show(scene.frame(.outro, at: 1)) }
+        default:
+            break
+        }
     }
 
     // MARK: Phases

@@ -49,6 +49,9 @@ final class PincodeViewController: SoramitsuViewController {
 
     var cancellable: Bool = false
 
+    /// The sensor this device unlocks with, read when the unlock key is shown.
+    var biometryType: () -> AvailableBiometryType = { BiometryAuth().availableBiometryType }
+
     private let formatter: DateComponentsFormatter = {
         var calendar = Calendar.current
         calendar.locale = LocalizationManager.shared.selectedLocale
@@ -105,6 +108,14 @@ final class PincodeViewController: SoramitsuViewController {
     let emblemView = SacredEmblemView()
     private var hasEntered = false
 
+    // One page or two, by the window's size (see `layoutPages`).
+    private var stackedConstraints: [NSLayoutConstraint] = []
+    private var pagedConstraints: [NSLayoutConstraint] = []
+    private(set) var isPaged = false
+    private lazy var pagedContainerTrailing = containerView.trailingAnchor.constraint(equalTo: view.leadingAnchor)
+    private lazy var pagedNumpadCentreX = numpadView.centerXAnchor.constraint(equalTo: view.leadingAnchor)
+    private lazy var pagedTitleCentreY = titleLabel.centerYAnchor.constraint(equalTo: view.topAnchor)
+
     var cooldownTimerFactory: (TimeInterval, @escaping @Sendable (Timer) -> Void) -> Timer = { interval, block in
         Timer.scheduledTimer(withTimeInterval: interval, repeats: true, block: block)
     }
@@ -139,6 +150,11 @@ final class PincodeViewController: SoramitsuViewController {
         LitMotion.rise(numpadView, by: 18, after: 0.05)
     }
 
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        layoutPages()
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         layoutEmblem()
@@ -169,30 +185,66 @@ private extension PincodeViewController {
 
         NSLayoutConstraint.activate([
             containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            containerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             containerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            containerView.bottomAnchor.constraint(equalTo: numpadView.topAnchor),
-            
+
             numpadView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 48),
-            numpadView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            numpadView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -18),
             numpadView.heightAnchor.constraint(equalToConstant: 368),
             
             titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             titleLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            titleLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             
             circlesStackView.leadingAnchor.constraint(greaterThanOrEqualTo: containerView.leadingAnchor, constant: 10),
             circlesStackView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             circlesStackView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
         ])
-        
+
+        // One page, as on every phone: the title and the dots above the keypad.
+        stackedConstraints = [
+            containerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            containerView.bottomAnchor.constraint(equalTo: numpadView.topAnchor),
+            numpadView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            numpadView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -18),
+            titleLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+        ]
+        // Two pages (an unfolded screen in landscape): the emblem, the title and the dots on the
+        // left page, the keypad in the middle of the right one. Nothing sits on the fold.
+        pagedConstraints = [
+            pagedContainerTrailing,
+            containerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            pagedNumpadCentreX,
+            numpadView.centerYAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerYAnchor),
+            pagedTitleCentreY,
+        ]
+        NSLayoutConstraint.activate(stackedConstraints)
+    }
+
+    /// Chooses one page or two for the window's size. The digits entered so far, the title and a
+    /// cooldown are untouched: only the constraints change when the window does.
+    func layoutPages() {
+        let pages = WalletDisplay.pages(in: view)
+        if (pages != nil) != isPaged {
+            isPaged = pages != nil
+            NSLayoutConstraint.deactivate(isPaged ? stackedConstraints : pagedConstraints)
+            NSLayoutConstraint.activate(isPaged ? pagedConstraints : stackedConstraints)
+        }
+        guard let pages else { return }
+        let place = SacredEmblemLayout.pagedPinPlacement(page: pages.left, safeArea: view.safeAreaInsets)
+        pagedContainerTrailing.constant = pages.left.maxX
+        pagedNumpadCentreX.constant = pages.right.midX
+        pagedTitleCentreY.constant = SacredEmblemLayout.pagedPinTitleCentreY(under: place)
+    }
+
+    func emblemPlacement() -> SacredEmblemLayout.Placement? {
+        if let pages = WalletDisplay.pages(in: view) {
+            return SacredEmblemLayout.pagedPinPlacement(page: pages.left, safeArea: view.safeAreaInsets)
+        }
+        return SacredEmblemLayout.pinPlacement(bounds: view.bounds, safeArea: view.safeAreaInsets)
     }
 
     func layoutEmblem() {
         // Once unlocking has taken it across to the home it is no longer this screen's to place.
         guard emblemView.superview === view else { return }
-        guard let place = SacredEmblemLayout.pinPlacement(bounds: view.bounds, safeArea: view.safeAreaInsets) else {
+        guard let place = emblemPlacement() else {
             emblemView.isHidden = true
             return
         }
@@ -324,6 +376,8 @@ extension PincodeViewController: PinSetupViewProtocol {
     func didReceiveWrongPincode() {}
 
     func didChangeAccessoryState(enabled: Bool) {
+        // The unlock key shows the sensor this device has: a fingerprint where it is Touch ID.
+        if enabled { numpadView.setBiometry(biometryType()) }
         numpadView.accessoryButton.alpha = enabled ? 1 : 0
     }
     

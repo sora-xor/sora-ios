@@ -95,6 +95,27 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
         configure()
     }
 
+    // The card does not scroll. In a window that is short for its width (a folded cover, an unfolded
+    // screen in landscape) the keyboard would cover Download, so there the card rides above the
+    // keyboard instead of staying under the bar. A classic phone keeps the card where it was.
+    private var pinnedTop: NSLayoutConstraint?
+    private lazy var looseTop: NSLayoutConstraint = {
+        let constraint = containerView.topAnchor.constraint(equalTo: view.soraSafeTopAnchor)
+        constraint.priority = .defaultHigh
+        return constraint
+    }()
+    private lazy var aboveKeyboard = containerView.bottomAnchor.constraint(
+        lessThanOrEqualTo: view.keyboardLayoutGuide.topAnchor, constant: -8)
+
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        let short = WalletDisplay.canvas(for: view).kind != .phone
+        guard short != aboveKeyboard.isActive else { return }
+        pinnedTop?.isActive = !short
+        looseTop.isActive = short
+        aboveKeyboard.isActive = short
+    }
+
     private func configure() {
         navigationItem.backButtonTitle = ""
         navigationItem.largeTitleDisplayMode = .never
@@ -114,11 +135,9 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
         stackView.setCustomSpacing(24, after: stackView.arrangedSubviews.last!)
         stackView.addArrangedSubview(downloadButton)
         stackView.setCustomSpacing(20, after: titleLabel)
-        containerView.do {
-            $0.horizontalAnchors == view.horizontalAnchors + 16
-            $0.topAnchor == view.soraSafeTopAnchor
-
-        }
+        // 16 from each side on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(containerView, width: view.widthAnchor, centerX: view.centerXAnchor, margin: 16)
+        pinnedTop = (containerView.topAnchor == view.soraSafeTopAnchor)
         stackView.do {
             $0.horizontalAnchors == containerView.horizontalAnchors + 24
             $0.verticalAnchors == containerView.verticalAnchors + 24

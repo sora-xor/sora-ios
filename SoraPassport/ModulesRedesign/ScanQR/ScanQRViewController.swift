@@ -77,6 +77,9 @@ final class ScanQRViewController: SoramitsuViewController {
     }()
 
     var viewModel: ScanQRViewModelProtocol
+    private var scanLabelTop: NSLayoutConstraint?
+    private var phoneScanLabelTop: CGFloat = 0
+    private var resizedScanWindow = false
 
     init(viewModel: ScanQRViewModelProtocol) {
         self.viewModel = viewModel
@@ -95,6 +98,11 @@ final class ScanQRViewController: SoramitsuViewController {
         adjustLayout()
     }
     
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        layoutScanWindow()
+    }
+
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
 
@@ -130,6 +138,9 @@ final class ScanQRViewController: SoramitsuViewController {
 
     private func setupConstraints() {
         let scanLabelBottomOffset = (UIScreen.main.bounds.maxY * 0.47) - ((UIScreen.main.bounds.width - 24 * 2) / 2) + (UIScreen.main.bounds.width - 24 * 2) + 32
+        let scanLabelTop = scanLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: scanLabelBottomOffset)
+        self.scanLabelTop = scanLabelTop
+        phoneScanLabelTop = scanLabelBottomOffset
         NSLayoutConstraint.activate([
             qrFrameView.topAnchor.constraint(equalTo: view.topAnchor),
             qrFrameView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -145,7 +156,7 @@ final class ScanQRViewController: SoramitsuViewController {
             
             scanLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             scanLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            scanLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: scanLabelBottomOffset),
+            scanLabelTop,
             
             galleryButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
             galleryButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -158,6 +169,30 @@ final class ScanQRViewController: SoramitsuViewController {
         let width = UIScreen.main.bounds.width - 24 * 2
         qrFrameView.windowSize = CGSize(width: width, height: width)
         qrFrameView.windowPosition = CGPoint(x: 0.5, y: 0.47)
+    }
+
+    /// The side of the scan window in a window that is not a classic phone's: no wider than on a
+    /// phone, and small enough that the hint under it stays clear of the button at the bottom.
+    static func scanWindowSide(viewSize: CGSize, bottomInset: CGFloat) -> CGFloat {
+        let room = 2 * (viewSize.height * 0.53 - bottomInset - 164)
+        return max(200, min(min(viewSize.width, viewSize.height) - 48, 392, room)).rounded(.down)
+    }
+
+    /// A classic phone keeps the measures it has always had. A folded cover or an unfolded inner
+    /// screen measures the scan window from the view, again each time the window is resized.
+    private func layoutScanWindow() {
+        guard isViewLoaded else { return }
+        if WalletDisplay.canvas(for: view).kind == .phone {
+            guard resizedScanWindow else { return }
+            resizedScanWindow = false
+            adjustLayout()
+            scanLabelTop?.constant = phoneScanLabelTop
+            return
+        }
+        resizedScanWindow = true
+        let side = Self.scanWindowSide(viewSize: view.bounds.size, bottomInset: view.safeAreaInsets.bottom)
+        if qrFrameView.windowSize.width != side { qrFrameView.windowSize = CGSize(width: side, height: side) }
+        scanLabelTop?.constant = view.bounds.height * 0.47 + side / 2 + 32
     }
     
     private func configureVideoLayer(with captureSession: AVCaptureSession) {

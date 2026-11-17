@@ -179,17 +179,21 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         let scopeTop = scopeButton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6)
         self.skyHeight = skyHeight
         self.scopeTop = scopeTop
+        let scopeLeading = scopeButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16)
+        let cardLeading = card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16)
+        let cardTrailing = card.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
+        sideConstraints = [scopeLeading, cardLeading, cardTrailing]
         NSLayoutConstraint.activate([
             sky.topAnchor.constraint(equalTo: contentView.topAnchor),
             sky.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             sky.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             skyHeight,
             scopeTop,
-            scopeButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            scopeLeading,
             scopeButton.trailingAnchor.constraint(lessThanOrEqualTo: contentView.centerXAnchor, constant: 40),
             card.topAnchor.constraint(equalTo: sky.bottomAnchor, constant: -PortfolioTheme.Sky.cardOverlap),
-            card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            card.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            cardLeading,
+            cardTrailing,
             card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6),
             stack.topAnchor.constraint(equalTo: card.contentView.topAnchor, constant: 18),
             stack.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor, constant: 18),
@@ -202,6 +206,33 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
             legendStack.heightAnchor.constraint(equalTo: legendScroll.frameLayoutGuide.heightAnchor),
             legendScroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 40)
         ])
+    }
+
+    // The sky paints from edge to edge of any window. In one wider than the readable width the card
+    // and the wallet button keep to that width, in line with the cards under them.
+    override var spansFullWidth: Bool { true }
+    private var sideConstraints: [NSLayoutConstraint] = []
+
+    private func keepReadable(rowWidth: CGFloat) {
+        let side = 16 + LayoutCanvas.readableInset(forWidth: rowWidth)
+        for constraint in sideConstraints {
+            let wanted = constraint.constant < 0 ? -side : side
+            if constraint.constant != wanted { constraint.constant = wanted }
+        }
+    }
+
+    override func systemLayoutSizeFitting(_ targetSize: CGSize,
+                                          withHorizontalFittingPriority horizontalFittingPriority: UILayoutPriority,
+                                          verticalFittingPriority: UILayoutPriority) -> CGSize {
+        keepReadable(rowWidth: targetSize.width)
+        return super.systemLayoutSizeFitting(targetSize,
+                                             withHorizontalFittingPriority: horizontalFittingPriority,
+                                             verticalFittingPriority: verticalFittingPriority)
+    }
+
+    override func layoutSubviews() {
+        keepReadable(rowWidth: bounds.width)
+        super.layoutSubviews()
     }
 
     func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {

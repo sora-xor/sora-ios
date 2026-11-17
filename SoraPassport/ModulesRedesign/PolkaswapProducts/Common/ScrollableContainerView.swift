@@ -64,10 +64,9 @@ final class ScrollableContainerView: UIView {
 
         scrollView.addSubview(stackView)
 
-        stackView.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
+        // The whole width on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(stackView, inScroll: scrollView, margin: 0)
 
-        stackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor).isActive = true
-        stackView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor).isActive = true
         stackView.topAnchor.constraint(equalTo: scrollView.topAnchor).isActive = true
         stackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor).isActive = true
     }

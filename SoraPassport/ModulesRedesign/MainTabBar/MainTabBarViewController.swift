@@ -38,6 +38,14 @@ final class MainTabBarViewController: UITabBarController {
         didSet { updateClassicCover() }
     }
 
+    // The classic bars stay along the top and the bottom on every screen, an unfolded one included:
+    // the notched tab bar with its Polkaswap disc and the classic navigation bar have no vertical form.
+    @available(iOS 27.1, *)
+    override var preferredVerticalBarBehavior: UIVerticalBarBehavior { .disabled }
+
+    @available(iOS 27.1, *)
+    override var childForPreferredVerticalBarBehavior: UIViewController? { nil }
+
     override func viewDidLoad() {
         super.viewDidLoad()
 

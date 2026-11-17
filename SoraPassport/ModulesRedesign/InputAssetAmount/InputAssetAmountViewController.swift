@@ -142,7 +142,8 @@ final class InputAssetAmountViewController: SoramitsuViewController {
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        spaceConstraint?.constant = UIScreen.main.bounds.height - 300
+        // The window's height: on every classic phone that is the screen's.
+        spaceConstraint?.constant = (view.window?.bounds.height ?? UIScreen.main.bounds.height) - 300
     }
 
     private func setupView() {
@@ -162,9 +163,6 @@ final class InputAssetAmountViewController: SoramitsuViewController {
 
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            stackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            stackView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
             stackView.topAnchor.constraint(equalTo: scrollView.topAnchor),
             stackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
 
@@ -185,6 +183,8 @@ final class InputAssetAmountViewController: SoramitsuViewController {
             reviewLiquidity.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
             reviewLiquidity.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
         ])
+        // The same place on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(stackView, inScroll: scrollView, margin: 0)
     }
 }
 

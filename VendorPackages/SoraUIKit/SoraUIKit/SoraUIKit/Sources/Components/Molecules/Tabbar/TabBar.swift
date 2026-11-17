@@ -59,8 +59,6 @@ public class TabBar: UITabBar {
             $0.removeFromSuperview()
             host.addSubview($0)
         }
-        let titleWidth = UIScreen.main.bounds.width / 5
-
         NSLayoutConstraint.activate([
             middleButton.centerXAnchor.constraint(equalTo: host.centerXAnchor),
             middleButton.bottomAnchor.constraint(equalTo: host.safeAreaLayoutGuide.bottomAnchor, constant: -21),
@@ -71,7 +69,8 @@ public class TabBar: UITabBar {
             coverButton.widthAnchor.constraint(equalTo: middleButton.widthAnchor),
             
             middleButtonTitleLabel.centerXAnchor.constraint(equalTo: host.centerXAnchor),
-            middleButtonTitleLabel.widthAnchor.constraint(equalToConstant: titleWidth),
+            // A fifth of the bar, whatever window it is in: the bar is resized when the scene is.
+            middleButtonTitleLabel.widthAnchor.constraint(equalTo: host.widthAnchor, multiplier: 0.2),
             middleButtonTitleLabel.bottomAnchor.constraint(equalTo: host.safeAreaLayoutGuide.bottomAnchor, constant: -1),
         ])
     }

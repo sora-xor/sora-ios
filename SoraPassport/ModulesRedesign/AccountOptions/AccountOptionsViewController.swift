@@ -142,9 +142,6 @@ final class AccountOptionsViewController: SoramitsuViewController {
         view.addSubview(loadingView)
                 
         NSLayoutConstraint.activate([
-            stackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            stackView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
             stackView.topAnchor.constraint(equalTo: scrollView.topAnchor),
             stackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
 
@@ -158,6 +155,8 @@ final class AccountOptionsViewController: SoramitsuViewController {
             loadingView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             loadingView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
+        // The same place on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(stackView, inScroll: scrollView, margin: 0)
         
         stackView.addArrangedSubviews(usernameField, addressView, optionsCard, logoutButton)
         stackView.setCustomSpacing(12, after: usernameField)

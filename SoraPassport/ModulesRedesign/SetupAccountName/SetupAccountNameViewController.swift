@@ -118,9 +118,6 @@ final class SetupAccountNameViewController: SoramitsuViewController {
             scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 8),
             containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
-            containerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
-            containerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
-            containerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32),
             
             subtitleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
             subtitleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
@@ -135,6 +132,8 @@ final class SetupAccountNameViewController: SoramitsuViewController {
             createAccountButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             createAccountButton.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -24),
         ])
+        // 16 from each side on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(containerView, inScroll: scrollView, margin: 16)
     }
 }
 

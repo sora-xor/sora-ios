@@ -152,6 +152,21 @@ final class ReceiveCell: SoramitsuTableViewCell {
         contentStackView.addArrangedSubview(shareButton)
     }
 
+    private lazy var qrSquare = qrContainerView.heightAnchor.constraint(equalTo: qrContainerView.widthAnchor)
+    private lazy var codeSide = WalletCodeSide(card: qrContainerView, square: qrSquare)
+
+    /// The row is measured here: the code's card is as tall as it is wide on a phone, and no taller
+    /// than leaves the address and Share in view in a window that is short for its width.
+    override func systemLayoutSizeFitting(_ targetSize: CGSize,
+                                          withHorizontalFittingPriority horizontalFittingPriority: UILayoutPriority,
+                                          verticalFittingPriority: UILayoutPriority) -> CGSize {
+        let row = readableFrame(for: CGRect(origin: .zero, size: targetSize))
+        codeSide.update(columnWidth: row.width - 64, canvas: WalletDisplay.canvas(for: self))
+        return super.systemLayoutSizeFitting(targetSize,
+                                             withHorizontalFittingPriority: horizontalFittingPriority,
+                                             verticalFittingPriority: verticalFittingPriority)
+    }
+
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             contentStackView.topAnchor.constraint(equalTo: contentView.topAnchor),
@@ -159,7 +174,7 @@ final class ReceiveCell: SoramitsuTableViewCell {
             contentStackView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             contentStackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             
-            qrContainerView.heightAnchor.constraint(equalTo: qrContainerView.widthAnchor),
+            qrSquare,
             
             qrImageView.leadingAnchor.constraint(equalTo: qrContainerView.leadingAnchor, constant: 24),
             qrImageView.centerXAnchor.constraint(equalTo: qrContainerView.centerXAnchor),

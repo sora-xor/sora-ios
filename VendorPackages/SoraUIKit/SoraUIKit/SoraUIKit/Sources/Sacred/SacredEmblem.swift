@@ -102,12 +102,36 @@ public enum SacredEmblemLayout {
     /// The room a PIN screen leaves above its title, between the top of the screen and the keypad. Nil on
     /// a screen too short to hold the emblem and the title both.
     public static func pinPlacement(bounds: CGRect, safeArea: UIEdgeInsets) -> Placement? {
+        // Two pages side by side (an unfolded screen in landscape): the emblem, the title and the dots
+        // stand on the left page and the keypad on the right. The launch flight asks here too, so the
+        // planet lands where that PIN screen shows it.
+        if let pages = LayoutCanvas(size: bounds.size).pages(in: bounds) {
+            return pagedPinPlacement(page: pages.left, safeArea: safeArea)
+        }
         let top = bounds.minY + safeArea.top
         let keypadTop = bounds.maxY - safeArea.bottom - keypadBottom - keypadHeight
         let room = (keypadTop - top) / 2 - titleHalfHeight
         let diameter = min(largest, room - 2 * margin)
         guard diameter >= smallest else { return nil }
         return Placement(centre: CGPoint(x: bounds.midX, y: top + room / 2), ringRadius: diameter / 2)
+    }
+
+    /// What stands under the emblem on a PIN screen's own page: the gap, the title, the gap and the dots.
+    static let pagedGroupBelow: CGFloat = margin + titleHalfHeight * 2 + 16 + 24
+
+    /// The emblem on the left page of a two-page PIN screen: the emblem, the title and the dots are
+    /// one group in the middle of the page.
+    public static func pagedPinPlacement(page: CGRect, safeArea: UIEdgeInsets) -> Placement {
+        let top = page.minY + safeArea.top
+        let bottom = page.maxY - safeArea.bottom
+        let diameter = min(largest, max(smallest, bottom - top - pagedGroupBelow - 2 * margin))
+        return Placement(centre: CGPoint(x: page.midX, y: (top + bottom) / 2 - pagedGroupBelow / 2),
+                         ringRadius: diameter / 2)
+    }
+
+    /// The middle of the title under that emblem.
+    public static func pagedPinTitleCentreY(under place: Placement) -> CGFloat {
+        place.centre.y + place.ringRadius + margin + titleHalfHeight
     }
 
     /// Where the flight ends when the next screen has no place of its own: on the upper golden section.

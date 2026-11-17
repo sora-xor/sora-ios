@@ -31,6 +31,8 @@ struct ProfileLoginEnvironment {
     let presentingController: @MainActor () -> UIViewController?
     let authenticate: (String) throws -> WalletOwnerPIN.Authorization
     let makeEditor: @MainActor (WalletOwnerPIN.Authorization) -> UIViewController?
+    /// The sensor this device has: its glyph stands beside the setting.
+    var biometryType: () -> AvailableBiometryType = { BiometryAuth().availableBiometryType }
 
     static var live: ProfileLoginEnvironment {
         ProfileLoginEnvironment(settings: SettingsManager.shared,
@@ -77,7 +79,7 @@ final class ProfileLoginPresenter: ProfileLoginPresenterProtocol, AuthorizationP
         let biometrySwitcherState: AppSettingsItem.SwitcherState
         biometrySwitcherState = biometryIsOn ? .on : .off
         let biometry = AppSettingsItem(title: R.string.localizable.profileBiometryTitle(preferredLanguages: languages),
-                                       picture: .icon(image: R.image.profile.biometry()!,
+                                       picture: .icon(image: environment.biometryType().settingsGlyph ?? R.image.profile.biometry()!,
                                                       color: .fgSecondary),
                                        rightItem: .switcher(state: biometrySwitcherState),
                                        onSwitch: { [weak self] isOn in

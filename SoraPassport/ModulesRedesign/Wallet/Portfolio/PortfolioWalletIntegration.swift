@@ -163,6 +163,8 @@ final class PortfolioTableBinding: NSObject, UIScrollViewDelegate {
     private weak var host: UIViewController?
     private let backdrop = PortfolioStatusBackdrop()
     private var backdropHeight: NSLayoutConstraint?
+    /// The table the asset list is in when the home shows two pages; nil while it is in `tableView`.
+    weak var listTableView: SoramitsuTableView?
 
     init(home: PortfolioHome, tableView: SoramitsuTableView, host: UIViewController) {
         self.home = home
@@ -170,10 +172,11 @@ final class PortfolioTableBinding: NSObject, UIScrollViewDelegate {
         self.host = host
         super.init()
         tableView.scrollViewDelegate = self
-        home.listItem.onHeightChange = { [weak tableView] in
+        home.listItem.onHeightChange = { [weak self, weak tableView] in
+            let table = self?.listTableView ?? tableView
             UIView.performWithoutAnimation {
-                tableView?.beginUpdates()
-                tableView?.endUpdates()
+                table?.beginUpdates()
+                table?.endUpdates()
             }
         }
         backdrop.translatesAutoresizingMaskIntoConstraints = false

@@ -59,7 +59,10 @@ public struct SacredGateScene {
         self.landing = landing
         self.planetRadius = planetRadius
         self.ringRadius = ringRadius
-        focal = 620 * min(max(size.width, 280), 500) / 402
+        // By the width on a phone; by the height in a window wide for its height (an unfolded
+        // screen), so the figures keep clear of its top and bottom. No classic iPhone is wider
+        // than 0.6 of its height.
+        focal = 620 * min(max(size.width, 280), 500, max(size.height * 0.6, 280)) / 402
     }
 
     public struct Pose: Equatable {

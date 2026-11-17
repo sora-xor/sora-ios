@@ -111,6 +111,13 @@ public class SoramitsuNumpadView: SoramitsuView {
         return view
     }()
 
+    /// Shows the sensor this device unlocks with on the unlock key: a face for Face ID, a fingerprint
+    /// for Touch ID, and says its name to VoiceOver.
+    func setBiometry(_ type: AvailableBiometryType) {
+        accessoryButton.sora.leftImage = type.keypadGlyph
+        accessoryButton.accessibilityLabel = type.unlockLabel(preferredLanguages: .currentLocale)
+    }
+
     @objc private func clearInput(_ recognizer: UILongPressGestureRecognizer) {
         guard recognizer.state == .began else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()

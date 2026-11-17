@@ -152,14 +152,12 @@ final class GenerateQRViewController: SoramitsuViewController {
             scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor,
                                                constant: -scanQrButtonHeight - scanQrButtonTopOffset),
             
-            inputSendInfoView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 24),
-            inputSendInfoView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
-            
-            receiveView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            receiveView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-
             switcherView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
         ])
+        // The same places on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(inputSendInfoView, width: stackView.widthAnchor,
+                                  centerX: stackView.centerXAnchor, margin: 24)
+        WalletDisplay.pinReadable(receiveView, width: view.widthAnchor, centerX: view.centerXAnchor, margin: 0)
     }
 }
 
