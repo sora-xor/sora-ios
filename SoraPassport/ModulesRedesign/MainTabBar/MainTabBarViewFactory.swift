@@ -717,10 +717,7 @@ extension MainTabBarViewFactory {
             searchViewModel: searchViewModel
         )
         view.showPredictionMarkets = { [weak view] in
-            guard
-                ProductSurfacePolicy.showsPolkamarkt,
-                SettingsManager.shared.polkamarktEnabled
-            else { return }
+            guard SettingsManager.shared.polkamarktEnabled else { return }
             let markets = PolkamarktViewController(walletContext: walletContext)
             markets.localizationManager = LocalizationManager.shared
             markets.hidesBottomBarWhenPushed = true

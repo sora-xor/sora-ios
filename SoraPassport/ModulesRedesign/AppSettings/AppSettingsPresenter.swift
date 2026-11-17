@@ -40,8 +40,7 @@ final class AppSettingsPresenter: AppSettingsPresenterProtocol {
         sections.append(languageSection())
         let tairaAdmitted = NexusNetworkAdmissionPolicy
             .current.isTairaAdmitted
-        if ProductSurfacePolicy.showsTairaSettings,
-           NexusPortfolioPresentationPolicy.exposesTairaSettings(
+        if NexusPortfolioPresentationPolicy.exposesTairaSettings(
                tairaAdmitted: tairaAdmitted
            ) {
             sections.append(networksSection())

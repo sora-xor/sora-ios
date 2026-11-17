@@ -7987,7 +7987,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n/bin/sh \"$PROJECT_DIR/SoraPassport/Scripts/inject-google-signin-info-plist.sh\"\n/bin/sh \"$PROJECT_DIR/SoraPassport/Scripts/register-irohaconnect-url-schemes.sh\"\n";
+			shellScript = "set -e\n/bin/sh \"$PROJECT_DIR/SoraPassport/Scripts/inject-google-signin-info-plist.sh\"\n";
 		};
 		5F91C0BC049A27D6337875B7 /* R.swift */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -8021,7 +8021,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n/bin/sh \"$PROJECT_DIR/SoraPassport/Scripts/inject-google-signin-info-plist.sh\"\n/bin/sh \"$PROJECT_DIR/SoraPassport/Scripts/register-irohaconnect-url-schemes.sh\"\n";
+			shellScript = "set -e\n/bin/sh \"$PROJECT_DIR/SoraPassport/Scripts/inject-google-signin-info-plist.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

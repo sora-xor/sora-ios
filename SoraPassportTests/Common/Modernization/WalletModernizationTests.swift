@@ -12592,15 +12592,13 @@ final class WalletModernizationTests: XCTestCase {
     func testProductionMutationFlagsFailClosedWhenUnset() {
         let settings = InMemorySettingsManager()
 
-        // Mutations always fail closed. Visibility without a stored value
-        // follows the line's policy: on for the Nexus line's testers, off
-        // until PI publishes it on the 3.9.x App Store line.
-        let visibleByDefault = ProductSurfacePolicy.optionalSurfacesDefaultOn
-        XCTAssertEqual(settings.nexusEnabled, visibleByDefault && ProductSurfacePolicy.showsNexusPortfolio)
+        // Mutations always fail closed. Visibility without a stored value is
+        // on (the App Store line's off-by-default switch was removed).
+        XCTAssertTrue(settings.nexusEnabled)
         XCTAssertFalse(settings.nexusSendsEnabled)
-        XCTAssertEqual(settings.polkamarktEnabled, visibleByDefault && ProductSurfacePolicy.showsPolkamarkt)
+        XCTAssertTrue(settings.polkamarktEnabled)
         XCTAssertFalse(settings.polkamarktMutationsEnabled)
-        XCTAssertEqual(settings.isTairaEnabled, visibleByDefault && ProductSurfacePolicy.showsTairaSettings)
+        XCTAssertTrue(settings.isTairaEnabled)
     }
 
     func testNexusSendAvailabilityRequiresAnAdmittedQualifiedPipeline() {
@@ -12745,17 +12743,10 @@ final class WalletModernizationTests: XCTestCase {
                 ProductionRemoteCapabilitySession.shared.beginLiveRefresh()
         )
 
-        // Tester builds follow PI. An App Store build ships none of these
-        // surfaces, so there the flags stay off whatever PI sends.
-        XCTAssertEqual(
-            settings.nexusEnabled,
-            ProductSurfacePolicy.showsNexusPortfolio
-        )
+        // Every build follows PI.
+        XCTAssertTrue(settings.nexusEnabled)
         XCTAssertFalse(settings.nexusSendsEnabled)
-        XCTAssertEqual(
-            settings.polkamarktEnabled,
-            ProductSurfacePolicy.showsPolkamarkt
-        )
+        XCTAssertTrue(settings.polkamarktEnabled)
         XCTAssertFalse(settings.polkamarktMutationsEnabled)
         XCTAssertFalse(config.typedAccountBalancesAvailable)
         XCTAssertFalse(settings.isTairaEnabled)
@@ -12776,10 +12767,7 @@ final class WalletModernizationTests: XCTestCase {
             refreshToken:
                 ProductionRemoteCapabilitySession.shared.beginLiveRefresh()
         )
-        XCTAssertEqual(
-            settings.isTairaEnabled,
-            ProductSurfacePolicy.showsTairaSettings
-        )
+        XCTAssertTrue(settings.isTairaEnabled)
 
         settings.isTairaEnabled = false
         settings.set(

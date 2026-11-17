@@ -540,7 +540,6 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     func openNetwork(account: NetworkAccount, startSend: Bool = false) {
         let settings = SettingsManager.shared
         guard
-            ProductSurfacePolicy.showsNexusPortfolio,
             settings.nexusEnabled,
             account.walletId == SelectedWalletSettings.shared.currentAccount?.address,
             NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
@@ -587,7 +586,6 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     func openNetworkReceive(account: NetworkAccount) {
         let settings = SettingsManager.shared
         guard
-            ProductSurfacePolicy.showsNexusPortfolio,
             settings.nexusEnabled,
             account.walletId == SelectedWalletSettings.shared.currentAccount?.address,
             NexusPortfolioPresentationPolicy.networkDetailIsAvailable(

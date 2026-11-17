@@ -861,7 +861,6 @@ final class WalletUXTests: XCTestCase {
         guard ProcessInfo.processInfo.environment["SORA_CAPTURE_APP_STORE"] == "1" else {
             throw XCTSkip("Opt-in native App Store screenshots")
         }
-        XCTAssertTrue(ProductSurfacePolicy.isAppStoreBuild, "Compile this capture host with F_RELEASE")
         let previousWindow = UIApplication.shared.keyWindow
         let previousTheme = SoramitsuUI.shared.themeMode
         let previousLanguage = LocalizationManager.shared.selectedLocalization

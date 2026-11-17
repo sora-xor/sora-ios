@@ -117,12 +117,11 @@ if not isinstance(target_ids, list) or len(target_ids) != len(set(target_ids)):
 
 expected_target_names = {"SoraPassport", "SoraPassportDev"}
 expected_input_paths = ["$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)"]
-# 3.9.x runs the IrohaConnect URL-scheme script in the same phase, and
-# set -e makes a failure of either script fail the phase (60ebe419).
+# set -e makes a failure of the script fail the phase (60ebe419). The
+# IrohaConnect URL types are in Info.plist for every configuration.
 expected_script = (
     'set -e\n'
     '/bin/sh "$PROJECT_DIR/SoraPassport/Scripts/inject-google-signin-info-plist.sh"\n'
-    '/bin/sh "$PROJECT_DIR/SoraPassport/Scripts/register-irohaconnect-url-schemes.sh"\n'
 )
 observed = {}
 for target_id in target_ids:
@@ -1120,8 +1119,7 @@ run_release_source_gate() {
         "${root}/SoraPassport/Scripts/verify-modernization-dependencies.sh" \
         "${root}/SoraPassport/Scripts/run-ios-release-tests.sh" \
         "${root}/SoraPassport/Scripts/run-ios-code-coverage.sh" \
-        "${root}/SoraPassport/Scripts/inject-google-signin-info-plist.sh" \
-        "${root}/SoraPassport/Scripts/register-irohaconnect-url-schemes.sh"
+        "${root}/SoraPassport/Scripts/inject-google-signin-info-plist.sh"
     do
         if [ ! -f "${shell_entry}" ] || [ -L "${shell_entry}" ] ||
            ! /bin/sh -n "${shell_entry}"; then

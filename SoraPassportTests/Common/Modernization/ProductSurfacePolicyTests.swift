@@ -8,59 +8,33 @@ import SoraKeystore
 import XCTest
 @testable import SoraPassport
 
-/// On the 3.9.x App Store line, Release builds hide Taira, Polkamarkt and the
-/// Nexus portfolio, and do not register or accept IrohaConnect links. The
-/// Nexus (`modernize`) line ships them in every configuration
-/// (`ProductSurfacePolicy.shipsOptionalSurfacesInRelease`). CI runs these
-/// tests in Debug and in Release.
+/// Taira, Polkamarkt, the Nexus portfolio and IrohaConnect ship in every
+/// configuration. The 3.9.x App Store line's switch that hid them in Release
+/// was removed on 2026-11-18; PI and stored settings still decide.
 final class ProductSurfacePolicyTests: XCTestCase {
-    /// A build that hides the optional surfaces: a Release build of a line
-    /// that does not ship them in Release.
-    private var isAppStoreConfiguration: Bool {
-        Bundle.main.object(forInfoDictionaryKey: "AppConfigName") as? String
-            == "Release" && !ProductSurfacePolicy.shipsOptionalSurfacesInRelease
-    }
-
-    func testTheNexusLineShipsEveryOptionalSurface() {
-        XCTAssertTrue(ProductSurfacePolicy.shipsOptionalSurfacesInRelease)
-        XCTAssertFalse(ProductSurfacePolicy.isAppStoreBuild)
-        XCTAssertTrue(ProductSurfacePolicy.optionalSurfacesDefaultOn)
+    func testEveryOptionalSurfaceIsOnForAFreshInstall() {
         let fresh = InMemorySettingsManager()
         XCTAssertTrue(fresh.nexusEnabled)
         XCTAssertTrue(fresh.polkamarktEnabled)
         XCTAssertTrue(fresh.isTairaEnabled)
     }
 
-    func testOptionalSurfacesAreHiddenOnlyInAppStoreBuilds() {
-        let expected = !isAppStoreConfiguration
-        XCTAssertEqual(ProductSurfacePolicy.showsTairaSettings, expected)
-        XCTAssertEqual(ProductSurfacePolicy.showsPolkamarkt, expected)
-        XCTAssertEqual(ProductSurfacePolicy.showsNexusPortfolio, expected)
-        XCTAssertEqual(ProductSurfacePolicy.acceptsIrohaConnect, expected)
-    }
-
-    func testIrohaConnectLinksFollowThePolicy() throws {
+    func testIrohaConnectLinksAreAccepted() throws {
         for scheme in ["iroha", "irohaconnect"] {
             let url = try XCTUnwrap(URL(string: "\(scheme)://connect?v=1"))
-            XCTAssertEqual(
-                IrohaConnectCoordinator.shared.canHandle(url),
-                ProductSurfacePolicy.acceptsIrohaConnect
-            )
+            XCTAssertTrue(IrohaConnectCoordinator.shared.canHandle(url))
         }
     }
 
-    func testIrohaConnectURLSchemesAreRegisteredOnlyOutsideAppStoreBuilds() {
+    func testIrohaConnectURLSchemesAreRegistered() {
         let types = Bundle.main.object(
             forInfoDictionaryKey: "CFBundleURLTypes"
         ) as? [[String: Any]] ?? []
         let schemes = types.flatMap {
             $0["CFBundleURLSchemes"] as? [String] ?? []
         }
-        XCTAssertEqual(
-            schemes.contains("irohaconnect"),
-            !isAppStoreConfiguration
-        )
-        XCTAssertEqual(schemes.contains("iroha"), !isAppStoreConfiguration)
+        XCTAssertTrue(schemes.contains("irohaconnect"))
+        XCTAssertTrue(schemes.contains("iroha"))
         // Google Sign-In stays the first URL type (its callback scheme is
         // written to index 0 at build time).
         XCTAssertFalse(

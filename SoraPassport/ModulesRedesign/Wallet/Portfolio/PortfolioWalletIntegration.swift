@@ -453,7 +453,7 @@ final class PortfolioWalletRouter: PortfolioHandoffRouting {
         let settings = SettingsManager.shared
         guard let wallet, network != .sora2,
               let account = WalletNetworkAccounts.selectedWallet().first(where: { $0.networkId == network.networkId }),
-              ProductSurfacePolicy.showsNexusPortfolio, settings.nexusEnabled,
+              settings.nexusEnabled,
               NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
                   networkId: account.networkId,
                   nexusEnabled: settings.nexusEnabled,

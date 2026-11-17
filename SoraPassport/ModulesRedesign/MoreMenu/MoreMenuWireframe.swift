@@ -101,10 +101,7 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
 
     @MainActor
     func showNexusPortfolio(from view: MoreMenuViewProtocol?) {
-        guard
-            ProductSurfacePolicy.showsNexusPortfolio,
-            let navigationController = view?.controller.navigationController
-        else {
+        guard let navigationController = view?.controller.navigationController else {
             return
         }
         let controller = NexusPortfolioViewController(
@@ -129,10 +126,7 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
 
     @MainActor
     func showPolkamarkt(from view: MoreMenuViewProtocol?) {
-        guard
-            ProductSurfacePolicy.showsPolkamarkt,
-            let navigationController = view?.controller.navigationController
-        else {
+        guard let navigationController = view?.controller.navigationController else {
             return
         }
         let controller = PolkamarktViewController(walletContext: walletContext)

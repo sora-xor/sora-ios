@@ -159,8 +159,7 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
         // theme: no red text on bars.
 
         navigationItem.rightBarButtonItem = cratePoolButton
-        if ProductSurfacePolicy.showsPolkamarkt,
-           SettingsManager.shared.polkamarktEnabled {
+        if SettingsManager.shared.polkamarktEnabled {
             navigationItem.leftBarButtonItem = UIBarButtonItem(title: WalletUX.text("Prediction markets"), style: .plain,
                 target: self, action: #selector(openPredictionMarkets))
         } else {
@@ -169,10 +168,7 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
     }
     
     @objc private func openPredictionMarkets() {
-        guard
-            ProductSurfacePolicy.showsPolkamarkt,
-            SettingsManager.shared.polkamarktEnabled
-        else { return }
+        guard SettingsManager.shared.polkamarktEnabled else { return }
         showPredictionMarkets?()
     }
 
