@@ -2043,7 +2043,7 @@ if [ -e "${jose_manifest}" ] ||
     exit 1
 fi
 
-if [ "$(/usr/bin/grep -Fc 'exact: "' "${shared_features_manifest}")" != "8" ] ||
+if [ "$(/usr/bin/grep -Fc 'exact: "' "${shared_features_manifest}")" != "5" ] ||
    ! /usr/bin/grep -Fq '.package(url: "https://github.com/Boilertalk/secp256k1.swift.git", exact: "0.1.7")' "${shared_features_manifest}" ||
    ! /usr/bin/grep -Fq '.package(url: "https://github.com/bitmark-inc/tweetnacl-swiftwrap", exact: "1.1.0")' "${shared_features_manifest}" ||
    ! /usr/bin/grep -Fq '.package(url: "https://github.com/ashleymills/Reachability.swift", exact: "5.2.3")' "${shared_features_manifest}" ||
@@ -2052,9 +2052,7 @@ if [ "$(/usr/bin/grep -Fc 'exact: "' "${shared_features_manifest}")" != "8" ] ||
    [ -L "${root}/VendorPackages/fearless-starscream" ] ||
    ! /usr/bin/grep -Fq '.package(url: "https://github.com/attaswift/BigInt.git", exact: "5.7.0")' "${shared_features_manifest}" ||
    ! /usr/bin/grep -Fq '.package(url: "https://github.com/daisuke-t-jp/xxHash-Swift", exact: "1.1.1")' "${shared_features_manifest}" ||
-   ! /usr/bin/grep -Fq '.package(url: "https://github.com/SwiftyBeaver/SwiftyBeaver.git", exact: "2.1.1")' "${shared_features_manifest}" ||
-   ! /usr/bin/grep -Fq '.package(url: "https://github.com/nicklockwood/SwiftFormat", exact: "0.50.4")' "${shared_features_manifest}" ||
-   ! /usr/bin/grep -Fq '.package(url: "https://github.com/soramitsu/web3-swift", exact: "7.7.7")' "${shared_features_manifest}"; then
+   /usr/bin/grep -Fq 'web3-swift' "${shared_features_manifest}"; then
     echo "error: shared-features SwiftPM requirements drifted from the reviewed exact versions"
     exit 1
 fi

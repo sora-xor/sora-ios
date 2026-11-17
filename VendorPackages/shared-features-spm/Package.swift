@@ -7,47 +7,21 @@ let package = Package(
     name: "Modules",
     defaultLocalization: "en",
     platforms: [.iOS(.v14)],
+    // SORA links only these products (SoraFoundation, SSFStorageQueryKit and the
+    // app's targets). The other SSF* modules, their tests, the mocks basket and
+    // the web3-swift, SwiftFormat and SwiftyBeaver requirements they needed were
+    // removed on 2026-11-18; see git history.
     products: [
-        .library(name: "SSFXCM", targets: ["SSFXCM"]),
         .library(name: "SSFModels", targets: ["SSFModels"]),
         .library(name: "SSFCrypto", targets: ["SSFCrypto"]),
         .library(name: "SSFUtils", targets: ["SSFUtils"]),
-        .library(name: "SSFHelpers", targets: ["SSFHelpers"]),
-        .library(name: "SSFNetwork", targets: ["SSFNetwork"]),
-        .library(name: "SSFChainRegistry", targets: ["SSFChainRegistry"]),
-        .library(name: "SSFLogger", targets: ["SSFLogger"]),
-        .library(name: "SSFKeyPair", targets: ["SSFKeyPair"]),
-        .library(name: "SSFExtrinsicKit", targets: ["SSFExtrinsicKit"]),
-        .library(name: "SSFEraKit", targets: ["SSFEraKit"]),
         .library(name: "SSFRuntimeCodingService", targets: ["SSFRuntimeCodingService"]),
-        .library(name: "SSFStorageQueryKit", targets: ["SSFStorageQueryKit"]),
-        .library(name: "SSFChainConnection", targets: ["SSFChainConnection"]),
-        .library(name: "SSFSigner", targets: ["SSFSigner"]),
         .library(name: "SSFCloudStorage", targets: ["SSFCloudStorage"]),
-        .library(name: "SSFAccountManagment", targets: ["SSFAccountManagment"]),
-        .library(name: "SSFAccountManagmentStorage", targets: ["SSFAccountManagmentStorage"]),
-        .library(name: "SSFAssetManagment", targets: ["SSFAssetManagment"]),
-        .library(name: "SSFAssetManagmentStorage", targets: ["SSFAssetManagmentStorage"]),
         .library(name: "IrohaCrypto", targets: ["IrohaCrypto"]),
-        .library(name: "keccak", targets: ["keccak"]), //TODO: generate xcframework
-        .library(name: "RobinHood", targets: ["RobinHood"]), //TODO: get from github
-        .library(name: "SoraKeystore", targets: ["SoraKeystore"]), //TODO: get from github
-        .library(name: "SSFTransferService", targets: ["SSFTransferService"]),
-        .library(name: "SSFSingleValueCache", targets: ["SSFSingleValueCache"]),
-        .library(name: "SSFPools", targets: ["SSFPools"]),
-        .library(name: "SSFPoolsStorage", targets: ["SSFPoolsStorage"]),
-        .library(name: "SSFIndexers", targets: ["SSFIndexers"]),
-        .library(name: "SSFEtherscanIndexer", targets: ["SSFEtherscanIndexer"]),
-        .library(name: "SSFGiantsquidIndexer", targets: ["SSFGiantsquidIndexer"]),
-        .library(name: "SSFOklinkIndexer", targets: ["SSFOklinkIndexer"]),
-        .library(name: "SSFReefIndexer", targets: ["SSFReefIndexer"]),
-        .library(name: "SSFSoraSubsquidIndexer", targets: ["SSFSoraSubsquidIndexer"]),
-        .library(name: "SSFSubqueryIndexer", targets: ["SSFSubqueryIndexer"]),
-        .library(name: "SSFSubsquidIndexer", targets: ["SSFSubsquidIndexer"]),
-        .library(name: "SSFZetaIndexer", targets: ["SSFZetaIndexer"]),
-        .library(name: "SSFBalances", targets: ["SSFBalances"]),
-        .library(name: "SSFBalancesStorage", targets: ["SSFBalancesStorage"]),
-        .library(name: "SSFSubstrateBalances", targets: ["SSFSubstrateBalances"])
+        .library(name: "keccak", targets: ["keccak"]),
+        .library(name: "RobinHood", targets: ["RobinHood"]),
+        .library(name: "SoraKeystore", targets: ["SoraKeystore"]),
+        .library(name: "SSFSingleValueCache", targets: ["SSFSingleValueCache"])
     ],
     dependencies: [
         .package(url: "https://github.com/Boilertalk/secp256k1.swift.git", exact: "0.1.7"),
@@ -57,10 +31,7 @@ let package = Package(
         .package(path: "../GoogleSignIn-iOS"),
         .package(path: "../google-api-objectivec-client-for-rest"),
         .package(url: "https://github.com/attaswift/BigInt.git", exact: "5.7.0"),
-        .package(url: "https://github.com/daisuke-t-jp/xxHash-Swift", exact: "1.1.1"),
-        .package(url: "https://github.com/SwiftyBeaver/SwiftyBeaver.git", exact: "2.1.1"),
-        .package(url: "https://github.com/nicklockwood/SwiftFormat", exact: "0.50.4"),
-        .package(url: "https://github.com/soramitsu/web3-swift", exact: "7.7.7")
+        .package(url: "https://github.com/daisuke-t-jp/xxHash-Swift", exact: "1.1.1")
     ],
     targets: [
         // Crypto primitives built from the vendored sources (see each README.md);
@@ -96,47 +67,6 @@ let package = Package(
         .target(name: "keccak"),
         .target(name: "SoraKeystore"),
         .target(
-            name: "SSFBalances",
-            dependencies: ["SSFUtils", "SSFStorageQueryKit", "SSFModels", "SSFAccountManagment"]
-        ),
-        .target(
-            name: "SSFBalancesStorage",
-            dependencies: ["RobinHood", "SSFBalances", "SSFUtils", "SSFAccountManagment"]
-        ),
-        .target(
-            name: "SSFSubstrateBalances",
-            dependencies: [
-                "SSFStorageQueryKit",
-                "SSFUtils",
-                "SSFBalances",
-                "SSFChainRegistry",
-                "SSFModels",
-                "SSFChainConnection"
-            ]
-        ),
-        .target(
-            name: "SSFHelpers",
-            dependencies: [
-                "SSFModels",
-                "SSFUtils"
-            ]
-        ),
-        .target(
-            name: "SSFKeyPair",
-            dependencies: [
-                "IrohaCrypto",
-                "SSFCrypto"
-            ]
-        ),
-        .testTarget(
-            name: "SSFKeyPairTests",
-            dependencies: [
-                "SSFKeyPair",
-                "IrohaCrypto",
-                "MocksBasket"
-            ]
-        ),
-        .target(
             name: "SSFModels",
             dependencies: [
                 "IrohaCrypto",
@@ -152,19 +82,6 @@ let package = Package(
                 "SSFModels",
                 "keccak"
             ]
-        ),
-        .target(
-            name: "SSFChainConnection",
-            dependencies: [
-                .product(name: "Web3", package: "web3-swift"),
-                "SSFUtils"
-            ]
-        ),
-        .target(
-            name: "SSFSigner",
-            dependencies: [
-                "IrohaCrypto",
-                "SSFCrypto" ]
         ),
         .target(
             name: "IrohaCrypto",
@@ -189,128 +106,12 @@ let package = Package(
                 "IrohaCrypto"
             ]
         ),
-        .testTarget(
-            name: "SSFCloudStorageTests",
-            dependencies: [
-                "SSFCloudStorage",
-                "MocksBasket"
-            ]
-        ),
         .target(
             name: "SSFRuntimeCodingService",
             dependencies: [
                 "SSFUtils",
                 "RobinHood",
                 "SSFModels"
-            ]
-        ),
-        .target(
-            name: "SSFAccountManagment",
-            dependencies: [
-                "RobinHood",
-                "IrohaCrypto",
-                "SSFCrypto",
-                "SSFKeyPair",
-                "SSFAccountManagmentStorage",
-                "SSFExtrinsicKit"
-            ]
-        ),
-        .testTarget(
-            name: "SSFAccountManagmentTests",
-            dependencies: [
-                "SSFAccountManagment",
-                "SSFModels",
-                "SSFHelpers",
-                "RobinHood",
-                "SSFKeyPair",
-                "IrohaCrypto",
-                "SoraKeystore",
-                "MocksBasket"
-            ]
-        ),
-        .target(
-            name: "SSFAccountManagmentStorage",
-            dependencies: [
-                "RobinHood",
-                "IrohaCrypto",
-                "SoraKeystore",
-                "SSFUtils",
-                "SSFModels"
-            ]
-        ),
-        .target(
-            name: "SSFAssetManagment",
-            dependencies: [
-                "RobinHood",
-                "IrohaCrypto",
-                "SoraKeystore",
-                "SSFUtils"
-            ]
-        ),
-        .target(
-            name: "SSFAssetManagmentStorage",
-            dependencies: [
-                "RobinHood",
-                "IrohaCrypto",
-                "SoraKeystore",
-                "SSFUtils",
-                "SSFModels"
-            ]
-        ),
-        .testTarget(
-            name: "SSFAssetManagmentTests",
-            dependencies: [
-                "SSFAssetManagment",
-                "SSFAssetManagmentStorage",
-                "SSFUtils",
-                "SSFModels",
-                "RobinHood",
-                "SSFHelpers",
-                "MocksBasket"
-            ]
-        ),
-        .target(
-            name: "SSFStorageQueryKit",
-            dependencies: [
-                "SSFRuntimeCodingService",
-                "SSFCrypto",
-                "SSFChainConnection",
-                "SSFUtils",
-                "SSFSingleValueCache",
-                "SSFChainRegistry"
-            ]
-        ),
-        .testTarget(
-            name: "SSFStorageQueryKitTest",
-            dependencies: [
-                "SSFStorageQueryKit",
-                "MocksBasket",
-                "SSFModels"
-            ]
-        ),
-        .target(
-            name: "SSFEraKit",
-            dependencies: [
-                "RobinHood",
-                "SSFUtils",
-                "BigInt",
-                "SSFModels",
-                "SSFRuntimeCodingService",
-                "SSFStorageQueryKit"
-            ]
-        ),
-        .target(
-            name: "SSFExtrinsicKit",
-            dependencies: [
-                "BigInt",
-                "RobinHood",
-                "SSFUtils",
-                "SSFModels",
-                "SSFCrypto",
-                "SSFEraKit",
-                "IrohaCrypto",
-                "SSFSigner",
-                "SSFRuntimeCodingService"
             ]
         ),
         .target(
@@ -327,65 +128,6 @@ let package = Package(
             ]
         ),
         .target(
-            name: "SSFChainRegistry",
-            dependencies: [
-                .product(name: "Web3", package: "web3-swift"),
-                "SSFUtils",
-                "RobinHood",
-                "SSFModels",
-                "SSFRuntimeCodingService",
-                "SSFChainConnection",
-                "SSFNetwork",
-                "SSFLogger",
-                "SSFAssetManagment",
-                "SSFAssetManagmentStorage"
-            ]
-        ),
-        .target(name: "SSFNetwork", dependencies: [ "RobinHood" ]),
-        .target(name: "SSFLogger", dependencies: [ "SwiftyBeaver" ]),
-        .target(
-            name: "SSFXCM",
-            dependencies: [
-                "SSFUtils",
-                "IrohaCrypto",
-                "RobinHood",
-                "SSFModels",
-                "SSFSigner",
-                "SSFRuntimeCodingService",
-                "SSFStorageQueryKit",
-                "SSFChainConnection",
-                "SSFExtrinsicKit",
-                "SSFNetwork",
-                "SSFChainRegistry",
-                "SSFAssetManagment",
-                "SSFAssetManagmentStorage"
-            ]
-        ),
-        .target(
-            name: "SSFPools",
-            dependencies: [
-                "RobinHood",
-                "SSFUtils",
-                "SSFStorageQueryKit"
-            ]
-        ),
-        .target(
-            name: "SSFPoolsStorage",
-            dependencies: [
-                "SSFUtils",
-                "RobinHood",
-                "SSFPools"
-            ]
-        ),
-
-        //Tests targets
-        .testTarget(
-            name: "SSFXCMTests",
-            dependencies: [
-                "SSFXCM"
-            ]
-        ),
-        .target(
             name: "SSFSingleValueCache",
             dependencies: ["RobinHood"],
             resources: [.process("CacheDataModel.xcdatamodeld")]
@@ -394,87 +136,11 @@ let package = Package(
             name: "SSFSingleValueCacheTests",
             dependencies: ["SSFSingleValueCache"]
         ),
-        .target(name: "SSFTransferService", dependencies: [
-            .product(name: "Web3", package: "web3-swift"),
-            .product(name: "Web3ContractABI", package: "web3-swift"),
-            "SSFModels",
-            "BigInt",
-            "SSFUtils",
-            "SSFRuntimeCodingService",
-            "SSFExtrinsicKit",
-            "SSFChainRegistry",
-            "SSFChainConnection",
-            "SSFNetwork"
-        ]),
         .testTarget(
-            name: "SSFTransferServiceTests",
-            dependencies: [
-                .product(name: "Web3", package: "web3-swift"),
-                .product(name: "Web3ContractABI", package: "web3-swift"),
-                "SSFTransferService",
-                "SSFModels",
-                "BigInt",
-                "SSFUtils",
-                "SSFRuntimeCodingService",
-                "SSFExtrinsicKit",
-                "SSFChainRegistry",
-                "SSFChainConnection",
-                "SSFNetwork",
-                "SSFHelpers"
-            ],
-            resources: [
-                .process("Resources")
-            ]
-        ),
-        .target(
-            name: "SSFIndexers",
-            dependencies: [
-                "SSFModels",
-                "RobinHood",
-                "SSFUtils",
-                "SSFChainRegistry"
-            ]
-        ),
-        .testTarget(
-            name: "SSFIndexersTests",
-            dependencies: [
-                "SSFIndexers",
-                "SSFModels",
-                "RobinHood",
-                "SSFUtils",
-                "SSFChainRegistry",
-                "MocksBasket",
-                "SSFNetwork"
-            ],
-            resources: [
-                .process("Resources")
-            ]
-        ),
-        .target(name: "SSFEtherscanIndexer", dependencies: ["SSFIndexers"]),
-        .target(name: "SSFGiantsquidIndexer", dependencies: ["SSFIndexers"]),
-        .target(name: "SSFOklinkIndexer", dependencies: ["SSFIndexers"]),
-        .target(name: "SSFReefIndexer", dependencies: ["SSFIndexers"]),
-        .target(name: "SSFSoraSubsquidIndexer", dependencies: ["SSFIndexers"]),
-        .target(name: "SSFSubqueryIndexer", dependencies: ["SSFIndexers"]),
-        .target(name: "SSFSubsquidIndexer", dependencies: ["SSFIndexers"]),
-        .target(name: "SSFZetaIndexer", dependencies: ["SSFIndexers"])
+            name: "SSFCloudStorageTests",
+            dependencies: ["SSFCloudStorage"]
+        )
     ],
     cLanguageStandard: .gnu11,
     cxxLanguageStandard: .gnucxx14
 )
-
-func mockDeps() -> [Target.Dependency] {
-    let deps: [Target.Dependency] = package.products.map { product in
-            .byNameItem(name: product.name, condition: nil)
-    }
-    return deps
-}
-let mockBasketTarget: Target = .target(
-    name: "MocksBasket",
-    dependencies: mockDeps(),
-    resources: [
-        .process("Resources")
-    ]
-)
-
-package.targets.append(mockBasketTarget)
