@@ -820,13 +820,6 @@ final class ProductionRemoteCapabilitySession: @unchecked Sendable {
     }
 }
 
-/// The Wallet tab's home is the portfolio: every wallet's assets on every
-/// network in one view, in place of the account header and the selected
-/// wallet's Assets card. On in every configuration; false brings the classic
-/// home back.
-enum ProductSurfacePolicy {
-    static let showsPortfolioView = true
-}
 
 enum ProductionMutationQualification {
     // Promote only after the retained migration matrix, pinned native signer,

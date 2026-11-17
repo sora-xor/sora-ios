@@ -31,7 +31,6 @@
 import Foundation
 import UIKit
 import SoraUIKit
-
 import RobinHood
 
 /// XOR on a network other than SORA2, drawn as one more row of the assets
@@ -48,51 +47,4 @@ struct NetworkAssetRow: Equatable {
     let icon: UIImage?
     /// Rows on the main network come before the SORA2 rows.
     var isMain: Bool = false
-}
-
-final class AssetsItem: NSObject {
-
-    var title: String
-    
-    var isExpand: Bool
-    var updateHandler: (() -> Void)?
-    var expandButtonHandler: (() -> Void)?
-    var arrowButtonHandler: (() -> Void)?
-    var assetHandler: ((String) -> Void)?
-    var networkRows: [NetworkAssetRow] = []
-    /// The network label of SORA2 rows: none while SORA2 is the main network.
-    var sora2RowLabel: String?
-    var networkRowHandler: ((NetworkAccount) -> Void)?
-    let assetProvider: AssetProviderProtocol
-    var service: AssetsItemService?
-
-    init(title: String,
-         isExpand: Bool = true,
-         assetProvider: AssetProviderProtocol,
-         service: AssetsItemService?) {
-        self.service = service
-        self.title = title
-        self.isExpand = isExpand
-        self.assetProvider = assetProvider
-        super.init()
-        self.assetProvider.add(observer: self)
-    }
-    
-    public func updateContent() {
-        service?.setup()
-    }
-}
-
-extension AssetsItem: AssetProviderObserverProtocol {
-    func processBalance(data: [BalanceData]) {
-        updateContent()
-    }
-}
-
-extension AssetsItem: SoramitsuTableViewItemProtocol {
-    var cellType: AnyClass { AssetsCell.self }
-
-    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
-
-    var clipsToBounds: Bool { false }
 }

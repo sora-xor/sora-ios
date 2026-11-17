@@ -974,13 +974,9 @@ final class WalletUXTests: XCTestCase {
                 for large in [false, true] {
                     let window = makeSceneHostedWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
                     window.overrideUserInterfaceStyle = theme == .dark ? .dark : .light
-                    for count in [4, 6, 0, -1, -2, -3, -4, -5] {
+                    for count in [4, 6, 0, -1, -2, -3, -4] {
                         let controller: UIViewController
-                        if count == -5 {
-                            let account = AccountTableViewItem(accountName: "Public fixture")
-                            account.capability = .missingKeys
-                            controller = RecoveryHeaderVisualController(item: account)
-                        } else if count <= -3 {
+                        if count <= -3 {
                             let seed = AccountExportRawSeedViewController()
                             seed.localizationManager = LocalizationManager.shared
                             seed.presenter = NeonRawSeedVisualPresenter()
@@ -1127,12 +1123,6 @@ final class WalletUXTests: XCTestCase {
                         service: WalletCredentialRepair(keystore: keys, settings: settings, recoveryGate: gate,
                             activeSnapshot: { nil }), currentAccounts: { [account] }, onSuccess: { _ in })
                     try await capture(prefix + "-repair", UINavigationController(rootViewController: repair), category: category)
-                    for (label, state) in [("missing", WalletAccountCapability.State.missingKeys),
-                                           ("invalid", .invalidKeys), ("watch-only", .watchOnly)] {
-                        let item = AccountTableViewItem(accountName: "Public preview")
-                        item.capability = state
-                        try await capture(prefix + "-header-" + label, RecoveryHeaderVisualController(item: item), category: category)
-                    }
                     do {
                         let onboarding = WelcomeViewController()
                         onboarding.presenter = RecoveryOnboardingVisualPresenter()
@@ -2470,27 +2460,6 @@ final class WalletUXTests: XCTestCase {
         descendants(view).compactMap { $0 as? UIButton }.first {
             ($0.configuration?.title ?? $0.title(for: .normal)) == WalletUX.text(title)
         }
-    }
-}
-
-/// Uses the production self-sizing wallet-header cell for opt-in visual QA.
-final class RecoveryHeaderVisualController: UITableViewController {
-    let item: AccountTableViewItem
-    init(item: AccountTableViewItem) { self.item = item; super.init(style: .plain) }
-    required init?(coder: NSCoder) { nil }
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        tableView.backgroundColor = WalletUX.page
-        tableView.separatorStyle = .none
-        tableView.rowHeight = UITableView.automaticDimension
-        tableView.estimatedRowHeight = 360
-    }
-    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { 1 }
-    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = AccountCell(style: .default, reuseIdentifier: nil)
-        cell.backgroundColor = .clear
-        cell.set(item: item, context: nil)
-        return cell
     }
 }
 

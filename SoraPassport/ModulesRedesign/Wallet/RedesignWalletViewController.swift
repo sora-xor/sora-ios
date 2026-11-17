@@ -91,9 +91,7 @@ final class RedesignWalletViewController: SoramitsuViewController, HiddableBarWh
             self?.show(items)
         }
 
-        if viewModel.showsPortfolio {
-            portfolioBinding = PortfolioTableBinding(home: viewModel.portfolioHome, tableView: tableView, host: self)
-        }
+        portfolioBinding = PortfolioTableBinding(home: viewModel.portfolioHome, tableView: tableView, host: self)
     }
 
     /// Puts the home's rows on its page, or on its two pages.
@@ -116,7 +114,7 @@ final class RedesignWalletViewController: SoramitsuViewController, HiddableBarWh
     /// the same objects on either layout, so a balance being read, an open list or a scroll position
     /// in the cards is not started again when the window is resized.
     private func layoutPages() {
-        let pages = viewModel.showsPortfolio ? WalletDisplay.pages(in: view) : nil
+        let pages = WalletDisplay.pages(in: view)
         let wanted = pages != nil && !WalletHomePages.split(items, twoPage: true).second.isEmpty
         if wanted != isTwoPage {
             isTwoPage = wanted
@@ -179,27 +177,20 @@ final class RedesignWalletViewController: SoramitsuViewController, HiddableBarWh
         navigationController?.setNavigationBarHidden(true, animated: animated)
         tableView.reloadData()
         if isTwoPage { sideTableView.reloadData() }
-        if viewModel.showsPortfolio {
-            portfolioBinding?.safeAreaDidChange()
-            viewModel.portfolioHome.viewWillAppear()
-        } else {
-            // Keys may have been restored or removed while the tab was away.
-            viewModel.walletItems.compactMap { $0 as? AccountTableViewItem }.forEach { $0.refreshCapability() }
-        }
+        portfolioBinding?.safeAreaDidChange()
+        viewModel.portfolioHome.viewWillAppear()
         // Settings (the Taira switch) or the selected account may have changed.
         viewModel.refreshNetworkRows()
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        guard viewModel.showsPortfolio else { return }
         portfolioBinding?.safeAreaDidChange()
         viewModel.portfolioHome.viewDidAppear()
     }
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
-        guard viewModel.showsPortfolio else { return }
         viewModel.portfolioHome.viewDidDisappear()
     }
 
@@ -216,9 +207,7 @@ final class RedesignWalletViewController: SoramitsuViewController, HiddableBarWh
     private func setupConstraints() {
         // The portfolio's sky runs under the status bar.
         NSLayoutConstraint.activate([
-            viewModel.showsPortfolio
-                ? tableView.topAnchor.constraint(equalTo: view.topAnchor)
-                : tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.topAnchor.constraint(equalTo: view.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: 40)
         ])
