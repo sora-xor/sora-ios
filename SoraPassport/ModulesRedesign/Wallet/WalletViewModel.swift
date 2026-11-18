@@ -85,7 +85,6 @@ final class RedesignWalletViewModel {
     let eventCenter = EventCenter.shared
     let marketCapService: MarketCapServiceProtocol
     let poolsViewModelService: PoolsItemService
-    let assetsViewModelService: AssetsItemService
     @MainActor lazy var portfolioHome = PortfolioHome(dataSource: PortfolioHome.makeDataSource(assetManager: assetManager))
 
     /// The selected wallet's accounts on other networks, shown as XOR rows in
@@ -114,7 +113,6 @@ final class RedesignWalletViewModel {
          walletContext: CommonWalletContextProtocol,
          editViewService: EditViewServiceProtocol,
          poolsViewModelService: PoolsItemService,
-         assetsViewModelService: AssetsItemService,
          marketCapService: MarketCapServiceProtocol,
          selectedNetworkAccounts: @escaping @MainActor () -> [NetworkAccount] = { WalletNetworkAccounts.selectedWallet() },
          nexusReadClient: NexusToriiReading = NexusToriiReadClient()) {
@@ -132,7 +130,6 @@ final class RedesignWalletViewModel {
         self.sharingFactory = sharingFactory
         self.referralFactory = referralFactory
         self.assetsProvider = assetsProvider
-        self.assetsViewModelService = assetsViewModelService
         self.accountRepository = AnyDataProviderRepository(
             UserDataStorageFacade.shared
             .createRepository(filter: nil,

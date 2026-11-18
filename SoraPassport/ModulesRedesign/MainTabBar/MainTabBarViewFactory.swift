@@ -220,17 +220,6 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         
         let assetsProvider = AssetProvider(assetInfos: assetInfos, providerFactory: providerFactory)
         
-        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetInfos,
-                                            assetManager: assetManager,
-                                            fiatService: environment.fiatService)
-        
-        let assetsViewModelService = AssetsItemService(marketCapService: environment.marketCapService,
-                                                       fiatService: environment.fiatService,
-                                                       assetViewModelsFactory: assetViewModelsFactory,
-                                                       assetManager: assetManager,
-                                                       assetProvider: assetsProvider)
-        assetsProvider.add(observer: assetsViewModelService)
-        
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
         
         let poolsService = AccountPoolsService(operationManager: OperationManagerFacade.sharedManager,
@@ -258,7 +247,6 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                                     poolsService: poolsService,
                                                                     assetsProvider: assetsProvider,
                                                                     poolsViewModelService: poolsViewModelService,
-                                                                    assetsViewModelService: assetsViewModelService,
                                                                     editViewService: editViewService,
                                                                     accountSettings: accountSettings, 
                                                                     farmingService: farmingService,
@@ -316,17 +304,6 @@ extension MainTabBarViewFactory {
         let assetInfos = assetManager.getAssetList() ?? []
         let assetsProvider = AssetProvider(assetInfos: assetInfos, providerFactory: providerFactory)
 
-        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetInfos,
-                                            assetManager: assetManager,
-                                            fiatService: environment.fiatService)
-
-        let assetsViewModelService = AssetsItemService(marketCapService: environment.marketCapService,
-                                                       fiatService: environment.fiatService,
-                                                       assetViewModelsFactory: assetViewModelsFactory,
-                                                       assetManager: assetManager,
-                                                       assetProvider: assetsProvider)
-        assetsProvider.add(observer: assetsViewModelService)
-
         guard let connection = environment.connection() else {
             return nil
         }
@@ -355,7 +332,6 @@ extension MainTabBarViewFactory {
                                                                     poolsService: poolsService,
                                                                     assetsProvider: assetsProvider,
                                                                     poolsViewModelService: poolsViewModelService,
-                                                                    assetsViewModelService: assetsViewModelService,
                                                                     editViewService: editViewService,
                                                                     accountSettings: accountSettings,
                                                                     farmingService: farmingService,
@@ -428,7 +404,6 @@ extension MainTabBarViewFactory {
                                                poolsService: PoolsServiceInputProtocol,
                                                assetsProvider: AssetProviderProtocol,
                                                poolsViewModelService: PoolsItemService,
-                                               assetsViewModelService: AssetsItemService,
                                                editViewService: EditViewServiceProtocol,
                                                accountSettings: WalletAccountSettingsProtocol,
                                                farmingService: DemeterFarmingServiceProtocol,
@@ -488,7 +463,6 @@ extension MainTabBarViewFactory {
                                                                     assetsProvider: assetsProvider,
                                                                     walletContext: walletContext,
                                                                     poolsViewModelService: poolsViewModelService,
-                                                                    assetsViewModelService: assetsViewModelService,
                                                                     marketCapService: marketCapService,
                                                                     editViewService: editViewService, 
                                                                     feeProvider: feeProvider)

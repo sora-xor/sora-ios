@@ -676,7 +676,6 @@
 		3616552E291D92FE00060A8D /* DetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3616552D291D92FE00060A8D /* DetailView.swift */; };
 		36165530291DAB9800060A8D /* PoolDetailsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3616552F291DAB9800060A8D /* PoolDetailsViewFactory.swift */; };
 		3618AE482AC3042D00F582BD /* FiatTextBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618AE472AC3042D00F582BD /* FiatTextBuilder.swift */; };
-		3618AE4C2AC3271200F582BD /* AssetsItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618AE4B2AC3271200F582BD /* AssetsItemService.swift */; };
 		3618AE4E2AC34B4900F582BD /* PoolsItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618AE4D2AC34B4900F582BD /* PoolsItemService.swift */; };
 		3618AE502AC35C7300F582BD /* MainScreenPoolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618AE4F2AC35C7300F582BD /* MainScreenPoolView.swift */; };
 		3618AE522AC3617D00F582BD /* MainScreenAssetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618AE512AC3617D00F582BD /* MainScreenAssetView.swift */; };
@@ -2035,7 +2034,6 @@
 		9B63D0DCF74F30000CEA0525 /* ReachabilityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200347921C8DA77001A6A53 /* ReachabilityManager.swift */; };
 		9B9639264B943347AB34FD06 /* RecentActivityItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36BB9B1C2AF37C1D002A000D /* RecentActivityItem.swift */; };
 		9C14DCD8F932EED80892B009 /* LanguageProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF4286B293E5AAC00590F92 /* LanguageProtocol.swift */; };
-		9C2C3FA74F01F8A0AEE4BCED /* AssetsItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618AE4B2AC3271200F582BD /* AssetsItemService.swift */; };
 		9CBBC181B7D07C6A7D2BB985 /* ClaimRewardsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73A21372B32C53C0091DDE8 /* ClaimRewardsCell.swift */; };
 		9DECD895E3B770D9E0617810 /* ContactHeaderItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366D53C229528D020094CE36 /* ContactHeaderItem.swift */; };
 		9DFBC2B9F922B2CFDC3C12BA /* ConfirmPassphraseWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3611062F2978A4A7003A6352 /* ConfirmPassphraseWireframe.swift */; };
@@ -2908,7 +2906,6 @@
 		3616552D291D92FE00060A8D /* DetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailView.swift; sourceTree = "<group>"; };
 		3616552F291DAB9800060A8D /* PoolDetailsViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolDetailsViewFactory.swift; sourceTree = "<group>"; };
 		3618AE472AC3042D00F582BD /* FiatTextBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FiatTextBuilder.swift; sourceTree = "<group>"; };
-		3618AE4B2AC3271200F582BD /* AssetsItemService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetsItemService.swift; sourceTree = "<group>"; };
 		3618AE4D2AC34B4900F582BD /* PoolsItemService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolsItemService.swift; sourceTree = "<group>"; };
 		3618AE4F2AC35C7300F582BD /* MainScreenPoolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainScreenPoolView.swift; sourceTree = "<group>"; };
 		3618AE512AC3617D00F582BD /* MainScreenAssetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainScreenAssetView.swift; sourceTree = "<group>"; };
@@ -5959,7 +5956,6 @@
 				36ADDDAE28EC8A140080A41C /* WalletHomeLoading.swift */,
 				36ADDDAD28EC8A140080A41C /* NetworkAssetRow.swift */,
 				367C55A228FCA631008FC55F /* AssetViewModelFactory.swift */,
-				3618AE4B2AC3271200F582BD /* AssetsItemService.swift */,
 				3618AE512AC3617D00F582BD /* MainScreenAssetView.swift */,
 			);
 			path = Assets;
@@ -8407,7 +8403,6 @@
 				3646364F29487FB600724555 /* ReceiveViewController.swift in Sources */,
 				5E9774F22A31AE040047BCA2 /* AccountExportWireframe.swift in Sources */,
 				36FE0FDB2954103D00117E82 /* InputAssetAmountWireframe.swift in Sources */,
-				3618AE4C2AC3271200F582BD /* AssetsItemService.swift in Sources */,
 				3692D69F2910725200B8B274 /* ActivityItem.swift in Sources */,
 				8409323E2341FCC30013C871 /* ProjectViewEvent.swift in Sources */,
 				945A56FA25DE7DC5003E4023 /* SubstrateDataProviderFactory.swift in Sources */,
@@ -9729,7 +9724,6 @@
 				6BB049EDADF4D0F8D24975F6 /* ReceiveViewController.swift in Sources */,
 				A18E4F8B931EAD4B68D7280C /* AccountExportWireframe.swift in Sources */,
 				25F1B3C2F467BA01301909EB /* InputAssetAmountWireframe.swift in Sources */,
-				9C2C3FA74F01F8A0AEE4BCED /* AssetsItemService.swift in Sources */,
 				1849A7959B9D48BF4F2863E0 /* ActivityItem.swift in Sources */,
 				DBDAD3E1FEF924A5AF14DAE6 /* ProjectViewEvent.swift in Sources */,
 				70FB4638EDBE36E0F55BB9BD /* SubstrateDataProviderFactory.swift in Sources */,

@@ -432,8 +432,6 @@ final class AssetBlacklistTests: XCTestCase {
         XCTAssertEqual(summary.blacklistedCount, 1)
     }
 
-    // MARK: - Assets card
-
     private final class Assets: AssetManagerProtocol {
         static var networkAssets: [AssetInfo] = []
         let assets: [AssetInfo]
@@ -445,44 +443,6 @@ final class AssetBlacklistTests: XCTestCase {
         func sortedAssets(_ list: [WalletAsset], onlyVisible _: Bool) -> [WalletAsset] { list }
         func visibleCount() -> UInt { UInt(assets.count) }
         func setup(for _: SelectedWalletSettings) {}
-    }
-
-    private final class Balances: AssetProviderProtocol {
-        let balances: [BalanceData]
-        init(_ balances: [BalanceData]) { self.balances = balances }
-        func getBalances(with assetIds: [String]) -> [BalanceData] {
-            assetIds.compactMap { id in balances.first { $0.identifier == id } }
-        }
-        func add(observer _: AssetProviderObserverProtocol) {}
-        func remove(observer _: AssetProviderObserverProtocol) {}
-    }
-
-    private final class Market: MarketCapServiceProtocol {
-        func getMarketCap(for _: [String]) async -> Set<MarketCapInfo> { [] }
-    }
-
-    private final class Prices: PriceInfoServiceProtocol {
-        func getPriceInfo(for _: [String]) async -> PriceInfo { PriceInfo(fiatData: [], marketCapInfo: []) }
-    }
-
-    func testAssetsCardLeavesOutBlacklistedTokensAndFollowsANewList() async {
-        let assets = [asset(xorId, symbol: "XOR"), asset(valId, symbol: "VAL"), asset(tokenId, symbol: "TKN")]
-        let manager = Assets(assets)
-        let balances = Balances(assets.map { BalanceData(identifier: $0.assetId, balance: AmountDecimal(value: 3)) })
-        let blacklist = FixedAssetBlacklist(AssetBlacklist(assetIds: [tokenId], source: .remote))
-        let service = AssetsItemService(
-            marketCapService: Market(), fiatService: nil,
-            assetViewModelsFactory: AssetViewModelFactory(walletAssets: assets, assetManager: manager, fiatService: nil),
-            assetManager: manager, assetProvider: balances, priceInfoService: Prices(), assetBlacklist: blacklist
-        )
-        XCTAssertEqual(service.assetViewModels.map(\.identifier), [xorId, valId])
-
-        blacklist.list = AssetBlacklist(assetIds: [valId], source: .remote)
-        NotificationCenter.default.post(name: AssetBlacklistStore.didChange, object: nil)
-        for _ in 0 ..< 200 where service.assetViewModels.map(\.identifier) != [xorId, tokenId] {
-            try? await Task.sleep(nanoseconds: 10_000_000)
-        }
-        XCTAssertEqual(service.assetViewModels.map(\.identifier), [xorId, tokenId])
     }
 }
 

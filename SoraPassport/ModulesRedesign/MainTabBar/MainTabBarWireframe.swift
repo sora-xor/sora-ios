@@ -440,17 +440,6 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         
         let assetsProvider = AssetProvider(assetInfos: assetInfos, providerFactory: providerFactory)
         
-        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetInfos,
-                                            assetManager: assetManager,
-                                            fiatService: FiatService.shared)
-        
-        let assetsViewModelService = AssetsItemService(marketCapService: MarketCapService.shared,
-                                            fiatService: FiatService.shared,
-                                            assetViewModelsFactory: assetViewModelsFactory,
-                                            assetManager: assetManager,
-                                            assetProvider: assetsProvider)
-        assetsProvider.add(observer: assetsViewModelService)
-        
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
         
         let poolsService = AccountPoolsService(operationManager: OperationManagerFacade.sharedManager,
@@ -481,7 +470,6 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                     poolsService: poolsService,
                     assetsProvider: assetsProvider,
                     poolsViewModelService: poolsViewModelService,
-                    assetsViewModelService: assetsViewModelService,
                     editViewService: editViewService,
                     accountSettings: accountSettings,
                     farmingService: farmingService,
