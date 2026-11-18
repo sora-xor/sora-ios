@@ -19,14 +19,6 @@ import SSFUtils
 import Foundation
 import RobinHood
 
-protocol SubqueryHistoryOperationFactoryProtocol {
-    func createOperation(
-        address: String,
-        count: Int,
-        after: String
-    ) -> BaseOperation<SubqueryHistoryData>
-}
-
 final class SubqueryHistoryOperationFactory {
     let url: URL
     let filter: WalletHistoryFilter

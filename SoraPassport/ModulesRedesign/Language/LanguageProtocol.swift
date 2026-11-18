@@ -29,6 +29,3 @@ protocol LanguagePresenterProtocol: AnyObject {
     
     func reload()
 }
-
-protocol LanguageWireframeProtocol: ErrorPresentable, AlertPresentable, HelpPresentable, WebPresentable {
-}

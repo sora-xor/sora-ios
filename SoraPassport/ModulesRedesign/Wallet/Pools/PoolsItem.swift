@@ -21,12 +21,6 @@ import SoraUIKit
 import RobinHood
 import sorawallet
 
-enum PoolItemState {
-    case loading
-    case empty
-    case viewModel
-}
-
 final class PoolsItem: NSObject {
 
     var title: String

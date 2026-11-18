@@ -22,8 +22,6 @@ import SoraKeystore
 import SSFUtils
 import IrohaCrypto
 
-typealias RuntimeServiceProtocol = RuntimeRegistryServiceProtocol & RuntimeCodingServiceProtocol
-
 /// Collect only outcomes of operations the wallet already performs. No key tags,
 /// identifiers, values, derivation strings or database paths enter this record.
 final class WalletSecretDiagnostics {

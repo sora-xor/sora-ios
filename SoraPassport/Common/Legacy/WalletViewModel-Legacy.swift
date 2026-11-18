@@ -5,8 +5,6 @@
 
 import Foundation
 
-public typealias WalletViewModelFactory = () throws -> WalletViewModelProtocol
-
 public protocol WalletViewModelProtocol: AnyObject {
     var cellReuseIdentifier: String { get }
     var itemHeight: CGFloat { get }

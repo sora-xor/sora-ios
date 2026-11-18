@@ -18,10 +18,6 @@
 import Foundation
 import SSFUtils
 
-protocol AccountImportJsonFactoryProtocol {
-    func createInfo(from definition: KeystoreDefinition) throws -> AccountImportPreferredInfo
-}
-
 final class AccountImportJsonFactory {
     func createInfo(from definition: KeystoreDefinition) throws -> AccountImportPreferredInfo {
         let info = try KeystoreInfoFactory().createInfo(from: definition)

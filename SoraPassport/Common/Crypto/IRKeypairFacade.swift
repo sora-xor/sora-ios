@@ -18,18 +18,11 @@
 import Foundation
 import IrohaCrypto
 
-typealias IRKeypairFacadeResult = (keypair: IRCryptoKeypairProtocol, mnemonic: IRMnemonicProtocol)
-
 protocol IRKeypairFacadeProtocol: AnyObject {
-//    func createKeypair(from password: String) throws -> IRKeypairFacadeResult
     func deriveKeypair(from mnemonic: String, password: String) throws -> IRCryptoKeypairProtocol
 }
 
 extension IRKeypairFacadeProtocol {
-//    func createKeypair() throws -> IRKeypairFacadeResult {
-//        return try createKeypair(from: "")
-//    }
-//
     func deriveKeypair(from mnemonic: String) throws -> IRCryptoKeypairProtocol {
         return try deriveKeypair(from: mnemonic, password: "")
     }

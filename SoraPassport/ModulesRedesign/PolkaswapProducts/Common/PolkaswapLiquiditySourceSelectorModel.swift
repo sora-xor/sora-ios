@@ -99,9 +99,3 @@ extension LiquiditySourceType {
         }
     }
 }
-
-
-class PolkaswapLiquiditySourceSelectorModel {
-    var sources: [LiquiditySourceType] = []
-    var selectedSource: LiquiditySourceType?
-}

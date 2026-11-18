@@ -28,7 +28,3 @@ struct Call {
     let callIndex: UInt8
     let arguments: Data?
 }
-
-enum ExtrinsicCodingError: Error {
-    case unsupportedSignatureVersion
-}

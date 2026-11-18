@@ -20,10 +20,6 @@ public protocol CommonWalletBuilderProtocol: AnyObject {
     func build() throws -> CommonWalletContextProtocol
 }
 
-public enum CommonWalletBuilderError: Error {
-    case moduleCreationFailed
-}
-
 public final class CommonWalletBuilder {
     fileprivate var account: WalletAccountSettingsProtocol
     fileprivate var networkOperationFactory: WalletNetworkOperationFactoryProtocol

@@ -20,12 +20,6 @@ import SoraFoundation
 import SSFUtils
 import RobinHood
 
-enum AccountImportContext: String {
-    case sourceType
-    case cryptoType
-    case addressType
-}
-
 final class AccountImportPresenter {
     static let maxMnemonicLength: Int = 250
     static let maxMnemonicSize: Int = 24

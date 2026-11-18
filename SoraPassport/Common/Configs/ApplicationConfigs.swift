@@ -85,17 +85,6 @@ private struct InternalConfig: Codable {
     var ethereumExplorerTemplate: String
 }
 
-enum ConfigError: Error {
-    case ethConfigFailed
-}
-
-extension ConfigError: ErrorContentConvertible {
-    func toErrorContent(for locale: Locale?) -> ErrorContent {
-        return ErrorContent(title: R.string.localizable.connectionErrorTitle(),
-                            message: R.string.localizable.ethereumConfigUnavailable())
-    }
-}
-
 final class ApplicationConfig {
     static let shared: ApplicationConfig! = ApplicationConfig()
 

@@ -83,11 +83,6 @@ struct getPools {
     var one: AssetId
 }
 
-struct GetPools: Codable {
-    var targetAsset: AssetId
-    var rewardAsset: AssetId
-}
-
 struct AssetId: Codable {
     @ArrayCodable var value: String
 
