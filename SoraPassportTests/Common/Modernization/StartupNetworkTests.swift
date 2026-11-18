@@ -2872,6 +2872,19 @@ extension StartupNetworkTests {
         XCTAssertEqual(f.registry.availableChainIds, [f.chain.chainId])
         XCTAssertTrue(f.registry.getAssetManager(for: f.chain.chainId) === f.registry.getAssetManager(for: f.chain.chainId))
         XCTAssertEqual(f.registry.getActiveNode(for: f.chain.chainId)?.name, "Boundary")
+        // Startup can hydrate getChain from its independent local read before
+        // the stream is listening. Wait for a subscriber's first delivery
+        // before exercising deletion on an active subscription.
+        let observer = NSObject()
+        let listening = expectation(description: "Subscribed to the saved chain")
+        f.registry.chainsSubscribe(observer, runningInQueue: .main) { changes in
+            if changes.contains(where: {
+                if case let .insert(chain) = $0 { return chain.chainId == f.chain.chainId }
+                return false
+            }) { listening.fulfill() }
+        }
+        defer { f.registry.chainsUnsubscribe(observer) }
+        wait(for: [listening], timeout: 10)
         let remove = f.repository.saveOperation({ [] }, { [f.chain.chainId] }); f.operations.addOperations([remove], waitUntilFinished: true)
         _ = try XCTUnwrap(remove.result).get(); XCTAssertTrue(waitOnMain { f.registry.getChain(for: f.chain.chainId) == nil })
         XCTAssertEqual(f.registry.availableChainIds, [])

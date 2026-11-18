@@ -344,20 +344,22 @@ class JSONRPCTests: NetworkBaseTests {
         manager.remove(listener: selfRemovingListener)
     }
 
-    func testNeedsMigration() throws{
-        for mnem in mlem {
-          try performMigrationTest(mnemonic: mnem)
+    func testNeedsMigration() throws {
+        let url = try XCTUnwrap(URL(string: "wss://mof2.sora.org"))
+        let engine = WebSocketEngine(connectionName: nil, url: url, logger: Logger.shared)
+        let operationQueue = OperationQueue()
+        defer { engine.disconnectIfNeeded() }
+
+        for mnemonic in mlem {
+            try performMigrationTest(mnemonic: mnemonic, engine: engine, operationQueue: operationQueue)
         }
     }
 
-    func performMigrationTest(mnemonic: String) throws {
-        let devUrl = "wss://mof2.sora.org"
-        let url = URL(string: devUrl)!
-        let logger = Logger.shared
-        let operationQueue = OperationQueue()
-
-        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
-
+    private func performMigrationTest(
+        mnemonic: String,
+        engine: WebSocketEngine,
+        operationQueue: OperationQueue
+    ) throws {
         let keystore = InMemoryKeychain()
         let settings = InMemorySettingsManager()
 
@@ -366,7 +368,7 @@ class JSONRPCTests: NetworkBaseTests {
                                                             networkType: .sora,
                                                             keychain: keystore,
                                                             settings: settings)
-        guard let account = settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue) else {
+        guard settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue) != nil else {
             XCTFail("Can't find address")
             return
         }
@@ -390,7 +392,7 @@ class JSONRPCTests: NetworkBaseTests {
             // Recovery phrases are never diagnostic material, including in CI
             // and integration-test logs. Record only the operation outcome
             // class; the test assertions already retain the Boolean result.
-            logger.debug(
+            Logger.shared.debug(
                 message: "Migration eligibility response received",
                 file: #file,
                 function: #function,

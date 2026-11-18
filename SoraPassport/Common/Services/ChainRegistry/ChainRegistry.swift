@@ -175,27 +175,7 @@ final class ChainRegistry {
     }
     
     func subscribeToChians() {
-        let updateClosure: ([DataProviderChange<ChainModel>]) -> Void = { [weak self] changes in
-            self?.handle(changes: changes)
-        }
-
-        let failureClosure: (Error) -> Void = { [weak self] error in
-            self?.logger?.error("Chain listener setup failed: \(error)")
-        }
-
-        let options = StreamableProviderObserverOptions(
-            alwaysNotifyOnRefresh: false,
-            waitsInProgressSyncOnAdd: false,
-            refreshWhenEmpty: false
-        )
-
-        chainProvider.addObserver(
-            self,
-            deliverOn: DispatchQueue.global(qos: .userInitiated),
-            executing: updateClosure,
-            failing: failureClosure,
-            options: options
-        )
+        subscribeToChains()
     }
 
     private func setupAssetManager(for chain: ChainModel) {
@@ -317,7 +297,7 @@ extension ChainRegistry: ChainRegistryProtocol {
 
         chainProvider.addObserver(
             self,
-            deliverOn: DispatchQueue.global(qos: .userInitiated),
+            deliverOn: processingQueue,
             executing: updateClosure,
             failing: failureClosure,
             options: options
