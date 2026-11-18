@@ -109,14 +109,6 @@ final class SwapEditorFlowTests: XCTestCase {
     f.model.choiсeTargetAssetButtonTapped()
     XCTAssertEqual(f.routes.assetLists.last, [f.val, f.pswap])
   }
-  func testPickersLeaveOutTokensOnThePolkaswapBlacklist() {
-    let f = make()
-    f.model.assetBlacklist = FixedAssetBlacklist(AssetBlacklist(assetIds: [f.pswap], source: .remote))
-    f.model.choiсeBaseAssetButtonTapped()
-    XCTAssertEqual(f.routes.assetLists.last, [f.xor])
-    f.model.choiсeTargetAssetButtonTapped()
-    XCTAssertEqual(f.routes.assetLists.last, [f.val])
-  }
   func testSelectingAnInputAssetUpdatesThePairAndRequestsAPath() {
     let f = make()
     f.model.choiсeBaseAssetButtonTapped()

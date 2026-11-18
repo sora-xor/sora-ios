@@ -129,7 +129,6 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
     
     func viewDidLoad() {
         setupNavigationBar?(mode)
-        loadItems()
         if blacklistObserver == nil {
             blacklistObserver = NotificationCenter.default.addObserver(
                 forName: AssetBlacklistStore.didChange,
@@ -139,6 +138,7 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
                 self?.loadItems()
             }
         }
+        loadItems()
     }
 }
 
@@ -155,6 +155,7 @@ private extension SelectAssetViewModel {
     func items(with balanceItems: [BalanceData]) async {
         let mode = self.mode
         let factory = assetViewModelFactory
+        // Keep the full candidate list for the lifetime of the picker. A refresh can also allow an asset again.
         let pickable = assetBlacklist.current().pickable(assetIds)
         let offered = Set(pickable)
         // An asset whose balance could not be read can still be chosen;
@@ -172,8 +173,9 @@ private extension SelectAssetViewModel {
         }
         items.forEach { item in
             item.assetHandler = { [weak self] identifier in
-                self?.dismiss?(true)
-                self?.selectionCompletion?(identifier)
+                guard let self, !self.assetBlacklist.current().hides(assetId: identifier) else { return }
+                self.dismiss?(true)
+                self.selectionCompletion?(identifier)
             }
             
             item.favoriteHandle = { item in

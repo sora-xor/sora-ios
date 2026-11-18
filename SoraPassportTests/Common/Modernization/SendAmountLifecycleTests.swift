@@ -103,15 +103,12 @@ final class SendAmountLifecycleTests: XCTestCase {
         let f = make(values: [xor: 10, val: 20]); f.model.inputedFirstAmount = 2; f.model.firstAssetId = val; await pause()
         XCTAssertEqual(f.model.inputedFirstAmount, 0); XCTAssertEqual(f.view.symbol, "VAL"); XCTAssertEqual(f.view.balance, "20"); XCTAssertFalse(f.view.enabled)
     }
-    /// The token chooser does not offer a token on the Polkaswap blacklist. A held blacklisted
-    /// token can still be sent: its details screen opens Send with it already chosen.
-    func testTokenChooserLeavesOutBlacklistedTokensButAPreselectedOneCanBeSent() async {
+    func testOpeningThePickerPreservesThePreselectedTokenAndPassesAllCandidates() async {
         let f = make(asset: val, values: [xor: 10, val: 20])
-        f.model.assetBlacklist = FixedAssetBlacklist(AssetBlacklist(assetIds: [val], source: .remote))
         await pause()
         XCTAssertEqual(f.view.symbol, "VAL"); XCTAssertEqual(f.view.balance, "20")
         f.model.choiceBaseAssetButtonTapped()
-        XCTAssertEqual(f.route.assetChoices, [xor])
+        XCTAssertEqual(f.route.assetChoices, [xor, val])
         f.model.inputedFirstAmount = 2; f.model.reviewButtonTapped(); await wait { f.route.confirmations.count == 1 }
         XCTAssertEqual(f.route.confirmations.first?.0, val)
     }

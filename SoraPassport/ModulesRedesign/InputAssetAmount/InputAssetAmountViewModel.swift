@@ -137,9 +137,6 @@ final class InputAssetAmountViewModel {
     private var sharingFactory: AccountShareFactoryProtocol
     private var marketCapService: MarketCapServiceProtocol
     private var pricesObservation: PIPricesObservation?
-    /// The chooser leaves out tokens on the Polkaswap blacklist. A held one can still be sent:
-    /// its details screen opens this screen with it already chosen.
-    var assetBlacklist: AssetBlacklistStoring = AssetBlacklistStore.shared
     init(
         selectedTokenId: String?,
         selectedAddress: String?,
@@ -261,7 +258,7 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
                                       fiatService: fiatService,
                                       assetViewModelFactory: factory,
                                       assetsProvider: assetsProvider,
-                                      assetIds: assetBlacklist.current().pickable(assets.map { $0.identifier }),
+                                      assetIds: assets.map { $0.identifier },
                                       marketCapService: marketCapService) { [weak self] assetId in
             self?.firstAssetId = assetId
         }

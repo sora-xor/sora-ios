@@ -138,10 +138,23 @@ final class ProductListBehaviorTests: XCTestCase {
         let model = selection(); model.assetBlacklist = blacklist
         model.viewDidLoad(); await settleRows(model)
         XCTAssertEqual(Set(model.assetItems.map(\.assetInfo.identifier)), Set([0, 2, 3].map { manager.assets[$0].identifier }))
+        let staleRow = model.assetItems.first { $0.assetInfo.identifier == manager.assets[2].identifier }
+        XCTAssertNotNil(staleRow)
+        let newlyAllowed = manager.assets[1]
+        model.isActiveSearch = true
+        model.searchText = newlyAllowed.identifier
+        XCTAssertTrue(model.filteredAssetItems.isEmpty)
+        var selection: String?
+        model.selectionCompletion = { selection = $0 }
         postBlacklist(blacklist, [manager.assets[2].identifier])
         let expected = Set([0, 1, 3].map { manager.assets[$0].identifier })
         await until { Set(model.assetItems.map(\.assetInfo.identifier)) == expected }
         XCTAssertEqual(Set(model.assetItems.map(\.assetInfo.identifier)), expected)
+        XCTAssertEqual(model.filteredAssetItems.map(\.assetInfo.identifier), [newlyAllowed.identifier])
+        staleRow?.assetHandler?(manager.assets[2].identifier)
+        XCTAssertNil(selection)
+        model.filteredAssetItems.first?.assetHandler?(newlyAllowed.identifier)
+        XCTAssertEqual(selection, newlyAllowed.identifier)
     }
     /// The full asset list follows a list that arrives while it is open: a blacklisted token
     /// with a known zero balance goes, a held one stays, marked.

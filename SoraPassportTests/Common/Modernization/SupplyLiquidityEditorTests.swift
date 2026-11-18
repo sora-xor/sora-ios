@@ -192,16 +192,6 @@ import XCTest
     XCTAssertFalse(ids.contains(WalletAssetId.xstusd.rawValue))
     XCTAssertTrue(ids.contains(f.val))
   }
-  func testPickersLeaveOutTokensOnThePolkaswapBlacklist() {
-    let f = make()
-    f.model.assetBlacklist = FixedAssetBlacklist(
-      AssetBlacklist(assetIds: [WalletAssetId.xstusd.rawValue, f.val], source: .remote))
-    f.model.choiсeBaseAssetButtonTapped()
-    XCTAssertEqual(f.routes.assetLists.last, [f.xor])
-    f.model.firstAssetId = f.xor
-    f.model.choiсeTargetAssetButtonTapped()
-    XCTAssertEqual(f.routes.assetLists.last, [WalletAssetId.kxor])
-  }
   func testSelectingAnotherBaseUpdatesTheEditor() {
     let f = make()
     f.model.choiсeBaseAssetButtonTapped()
