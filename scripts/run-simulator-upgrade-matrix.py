@@ -175,9 +175,15 @@ for case in args.cases:
     elif case in ['one-x','entropy-only']:
         fixture = json.loads((fixture_dir / 'ios-386-long-phrases.json').read_text())['vectors'][0]
     if fixture and len(fixture['phrase'].split()) >= 12:
-        env.update({'SORA_SIMULATOR_REVEAL_PHRASE':'1', 'SORA_SIMULATOR_PUBLIC_PHRASE':fixture['phrase'], 'SORA_SIMULATOR_ADDRESS':fixture['address']})
+        phrase = fixture['phrase']
+        env.update({'SORA_SIMULATOR_REVEAL_PHRASE': '1', 'SORA_SIMULATOR_ADDRESS': fixture['address'],
+                    'SORA_SIMULATOR_WORD_COUNT': str(len(phrase.split())),
+                    'SORA_SIMULATOR_PHRASE_SHA256': hashlib.sha256(' '.join(phrase.split()).encode()).hexdigest()})
+        if case in ('two-reinstalls', 'fresh-import'):
+            env['SORA_SIMULATOR_PUBLIC_PHRASE'] = phrase
     for key, value in run.items():
         if key.startswith('SoraPassport'):
+            value['SystemAttachmentLifetime'] = 'keepNever'
             value.setdefault('EnvironmentVariables',{}).update(env)
             # A build-for-testing command may have selected the unit target. Each
             # explicit command below chooses precisely one test from its target.

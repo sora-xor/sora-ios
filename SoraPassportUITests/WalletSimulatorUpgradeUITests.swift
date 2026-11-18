@@ -1,3 +1,4 @@
+import CryptoKit
 import XCTest
 
 /// Normal app launches after the separate unit-host writer exits. This does not
@@ -259,17 +260,17 @@ final class WalletSimulatorUpgradeUITests: XCTestCase {
                 next.tap()
                 XCTAssertTrue(app.otherElements["MainViewAccessibilityId"].waitForExistence(timeout: 10))
                 enterPIN()
-                if let phrase = env["SORA_SIMULATOR_PUBLIC_PHRASE"] {
-                    // Backup words stay hidden after authorization until the
-                    // user explicitly reveals them. Exercise that real action
-                    // using only the harness's public fixture phrase.
-                    let reveal = app.buttons["wallet-backup-reveal"]
-                    XCTAssertTrue(reveal.waitForExistence(timeout: 10), app.debugDescription)
-                    reveal.tap()
-                    let last = try XCTUnwrap(phrase.split(separator: " ").last.map(String.init))
-                    XCTAssertTrue(app.staticTexts[last].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
-                }
-                evidence("phrase-public-fixture")
+                let count = try XCTUnwrap(env["SORA_SIMULATOR_WORD_COUNT"].flatMap(Int.init))
+                let digest = try XCTUnwrap(env["SORA_SIMULATOR_PHRASE_SHA256"])
+                XCTAssertTrue((12...24).contains(count))
+                let reveal = app.buttons["wallet-backup-reveal"]
+                XCTAssertTrue(reveal.waitForExistence(timeout: 10))
+                reveal.tap()
+                let words = (1...count).map { app.staticTexts["wallet-backup-word-\($0)"].firstMatch }
+                XCTAssertTrue(words.last?.waitForExistence(timeout: 10) == true)
+                let displayed = words.map(\.label).joined(separator: " ")
+                let actual = SHA256.hash(data: Data(displayed.utf8)).map { String(format: "%02x", $0) }.joined()
+                XCTAssertTrue(actual == digest, "Displayed recovery words differ from the public fixture")
             }
             if name == "metadata-only" || name == "erase-restore" {
                 XCTAssertTrue(app.staticTexts["Read-only"].exists || app.staticTexts["Wallet keys are not on this iPhone"].exists, app.debugDescription)
