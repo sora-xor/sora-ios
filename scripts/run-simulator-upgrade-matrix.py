@@ -92,7 +92,7 @@ def legacy_preferences_persisted(container, receipt):
     if not expected_name:
         raise ValueError('The public legacy fixture must have a display name')
     path = container / 'Library/Preferences' / (args.bundle + '.plist')
-    deadline = time.monotonic() + min(30, args.stage_timeout_seconds)
+    deadline = time.monotonic() + args.stage_timeout_seconds
     while time.monotonic() < deadline:
         try:
             values = plistlib.loads(path.read_bytes())

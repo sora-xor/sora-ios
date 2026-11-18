@@ -1207,7 +1207,7 @@ if [ "$#" -ne 0 ]; then
 fi
 
 # run-ios-release-tests.sh builds the app with Release optimization for the
-# simulator, unsigned, to run the unit tests. Admit only that exact route.
+# simulator and ad-hoc signs the test host so Keychain operations work.
 release_test_mode="${SORA_IOS_NONPROMOTING_RELEASE_TEST_MODE:-}"
 release_test_action="${SORA_IOS_NONPROMOTING_RELEASE_TEST_ACTION:-}"
 if [ -z "${release_test_mode}" ] && [ -n "${release_test_action}" ]; then
@@ -1230,8 +1230,10 @@ if [ -n "${release_test_mode}" ]; then
        [ "${INFOPLIST_FILE:-}" != "SoraPassport/Info.plist" ] ||
        [ "${SORA_APPLICATION_CONFIG:-}" != "Release" ] ||
        [ "${SORA_NAME:-}" != "SORA" ] ||
-       [ "${CODE_SIGNING_ALLOWED:-YES}" != "NO" ] ||
-       [ "${CODE_SIGNING_REQUIRED:-YES}" != "NO" ] ||
+       [ "${CODE_SIGN_IDENTITY:-}" != "-" ] ||
+       [ "${EXPANDED_CODE_SIGN_IDENTITY:-}" != "-" ] ||
+       [ "${CODE_SIGNING_ALLOWED:-}" != "YES" ] ||
+       [ "${CODE_SIGNING_REQUIRED:-}" != "YES" ] ||
        [ "${ENABLE_TESTABILITY:-NO}" != "YES" ] ||
        [ "${ONLY_ACTIVE_ARCH:-NO}" != "YES" ] ||
        [ "${ARCHS:-}" != "arm64" ] ||

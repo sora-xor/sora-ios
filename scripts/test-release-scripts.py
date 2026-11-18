@@ -241,5 +241,35 @@ sys.stdout.buffer.write(plistlib.dumps(entitlements))
         self.assertEqual(result.returncode, 0, result.stderr)
 
 
+class ReleaseSimulatorCapabilityTests(unittest.TestCase):
+    def test_rejects_unsigned_certificate_and_device_routes(self):
+        environment = {
+            "SORA_IOS_NONPROMOTING_RELEASE_TEST_MODE": "sora-ios-nonpromoting-release-simulator-test-v1",
+            "SORA_IOS_NONPROMOTING_RELEASE_TEST_ACTION": "test",
+            "ACTION": "build", "CONFIGURATION": "Release",
+            "PLATFORM_NAME": "iphonesimulator", "EFFECTIVE_PLATFORM_NAME": "-iphonesimulator",
+            "SDK_NAME": "iphonesimulator27.2", "DEPLOYMENT_LOCATION": "NO",
+            "TARGET_NAME": "SoraPassport", "PRODUCT_NAME": "SoraPassport",
+            "PRODUCT_BUNDLE_IDENTIFIER": "co.jp.soramitsu.sora", "DEVELOPMENT_TEAM": "YLWWUD25VZ",
+            "CODE_SIGN_ENTITLEMENTS": "SoraPassport/SoraPassport.entitlements",
+            "INFOPLIST_FILE": "SoraPassport/Info.plist", "SORA_APPLICATION_CONFIG": "Release",
+            "SORA_NAME": "SORA", "CODE_SIGNING_ALLOWED": "YES", "CODE_SIGNING_REQUIRED": "YES",
+            "CODE_SIGN_IDENTITY": "-", "EXPANDED_CODE_SIGN_IDENTITY": "-", "ENABLE_TESTABILITY": "YES",
+            "ONLY_ACTIVE_ARCH": "YES", "ARCHS": "arm64", "EXCLUDED_ARCHS": "x86_64",
+        }
+        script = ROOT / "SoraPassport/Scripts/verify-modernization-dependencies.sh"
+        for key, value in (
+            ("CODE_SIGNING_ALLOWED", "NO"), ("CODE_SIGNING_REQUIRED", "NO"),
+            ("CODE_SIGN_IDENTITY", "Apple Development"), ("EXPANDED_CODE_SIGN_IDENTITY", "certificate"),
+            ("PLATFORM_NAME", "iphoneos"), ("SDK_NAME", "iphoneos27.2"),
+            ("ACTION", "install"), ("SORA_IOS_NONPROMOTING_RELEASE_TEST_ACTION", "archive"),
+        ):
+            with self.subTest(key=key, value=value):
+                result = subprocess.run(["sh", script], capture_output=True, text=True,
+                                        env={**os.environ, **environment, key: value})
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("error: iOS Release", result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
