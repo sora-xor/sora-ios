@@ -173,6 +173,8 @@ final class WalletSimulatorUpgradeFixtureTests: XCTestCase {
             // Verbatim released 1.x application tags and raw bytes from original Iroha.
             try keys.saveKey(Data(hex: XCTUnwrap(old["entropyHex"] as? String)), with: "seedEntropy")
             if caseName == "one-x" { try keys.saveKey(Data(hex: XCTUnwrap(old["secretKeyHex"] as? String)), with: "privateKey") }
+            // A released 1.x installation predates the selected-account preference.
+            SettingsManager.shared.removeValue(for: SettingsKey.selectedAccount.rawValue)
             SettingsManager.shared.set(value: "Public legacy fixture", for: "userName")
             expectedRoute = "legacy"
             let substrate = try XCTUnwrap(vectors("ios-386-long-phrases").first)
@@ -315,10 +317,9 @@ final class WalletSimulatorUpgradeFixtureTests: XCTestCase {
         var receipt: [String: Any] = ["case": caseName, "scope": "simulator-source-qualification", "releaseAuthorized": false,
             "expectedRoute": expectedRoute, "expectedSigning": expectedSigning, "expectedRows": expectedRows,
             "originalKeySHA256": hashes, "accounts": accountsJSON, "plantedHelpers": plantedHelpers,
-            "historicalWriter": "354f176c", "publicFixturePIN": pin]
+            "historicalWriter": "354f176c"]
         if caseName == "two-reinstalls" {
             receipt["originalAccounts"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(accounts))
-            receipt["newPublicFixturePIN"] = replacementPIN
         }
         if caseName == "erase-restore" {
             receipt["restoreScope"] = "simulator filesystem app-data restore; not physical iCloud or device-only Keychain migration"
@@ -400,7 +401,6 @@ final class WalletSimulatorUpgradeFixtureTests: XCTestCase {
             XCTAssertFalse(try keys.allKeyIdentifiers().contains { $0.hasPrefix("wallet.preservedReturn.") })
             XCTAssertTrue(WalletPreservedGeneration.available(paths: paths, settings: SettingsManager.shared).isEmpty)
             receipt["returnedGeneration"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(manifest))
-            receipt["newPublicFixturePIN"] = replacementPIN
             try JSONSerialization.data(withJSONObject: receipt, options: [.prettyPrinted, .sortedKeys])
                 .write(to: receiptURL, options: .atomic)
         }
