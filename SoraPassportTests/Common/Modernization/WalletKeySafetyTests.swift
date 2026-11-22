@@ -359,12 +359,27 @@ private final class Installation {
     /// synchronizer and inserts (a lease only works with its own coordinator).
     lazy var coordinator = WalletLifecycleCoordinator(recoveryGate: isolatedGate())
 
-    init() throws {
-        directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    private let root: URL
+
+    /// - Parameter throughLinkedFolder: the installation is reached through a
+    ///   symbolic link above it, as every app folder is on a real iPhone
+    ///   (`/var` is a link to `/private/var`). No simulator path has one.
+    init(throughLinkedFolder: Bool = false) throws {
+        root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        guard throughLinkedFolder else {
+            directory = root
+            return
+        }
+        let real = root.appendingPathComponent("private/var", isDirectory: true)
+        try FileManager.default.createDirectory(at: real.appendingPathComponent("mobile", isDirectory: true),
+                                                withIntermediateDirectories: true)
+        let link = root.appendingPathComponent("var")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: real)
+        directory = link.appendingPathComponent("mobile", isDirectory: true)
     }
 
-    deinit { try? FileManager.default.removeItem(at: directory) }
+    deinit { try? FileManager.default.removeItem(at: root) }
 
     var storeURL: URL { directory.appendingPathComponent("UserDataModel.sqlite") }
 
@@ -7077,6 +7092,282 @@ final class WalletUpdateSelfRepairTests: XCTestCase {
         XCTAssertNotNil(UserStorageParams.loadableModel(forResource: UserStorageVersion.version1.rawValue))
         XCTAssertNotNil(UserStorageParams.loadableModel(forResource: UserStorageVersion.version2.rawValue))
         XCTAssertNil(UserStorageParams.loadableModel(forResource: "NoSuchModel"))
+    }
+}
+
+// MARK: - The database version 3.9.3 could not read on a real iPhone
+
+extension WalletUpdateSelfRepairTests {
+    private func withTokenList(_ account: AccountItem, name: String) -> AccountItem {
+        let tokens = (2...8).map { "0x02" + String(repeating: "0", count: 60) + String(format: "%02x", $0) }
+        return AccountItem(address: account.address, cryptoType: account.cryptoType, networkType: account.networkType,
+                           username: name, publicKeyData: account.publicKeyData,
+                           settings: AccountSettings(visibleAssetIds: Array(tokens.prefix(3)), orderedAssetIds: tokens),
+                           order: account.order, isSelected: account.isSelected)
+    }
+
+    /// The row version 3.9.3 wrote for a wallet: its identity, and nothing
+    /// else the user had.
+    private func asRebuilt(_ account: AccountItem, name: String = "Restored wallet") -> AccountItem {
+        AccountItem(address: account.address, cryptoType: account.cryptoType, networkType: account.networkType,
+                    username: name, publicKeyData: account.publicKeyData,
+                    settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+                    order: account.order, isSelected: account.isSelected)
+    }
+
+    private func keptDatabase(_ folder: URL) -> URL {
+        folder.appendingPathComponent("CoreData", isDirectory: true).appendingPathComponent("UserDataModel.sqlite")
+    }
+
+    /// What `publish` of version 3.9.3 did with the database in place: moved
+    /// it into a new folder beside a copy of the wallet settings, which held
+    /// the failure that launch had just recorded.
+    @discardableResult
+    private func setAsideAsVersion393Did(_ device: Installation, seconds: Int) throws -> URL {
+        let folder = setAsideRoot(device).appendingPathComponent("\(seconds)-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: keptDatabase(folder).deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        var preserved: [String: Any] = [:]
+        for key in WalletLocalStateSetAside.walletSettingKeys(in: device.settings) {
+            preserved[key] = device.settings.anyValue(for: key)
+        }
+        try PropertyListSerialization.data(fromPropertyList: preserved, format: .binary, options: 0)
+            .write(to: folder.appendingPathComponent("wallet-settings.plist"))
+        for suffix in ["", "-wal", "-shm"] {
+            let source = URL(fileURLWithPath: device.storeURL.path + suffix)
+            if FileManager.default.fileExists(atPath: source.path) {
+                try FileManager.default.moveItem(at: source, to: URL(fileURLWithPath: keptDatabase(folder).path + suffix))
+            }
+        }
+        return folder
+    }
+
+    private func stopAsVersion393Did(_ device: Installation,
+                                     cause: UserStorageMigrationError = .unknownStoreVersion) {
+        XCTAssertEqual(WalletStorageStartup.run(settings: device.settings) { throw cause }, .recoveryRequired)
+    }
+
+    /// The files version 3.9.3 left on a real iPhone after its first launch.
+    /// The user's database, written by the app's own stack with its newest
+    /// rows still in the write-ahead log, is in the first folder. In place is
+    /// what that version rebuilt, and its recovery screen's marker is set.
+    @discardableResult
+    private func leaveAsVersion393Did(
+        _ device: Installation, userDatabase: [AccountItem], rebuilt: [AccountItem]?,
+        cause: UserStorageMigrationError = .unknownStoreVersion
+    ) throws -> URL {
+        let facade = try OnDiskUserDataFacade(storeURL: device.storeURL)
+        try facade.save(userDatabase)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: device.storeURL.path + "-wal"))
+        if let selected = userDatabase.first(where: \.isSelected) {
+            device.settings.set(value: selected, for: SettingsKey.selectedAccount.rawValue)
+        }
+        device.settings.set(value: true, for: SettingsKey.hasMigrated.rawValue)
+        stopAsVersion393Did(device, cause: cause)
+        // Copied while the stack is open: the rows are in the log, as on the
+        // phone, where iOS keeps the log after the app closes.
+        let folder = setAsideRoot(device).appendingPathComponent("1794847740-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: keptDatabase(folder).deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        var preserved: [String: Any] = [:]
+        for key in WalletLocalStateSetAside.walletSettingKeys(in: device.settings) {
+            preserved[key] = device.settings.anyValue(for: key)
+        }
+        try PropertyListSerialization.data(fromPropertyList: preserved, format: .binary, options: 0)
+            .write(to: folder.appendingPathComponent("wallet-settings.plist"))
+        for suffix in ["", "-wal", "-shm"] {
+            try FileManager.default.copyItem(at: URL(fileURLWithPath: device.storeURL.path + suffix),
+                                             to: URL(fileURLWithPath: keptDatabase(folder).path + suffix))
+        }
+        try facade.close()
+        for suffix in ["", "-wal", "-shm"] {
+            try? FileManager.default.removeItem(at: URL(fileURLWithPath: device.storeURL.path + suffix))
+        }
+        if let rebuilt {
+            try device.migrator().writeRepairedStore(accounts: rebuilt, at: device.storeURL)
+            if let selected = rebuilt.first(where: \.isSelected) {
+                device.settings.set(value: selected, for: SettingsKey.selectedAccount.rawValue)
+            }
+        }
+        return folder
+    }
+
+    private func assertOwnDatabaseIsBack(_ device: Installation, _ account: AccountItem,
+                                         file: StaticString = #filePath, line: UInt = #line) throws {
+        let row = try XCTUnwrap(try KeySafetyStore.rows(at: device.storeURL).first { $0.address == account.address },
+                                file: file, line: line)
+        XCTAssertEqual(row.username, account.username, file: file, line: line)
+        XCTAssertEqual(row.settings, account.settings, file: file, line: line)
+        let selected = device.settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue)
+        XCTAssertEqual(selected?.username, account.username, file: file, line: line)
+        XCTAssertEqual(selected?.settings, account.settings, file: file, line: line)
+        XCTAssertEqual(device.settings.bool(for: SettingsKey.hasMigrated.rawValue), true, file: file, line: line)
+        XCTAssertNil(device.settings.anyValue(for: "wallet.setUpAgainChosen"), file: file, line: line)
+        XCTAssertEqual(device.settings.bool(for: WalletDatabaseSelfRepair.unreadDatabaseCheckedKey), true,
+                       file: file, line: line)
+    }
+
+    /// The path of every wallet database on a real iPhone passes through a
+    /// link (`/var`). Version 3.9.3 refused to read the version stamp through
+    /// it, so every update stopped on the recovery screen. No simulator and no
+    /// earlier test had such a path.
+    func testAWalletDatabaseBehindALinkedFolderOpensAsOnAnIPhone() throws {
+        let device = try Installation(throughLinkedFolder: true)
+        XCTAssertNotNil(try? FileManager.default.destinationOfSymbolicLink(
+            atPath: device.directory.deletingLastPathComponent().path))
+        let account = try HistoricalWriter.phraseImport(phrase12, username: "My wallet", keystore: device.keychain.base)
+        try savePIN(device)
+        try KeySafetyStore.write([account], to: device.storeURL)
+        device.settings.set(value: account, for: SettingsKey.selectedAccount.rawValue)
+
+        XCTAssertNoThrow(try NSPersistentStoreCoordinator.readOnlyMetadata(at: device.storeURL))
+        XCTAssertNoThrow(try device.migrator().performMigration())
+        try assertOpensWithoutAsking(device, [account], selected: account.address)
+        XCTAssertEqual(setAsideFolders(device), [], "Nothing was wrong, so nothing is set aside")
+    }
+
+    func testMetadataProbeStillRefusesALinkAsTheDatabaseItself() throws {
+        let device = try Installation(throughLinkedFolder: true)
+        let target = device.directory.appendingPathComponent("elsewhere.sqlite")
+        try KeySafetyStore.write([], to: target)
+        XCTAssertNoThrow(try NSPersistentStoreCoordinator.readOnlyMetadata(at: target))
+        try FileManager.default.createSymbolicLink(at: device.storeURL, withDestinationURL: target)
+        XCTAssertThrowsError(try NSPersistentStoreCoordinator.readOnlyMetadata(at: device.storeURL))
+        XCTAssertFalse(try device.migrator().isKnownWalletDatabase(at: device.storeURL))
+        XCTAssertTrue(try device.migrator().isKnownWalletDatabase(at: target))
+    }
+
+    /// The reported iPhone after one launch of version 3.9.3 and any number
+    /// of "Try again": its own database comes back with the wallet's name and
+    /// token list, and what that version rebuilt is set aside in its turn.
+    func testAnIPhoneStoppedByVersion393GetsItsOwnDatabaseBack() throws {
+        let device = try Installation(throughLinkedFolder: true)
+        let account = withTokenList(
+            try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base), name: "dev")
+        try savePIN(device)
+        let first = try leaveAsVersion393Did(device, userDatabase: [account], rebuilt: [asRebuilt(account, name: "dev")])
+        // "Try again": the rebuilt copy was set aside and rebuilt once more.
+        try setAsideAsVersion393Did(device, seconds: 1_795_082_668)
+        try device.migrator().writeRepairedStore(accounts: [asRebuilt(account, name: "dev")], at: device.storeURL)
+        let kept = try Data(contentsOf: keptDatabase(first))
+        let keptLog = try Data(contentsOf: URL(fileURLWithPath: keptDatabase(first).path + "-wal"))
+        XCTAssertFalse(keptLog.isEmpty)
+
+        try assertOpensWithoutAsking(device, [account], selected: account.address)
+        try assertOwnDatabaseIsBack(device, account)
+        XCTAssertNil(WalletStartupDiagnostic.current(device.settings))
+        // Nothing is deleted: the folder it came from is as it was, and the
+        // rebuilt database is in a folder of its own.
+        XCTAssertEqual(try Data(contentsOf: keptDatabase(first)), kept)
+        XCTAssertEqual(try Data(contentsOf: URL(fileURLWithPath: keptDatabase(first).path + "-wal")), keptLog)
+        XCTAssertEqual(setAsideFolders(device).filter {
+            FileManager.default.fileExists(atPath: keptDatabase($0).path)
+        }.count, 3)
+
+        // A later launch has nothing left to do, whatever the user changed.
+        let folders = setAsideFolders(device)
+        XCTAssertEqual(try device.startup(), .ready)
+        XCTAssertEqual(setAsideFolders(device), folders)
+        try assertOwnDatabaseIsBack(device, account)
+    }
+
+    /// This is the iPhone the report came from. On the recovery screen of
+    /// version 3.9.3 its user chose "Set up this iPhone again", restored the
+    /// wallet from Welcome back, and was stopped again at once.
+    func testSetUpAgainAndRestoreOnThatScreenStillGetsTheOwnDatabaseBack() throws {
+        let device = try Installation(throughLinkedFolder: true)
+        let account = withTokenList(
+            try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base), name: "dev")
+        try savePIN(device)
+        try leaveAsVersion393Did(device, userDatabase: [account], rebuilt: [asRebuilt(account, name: "dev")])
+        WalletDatabaseSelfRepair.recordSetUpAgainChoice(device.settings)
+        try WalletLocalStateSetAside.setAside(settings: device.settings, expectedMarker: nil, paths: paths(device),
+                                              lifecycleCoordinator: device.coordinator)
+        XCTAssertNil(device.settings.anyValue(for: SettingsKey.hasMigrated.rawValue))
+        // Welcome back restored the wallet under its default name.
+        let restored = asRebuilt(account)
+        try device.migrator().writeRepairedStore(accounts: [restored], at: device.storeURL)
+        device.settings.set(value: restored, for: SettingsKey.selectedAccount.rawValue)
+        stopAsVersion393Did(device)
+        try setAsideAsVersion393Did(device, seconds: Int(Date().timeIntervalSince1970) + 5)
+        try device.migrator().writeRepairedStore(accounts: [restored], at: device.storeURL)
+
+        try assertOpensWithoutAsking(device, [account], selected: account.address)
+        try assertOwnDatabaseIsBack(device, account)
+    }
+
+    /// "Set up this iPhone again" on that screen and nothing after it: the
+    /// wallet is not left behind Welcome back.
+    func testSetUpAgainChosenOnThatScreenIsUndone() throws {
+        let device = try Installation(throughLinkedFolder: true)
+        let account = withTokenList(
+            try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base), name: "dev")
+        try savePIN(device)
+        try leaveAsVersion393Did(device, userDatabase: [account], rebuilt: [asRebuilt(account, name: "dev")])
+        WalletDatabaseSelfRepair.recordSetUpAgainChoice(device.settings)
+        try WalletLocalStateSetAside.setAside(settings: device.settings, expectedMarker: nil, paths: paths(device),
+                                              lifecycleCoordinator: device.coordinator)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: device.storeURL.path))
+
+        try assertOpensWithoutAsking(device, [account], selected: account.address)
+        try assertOwnDatabaseIsBack(device, account)
+    }
+
+    /// A wallet created or imported while stuck is the wallet now. The
+    /// earlier database stays in its folder and its keys in the Keychain.
+    func testAnotherWalletCreatedSinceIsNeverReplaced() throws {
+        let device = try Installation(throughLinkedFolder: true)
+        let account = withTokenList(
+            try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base), name: "dev")
+        let other = try HistoricalWriter.phraseImport(phrase(entropy: 0x44, bytes: 16), username: "New",
+                                                      keystore: device.keychain.base)
+        try savePIN(device)
+        let first = try leaveAsVersion393Did(device, userDatabase: [account], rebuilt: [other])
+        let kept = try Data(contentsOf: keptDatabase(first))
+
+        try assertOpensWithoutAsking(device, [other], selected: other.address)
+        XCTAssertEqual(try Data(contentsOf: keptDatabase(first)), kept)
+        XCTAssertEqual(device.settings.bool(for: WalletDatabaseSelfRepair.unreadDatabaseCheckedKey), true)
+        XCTAssertTrue(try device.keychain.hasScopedSigningMaterial(for: account.address))
+        // Decided once: a later launch does not look again.
+        XCTAssertEqual(try device.startup(), .ready)
+        XCTAssertEqual(try KeySafetyStore.rows(at: device.storeURL).map(\.address), [other.address])
+    }
+
+    /// A wallet that is not here now comes back only under a PIN its owner
+    /// record does not object to, as everywhere in this repair.
+    func testOwnerRecordOfAnotherPINKeepsTheEarlierDatabaseAside() throws {
+        let device = try Installation(throughLinkedFolder: true)
+        let account = withTokenList(
+            try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base), name: "dev")
+        try savePIN(device)
+        try saveOwnerBindingFixture("111111", accounts: [account], keystore: device.keychain.base)
+        try leaveAsVersion393Did(device, userDatabase: [account], rebuilt: [asRebuilt(account, name: "dev")])
+        WalletDatabaseSelfRepair.recordSetUpAgainChoice(device.settings)
+        try WalletLocalStateSetAside.setAside(settings: device.settings, expectedMarker: nil, paths: paths(device),
+                                              lifecycleCoordinator: device.coordinator)
+
+        XCTAssertEqual(try device.startup(), .ready)
+        XCTAssertEqual(try KeySafetyStore.rows(at: device.storeURL), [])
+        XCTAssertEqual(try device.rootDecision(selected: nil), [.welcomeBack])
+        XCTAssertTrue(try device.keychain.hasScopedSigningMaterial(for: account.address))
+    }
+
+    /// Only a folder filled because the version stamp could not be read is
+    /// returned. A database set aside for any other reason stays where it is.
+    func testADatabaseSetAsideForAnotherReasonIsNotReturned() throws {
+        let device = try Installation(throughLinkedFolder: true)
+        let account = withTokenList(
+            try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base), name: "dev")
+        try savePIN(device)
+        try leaveAsVersion393Did(device, userDatabase: [account], rebuilt: [asRebuilt(account)],
+                                 cause: .missingWalletStore)
+        let folders = setAsideFolders(device)
+
+        try assertOpensWithoutAsking(device, [asRebuilt(account)], selected: account.address)
+        XCTAssertEqual(setAsideFolders(device).filter { FileManager.default.fileExists(atPath: keptDatabase($0).path) },
+                       folders)
+        XCTAssertEqual(device.settings.bool(for: WalletDatabaseSelfRepair.unreadDatabaseCheckedKey), true)
     }
 }
 

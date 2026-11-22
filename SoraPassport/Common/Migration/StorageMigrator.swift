@@ -2524,6 +2524,13 @@ final class UserStorageMigrator {
         return compatibleVersion
     }
 
+    /// Whether the file at `url` is a wallet database of a version this app
+    /// knows, by its own version stamp. Reads only.
+    func isKnownWalletDatabase(at url: URL) -> Bool {
+        guard let metadata = NSPersistentStoreCoordinator.metadata(at: url) else { return false }
+        return compatibleVersionForStoreMetadata(metadata) != nil
+    }
+
     private func createManagedObjectModel(forResource resource: String) throws -> NSManagedObjectModel {
         guard let model = UserStorageParams.loadableModel(
             forResource: resource,

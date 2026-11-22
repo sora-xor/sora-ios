@@ -43,9 +43,20 @@ extension NSPersistentStoreCoordinator {
         // even with NSReadOnlyPersistentStoreOption. Read the stored metadata
         // directly through a genuinely read-only connection, including WAL
         // pages, so probing never creates a database or rewrites its contents.
+        //
+        // Only the database file itself is refused as a symbolic link. SQLite's
+        // own SQLITE_OPEN_NOFOLLOW refuses a link anywhere in the path, and on
+        // an iPhone every app folder is reached through one (/var is a link to
+        // /private/var; no simulator has it). With that flag version 3.9.3 read
+        // no wallet database on any real iPhone and stopped every update.
+        var entry = stat()
+        let isRegularFile = storeURL.withUnsafeFileSystemRepresentation { path -> Bool in
+            guard let path else { return false }
+            return Darwin.lstat(path, &entry) == 0 && (entry.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG)
+        }
+        guard isRegularFile else { throw CocoaError(.fileReadCorruptFile) }
         var database: OpaquePointer?
-        let opened = sqlite3_open_v2(storeURL.path, &database,
-                                    SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_NOFOLLOW, nil)
+        let opened = sqlite3_open_v2(storeURL.path, &database, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil)
         defer { if let database { sqlite3_close(database) } }
         guard opened == SQLITE_OK, let database else { throw CocoaError(.fileReadCorruptFile) }
         sqlite3_limit(database, SQLITE_LIMIT_LENGTH, 1_048_576)

@@ -598,7 +598,13 @@ extension WalletStorageStartup {
                 settings: settings, keystore: keystore, paths: $0, databaseWriter: dbMigrator,
                 fileManager: fileManager, lifecycleCoordinator: lifecycleCoordinator)
         }
-        if let repair { WalletDatabaseSelfRepair.restoreLostDatabase(repair) }
+        if let repair {
+            // First the database version 3.9.3 set aside on real iPhones
+            // without having read it, so the checks below run on the user's
+            // own database and not on the copy that version rebuilt.
+            WalletDatabaseSelfRepair.returnDatabaseSetAsideUnread(repair)
+            WalletDatabaseSelfRepair.restoreLostDatabase(repair)
+        }
         var outcome = ordinaryChecks()
         if outcome == .recoveryRequired, let repair {
             outcome = WalletDatabaseSelfRepair.recover(repair, ordinaryChecks: ordinaryChecks)
