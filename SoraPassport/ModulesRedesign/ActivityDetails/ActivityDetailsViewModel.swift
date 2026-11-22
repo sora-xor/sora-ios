@@ -334,7 +334,7 @@ extension ActivityDetailsViewModel {
             })
         
         return HeaderActivityDetailsItem(typeText: R.string.localizable.polkaswapSwapped(preferredLanguages: .currentLocale),
-                                         typeTransactionImage: R.image.wallet.polkaswap(),
+                                         typeTransactionImage: PortfolioGlyphs.polkaswapMark,
                                          actionTransactionImage: R.image.wallet.arrow(),
                                          firstAssetImageViewModel: RemoteSerializer.shared.image(with: fromAssetInfo?.icon ?? ""),
                                          secondAssetImageViewModel: RemoteSerializer.shared.image(with: toAssetInfo?.icon ?? ""),

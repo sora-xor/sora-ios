@@ -6,33 +6,33 @@ final class LightPalette: Palette {
 		switch color {
 		case let .custom(uiColor): return uiColor
 		
-		case .additionalPolkaswapContainer: return Colors.polkaswap5
-		case .accentSecondaryContainer: return Colors.brown10
-		case .fgOutline: return Colors.brown5
+		case .additionalPolkaswapContainer: return UIColor(litHex: 0xF7E1DF)
+		case .accentSecondaryContainer: return Lit.wellFloor
+		case .fgOutline: return UIColor(litHex: 0xDAD6CE)
 		case .statusInfoContainer: return Colors.blue5
-		case .accentPrimary: return Colors.red50
-		case .statusErrorContainer: return Colors.red5
-		case .statusWarning: return Colors.yellow30
+		case .accentPrimary: return Lit.lacquerRed
+		case .statusErrorContainer: return UIColor(litHex: 0xF7E1DF)
+		case .statusWarning: return UIColor(litHex: 0x8A5A0C)
 		case .bgSurface: return Lit.surface
-		case .statusSuccess: return Colors.green50
-		case .accentPrimaryContainer: return Colors.red5
+		case .statusSuccess: return UIColor(litHex: 0x286448)
+		case .accentPrimaryContainer: return UIColor(litHex: 0xF7E1DF)
 		case .fgTertiary: return Lit.inkTertiary
-		case .accentTertiaryContainer: return Colors.brown10
-		case .statusError: return Colors.red60
+		case .accentTertiaryContainer: return Lit.wellFloor
+		case .statusError: return Lit.lacquerDeep
 		case .fgSecondary: return Lit.inkSecondary
 		case .bgPage: return Lit.page
 		case .bgSurfaceVariant: return Lit.wellFloor
-		case .additionalPolkaswap: return Colors.polkaswap50
-		case .bgSurfaceInverted: return Colors.brown90
-		case .statusWarningContainer: return Colors.yellow5
-		case .accentTertiary: return Colors.brown50
+		case .additionalPolkaswap: return Lit.lacquerRed
+		case .bgSurfaceInverted: return Lit.ink
+		case .statusWarningContainer: return UIColor(litHex: 0xF3E9D2)
+		case .accentTertiary: return Lit.inkTertiary
 		case .statusInfo: return Colors.blue40
-		case .accentSecondary: return Colors.brown90
+		case .accentSecondary: return Lit.ink
 		case .fgPrimary: return Lit.ink
-		case .statusSuccessContainer: return Colors.green5
-		case .fgInverted: return Colors.brown5
-		case .additionalPolkaswapText: return Colors.polkaswap50
-		case .skeletonBase: return Colors.brown10
+		case .statusSuccessContainer: return UIColor(litHex: 0xDCEBE2)
+		case .fgInverted: return Lit.padLit
+		case .additionalPolkaswapText: return Lit.lacquerText
+		case .skeletonBase: return Lit.wellFloor
 		case .skeletonHighlight: return Colors.white100.withAlphaComponent(0.7)
 		}
 	}

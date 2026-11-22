@@ -289,7 +289,7 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
     /// `PortfolioOtherNetworksCell.reload()` says why.
     private func rebuild(_ model: PortfolioListModel) {
         card.apply()
-        titleLabel.attributedText = .letterpress(PortfolioStrings.assets, attributes: [
+        titleLabel.attributedText = NSAttributedString(string: PortfolioStrings.assets, attributes: [
             .font: titleLabel.font as Any, .foregroundColor: PortfolioTheme.textPrimary
         ])
         var availableRows = rowViews

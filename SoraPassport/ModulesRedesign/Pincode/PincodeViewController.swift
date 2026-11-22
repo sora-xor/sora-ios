@@ -173,8 +173,12 @@ private extension PincodeViewController {
 
     func configure() {
 
-        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
-        
+        // The PIN stands on the page itself, whatever screen it was put over: nothing shows through.
+        soramitsuView.sora.backgroundColor = .bgPage
+        let page = LitPageView(frame: view.bounds)
+        page.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.insertSubview(page, at: 0)
+
         numpadView.delegate = self
         
         view.addSubview(emblemView)
@@ -418,9 +422,8 @@ extension PincodeViewController: PinSetupViewProtocol {
         if UIAccessibility.isVoiceOverRunning {
             UIAccessibility.post(notification: .announcement, argument: circlesStackView.accessibilityValue)
         }
-        let palette = SoramitsuUI.shared.theme.palette
         for (index, view) in circleViews.enumerated() {
-            view.setFilled(index < count, color: palette.color(.accentPrimary))
+            view.setFilled(index < count)
         }
         emblemView.setShare(circleViews.isEmpty ? 0 : CGFloat(enteredDigits) / CGFloat(circleViews.count),
                             animated: true)
@@ -439,7 +442,7 @@ extension PincodeViewController: PinSetupViewProtocol {
         titleLabel.sora.textColor = .statusError
         titleLabel.sora.text = R.string.localizable.commonWrongPin(preferredLanguages: .currentLocale)
         let errorColor = SoramitsuUI.shared.theme.palette.color(.statusError)
-        circleViews.forEach { $0.setFilled(true, color: errorColor) }
+        circleViews.forEach { $0.setFilled(true) }
         emblemView.showError(color: errorColor)
         if FxPolicy.current.reduceMotion {
             circlesStackView.transform = .identity
@@ -489,10 +492,11 @@ extension PincodeViewController: SoramitsuNumpadDelegate {
     }
 }
 
-/// One PIN digit: a small well pressed into the page; a lit bead drops into it when the digit is entered.
+/// One PIN place: a small ruled well in the page; a bead of red glass settles into it when the digit is
+/// entered. The ring shows an empty place and the bead a filled one without any help from the light.
 final class PincodeDotView: SoramitsuView {
     private let well = LitWellLayer()
-    private let bead = LitLEDView(diameter: 15)
+    private let bead = LitBeadView(diameter: 12)
     private(set) var isFilled = false
 
     override init(frame: CGRect = .zero) {
@@ -500,6 +504,7 @@ final class PincodeDotView: SoramitsuView {
         sora.useAutoresizingMask = false
         well.cornerRadiusValue = 12
         well.depth = 2
+        well.isRuled = true
         layer.addSublayer(well)
         bead.isHidden = true
         bead.translatesAutoresizingMaskIntoConstraints = false
@@ -507,22 +512,16 @@ final class PincodeDotView: SoramitsuView {
         NSLayoutConstraint.activate([
             bead.centerXAnchor.constraint(equalTo: centerXAnchor),
             bead.centerYAnchor.constraint(equalTo: centerYAnchor),
-            bead.widthAnchor.constraint(equalToConstant: 15),
-            bead.heightAnchor.constraint(equalToConstant: 15)
+            bead.widthAnchor.constraint(equalToConstant: 12),
+            bead.heightAnchor.constraint(equalToConstant: 12)
         ])
     }
 
-    func setFilled(_ filled: Bool, color: UIColor) {
+    func setFilled(_ filled: Bool) {
         let appeared = filled && !isFilled
         isFilled = filled
-        bead.setColor(color)
         bead.isHidden = !filled
-        guard appeared, LitMotion.allowed else { return }
-        bead.transform = CGAffineTransform(scaleX: 0.3, y: 0.3)
-        UIView.animate(withDuration: 0.34, delay: 0, usingSpringWithDamping: 0.55, initialSpringVelocity: 0,
-                       options: [.allowUserInteraction]) {
-            self.bead.transform = .identity
-        }
+        if appeared { bead.drop() }
     }
 
     override func layoutSubviews() {

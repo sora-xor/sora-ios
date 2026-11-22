@@ -38,8 +38,10 @@ final class MoreMenuCell: SoramitsuTableViewCell {
 
     let categoryItem: CategoryItem = {
         let view = CategoryItem(frame: .zero)
+        view.sora.backgroundColor = .bgSurface
         view.sora.cornerRadius = .max
-        view.sora.clipsToBounds = true
+        // Unclipped, so the row is a sheet with its shadow on the page.
+        view.sora.clipsToBounds = false
         return view
     }()
 
@@ -54,6 +56,9 @@ final class MoreMenuCell: SoramitsuTableViewCell {
     }
 
     func setupView() {
+        // A row's shadow falls beyond its own cell.
+        clipsToBounds = false
+        contentView.clipsToBounds = false
         contentView.addSubview(categoryItem)
     }
 

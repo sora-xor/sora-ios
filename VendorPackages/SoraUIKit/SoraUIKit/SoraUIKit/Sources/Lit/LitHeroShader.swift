@@ -27,7 +27,7 @@ typealias LitEight = (SIMD4<Float>, SIMD4<Float>, SIMD4<Float>, SIMD4<Float>,
                                SIMD4<Float>, SIMD4<Float>, SIMD4<Float>, SIMD4<Float>)
 
 /// The hero scene, ray traced per pixel: a red lacquer sphere with the 天 inlaid in white enamel, the
-/// allocation ring as a solid enamel band round it, both over the porcelain page they light. Every
+/// allocation ring as a solid enamel band round it, both over the white page they light. Every
 /// surface sees the same light rig: a window (key), a sky dome and the page below as fill, the sphere's
 /// red bounce on the band, the band's colours bounced and mirrored on the sphere, and the comet as a
 /// moving point light. The geometry is the same plane the ring's hit test uses.
@@ -109,7 +109,7 @@ enum LitHeroShader {
         float up = -D.y;
         float3 zenith = mix(float3(0.34, 0.33, 0.33), float3(0.03, 0.03, 0.05), s.dark);
         float3 horizon = mix(float3(0.14, 0.11, 0.11), float3(0.05, 0.03, 0.05), s.dark);
-        float3 ground = mix(float3(0.42, 0.32, 0.30), float3(0.05, 0.02, 0.03), s.dark);
+        float3 ground = mix(float3(0.44, 0.42, 0.38), float3(0.05, 0.02, 0.03), s.dark);
         float3 col = up > 0.0 ? mix(horizon, zenith, ss(0.0, 0.75, up))
                               : mix(horizon, ground, ss(0.0, 0.35, -up));
 
@@ -286,10 +286,10 @@ enum LitHeroShader {
         float2 shadowCentre = -Ks.xy / Ks.z * floorDepth;
         float shadowDist = length(d - shadowCentre);
         float blobA = 0.26 * exp(-pow(shadowDist / (s.Rp * 1.35), 2.0));
-        float3 blobC = mix(float3(0.34, 0.10, 0.11), float3(0.0, 0.0, 0.0), s.dark);
+        float3 blobC = mix(float3(0.22, 0.14, 0.10), float3(0.0, 0.0, 0.0), s.dark);
         float pool = exp(-pow(length(d - shadowCentre * 0.45) / 150.0, 2.0));
-        float poolA = mix(0.20, 0.34, s.dark) * pool;
-        float3 poolC = mix(float3(0.98, 0.36, 0.34), float3(0.72, 0.06, 0.10), s.dark);
+        float poolA = mix(0.09, 0.34, s.dark) * pool;
+        float3 poolC = mix(float3(0.96, 0.30, 0.22), float3(0.72, 0.06, 0.10), s.dark);
 
         // Accumulate "over": a wash of the planet's red, then the ring's coloured shadow, then the planet's.
         float3 floorCol = poolC * poolA;
@@ -322,11 +322,11 @@ enum LitHeroShader {
         floorCol = blobC * blobA + floorCol * (1.0 - blobA);
         floorA = blobA + floorA * (1.0 - blobA);
 
-        // A thin light round the limb: the air glowing in the sphere's light.
+        // A thin light round the limb. On the white page it shows only in the flare when a read finishes.
         float dist = length(d);
         float limbGlow = exp(-max(dist - s.Rp, 0.0) / 7.0) * step(s.Rp - 2.0, dist);
-        float limbA = sat(mix(0.26, 0.42, s.dark) * (1.0 + s.bloom * 1.6)) * limbGlow;
-        float3 limbC = mix(float3(1.0, 0.42, 0.40), float3(0.85, 0.10, 0.14), s.dark);
+        float limbA = sat(mix(0.04 + s.bloom * 0.26, 0.42 * (1.0 + s.bloom * 1.6), s.dark)) * limbGlow;
+        float3 limbC = mix(float3(1.0, 0.36, 0.28), float3(0.85, 0.10, 0.14), s.dark);
         floorCol = limbC * limbA + floorCol * (1.0 - limbA);
         floorA = limbA + floorA * (1.0 - limbA);
 
@@ -383,14 +383,14 @@ enum LitHeroShader {
         float orbitOuter = ss(0.8 + rpx, 0.8 - rpx, abs(r - outerOrbit)) * dash * 0.16;
         float orbitInner = ss(0.65 + rpx, 0.65 - rpx, abs(r - innerOrbit)) * 0.09;
         float orbitA = max(orbitOuter, orbitInner) * sat(0.5 + 0.5 * sa + 0.45);
-        float3 orbitC = mix(float3(0.23, 0.05, 0.08), float3(1.0), s.dark);
+        float3 orbitC = mix(float3(0.14, 0.13, 0.12), float3(1.0), s.dark);
 
         int segCount = int(u.ringInfo.y);
 
         if (segCount == 0) {
-            // The bare track: a porcelain groove.
+            // The bare track: a groove of white glaze.
             float cover = ss(s.hw + rpx, s.hw - rpx, abs(r - s.R));
-            ringCol = mix(float3(0.95, 0.90, 0.88), float3(0.20, 0.18, 0.22), s.dark);
+            ringCol = mix(float3(0.95, 0.94, 0.91), float3(0.20, 0.18, 0.22), s.dark);
             ringCol = ringCol * (0.70 + 0.30 * ss(-1.0, 1.0, (r - s.R) / s.hw));
             ringA = cover * u.ringInfo.z;
             ringCol = toSRGB(ringCol);
@@ -549,7 +549,7 @@ enum LitHeroShader {
                 cometSpec = pow(sat(dot(nCoat, Hc)), 1400.0) * 14.0 * s.cometPower * step(0.0, dot(n, Lc));
             }
 
-            float3 emissive = albedo * float3(0.06 + s.bloom * 0.55, 0.0, 0.0) * (1.0 - inlay);
+            float3 emissive = albedo * float3(mix(0.015, 0.06, s.dark) + s.bloom * 0.55, 0.0, 0.0) * (1.0 - inlay);
             float3 diffuse = albedo * (float3(1.16, 1.11, 1.06) * direct * ringShade + ambient * mix(0.15, 0.90, inlay) + ringGlow * 0.50 + cometLight) + emissive;
 
             // The clear coat.
@@ -573,7 +573,7 @@ enum LitHeroShader {
 
             float rimSide = sat(dot(normalize(n.xy + float2(0.0001)), normalize(float2(0.72, 0.70))));
             float rim = pow(1.0 - n.z, 3.2) * rimSide * rimSide;
-            float3 rimLight = mix(float3(1.0, 0.56, 0.50), float3(0.36, 0.72, 0.86), s.dark) * rim * 0.95;
+            float3 rimLight = mix(float3(1.0, 0.62, 0.52) * 0.36, float3(0.36, 0.72, 0.86), s.dark) * rim * 0.95;
             float3 lit = diffuse * (1.0 - fresnel) + mirror * fresnel + rimLight * (1.0 - inlay * 0.5)
                        + float3(1.0, 0.95, 0.9) * cometSpec;
             sphereCol = toSRGB(aces(lit));

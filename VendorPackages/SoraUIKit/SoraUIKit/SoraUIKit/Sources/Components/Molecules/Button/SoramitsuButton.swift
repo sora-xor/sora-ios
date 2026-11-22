@@ -80,7 +80,7 @@ public final class SoramitsuButton: UIControl, Molecule {
         fatalError("init(coder:) has not been implemented")
     }
 
-    private let lacquer = LitLacquer()
+    private let glass = LitCutGlass()
     private var plate: LitPlateLayer?
 
     override public func layoutSubviews() {
@@ -93,12 +93,16 @@ public final class SoramitsuButton: UIControl, Molecule {
             guard isHighlighted != oldValue else { return }
             switch type {
             case .text: break
+            case .filled:
+                // Cut glass is set down on the surface: it moves a point and its light tightens under it.
+                LitMotion.press(self, pressed: isHighlighted, scale: 1)
+                setNeedsLayout()
             default: LitMotion.press(self, pressed: isHighlighted)
             }
         }
     }
 
-    /// Filled buttons are lacquer with a shadow of their own colour; surface-coloured ones are raised plates.
+    /// Filled buttons are cut glass of their own colour; surface-coloured ones are soft raised pads.
     private func applyMaterial() {
         let palette = sora.supportsPaletteMode ? sora.style.palette : LightPalette()
         var isFilled = false
@@ -106,14 +110,23 @@ public final class SoramitsuButton: UIControl, Molecule {
         var isPlate = false
         if case .bleached = type { isPlate = true }
         if case .bgSurface? = sora.explicitBackgroundColor { isPlate = true }
-        let radius = sora.style.radii.radius(sora.cornerRadius, size: bounds.size)
+        let requested = sora.style.radii.radius(sora.cornerRadius, size: bounds.size)
+        // Cut glass is a slab with small corners, whatever was asked for; a pad keeps the shape it was given
+        // (a PIN key is round).
+        let radius = isFilled && !isPlate ? Lit.controlRadius : requested
+        if isFilled, !isPlate {
+            layer.cornerRadius = min(radius, bounds.height / 2)
+            pressingView.layer.cornerRadius = layer.cornerRadius
+        }
         if isFilled, !isPlate, isEnabled {
-            if lacquer.layer.superlayer == nil { layer.insertSublayer(lacquer.layer, at: 0) }
+            if glass.layer.superlayer == nil { layer.insertSublayer(glass.layer, at: 0) }
             let base = palette.color(sora.explicitBackgroundColor ?? type.enabledBackgroundColor)
-            lacquer.layout(in: self, radius: radius, color: base)
+            glass.layout(in: self, radius: radius, color: base, pressed: isHighlighted)
+            // The glass is the face; the flat fill under it would show round its cut edge.
+            backgroundColor = .clear
             layer.masksToBounds = false
         } else {
-            lacquer.layer.removeFromSuperlayer()
+            glass.layer.removeFromSuperlayer()
             if !isPlate { layer.shadowOpacity = 0 }
         }
         if isPlate, isEnabled, bounds.height > 0 {
@@ -191,8 +204,8 @@ public final class SoramitsuButton: UIControl, Molecule {
 private extension SoramitsuButton {
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        layer.cornerRadius = size.height / 2
-        pressingView.layer.cornerRadius = size.height / 2
+        layer.cornerRadius = min(Lit.controlRadius, size.height / 2)
+        pressingView.layer.cornerRadius = layer.cornerRadius
         
         addSubview(pressingView)
         addSubview(stackView)

@@ -13,7 +13,10 @@ import XCTest
 /// Each screen is laid out in a window of an iPhone 17 (402 × 874) and of an iPhone SE (375 × 667), and
 /// the frame of every view in it is hashed. The hashes below were recorded on the commit before the
 /// folding-screen work (2a350001) with this same file, so a change that moves anything on a classic
-/// iPhone fails here. A failing test writes the frames it saw next to the hash, to compare by hand.
+/// iPhone fails here. The home and the PIN were recorded again with the white-and-red materials: the
+/// home's quick actions are pads (52 high where the domes' wells were 62) and its balance sheet has a
+/// backdrop under it; the PIN stands on a page of its own and its places hold 12-point beads.
+/// A failing test writes the frames it saw next to the hash, to compare by hand.
 @MainActor
 final class ClassicPhoneLayoutTests: XCTestCase {
     struct Phone {
@@ -29,20 +32,20 @@ final class ClassicPhoneLayoutTests: XCTestCase {
               insets: UIEdgeInsets(top: 20, left: 0, bottom: 0, right: 0))
     ]
 
-    /// Recorded on 2a350001 (iOS 26.5 simulator, English).
+    /// Recorded on 2a350001 (iOS 26.5 simulator, English); home and PIN with the white-and-red materials.
     static let recorded: [String: String] = [
-        "home-375x667": "1318ae0f60af7f8abb55724188d98b733c154a6a510611d9d9fcbf6910abbf1f",
-        "home-402x874": "e2ed03d05fdb1bd31c97e744fc6599a9be053397f415940bec0bc4250d2c450a",
+        "home-375x667": "e0b80376a54920e67f32af8ae8df8c90aa219f78ae00c1ca1cfd4bc74cb252c3",
+        "home-402x874": "9ccf9bfd5ab95c38ae1fcb5a62e3fdc776b3e3f92e09b3d538db920cceae5d23",
         "launch-375x667": "5ce85bf0039f243875f9b51c7597a3477d7278bc22f02a9383e230c2879a515c",
         "launch-402x874": "2ba0bfaed8d6755af6022315f30b8f1315e0b2583881b1e2d4b93063f42641fe",
         "phrase-hidden-375x667": "3de8be60c4111cda629dcfec347e922c5639403192af832bca38f8fc16b7cc11",
         "phrase-hidden-402x874": "1217647642becd60265769b645746a3161e23327b0a57b16f20cb55644734e5f",
         "phrase-shown-375x667": "b3177ab7dd972eccc5b519f5824977ccf889cab7708693fa1c5c83ea004f06dc",
         "phrase-shown-402x874": "2bd7552abf697e45b584543f4cc095a04fa1651c63905eb5406b902963276cc1",
-        "pin-entry-375x667": "cc4947d82c7d953e804f1658c2a2e62ebb65a5e5f70db624bccab507510417ee",
-        "pin-entry-402x874": "a191e0583587f4de230d6401a7d206036263dbbf992c12a3eece32b3d1963287",
-        "pin-unlock-key-375x667": "cc4947d82c7d953e804f1658c2a2e62ebb65a5e5f70db624bccab507510417ee",
-        "pin-unlock-key-402x874": "a191e0583587f4de230d6401a7d206036263dbbf992c12a3eece32b3d1963287",
+        "pin-entry-375x667": "84cc4bf050efaabd62c462c0840ae7809e5352a996f4c4eb4914e5348fa69d7e",
+        "pin-entry-402x874": "860169971f1584365427b7a30117dfcfc1b1d5fdb20e864f78154ed87675a848",
+        "pin-unlock-key-375x667": "84cc4bf050efaabd62c462c0840ae7809e5352a996f4c4eb4914e5348fa69d7e",
+        "pin-unlock-key-402x874": "860169971f1584365427b7a30117dfcfc1b1d5fdb20e864f78154ed87675a848",
         "raw-seed-375x667": "04f4955a810689eda431c3c02ea6e63c82ebfbc7d43090683748b5eafa45c1ee",
         "raw-seed-402x874": "c98494898e551525f0c6d35ab24808b8f0fffce80a53132d8464f65123c2fa14",
         "receive-375x667": "011401fb570d936b0243407b42c36da0ea1b282c90703eaa83f64bed51d72125",

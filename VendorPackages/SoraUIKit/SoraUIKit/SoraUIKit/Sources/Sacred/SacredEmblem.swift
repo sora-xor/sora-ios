@@ -10,8 +10,8 @@ public enum SacredInk {
     public static let nightGold = UIColor(litHex: 0xE2B45A)
 }
 
-/// The red disc with 天, drawn once per size. The home's ray-traced planet is the same ball; this is its
-/// picture for the places no shader runs: the launch flight and the PIN screen.
+/// The SORA mark: the red disc with 天 in white, as the logo is. Drawn once per size, for the launch flight
+/// and the PIN screen. The home's ray-traced ball carries the same mark.
 public enum SacredPlanet {
     private static let cache = NSCache<NSString, UIImage>()
 
@@ -25,33 +25,13 @@ public enum SacredPlanet {
         let size = CGSize(width: side, height: side)
         let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
             let canvas = context.cgContext
-            let radius = side / 2
-            let centre = CGPoint(x: radius, y: radius)
-            let space = CGColorSpaceCreateDeviceRGB()
             canvas.addEllipse(in: CGRect(origin: .zero, size: size))
             canvas.clip()
-            // Lit from the top left, as everything in the wallet is.
-            let lit = CGPoint(x: centre.x + Lit.keyX * radius * 0.6, y: centre.y + Lit.keyY * radius * 0.58)
-            let bodyColours = [UIColor(litHex: 0xFF6E68).cgColor, Lit.lacquerRed.cgColor, UIColor(litHex: 0x8C0817).cgColor]
-            if let body = CGGradient(colorsSpace: space, colors: bodyColours as CFArray, locations: [0, 0.45, 1]) {
-                canvas.drawRadialGradient(body, startCenter: lit, startRadius: 0, endCenter: centre,
-                                          endRadius: radius * 1.15, options: [.drawsAfterEndLocation])
-            }
+            canvas.setFillColor(Lit.brandRed.cgColor)
+            canvas.fill(CGRect(origin: .zero, size: size))
             canvas.addPath(PortfolioLitMark.path(side: side))
             canvas.setFillColor(UIColor.white.cgColor)
             canvas.fillPath()
-            // The window, mirrored in the clear coat over the inlay.
-            let glossColours = [UIColor(white: 1, alpha: 0.40).cgColor, UIColor(white: 1, alpha: 0).cgColor]
-            if let gloss = CGGradient(colorsSpace: space, colors: glossColours as CFArray, locations: [0, 1]) {
-                let spot = CGPoint(x: centre.x + Lit.keyX * radius * 0.64, y: centre.y + Lit.keyY * radius * 0.62)
-                canvas.drawRadialGradient(gloss, startCenter: spot, startRadius: 0, endCenter: spot,
-                                          endRadius: radius * 0.6, options: [])
-            }
-            let rimColours = [UIColor(litHex: 0x4A0410, alpha: 0).cgColor, UIColor(litHex: 0x4A0410, alpha: 0.30).cgColor]
-            if let rim = CGGradient(colorsSpace: space, colors: rimColours as CFArray, locations: [0.8, 1]) {
-                canvas.drawRadialGradient(rim, startCenter: centre, startRadius: 0, endCenter: centre,
-                                          endRadius: radius, options: [])
-            }
         }
         cache.setObject(image, forKey: key)
         return image
@@ -63,7 +43,7 @@ public enum SacredPlanet {
         glow.type = .radial
         glow.startPoint = CGPoint(x: 0.5, y: 0.5)
         glow.endPoint = CGPoint(x: 1, y: 1)
-        glow.colors = [Lit.lacquerRed.withAlphaComponent(0).cgColor, Lit.lacquerRed.withAlphaComponent(0.26).cgColor,
+        glow.colors = [Lit.lacquerRed.withAlphaComponent(0).cgColor, Lit.lacquerRed.withAlphaComponent(0.12).cgColor,
                        Lit.lacquerRed.withAlphaComponent(0).cgColor]
         glow.locations = [0.38, 0.44, 1]
         let side = planetRadius * 4.2

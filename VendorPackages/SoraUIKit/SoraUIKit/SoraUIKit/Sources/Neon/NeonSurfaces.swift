@@ -1,7 +1,7 @@
 import UIKit
 
-/// A raised porcelain plate (`LitPlateLayer`): its shadows on the page, a face turned to the light and a
-/// rounded lit edge. Baked and stretched, so it is safe in lists.
+/// A sheet of frosted glass, or a soft raised pad when it is small (`LitPlateLayer`). Baked and stretched, so
+/// it is safe in lists. `blursBackdrop` blurs what passes behind it: for the few sheets something really does.
 ///
 /// Put content in `contentView`.
 public final class GlassView: UIView {
@@ -26,8 +26,11 @@ public final class GlassView: UIView {
     public var border: Border = .glass { didSet { apply() } }
     public var fill: Fill = .glass { didSet { apply() } }
 
-    /// The plate behind the content, for its bounce light, sheen and shadow sizes.
+    /// The sheet behind the content, for its bounce light, sheen and shadow sizes.
     public let plate = LitPlateLayer()
+    /// Blurs what is behind the sheet. Costs a live pass, so only where something moves behind the glass.
+    public var blursBackdrop = false { didSet { if oldValue != blursBackdrop { applyBackdrop() } } }
+    private var backdrop: UIVisualEffectView?
     /// How high the plate stands; by default from its shape.
     public var elevation: CGFloat? { didSet { setNeedsLayout() } }
     private var observers: [NSObjectProtocol] = []
@@ -60,16 +63,35 @@ public final class GlassView: UIView {
         observers.forEach(NotificationCenter.default.removeObserver)
     }
 
-    /// Kept for callers that restyle on a theme change: the plate's look follows only its shape.
+    /// Kept for callers that restyle on a theme change: the sheet's look follows only its shape.
     public func apply() {
+        setNeedsLayout()
+    }
+
+    private func applyBackdrop() {
+        if blursBackdrop, backdrop == nil {
+            let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialLight))
+            blur.isUserInteractionEnabled = false
+            blur.clipsToBounds = true
+            // Under the sheet's milk and edge, over nothing of its own.
+            blur.layer.zPosition = -2
+            plate.zPosition = -1
+            insertSubview(blur, at: 0)
+            backdrop = blur
+        } else if !blursBackdrop {
+            backdrop?.removeFromSuperview()
+            backdrop = nil
+            plate.zPosition = 0
+        }
+        plate.isOverBackdrop = blursBackdrop
         setNeedsLayout()
     }
 
     private var plateRadius: CGFloat {
         switch shape {
-        case let .rounded(radius): return min(radius, min(bounds.width, bounds.height) / 2)
+        case let .rounded(radius): return min(min(radius, Lit.sheetRadius), min(bounds.width, bounds.height) / 2)
         case .capsule: return min(bounds.width, bounds.height) / 2
-        case let .chamfer(radius, _): return min(radius, min(bounds.width, bounds.height) / 2)
+        case let .chamfer(radius, _): return min(min(radius, Lit.sheetRadius), min(bounds.width, bounds.height) / 2)
         }
     }
 
@@ -87,7 +109,10 @@ public final class GlassView: UIView {
             plate.elevation = bounds.height < 80 ? 9 : 16
         }
         plate.frame = bounds
+        backdrop?.frame = bounds
+        backdrop?.layer.cornerRadius = plateRadius
         CATransaction.commit()
+        LitParallax.attach(to: self, depth: bounds.height < 80 ? 2 : 4)
     }
 }
 

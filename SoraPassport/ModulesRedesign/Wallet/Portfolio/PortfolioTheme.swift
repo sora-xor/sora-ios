@@ -12,16 +12,16 @@ enum PortfolioTheme {
     static var tokens: NeonTokens { NeonTokens.current }
     static var isDark: Bool { SoramitsuUI.shared.theme == .dark }
 
-    // MARK: Chart slots (validated for colour-blind separation; colour follows the entity)
+    // MARK: Chart slots (red to ink: told apart by lightness, so they hold for colour-blind eyes; colour follows the entity)
 
     static let slotColors: [UIColor] = [
-        UIColor(portfolioHex: 0xFF009A),
-        UIColor(portfolioHex: 0x4693F1),
-        UIColor(portfolioHex: 0xA97416),
-        UIColor(portfolioHex: 0x8B5CFF),
-        UIColor(portfolioHex: 0x3CA694)
+        UIColor(portfolioHex: 0xDA2530),
+        UIColor(portfolioHex: 0x3A3836),
+        UIColor(portfolioHex: 0xEE8A84),
+        UIColor(portfolioHex: 0x86131B),
+        UIColor(portfolioHex: 0xB9B2A6)
     ]
-    static let otherColor = UIColor(portfolioHex: 0x6F7280)
+    static let otherColor = UIColor(portfolioHex: 0x8A847A)
 
     static func color(for slot: PortfolioSlot) -> UIColor {
         switch slot {
@@ -32,15 +32,15 @@ enum PortfolioTheme {
 
     // MARK: Brand
 
-    /// The Polkaswap flower's own fill (the asset catalogue vector). The mark is never recoloured.
-    static let flowerPink = UIColor(portfolioHex: 0xFF0066)
+    /// The Polkaswap flower's fill wherever the app draws the mark itself: the app's red, as every control is.
+    static let flowerPink = Lit.lacquerText
 
     /// SORA's red (the logo and the XOR icon) and the shading of the hero's planet.
     static let soraRed = UIColor(portfolioHex: 0xE3232C)
-    static let soraLight = UIColor(portfolioHex: 0xFF6B6E)
-    static let soraDeep = UIColor(portfolioHex: 0xA8101F)
-    static let soraEdge = UIColor(portfolioHex: 0x6E0712)
-    static let soraGlow = UIColor(portfolioHex: 0xFF2D3D)
+    static let soraLight = UIColor(portfolioHex: 0xF2403F)
+    static let soraDeep = UIColor(portfolioHex: 0x9E1620)
+    static let soraEdge = UIColor(portfolioHex: 0x5E0A10)
+    static let soraGlow = UIColor(portfolioHex: 0xF2403F)
 
     // MARK: Sky
 
@@ -51,33 +51,23 @@ enum PortfolioTheme {
         if isDark {
             return [UIColor(portfolioHex: 0x08070F).cgColor, UIColor(portfolioHex: 0x1A0A14).cgColor, fade]
         }
-        return [UIColor(portfolioHex: 0xFFF9F7).cgColor, UIColor(portfolioHex: 0xFFE8E5).cgColor, fade]
+        return [UIColor.white.withAlphaComponent(0.30).cgColor, UIColor.white.withAlphaComponent(0.10).cgColor, fade]
     }
 
     static let skyLocations: [NSNumber] = [0, 0.72, 1]
 
     /// The halo behind the planet.
-    static var glowColor: UIColor { soraGlow.withAlphaComponent(isDark ? 0.5 : 0.22) }
+    static var glowColor: UIColor { soraGlow.withAlphaComponent(isDark ? 0.5 : 0.12) }
 
-    static var hazeViolet: UIColor { UIColor(portfolioHex: 0x6C3BFF, alpha: isDark ? 0.16 : 0.05) }
-    static var hazeCyan: UIColor { UIColor(portfolioHex: 0x22D3EE, alpha: isDark ? 0.10 : 0.05) }
+    static var hazeViolet: UIColor { UIColor(portfolioHex: 0x6C3BFF, alpha: isDark ? 0.16 : 0) }
+    static var hazeCyan: UIColor { UIColor(portfolioHex: 0x22D3EE, alpha: isDark ? 0.10 : 0) }
     static var starColor: UIColor { UIColor(portfolioHex: 0xFFE9E4) }
     /// The planet's rim on its shadow side.
     static var rimColor: UIColor { isDark ? UIColor(portfolioHex: 0x8AF3FF) : UIColor.white.withAlphaComponent(0.85) }
     /// Orbit lines and the empty band.
     static var ringLine: UIColor { isDark ? .white : UIColor(portfolioHex: 0x3A0B14) }
 
-    /// A quick action's disc, lit to deep, in the hero's colours.
-    static func actionColors(_ action: PortfolioQuickAction) -> (lit: UIColor, deep: UIColor) {
-        switch action {
-        case .send: return (UIColor(portfolioHex: 0xFF5A63), UIColor(portfolioHex: 0xC8102E))
-        case .receive: return (UIColor(portfolioHex: 0x5AA8FF), UIColor(portfolioHex: 0x1F5FD6))
-        case .move: return (UIColor(portfolioHex: 0xA57BFF), UIColor(portfolioHex: 0x5B2FD1))
-        case .swap: return (UIColor(portfolioHex: 0xFF4F96), UIColor(portfolioHex: 0xD6005A))
-        }
-    }
-
-    /// The floor of a well that means something: mostly porcelain, a breath of the colour.
+    /// The floor of a well that means something: mostly white, a breath of the colour.
     static func tintedFloor(_ color: UIColor) -> UIColor {
         Lit.wellFloor.blended(with: .white, 0.42).blended(with: color, 0.09)
     }

@@ -94,8 +94,6 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         setupViews()
         parallax.onRender = { [weak self] x, y in
             self?.sky.setTilt(x: x, y: y)
-            // The same light falls on every plate.
-            LitLightRig.shared.set(x: x, y: y)
         }
         SoramitsuUI.updates.addObserver(self)
     }
@@ -112,8 +110,9 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         card.shape = .rounded(26)
         card.fill = .strong
         card.elevation = 18
-        // The ring passes just above this plate; the planet's red falls on its top edge.
-        card.plate.haloStrength = 0.45
+        // The ball and its ring pass behind this sheet's top edge and show through the glass; the ball's red
+        // falls on it.
+        card.blursBackdrop = true
         card.plate.setShowsSheen(true)
         card.plate.setBounce(color: PortfolioTheme.soraGlow, centerX: 0.5, strength: 0.9)
 
@@ -283,11 +282,11 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         let wholeFont = PortfolioTheme.font(FontType.displayHero, .largeTitle, maximum: 64)
         let fractionFont = PortfolioTheme.font(FontType.displayHero, size: 26, .title2)
         let primary = model.isDimmed ? tokens.textSecondary : tokens.textPrimary
-        // Pressed into the plate; digits of one width, so only the ones that change move.
-        let total = NSMutableAttributedString(attributedString: .letterpress(model.totalWhole, attributes: [
+        // Digits of one width, so only the ones that change move.
+        let total = NSMutableAttributedString(string: model.totalWhole, attributes: [
             .font: wholeFont.litTabularDigits, .foregroundColor: primary, .kern: -0.5
-        ]))
-        total.append(.letterpress(model.totalFraction, attributes: [
+        ])
+        total.append(NSAttributedString(string: model.totalFraction, attributes: [
             .font: fractionFont.litTabularDigits, .foregroundColor: tokens.textSecondary
         ]))
         LitRoller.setText(total, on: totalLabel, animated: animated, rollsUp: model.direction != .down)
@@ -491,15 +490,14 @@ final class PortfolioScopeButton: UIControl {
     }
 }
 
-/// The app's primary call to action: a lacquered capsule.
+/// The app's primary call to action: a slab of cut red glass.
 final class PortfolioPrimaryButton: UIControl {
     enum Style {
         case primary
         case swap
     }
 
-    private let gradient = NeonGradientView()
-    private let lacquer = LitLacquer()
+    private let glass = LitCutGlass()
     private let label = UILabel.portfolio(FontType.buttonM, .headline, maximum: 28)
     private let glyph = UIImageView()
     private let content = UIStackView()
@@ -511,17 +509,13 @@ final class PortfolioPrimaryButton: UIControl {
         self.style = style
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        gradient.translatesAutoresizingMaskIntoConstraints = false
-        gradient.clipsToBounds = true
-        gradient.isUserInteractionEnabled = false
-        addSubview(gradient)
-        layer.insertSublayer(lacquer.layer, above: gradient.layer)
+        layer.insertSublayer(glass.layer, at: 0)
         content.axis = .horizontal
         content.spacing = 8
         content.alignment = .center
         content.isUserInteractionEnabled = false
         content.translatesAutoresizingMaskIntoConstraints = false
-        glyph.image = PortfolioGlyphs.flowerImage(size: 20, color: .white)
+        glyph.image = PortfolioGlyphs.flowerImage(size: 20, color: Lit.inlay)
         glyph.isHidden = !showsFlower
         content.addArrangedSubview(glyph)
         content.addArrangedSubview(label)
@@ -535,10 +529,6 @@ final class PortfolioPrimaryButton: UIControl {
         minimumHeight.priority = UILayoutPriority(999)
         verticalInset.priority = UILayoutPriority(999)
         NSLayoutConstraint.activate([
-            gradient.leadingAnchor.constraint(equalTo: leadingAnchor),
-            gradient.trailingAnchor.constraint(equalTo: trailingAnchor),
-            gradient.topAnchor.constraint(equalTo: topAnchor),
-            gradient.bottomAnchor.constraint(equalTo: bottomAnchor),
             minimumHeight,
             content.centerXAnchor.constraint(equalTo: centerXAnchor),
             content.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -563,10 +553,9 @@ final class PortfolioPrimaryButton: UIControl {
     }
 
     func applyTheme() {
-        let tokens = PortfolioTheme.tokens
-        gradient.apply(style == .swap ? tokens.ctaSwap : tokens.ctaPrimary)
-        label.textColor = .white
+        label.textColor = Lit.inlay
         alpha = isEnabled ? 1 : 0.45
+        setNeedsLayout()
     }
 
     override var isEnabled: Bool {
@@ -577,15 +566,20 @@ final class PortfolioPrimaryButton: UIControl {
     }
 
     override var isHighlighted: Bool {
-        didSet { if isHighlighted != oldValue { LitMotion.press(self, pressed: isHighlighted) } }
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            // Set down on the sheet: it moves a point and its light tightens under it.
+            LitMotion.press(self, pressed: isHighlighted, scale: 1)
+            setNeedsLayout()
+        }
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        gradient.layer.cornerRadius = bounds.height / 2
         let tokens = PortfolioTheme.tokens
-        lacquer.layout(in: self, radius: bounds.height / 2,
-                       color: (style == .swap ? tokens.ctaSwap : tokens.ctaPrimary).colors.last)
+        glass.layout(in: self, radius: Lit.controlRadius,
+                     color: (style == .swap ? tokens.ctaSwap : tokens.ctaPrimary).colors.first ?? Lit.lacquerRed,
+                     pressed: isHighlighted)
     }
 
     @objc private func tapped() { handler() }

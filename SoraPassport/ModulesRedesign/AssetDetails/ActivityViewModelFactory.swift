@@ -211,7 +211,7 @@ private extension ActivityViewModelFactory {
         return ActivityContentViewModel(txHash: swap.base.txHash,
                                         title: R.string.localizable.polkaswapSwapped(preferredLanguages: .currentLocale),
                                         subtitle: subtitle,
-                                        typeTransactionImage: R.image.wallet.polkaswap(),
+                                        typeTransactionImage: PortfolioGlyphs.polkaswapMark,
                                         firstAssetImageViewModel: RemoteSerializer.shared.image(with: fromAssetInfo?.icon ?? ""),
                                         secondAssetImageViewModel: RemoteSerializer.shared.image(with: toAssetInfo?.icon ?? ""),
                                         firstBalanceText: balanceText,

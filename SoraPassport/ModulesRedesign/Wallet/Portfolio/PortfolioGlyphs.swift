@@ -154,6 +154,11 @@ enum PortfolioGlyphs {
         }
     }
 
+    /// The Polkaswap flower from the asset catalogue in the app's red, drawn as it is (never as a template).
+    static var polkaswapMark: UIImage? {
+        R.image.wallet.polkaswap()?.tinted(with: PortfolioTheme.flowerPink)?.withRenderingMode(.alwaysOriginal)
+    }
+
     /// The flower as an image, for buttons, chips and nodes.
     static func flowerImage(size: CGFloat, color: UIColor = PortfolioTheme.flowerPink) -> UIImage {
         let rect = CGRect(x: 0, y: 0, width: size, height: size)

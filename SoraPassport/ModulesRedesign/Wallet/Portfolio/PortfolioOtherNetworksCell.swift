@@ -194,7 +194,7 @@ final class PortfolioNetworkAssetRowView: UIControl {
         switch row.tag {
         case .testnet:
             tagLabel.text = row.tag?.title
-            tagLabel.textColor = .systemOrange
+            tagLabel.textColor = PortfolioTheme.warning
         case .comingSoon:
             tagLabel.text = row.tag?.title
             tagLabel.textColor = PortfolioTheme.textSecondary

@@ -2629,11 +2629,14 @@ final class SoraNeonDesignTests: XCTestCase {
 
     /// The 3.8.6 palettes had no skeleton or Polkaswap-text slots, so those
     /// fell back to black: loading rows were black bars and pool titles black.
-    func testLoadingRowsAndPolkaswapTextUseClassicColours() {
+    /// Polkaswap's controls and text are the app's red, as every control is.
+    func testLoadingRowsAndPolkaswapTextHaveTheirOwnColours() {
         let palette = SoramitsuUI.shared.theme.palette
-        XCTAssertEqual(palette.color(.skeletonBase), Colors.brown10)
+        XCTAssertEqual(palette.color(.skeletonBase), Lit.wellFloor)
         XCTAssertEqual(palette.color(.skeletonHighlight), Colors.white100.withAlphaComponent(0.7))
-        XCTAssertEqual(palette.color(.additionalPolkaswapText), palette.color(.additionalPolkaswap))
+        XCTAssertEqual(palette.color(.additionalPolkaswap), palette.color(.accentPrimary))
+        XCTAssertEqual(palette.color(.additionalPolkaswapText), Lit.lacquerText)
+        XCTAssertGreaterThanOrEqual(WalletUX.contrast(palette.color(.additionalPolkaswapText), palette.color(.bgSurface)), 4.5)
     }
 
     /// The classic CTA is a solid SORA red fill. A background the caller
@@ -2687,7 +2690,7 @@ final class SoraNeonDesignTests: XCTestCase {
         card.bounds = CGRect(x: 0, y: 0, width: 300, height: 200)
         XCTAssertEqual(card.backgroundColor, SoramitsuThemeType.light.palette.color(.bgSurface))
         XCTAssertEqual(card.layer.borderWidth, 0)
-        XCTAssertEqual(card.layer.cornerRadius, 32)
+        XCTAssertEqual(card.layer.cornerRadius, 18)
         let outlined = SoramitsuView()
         outlined.sora.backgroundColor = .bgSurface
         outlined.sora.cornerRadius = .max
@@ -2860,9 +2863,9 @@ final class SoraNeonDesignTests: XCTestCase {
         controller.loadViewIfNeeded()
         let bar = try XCTUnwrap(controller.tabBar as? TabBar)
         XCTAssertEqual(bar.drawsLegacyChrome, !NeonChrome.usesLiquidGlass)
-        // The classic disc: a white ceramic dome behind the Polkaswap mark in its own colours.
+        // The classic disc: cut red glass with the Polkaswap flower inlaid in white.
         XCTAssertEqual(bar.middleButton.backgroundColor, .clear)
-        XCTAssertTrue(bar.middleButton.subviews.contains { $0 is LitCabochonView })
+        XCTAssertTrue(bar.middleButton.subviews.contains { $0 is LitCutGlassView })
         XCTAssertEqual(bar.tintColor, SoramitsuUI.shared.theme.palette.color(.accentPrimary))
 
         // Fallback: the disc moves as a whole.
@@ -3056,9 +3059,9 @@ final class SoraNeonDesignTests: XCTestCase {
         welcome.decorate(label: welcome.termsLabel)
         let attributes = try XCTUnwrap(welcome.termsLabel.linkAttributes)
         XCTAssertEqual(attributes[.foregroundColor] as? UIColor, tokens.link)
-        XCTAssertEqual(tokens.link, SoramitsuThemeType.light.palette.color(.accentPrimary))
+        XCTAssertEqual(tokens.link, Lit.lacquerText, "the red as ink: a tone deeper than the red of fills, so it reads as text")
         XCTAssertEqual(attributes[.underlineStyle] as? Int, NSUnderlineStyle.single.rawValue)
-        XCTAssertGreaterThanOrEqual(WalletUX.contrast(tokens.link, tokens.surface), 3)
+        XCTAssertGreaterThanOrEqual(WalletUX.contrast(tokens.link, tokens.surface), 4.5)
         let text = try XCTUnwrap(welcome.termsLabel.attributedText)
         XCTAssertEqual(text.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor, tokens.textSecondary)
     }

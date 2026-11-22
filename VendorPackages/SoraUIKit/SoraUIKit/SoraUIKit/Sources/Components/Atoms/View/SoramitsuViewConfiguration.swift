@@ -15,7 +15,9 @@ public class SoramitsuViewConfiguration<Type: Element & UIView>: SoramitsuConfig
         }
     }
 
-    /// A rounded, unclipped surface-coloured view is a card: it stands on a porcelain plate.
+    /// A rounded, unclipped surface-coloured view is a card: a sheet of frosted glass if it is large, a soft
+    /// raised pad if it is small. It floats a little nearer the eye than the page, so it moves a little when
+    /// the phone tilts.
     private var plate: LitPlateLayer?
 
     func updatePlate() {
@@ -23,7 +25,7 @@ public class SoramitsuViewConfiguration<Type: Element & UIView>: SoramitsuConfig
         var isSurface = false
         if case .bgSurface = backgroundColor { isSurface = true }
         let radius = owner.layer.cornerRadius
-        guard isSurface, material != .solid, !clipsToBounds, radius >= 12, !(owner is UIControl) else {
+        guard isSurface, material != .solid, !clipsToBounds, radius >= 10, !(owner is UIControl) else {
             plate?.removeFromSuperlayer()
             plate = nil
             return
@@ -40,6 +42,7 @@ public class SoramitsuViewConfiguration<Type: Element & UIView>: SoramitsuConfig
         target.frame = owner.bounds
         CATransaction.commit()
         owner.layer.shadowOpacity = 0
+        LitParallax.attach(to: owner, depth: owner.bounds.height < 80 ? 2 : 4)
     }
 
     /// True while the stored background is re-applied (theme change, owner
@@ -215,7 +218,7 @@ public class SoramitsuViewConfiguration<Type: Element & UIView>: SoramitsuConfig
     }
 }
 
-/// `.solid` keeps a surface-coloured view flat; otherwise a rounded, unclipped one stands on a plate.
+/// `.solid` keeps a surface-coloured view flat; otherwise a rounded, unclipped one is glass or a pad.
 public enum SoramitsuSurfaceMaterial {
     case automatic
     case solid

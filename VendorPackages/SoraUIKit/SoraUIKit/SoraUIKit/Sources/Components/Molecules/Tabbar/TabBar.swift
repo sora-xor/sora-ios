@@ -94,7 +94,7 @@ public class TabBar: UITabBar {
         shapeLayer.strokeColor = UIColor.clear.cgColor
         shapeLayer.fillColor = SoramitsuUI.shared.theme.palette.color(.bgSurface).cgColor
         shapeLayer.lineWidth = 0
-        // A porcelain slab standing above the page: its shadow falls up over the page behind.
+        // A sheet of glass standing above the page: its shadow falls up over the page behind.
         shapeLayer.shadowPath = shapeLayer.path
         shapeLayer.shadowColor = UIColor(litHex: 0x6B4A40).cgColor
         shapeLayer.shadowOpacity = 0.26

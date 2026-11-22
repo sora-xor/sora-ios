@@ -67,7 +67,7 @@ enum PortfolioRing {
 }
 
 /// The hero sky: the SORA planet with the allocation ring round it, ray traced in `LitHeroView` over the
-/// porcelain page they light. The ring is the chart: 3.6 degrees of band per ray (one ray per percent of
+/// white page they light. The ring is the chart: 3.6 degrees of band per ray (one ray per percent of
 /// the counted value), coloured by the entity's slot, its back half passing behind the planet. A light
 /// runs round it while the sky is on screen, faster while balances are being read. Where Metal cannot be
 /// set up, plain layers draw the same scene. Decorative for accessibility; the legend chips are the real

@@ -211,7 +211,7 @@ final class SwapDisclaimerCell: SoramitsuTableViewCell {
     func decorate(label: NantesLabel) {
         label.delegate = self
         label.linkAttributes = [
-            NSAttributedString.Key.foregroundColor: R.color.brandPolkaswapPink()!
+            NSAttributedString.Key.foregroundColor: Lit.lacquerText
         ]
         var text = label.text ?? ""
         let links: [(URL, NSRange)] = linkDecorator.links(inText: &text)

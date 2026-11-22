@@ -435,8 +435,8 @@ final class WalletNeonButton: UIButton {
         }
     }
     private var glowSpec: GlowSpec?
-    /// The lacquer's own colour on the plate below it.
-    private var lacquerShadow: UIColor?
+    /// Whether the button is cut glass, which touches the surface along its far edge.
+    private var castsContactShadow = false
     /// MINIMAL tier: a ring in the glow colour instead of the glow.
     private var ring: NeonRingLayer?
 
@@ -444,7 +444,7 @@ final class WalletNeonButton: UIButton {
         neonStyle = style
         super.init(frame: .zero)
         var configuration: UIButton.Configuration = style == .tertiary ? .plain() : .filled()
-        configuration.cornerStyle = .capsule
+        configuration.cornerStyle = .fixed
         configuration.titleAlignment = .center
         configuration.contentInsets = NSDirectionalEdgeInsets(top: 15, leading: 20, bottom: 15, trailing: 20)
         configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
@@ -475,14 +475,16 @@ final class WalletNeonButton: UIButton {
         let fx = FxPolicy.current
         var background = configuration.background
         background.customView = nil
+        background.cornerRadius = Lit.controlRadius
         background.strokeWidth = 0
         background.strokeColor = nil
         glowSpec = nil
         switch neonStyle {
         case .primary, .safe:
             if isEnabled {
-                let fill = LitLacquerFill()
+                let fill = LitCutGlassFill()
                 fill.apply(neonStyle == .safe ? tokens.ctaSafe : tokens.ctaPrimary)
+                fill.isPressed = isHighlighted
                 background.customView = fill
                 background.backgroundColor = .clear
                 configuration.baseBackgroundColor = .clear
@@ -506,10 +508,9 @@ final class WalletNeonButton: UIButton {
         }
         configuration.background = background
         self.configuration = configuration
-        lacquerShadow = isEnabled && (neonStyle == .primary || neonStyle == .safe)
-            ? (neonStyle == .safe ? tokens.ctaSafe : tokens.ctaPrimary).colors.last : nil
+        castsContactShadow = isEnabled && (neonStyle == .primary || neonStyle == .safe)
         applyGlow(fx: fx)
-        updateLacquerShadow()
+        updateContactShadow()
         if !fx.reduceMotion, neonStyle != .tertiary {
             let scale: CGFloat = isHighlighted ? 0.98 : 1
             UIView.animate(withDuration: isHighlighted ? NeonMotion.press : NeonMotion.fast, delay: 0,
@@ -519,16 +520,16 @@ final class WalletNeonButton: UIButton {
         }
     }
 
-    private func updateLacquerShadow() {
-        guard let lacquerShadow, bounds.height > 0 else {
+    private func updateContactShadow() {
+        guard castsContactShadow, bounds.height > 0 else {
             layer.shadowOpacity = 0
             return
         }
-        layer.shadowColor = lacquerShadow.cgColor
-        layer.shadowOpacity = isHighlighted ? 0.22 : 0.42
-        layer.shadowRadius = isHighlighted ? 4 : 8
-        layer.shadowOffset = isHighlighted ? CGSize(width: 1, height: 2) : CGSize(width: 2.5, height: 5)
-        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: bounds.height / 2).cgPath
+        layer.shadowColor = UIColor(litHex: 0x33140D).cgColor
+        layer.shadowOpacity = isHighlighted ? 0.20 : 0.30
+        layer.shadowRadius = isHighlighted ? 1.2 : 2.5
+        layer.shadowOffset = isHighlighted ? CGSize(width: 0.3, height: 0.7) : CGSize(width: 0.7, height: 1.6)
+        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: Lit.controlRadius).cgPath
     }
 
     /// The classic design draws no glow at any tier.
@@ -540,11 +541,8 @@ final class WalletNeonButton: UIButton {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        updateLacquerShadow()
-        if layer.shadowOpacity > 0 {
-            layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: bounds.height / 2).cgPath
-        }
-        ring?.layout(around: bounds, cornerRadius: bounds.height / 2)
+        updateContactShadow()
+        ring?.layout(around: bounds, cornerRadius: Lit.controlRadius)
     }
 
     /// Whether the button sits in a cell is only known once it is in a window.

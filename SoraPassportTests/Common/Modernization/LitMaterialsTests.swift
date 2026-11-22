@@ -4,7 +4,7 @@ import UIKit
 import XCTest
 @testable import SoraPassport
 
-/// The lit materials: which surfaces get a plate, that their baked images exist and stay readable, that the
+/// The materials: which surfaces are glass or pads, that their baked images exist and stay readable, that the
 /// ray-traced hero builds its shader, and the motion that must keep the numbers true.
 @MainActor
 final class LitMaterialsTests: XCTestCase {
@@ -24,8 +24,9 @@ final class LitMaterialsTests: XCTestCase {
         let plate = try XCTUnwrap(plates(in: card).first)
         XCTAssertTrue(card.layer.sublayers?.first === plate, "behind all the card's content")
         XCTAssertEqual(plate.frame, card.bounds)
-        XCTAssertEqual(plate.cornerRadiusValue, 32)
-        XCTAssertEqual(card.layer.shadowOpacity, 0, "the plate's own shadows replace the classic one")
+        XCTAssertEqual(plate.cornerRadiusValue, 18)
+        XCTAssertEqual(card.layer.shadowOpacity, 0, "the sheet's own shadows replace the classic one")
+        XCTAssertFalse(card.motionEffects.isEmpty, "a sheet floats nearer the eye: it moves when the phone tilts")
     }
 
     func testPlatesFollowTheSurfaceSize() throws {
@@ -34,10 +35,10 @@ final class LitMaterialsTests: XCTestCase {
         card.sora.cornerRadius = .max
         card.sora.clipsToBounds = false
         card.bounds = CGRect(x: 0, y: 0, width: 300, height: 200)
-        card.bounds = CGRect(x: 0, y: 0, width: 200, height: 40)
+        card.bounds = CGRect(x: 0, y: 0, width: 200, height: 30)
         let plate = try XCTUnwrap(plates(in: card).first)
-        XCTAssertEqual(plate.frame.size, CGSize(width: 200, height: 40))
-        XCTAssertEqual(plate.cornerRadiusValue, 20, "never rounder than a capsule")
+        XCTAssertEqual(plate.frame.size, CGSize(width: 200, height: 30))
+        XCTAssertEqual(plate.cornerRadiusValue, 15, "never rounder than a capsule")
         XCTAssertEqual(plate.elevation, 9, "small things stand lower")
     }
 
@@ -94,8 +95,14 @@ final class LitMaterialsTests: XCTestCase {
         card.shape = .rounded(24)
         card.bounds = CGRect(x: 0, y: 0, width: 300, height: 200)
         card.layoutIfNeeded()
-        XCTAssertEqual(card.plate.cornerRadiusValue, 24)
+        XCTAssertEqual(card.plate.cornerRadiusValue, Lit.sheetRadius, "a sheet of glass keeps small corners")
         XCTAssertEqual(card.plate.elevation, 16)
+        XCTAssertFalse(card.plate.isOverBackdrop)
+        card.blursBackdrop = true
+        XCTAssertTrue(card.plate.isOverBackdrop, "glass over something live thins its milk")
+        XCTAssertTrue(card.subviews.contains { $0 is UIVisualEffectView })
+        card.blursBackdrop = false
+        XCTAssertFalse(card.subviews.contains { $0 is UIVisualEffectView })
 
         card.elevation = 18
         card.layoutIfNeeded()
@@ -104,21 +111,24 @@ final class LitMaterialsTests: XCTestCase {
 
     // MARK: Buttons
 
-    func testFilledButtonsAreLacquerAndSurfaceButtonsArePlates() throws {
+    func testFilledButtonsAreCutGlassAndSurfaceButtonsArePads() throws {
         let filled = SoramitsuButton()
         filled.widthAnchor.constraint(equalToConstant: 200).isActive = true
         filled.layoutIfNeeded()
-        XCTAssertGreaterThan(filled.layer.shadowOpacity, 0, "its own colour on the plate below it")
         XCTAssertFalse(filled.layer.masksToBounds)
         XCTAssertTrue(plates(in: filled).isEmpty)
-        XCTAssertEqual(filled.layer.shadowColor, SoramitsuThemeType.light.palette.color(.accentPrimary).cgColor)
+        let glass = try XCTUnwrap(filled.layer.sublayers?.first, "the cut glass is the button's face, under its content")
+        XCTAssertNotNil(glass.contents)
+        XCTAssertGreaterThan(glass.frame.width, filled.bounds.width, "its shadow and the light it throws lie round it")
+        XCTAssertEqual(filled.backgroundColor, .clear, "no flat fill showing round the cut edge")
+        XCTAssertEqual(filled.layer.cornerRadius, Lit.controlRadius)
 
         let key = SoramitsuButton()
         key.sora.backgroundColor = .bgSurface
         key.sora.cornerRadius = .circle
         key.widthAnchor.constraint(equalToConstant: 200).isActive = true
         key.layoutIfNeeded()
-        let plate = try XCTUnwrap(plates(in: key).first, "a surface-coloured button, like a PIN key, stands on a plate")
+        let plate = try XCTUnwrap(plates(in: key).first, "a surface-coloured button, like a PIN key, is a soft raised pad")
         XCTAssertEqual(plate.cornerRadiusValue, 28, "a capsule of the button's own height")
         XCTAssertEqual(key.layer.shadowOpacity, 0)
 
@@ -129,39 +139,50 @@ final class LitMaterialsTests: XCTestCase {
         XCTAssertEqual(text.layer.shadowOpacity, 0)
     }
 
-    func testADisabledFilledButtonLosesItsLacquer() {
+    func testADisabledFilledButtonLosesItsGlass() {
         let button = SoramitsuButton()
         button.widthAnchor.constraint(equalToConstant: 200).isActive = true
         button.layoutIfNeeded()
-        XCTAssertGreaterThan(button.layer.shadowOpacity, 0)
+        XCTAssertNotNil(button.layer.sublayers?.first?.contents)
         button.sora.isEnabled = false
         button.layoutIfNeeded()
-        XCTAssertEqual(button.layer.shadowOpacity, 0)
+        XCTAssertNil(button.layer.sublayers?.first?.contents)
     }
 
     // MARK: Baked images
 
-    func testWellsPlatesAndDomesHaveTheirImages() {
+    func testWellsGlassAndMarksHaveTheirImages() {
         let well = LitWellLayer()
         well.cornerRadiusValue = 18
         XCTAssertNotNil(well.contents)
         well.place(in: CGRect(x: 10, y: 10, width: 100, height: 36))
-        XCTAssertGreaterThan(well.frame.width, 100, "its lip extends just outside")
+        XCTAssertEqual(well.frame, CGRect(x: 10, y: 10, width: 100, height: 36), "let into the surface: nothing outside its shape")
+        let plain = well.contents as AnyObject
+        well.isRuled = true
+        XCTAssertFalse(plain === (well.contents as AnyObject), "a well that takes input has a boundary of its own")
 
         let tinted = LitWellLayer()
         tinted.floorColor = UIColor(litHex: 0xDDE7DF)
         XCTAssertNotNil(tinted.contents)
 
-        let dome = LitCabochonView(lit: .red, deep: .black, domeDiameter: 50, wellDiameter: 62)
-        XCTAssertEqual(dome.intrinsicContentSize, CGSize(width: 62, height: 62))
-        dome.setPressed(true)
-        XCTAssertEqual(dome.glyphView.alpha, 0.9, accuracy: 0.01)
-        dome.setPressed(false)
+        let disc = LitCutGlassView(size: CGSize(width: 56, height: 56), cornerRadius: 28)
+        XCTAssertEqual(disc.intrinsicContentSize, CGSize(width: 56, height: 56))
+        disc.setGlyph(UIImage(systemName: "circle.fill"), key: "test")
+        disc.layoutIfNeeded()
+        let rest = disc.layer.sublayers?.first?.position
+        disc.setPressed(true)
+        XCTAssertEqual(disc.layer.sublayers?.first?.position.y ?? 0, (rest?.y ?? 0) + 1, accuracy: 0.01, "set down a point")
+        disc.setPressed(false)
+        XCTAssertEqual(disc.layer.sublayers?.first?.position, rest)
 
-        let led = LitLEDView(diameter: 8)
-        led.setColor(.green)
-        led.pulse(true)
-        led.pulse(false)
+        let dot = LitDotView(diameter: 8)
+        dot.setColor(.green)
+        dot.pulse(true)
+        dot.pulse(false)
+
+        let bead = LitBeadView(diameter: 12)
+        XCTAssertEqual(bead.intrinsicContentSize, CGSize(width: 12, height: 12))
+        bead.drop()
 
         let coin = LitCoinImageView(diameter: 40)
         XCTAssertEqual(coin.imageView.layer.cornerRadius, 20)
@@ -175,19 +196,25 @@ final class LitMaterialsTests: XCTestCase {
 
         let page = LitPageView(frame: CGRect(x: 0, y: 0, width: 300, height: 600))
         page.layoutIfNeeded()
-        XCTAssertEqual(page.backgroundColor, Lit.page)
+        XCTAssertNotNil(page.backgroundColor, "washi")
+        XCTAssertGreaterThanOrEqual(page.layer.sublayers?.count ?? 0, 3, "the mica print, the light's falloff and its moving pool")
     }
 
     // MARK: Text stays readable on the new surfaces
 
-    func testTextContrastOnPorcelain() {
-        for background in [Lit.page, Lit.plateLit, Lit.plateDeep, Lit.surface] {
+    func testTextContrastOnWhite() {
+        for background in [Lit.page, Lit.padLit, Lit.padShade, Lit.surface] {
             XCTAssertGreaterThanOrEqual(WalletUX.contrast(Lit.ink, background), 7)
             XCTAssertGreaterThanOrEqual(WalletUX.contrast(Lit.inkSecondary, background), 4.5)
             XCTAssertGreaterThanOrEqual(WalletUX.contrast(Lit.inkTertiary, background), 3)
         }
         XCTAssertGreaterThanOrEqual(WalletUX.contrast(Lit.inkSecondary, Lit.wellFloor), 4.5)
         XCTAssertGreaterThanOrEqual(WalletUX.contrast(NeonTokens.lit.success, Lit.wellFloor), 3)
+        // Red as ink on every white, and white type on the red.
+        for background in [Lit.page, Lit.padShade, Lit.surface, Lit.wellFloor] {
+            XCTAssertGreaterThanOrEqual(WalletUX.contrast(Lit.lacquerText, background), 4.5)
+        }
+        XCTAssertGreaterThanOrEqual(WalletUX.contrast(Lit.inlay, Lit.lacquerRed), 4.5)
     }
 
     func testTheAppDrawsWithTheLitTokens() {
@@ -252,6 +279,7 @@ final class LitMaterialsTests: XCTestCase {
     // MARK: Moving light
 
     func testTheLightMovesPlatesAndComesBackToRest() {
+        LitLightRig.shared.set(x: 0, y: 0)
         let plate = LitPlateLayer()
         plate.elevation = 16
         plate.frame = CGRect(x: 0, y: 0, width: 300, height: 200)
@@ -325,7 +353,8 @@ final class LitMaterialsTests: XCTestCase {
             .first { $0.accessibilityIdentifier == "assetDetails.swap" }).button
         XCTAssertNotNil(button.sora.leftImage)
         XCTAssertEqual(button.sora.leftImage?.renderingMode, .alwaysOriginal)
-        XCTAssertEqual(button.sora.leftImage?.pngData(), R.image.wallet.polkaswap()?.withRenderingMode(.alwaysOriginal).pngData())
+        XCTAssertEqual(button.sora.leftImage?.pngData(), PortfolioGlyphs.polkaswapMark?.pngData())
+        XCTAssertNotEqual(button.sora.leftImage?.pngData(), R.image.wallet.polkaswap()?.pngData(), "the flower in the app's red, not its own pink")
     }
 
     private func descendants(_ view: UIView) -> [UIView] {

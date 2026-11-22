@@ -263,7 +263,7 @@ final class PortfolioTagView: UIView {
             let color: UIColor
             switch networkTag {
             case .main: color = WalletUX.accent
-            case .testnet: color = .systemOrange
+            case .testnet: color = PortfolioTheme.warning
             case .comingSoon: color = WalletUX.secondary
             }
             label.text = networkTag.title
@@ -282,7 +282,7 @@ final class PortfolioTagView: UIView {
 /// A small well with a status light: "● LIVE · 31s".
 final class PortfolioFreshnessChip: UIControl {
     private let well = LitWellLayer()
-    private let dot = LitLEDView(diameter: 7)
+    private let dot = LitDotView(diameter: 7)
     private let label = UILabel()
     private var lightColor = UIColor.clear
 
@@ -374,7 +374,7 @@ final class PortfolioFreshnessChip: UIControl {
 final class PortfolioLegendChipView: UIControl {
     private let plate = LitPlateLayer()
     private let well = LitWellLayer()
-    private let dot = LitLEDView(diameter: 8)
+    private let dot = LitDotView(diameter: 8)
     private let title = UILabel()
     private let percent = UILabel()
     private(set) var key: String = ""
@@ -459,38 +459,48 @@ final class PortfolioLegendChipView: UIControl {
     }
 }
 
-/// A quick action: a glass cabochon in one of the hero's colours, seated in a well pressed into the plate, a
-/// white glyph under the glass, a label below. Pressing sinks the dome into its well.
+/// A quick action: a soft raised pad of the sheet's own white with the glyph in red, a label below. Pressing
+/// lets the pad into the sheet.
 final class PortfolioQuickActionView: UIControl {
-    private static let domeSize: CGFloat = 50
-    private static let wellSize: CGFloat = 62
-    private let dome: LitCabochonView
+    private static let padSize = CGSize(width: 60, height: 52)
+    private static let padRadius: CGFloat = 16
+    private let pad: UIView
+    private let backing: LitBacking
+    private let glyph = UIImageView()
     private let label = UILabel()
     private let haptic = UIImpactFeedbackGenerator(style: .light)
     let action: PortfolioQuickAction
 
     init(action: PortfolioQuickAction) {
         self.action = action
-        let colors = PortfolioTheme.actionColors(action)
-        dome = LitCabochonView(lit: colors.lit, deep: colors.deep, domeDiameter: Self.domeSize, wellDiameter: Self.wellSize)
+        let pad = UIView()
+        self.pad = pad
+        backing = LitBacking(host: pad)
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
+        backing.style = .raised(elevation: 10)
+        pad.isUserInteractionEnabled = false
+        glyph.contentMode = .center
+        glyph.translatesAutoresizingMaskIntoConstraints = false
+        pad.addSubview(glyph)
         label.textAlignment = .center
         label.font = PortfolioTheme.font(FontType.textBoldXS, .caption1, maximum: 20)
         label.adjustsFontForContentSizeCategory = true
         label.numberOfLines = 1
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor = 0.8
-        [dome, label].forEach {
+        [pad, label].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             addSubview($0)
         }
         NSLayoutConstraint.activate([
-            dome.topAnchor.constraint(equalTo: topAnchor),
-            dome.centerXAnchor.constraint(equalTo: centerXAnchor),
-            dome.widthAnchor.constraint(equalToConstant: Self.wellSize),
-            dome.heightAnchor.constraint(equalToConstant: Self.wellSize),
-            label.topAnchor.constraint(equalTo: dome.bottomAnchor, constant: 7),
+            pad.topAnchor.constraint(equalTo: topAnchor),
+            pad.centerXAnchor.constraint(equalTo: centerXAnchor),
+            pad.widthAnchor.constraint(equalToConstant: Self.padSize.width),
+            pad.heightAnchor.constraint(equalToConstant: Self.padSize.height),
+            glyph.centerXAnchor.constraint(equalTo: pad.centerXAnchor),
+            glyph.centerYAnchor.constraint(equalTo: pad.centerYAnchor),
+            label.topAnchor.constraint(equalTo: pad.bottomAnchor, constant: 9),
             label.leadingAnchor.constraint(equalTo: leadingAnchor),
             label.trailingAnchor.constraint(equalTo: trailingAnchor),
             label.bottomAnchor.constraint(equalTo: bottomAnchor)
@@ -498,6 +508,8 @@ final class PortfolioQuickActionView: UIControl {
         isAccessibilityElement = true
         accessibilityTraits = .button
         addTarget(self, action: #selector(touchedDown), for: .touchDown)
+        // Nearer the eye than the sheet it stands on.
+        LitParallax.attach(to: pad, depth: 1.5)
         applyTheme()
     }
 
@@ -507,33 +519,43 @@ final class PortfolioQuickActionView: UIControl {
 
     func applyTheme() {
         let tokens = PortfolioTheme.tokens
+        let red = Lit.lacquerText
         let title: String
         switch action {
         case .send:
             title = PortfolioStrings.send
-            dome.glyphView.image = PortfolioGlyphs.symbol("arrow.up.right", pointSize: 19, color: .white)
+            glyph.image = PortfolioGlyphs.symbol("arrow.up.right", pointSize: 19, color: red)
         case .receive:
             title = PortfolioStrings.receive
-            dome.glyphView.image = PortfolioGlyphs.symbol("arrow.down.left", pointSize: 19, color: .white)
+            glyph.image = PortfolioGlyphs.symbol("arrow.down.left", pointSize: 19, color: red)
         case .move:
             title = PortfolioStrings.move
-            dome.glyphView.image = PortfolioGlyphs.moveImage(size: 24, color: .white)
+            glyph.image = PortfolioGlyphs.moveImage(size: 24, color: red)
         case .swap:
             title = PortfolioStrings.swap
-            dome.glyphView.image = PortfolioGlyphs.flowerImage(size: 24, color: .white)
+            glyph.image = PortfolioGlyphs.flowerImage(size: 24, color: red)
         }
         label.text = title
         label.textColor = tokens.textPrimary
         accessibilityLabel = title
     }
 
-    /// The dome rises out of its well.
+    /// The pad rises into place.
     func popIn(after delay: CFTimeInterval) {
-        dome.popIn(after: delay)
+        LitMotion.rise(pad, by: 7, after: delay)
     }
 
     override var isHighlighted: Bool {
-        didSet { dome.setPressed(isHighlighted) }
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            backing.style = isHighlighted ? .pressed(floor: nil, depth: 2.5) : .raised(elevation: 10)
+            glyph.transform = isHighlighted ? CGAffineTransform(translationX: 0, y: 0.75) : .identity
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        backing.layout(radius: Self.padRadius)
     }
 
     @objc private func touchedDown() {
@@ -609,7 +631,7 @@ final class PortfolioDotsView: UIStackView {
 extension UILabel {
     /// Eyebrow text ("TOTAL BALANCE", "FROM"): the type scale's tracking needs attributed text.
     func setEyebrow(_ text: String, color: UIColor) {
-        attributedText = .letterpress(text, attributes: [.font: font as Any, .foregroundColor: color, .kern: 1.2])
+        attributedText = NSAttributedString(string: text, attributes: [.font: font as Any, .foregroundColor: color, .kern: 1.2])
         accessibilityLabel = text.capitalized
     }
 

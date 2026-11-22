@@ -67,7 +67,8 @@ extension SegmentCell: CellProtocol {
         }
 
         titleLabel.sora.text = item.tab.title
-        titleLabel.sora.textColor = item.isSelected ? .bgSurface : .accentSecondary
-        containerView.sora.backgroundColor = item.isSelected ? .accentSecondary : .bgSurface
+        // The chosen segment is the app's red with white type; the others are white.
+        titleLabel.sora.textColor = item.isSelected ? .custom(uiColor: Lit.inlay) : .fgPrimary
+        containerView.sora.backgroundColor = item.isSelected ? .accentPrimary : .bgSurface
     }
 }

@@ -79,8 +79,8 @@ public struct NeonTokens {
     // Skeleton
     public let skeletonBase, skeletonHighlight: UIColor
 
-    /// The tokens the app draws with: the classic SORA layout and colours in lit materials
-    /// (porcelain plates, wells, lacquer), one light over everything. See `Lit`.
+    /// The tokens the app draws with: the classic SORA layout in white and SORA red (frosted glass, soft
+    /// pads and wells, cut red glass), one light over everything. See `Lit`.
     public static var current: NeonTokens { .lit }
 
     public static func tokens(for theme: SoramitsuThemeType) -> NeonTokens { .lit }
@@ -105,8 +105,8 @@ private let noGlow = GlowSpec(color: clear, rest: 0, peak: 0, pressed: 0, blur: 
 private let noShadow = ShadowSpec(color: clear, alpha: 0, blur: 0, offset: .zero)
 
 public extension NeonTokens {
-    /// The classic layout's slots in lit porcelain. Plates, wells and gloss come from `Lit`; these are the
-    /// colours of what sits on them and of the surfaces that have no plate.
+    /// The classic layout's slots in white and red. Glass, pads, wells and cut glass come from `Lit`; these
+    /// are the colours of what sits on them and of the surfaces that have no sheet.
     static let lit = NeonTokens(
         isDark: false,
         canvas: Lit.page, layer1: Lit.page, surface: Lit.surface, surfaceVariant: Lit.wellFloor,
@@ -120,29 +120,29 @@ public extension NeonTokens {
         glassHighlight: noGradient, borderGlass: noGradient, borderSpectrum: noGradient, borderSafe: noGradient,
         borderCtaSheen: noGradient, borderChromeTop: noGradient,
         cardShadow: nil,
-        hairline: Lit.engraveDark, divider: Lit.engraveDark, borderInput: Lit.engraveDark, focusRing: Colors.brown50,
+        hairline: Lit.rule, divider: Lit.rule, borderInput: Lit.outline, focusRing: Lit.lacquerDeep,
         textPrimary: Lit.ink, textSecondary: Lit.inkSecondary, textTertiary: Lit.inkTertiary,
-        textDisabled: Lit.inkTertiary, onAccent: Colors.white100, link: Colors.red50,
-        brandRed: Colors.red50, redText: Colors.red50, cyan: Colors.red50, steel: Lit.inkSecondary,
-        magenta: Colors.polkaswap50, polkaswapBrand: Colors.polkaswap50, polkaswapText: Colors.polkaswap50,
-        ctaPrimary: NeonGradient([(0, c(0xF0343C)), (1, c(0xC9102A))]),
-        ctaSwap: NeonGradient([(0, c(0xFF2B84)), (1, c(0xCC0052))]),
+        textDisabled: Lit.inkTertiary, onAccent: Lit.inlay, link: Lit.lacquerText,
+        brandRed: Lit.lacquerRed, redText: Lit.lacquerText, cyan: Lit.lacquerRed, steel: Lit.inkSecondary,
+        magenta: Lit.lacquerRed, polkaswapBrand: Lit.lacquerRed, polkaswapText: Lit.lacquerText,
+        ctaPrimary: solid(Lit.lacquerRed),
+        ctaSwap: solid(Lit.lacquerRed),
         ctaSafe: NeonGradient([(0, c(0x2BB68B)), (1, c(0x12835F))]),
         ctaDisabled: Lit.wellFloor,
-        success: c(0x12835F), successContainer: Colors.green5, warning: Colors.yellow30,
-        warningContainer: Colors.yellow5, warningFill: Colors.yellow30, onWarningFill: Colors.brown90,
-        error: Colors.red60, errorContainer: Colors.red5, info: Colors.blue40, infoContainer: Colors.blue5,
-        redContainer: Colors.red5,
-        tertiaryContainer: Lit.wellFloor, polkaswapContainer: Colors.polkaswap5,
+        success: c(0x286448), successContainer: c(0xDCEBE2), warning: c(0x8A5A0C),
+        warningContainer: c(0xF3E9D2), warningFill: c(0xDDA63A), onWarningFill: Lit.ink,
+        error: Lit.lacquerDeep, errorContainer: c(0xF7E1DF), info: Colors.blue40, infoContainer: Colors.blue5,
+        redContainer: c(0xF7E1DF),
+        tertiaryContainer: Lit.wellFloor, polkaswapContainer: c(0xF7E1DF),
         glowPrimary: noGlow, glowSwap: noGlow, glowFocus: noGlow, glowDot: noGlow, glowTab: noGlow,
         glowSafe: noGlow, glowSuccess: noGlow,
         heroTextGlow: nil,
         neuBg: Lit.page, neuFacePressed: Lit.wellFloor,
-        neuFace: NeonGradient([(0, Lit.plateLit), (1, Lit.plateDeep)]),
+        neuFace: NeonGradient([(0, Lit.padLit), (1, Lit.padShade)]),
         neuRim: NeonGradient([(0, c(0xFFFFFF, 0.9)), (1, c(0xFFFFFF, 0))]),
-        neuDark: ShadowSpec(color: c(0x6B4A40), alpha: 0.34, blur: 14, offset: CGSize(width: 5, height: 7)),
-        neuLight: ShadowSpec(color: c(0xFFFFFF), alpha: 0.95, blur: 10, offset: CGSize(width: -4, height: -5)),
-        neuInnerDark: ShadowSpec(color: c(0x6B4A40), alpha: 0.38, blur: 8, offset: CGSize(width: 2.5, height: 3.5)),
+        neuDark: ShadowSpec(color: c(0x665747), alpha: 0.27, blur: 12, offset: CGSize(width: 3.5, height: 4.5)),
+        neuLight: ShadowSpec(color: c(0xFFFFFF), alpha: 0.92, blur: 8, offset: CGSize(width: -2.5, height: -3)),
+        neuInnerDark: ShadowSpec(color: c(0x665747), alpha: 0.38, blur: 6, offset: CGSize(width: 2.5, height: 3.5)),
         neuInnerLight: ShadowSpec(color: c(0xFFFFFF), alpha: 0.85, blur: 6, offset: CGSize(width: -2, height: -2.5)),
         skeletonBase: Lit.wellFloor, skeletonHighlight: Colors.white100.withAlphaComponent(0.7)
     )

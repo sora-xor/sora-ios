@@ -53,13 +53,13 @@ final class MainTabBarViewController: UITabBarController {
 
         let tabBar = TabBar(frame: tabBar.frame)
         tabBar.middleButton.sora.backgroundColor = .custom(uiColor: .clear)
-        tabBar.middleButton.sora.image = R.image.wallet.polkaswap()
         tabBar.middleButton.sora.clipsToBounds = false
-        // The disc is a white ceramic dome standing in the bar's trough.
-        let dome = LitCabochonView(lit: UIColor(litHex: 0xFFFFFF), deep: UIColor(litHex: 0xD8D1CC), domeDiameter: 56, wellDiameter: 0)
-        dome.frame = CGRect(x: 0, y: 0, width: 56, height: 56)
-        dome.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleTopMargin, .flexibleBottomMargin]
-        tabBar.middleButton.insertSubview(dome, at: 0)
+        // The disc is cut red glass standing in the bar's notch, the Polkaswap flower inlaid in white.
+        let disc = LitCutGlassView(size: CGSize(width: 56, height: 56), cornerRadius: 28)
+        disc.setGlyph(R.image.wallet.polkaswap(), key: "polkaswap")
+        disc.frame = CGRect(x: 0, y: 0, width: 56, height: 56)
+        disc.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleTopMargin, .flexibleBottomMargin]
+        tabBar.middleButton.insertSubview(disc, at: 0)
         tabBar.middleButton.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.middleButtonHadler?()
         }
@@ -94,7 +94,7 @@ final class MainTabBarViewController: UITabBarController {
         custom.installSwapDisc(in: tabBar)
     }
 
-    /// The porcelain bar is drawn over the system one on every system: iOS 27
+    /// The glass bar is drawn over the system one on every system: iOS 27
     /// ignores the app's request for the pre-26 bars, and the selection well
     /// needs a control of its own elsewhere. The system bar still lays out the
     /// tabs, insets their content and hides with pushed screens; the cover is
@@ -226,15 +226,18 @@ final class MainTabBarViewController: UITabBarController {
     }
 }
 
-/// The classic SORA tab bar drawn over a Liquid Glass system bar: a notched
-/// porcelain slab and the tabs in Bold labels, the selected one in SORA red in
-/// a well that slides from tab to tab. The centre of five is left to the
-/// Polkaswap disc.
+/// The classic SORA tab bar drawn over the system bar: a notched sheet of
+/// frosted glass that blurs what scrolls under it, the tabs in Bold labels,
+/// the selected one in SORA red in a well that slides from tab to tab. The
+/// centre of five is left to the Polkaswap disc.
 final class ClassicTabBarCover: UIView {
     var onSelect: ((Int) -> Void)?
     private(set) var itemControls: [ClassicTabItemControl] = []
     private var items: [UITabBarItem] = []
     private let chrome = CAShapeLayer()
+    /// What scrolls under the bar, blurred, cut to the bar's notched shape.
+    private let backdrop = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialLight))
+    private let backdropShape = UIView()
     /// The bar's top edge catching the light.
     private let edge = CAShapeLayer()
     /// A well under the selected tab; it slides to the next one.
@@ -245,17 +248,21 @@ final class ClassicTabBarCover: UIView {
         super.init(frame: frame)
         // Drawn above anything the system bar adds after it.
         layer.zPosition = 100
+        backdrop.isUserInteractionEnabled = false
+        backdropShape.backgroundColor = .clear
+        backdrop.mask = backdropShape
+        addSubview(backdrop)
         chrome.lineWidth = 0
-        chrome.shadowColor = UIColor(litHex: 0x6B4A40).cgColor
-        chrome.shadowOpacity = 0.26
-        chrome.shadowRadius = 14
-        chrome.shadowOffset = CGSize(width: 0, height: -4)
+        chrome.shadowColor = UIColor(litHex: 0x4D3D29).cgColor
+        chrome.shadowOpacity = 0.16
+        chrome.shadowRadius = 10
+        chrome.shadowOffset = CGSize(width: 0, height: -2)
         layer.addSublayer(chrome)
         edge.fillColor = nil
         edge.strokeColor = UIColor.white.withAlphaComponent(0.95).cgColor
         edge.lineWidth = 1
         layer.addSublayer(edge)
-        selection.cornerRadiusValue = 16
+        selection.cornerRadiusValue = 12
         selection.depth = 2
         layer.addSublayer(selection)
     }
@@ -271,7 +278,9 @@ final class ClassicTabBarCover: UIView {
         for (index, control) in itemControls.enumerated() {
             control.isSelected = index == selectedIndex
         }
-        chrome.fillColor = SoramitsuUI.shared.theme.palette.color(.bgSurface).cgColor
+        // The glass's milk over the blur; opaque when the system is asked for less transparency.
+        chrome.fillColor = UIAccessibility.isReduceTransparencyEnabled ? Lit.surface.cgColor
+            : UIColor.white.withAlphaComponent(0.46).cgColor
         if selectedSlot != selectedIndex {
             let first = selectedSlot == nil
             selectedSlot = selectedIndex
@@ -328,6 +337,15 @@ final class ClassicTabBarCover: UIView {
         chrome.frame = bounds
         chrome.path = Self.notchedPath(in: bounds)
         chrome.shadowPath = chrome.path
+        backdrop.frame = bounds
+        backdropShape.frame = bounds
+        let cut = (backdropShape.layer.sublayers?.first as? CAShapeLayer) ?? {
+            let shape = CAShapeLayer()
+            backdropShape.layer.addSublayer(shape)
+            return shape
+        }()
+        cut.frame = bounds
+        cut.path = chrome.path
         edge.frame = bounds
         edge.path = Self.topEdgePath(in: bounds)
         CATransaction.commit()
