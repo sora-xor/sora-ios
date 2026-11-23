@@ -116,6 +116,13 @@ final class PortfolioParallaxController {
             center.addObserver(forName: .neonFxChanged, object: nil, queue: .main) { [weak self] _ in self?.refresh() },
             center.addObserver(forName: LitStage.didChangeNotification, object: nil, queue: .main) {
                 [weak self] _ in self?.refresh()
+            },
+            // A window shown or hidden changes what can be seen without any view in it changing.
+            center.addObserver(forName: UIWindow.didBecomeVisibleNotification, object: nil, queue: .main) {
+                [weak self] _ in self?.refresh()
+            },
+            center.addObserver(forName: UIWindow.didBecomeHiddenNotification, object: nil, queue: .main) {
+                [weak self] _ in self?.refresh()
             }
         ]
         refresh()
