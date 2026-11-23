@@ -180,6 +180,7 @@ public final class LitHeroView: UIView {
     /// The GPU was behind and a frame was skipped: it is drawn on a later tick. Kept apart from `needsFrame`,
     /// which says something other than the comet changed and asks for sixty frames a second.
     private var retryFrame = false
+    private var missedFrames = 0
     private var isInBackground = false
     private var observers: [NSObjectProtocol] = []
 
@@ -329,7 +330,8 @@ public final class LitHeroView: UIView {
         }
         isOnScreen = shown
         // In a window but hidden (a screen covers this one, or an ancestor was hidden): look again shortly.
-        if window != nil, !shown {
+        // Not while the app is in the background: coming to the front asks again by itself.
+        if window != nil, !shown, !isInBackground {
             if hiddenCheck == nil {
                 let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.updateLink() }
                 timer.tolerance = 0.5
@@ -472,13 +474,19 @@ public final class LitHeroView: UIView {
         notePace(behind: false)
         guard let metalLayer, let renderer, bounds.width > 0, bounds.height > 0 else { return }
         fillUniforms(scale: metalLayer.contentsScale)
-        guard let drawable = metalLayer.nextDrawable(), let buffer = renderer.queue.makeCommandBuffer() else { return }
+        guard let drawable = metalLayer.nextDrawable(), let buffer = renderer.queue.makeCommandBuffer() else {
+            missFrame()
+            return
+        }
         let pass = MTLRenderPassDescriptor()
         pass.colorAttachments[0].texture = drawable.texture
         pass.colorAttachments[0].loadAction = .clear
         pass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
         pass.colorAttachments[0].storeAction = .store
-        guard let encoder = buffer.makeRenderCommandEncoder(descriptor: pass) else { return }
+        guard let encoder = buffer.makeRenderCommandEncoder(descriptor: pass) else {
+            missFrame()
+            return
+        }
         encoder.setRenderPipelineState(renderer.state)
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<LitHeroUniforms>.stride, index: 0)
         encoder.setFragmentTexture(renderer.mark, index: 0)
@@ -489,6 +497,14 @@ public final class LitHeroView: UIView {
         buffer.addCompletedHandler { [inFlight] _ in inFlight.add(-1) }
         buffer.present(drawable)
         buffer.commit()
+        missedFrames = 0
+    }
+
+    /// No drawable or no buffer this once: the frame that was asked for is still owed, so the next tick tries
+    /// again. Not for ever: after half a second of misses it waits for the next thing that asks for a frame.
+    private func missFrame() {
+        missedFrames += 1
+        if missedFrames <= 30 { retryFrame = true }
     }
 
     private func fillUniforms(scale: CGFloat) {

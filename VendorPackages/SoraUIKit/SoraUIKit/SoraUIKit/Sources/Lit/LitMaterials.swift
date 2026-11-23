@@ -887,9 +887,8 @@ public final class LitLightRig: NSObject {
     private func deliver() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        let all = listeners.objectEnumerator()
-        while let next = all.nextObject() {
-            guard let listener = next as? LitLightListener, listener.isLitOnScreen else { continue }
+        // A copy of the list: a surface may leave, or take another with it, while it is being told.
+        for case let listener as LitLightListener in listeners.allObjects where listener.isLitOnScreen {
             listener.lightDidMove(x: x, y: y)
         }
         CATransaction.commit()
