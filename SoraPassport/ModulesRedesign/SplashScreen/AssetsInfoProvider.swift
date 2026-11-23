@@ -203,13 +203,27 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
     ) {
         self.connection = connection
         self.chainId = chainId
-        assetInfoKey = try! storageKeyFactory.assetsInfoKeysPaged().toHex(includePrefix: true)
+        assetInfoKey = Self.makeAssetInfoKey(using: storageKeyFactory)
         self.policy = policy
         self.timer = timer ?? Self.timer(on: queue)
         self.now = now
         self.random = random
         self.logger = logger
         self.queue = queue
+    }
+
+    /// `Assets.AssetInfos`, the prefix every asset's info is stored under.
+    static let assetInfosStorageKey = "0x682a59d51ab9e48a8c8cc418ff9708d2f5b4fc54f4471c9a65803b7767ecc9ff"
+
+    /// The key is twox128("Assets") + twox128("AssetInfos"), which cannot fail to hash; if the factory
+    /// ever throws, the fixed prefix keeps the paged read on the same storage map.
+    static func makeAssetInfoKey(using storageKeyFactory: StorageKeyFactoryProtocol) -> String {
+        do {
+            return try storageKeyFactory.assetsInfoKeysPaged().toHex(includePrefix: true)
+        } catch {
+            assertionFailure("The Assets.AssetInfos storage key did not encode: \(error)")
+            return assetInfosStorageKey
+        }
     }
 
     deinit {

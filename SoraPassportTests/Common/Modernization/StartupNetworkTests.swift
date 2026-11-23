@@ -319,6 +319,13 @@ final class StartupNetworkTests: XCTestCase {
         var all: [[AssetInfo]] { lock.lock(); defer { lock.unlock() }; return lists }
     }
 
+    // MARK: - Asset info key
+
+    func testTheFixedAssetInfosKeyIsTheOneTheFactoryEncodes() throws {
+        XCTAssertEqual(AssetsInfoProvider.assetInfosStorageKey, prefix)
+        XCTAssertEqual(AssetsInfoProvider.makeAssetInfoKey(using: StorageKeyFactory()), prefix)
+    }
+
     // MARK: - Loader: first page fails, then the node recovers
 
     func testFailedFirstPageIsReloadedWhenTheNodeRecovers() throws {

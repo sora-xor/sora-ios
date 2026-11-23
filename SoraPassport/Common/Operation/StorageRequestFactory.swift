@@ -237,8 +237,8 @@ final class StorageRequestFactory: StorageRequestFactoryProtocol {
         storagePath: StorageCodingPath,
         at blockHash: Data?
     ) -> CompoundOperationWrapper<[StorageResponse<T>]> where K1: Encodable, K2: Encodable, T: Decodable {
-        let keysOperation = DoubleMapKeyEncodingOperation<K1, K2>(path: storagePath, 
-                                                                  storageKeyFactory: remoteFactory as! StorageKeyFactoryProtocol)
+        let keysOperation = DoubleMapKeyEncodingOperation<K1, K2>(path: storagePath,
+                                                                  storageKeyFactory: remoteFactory)
 
         keysOperation.configurationBlock = {
             do {

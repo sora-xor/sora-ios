@@ -802,15 +802,17 @@ final class PortfolioShimmerRowsView: UIView {
         sweepMask.removeAnimation(forKey: "sweep")
         guard builtWidth > 0, window != nil, !UIAccessibility.isReduceMotionEnabled else { return }
         // The band moves right while its mask stays on the rows.
-        let band = CABasicAnimation(keyPath: "transform.translation.x")
-        band.fromValue = -builtWidth
-        band.toValue = builtWidth
-        band.duration = 1.5
-        band.repeatCount = .infinity
-        band.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        let hold = band.copy() as! CABasicAnimation
-        hold.fromValue = builtWidth
-        hold.toValue = -builtWidth
+        func slide(from start: CGFloat, to end: CGFloat) -> CABasicAnimation {
+            let animation = CABasicAnimation(keyPath: "transform.translation.x")
+            animation.fromValue = start
+            animation.toValue = end
+            animation.duration = 1.5
+            animation.repeatCount = .infinity
+            animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            return animation
+        }
+        let band = slide(from: -builtWidth, to: builtWidth)
+        let hold = slide(from: builtWidth, to: -builtWidth)
         sweep.add(band, forKey: "sweep")
         sweepMask.add(hold, forKey: "sweep")
     }
