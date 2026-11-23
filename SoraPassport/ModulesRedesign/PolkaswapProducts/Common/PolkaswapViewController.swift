@@ -281,14 +281,21 @@ final class PolkaswapViewController: SoramitsuViewController {
                                                selector: #selector(keyboardWillHide),
                                                name: UIResponder.keyboardWillHideNotification,
                                                object: nil)
+        // A keyboard that is moved, docked or undocked changes what it covers without showing or hiding.
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(keyboardWillShow),
+                                               name: UIResponder.keyboardWillChangeFrameNotification,
+                                               object: nil)
     }
     
     @objc
     private func keyboardWillShow(_ notification:Notification) {
         guard let frame = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue else { return }
         // Only what the keyboard covers of this screen: a floating or split keyboard on an iPad covers
-        // less than its own height, or nothing.
-        let covered = view.convert(frame, from: nil).intersection(view.bounds)
+        // less than its own height, or nothing. The frame is in the screen's coordinates, which are not the
+        // window's when the window does not start at the screen's corner.
+        let screen: UICoordinateSpace = view.window?.screen.coordinateSpace ?? UIScreen.main.coordinateSpace
+        let covered = view.convert(frame, from: screen).intersection(view.bounds)
         containerView.stackView.bottomInset = covered.isNull ? 0 : covered.height
     }
 

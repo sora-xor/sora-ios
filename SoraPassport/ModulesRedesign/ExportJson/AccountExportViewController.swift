@@ -95,9 +95,9 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
         configure()
     }
 
-    // The card does not scroll. In a window that is short for its width (a folded cover, an unfolded
-    // screen in landscape) the keyboard would cover Download, so there the card rides above the
-    // keyboard instead of staying under the bar. A classic phone keeps the card where it was.
+    // The card does not scroll. Where the keyboard would cover Download (a folded cover, an unfolded
+    // screen in landscape, and an iPhone SE once both password notes show) the card rides above the
+    // keyboard instead of staying under the bar. Where there is room it stays where it was.
     private var pinnedTop: NSLayoutConstraint?
     private lazy var looseTop: NSLayoutConstraint = {
         let constraint = containerView.topAnchor.constraint(equalTo: view.soraSafeTopAnchor)
@@ -109,11 +109,11 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
 
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
-        let short = WalletDisplay.canvas(for: view).kind != .phone
-        guard short != aboveKeyboard.isActive else { return }
-        pinnedTop?.isActive = !short
-        looseTop.isActive = short
-        aboveKeyboard.isActive = short
+        // The top is a preference and "above the keyboard" a limit: on a tall phone both hold and nothing moves.
+        guard !aboveKeyboard.isActive else { return }
+        pinnedTop?.isActive = false
+        looseTop.isActive = true
+        aboveKeyboard.isActive = true
     }
 
     private func configure() {
