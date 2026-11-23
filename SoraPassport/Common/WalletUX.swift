@@ -459,7 +459,9 @@ final class WalletNeonButton: UIButton {
         titleLabel?.numberOfLines = 0
         titleLabel?.textAlignment = .center
         titleLabel?.adjustsFontForContentSizeCategory = true
-        let minimumHeight = heightAnchor.constraint(greaterThanOrEqualToConstant: style == .tertiary ? 44 : 52)
+        // A screen's button is as tall as the kit's main button on every screen (these were 52).
+        let minimumHeight = heightAnchor.constraint(
+            greaterThanOrEqualToConstant: style == .tertiary ? 44 : LayoutCanvas.primaryButtonHeight)
         // Hidden arranged buttons must be able to collapse to zero height.
         minimumHeight.priority = UILayoutPriority(999)
         minimumHeight.isActive = true

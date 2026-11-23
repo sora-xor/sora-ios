@@ -539,7 +539,8 @@ final class PortfolioPrimaryButton: UIControl {
         label.text = title
         label.textAlignment = .center
         label.numberOfLines = 0
-        let minimumHeight = heightAnchor.constraint(greaterThanOrEqualToConstant: 52)
+        // As tall as every other screen's main button (it was 52 here, 56 on the forms).
+        let minimumHeight = heightAnchor.constraint(greaterThanOrEqualToConstant: LayoutCanvas.primaryButtonHeight)
         let verticalInset = content.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: 12)
         // A hidden arranged button must yield to UIStackView's required zero-height constraint.
         minimumHeight.priority = UILayoutPriority(999)
