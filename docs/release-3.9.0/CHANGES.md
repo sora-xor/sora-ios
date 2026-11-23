@@ -2321,3 +2321,49 @@ static logo, and a storage-retry prompt cancels pending navigation.
 The static system launch screen uses the neutral dark canvas so a phone in light
 mode does not show a white page before the app reads its saved dark appearance.
 The runtime animation continues to use the selected app theme.
+
+## An update never stops on a question
+
+A user who had a wallet and updates the app gets the same wallet behind the same
+PIN. Before this change, an empty, missing or unreadable wallet database beside
+the app's other records stopped startup on "We paused to keep your wallet safe",
+where "Try again" repeated the same check forever. Wallets already stopped there
+by an earlier version open after the update too.
+
+`WalletDatabaseSelfRepair` runs at startup. It moves unusable files to
+`Documents/WalletSetAside/<id>/`, never deleting them, writes the wallet database
+again, and lets the ordinary checks and routing continue. The Keychain is never
+written or deleted, and the PIN screen is still the check.
+
+- Which wallets come back: those this installation's own files name (database
+  rows, including a partly readable database, retained database copies, the
+  selected-account setting, the network snapshot). A signing row is proved by its
+  own keys with the same checks as any startup; a database row with no keys stays
+  read-only; a name from anywhere else needs its keys, and no owner record may say
+  that the current PIN is not its owner's.
+- A reinstall is unchanged. iOS deletes the app's files with the app, so retained
+  Keychain wallets stay behind Welcome back and their owner PIN. Keys alone come
+  back only for a database that exists and cannot be read, when nothing else here
+  names a wallet and a PIN exists.
+- A repair stopped at any point finishes on the next launch from its saved plan.
+- Files set aside by "Set up this iPhone again" on an earlier version come back
+  behind the existing PIN; choosing it in this version stays chosen.
+
+Other update stops removed:
+
+- A SORA 1.x wallet upgrades by itself, as App Store 3.8.6 did, instead of asking
+  for a confirmation and a new PIN. Its PIN stays, and the ordinary PIN screen
+  asks for it. A 1.x wallet that never had a PIN sets one, as it always did.
+- An installed wallet whose PIN was never saved opens PIN setup, as in App Store
+  3.8.6, unless an owner record exists: only that wallet's own PIN may claim it.
+- A full phone no longer holds back a wallet already on the current schema: only
+  its precautionary safety copy waits. Moving an older schema can still ask for
+  free space.
+- Unreadable records of unfinished transactions are set aside instead of asking.
+- A failure after the storage checks runs them once more before routing, so its
+  repair happens in the same launch.
+- An `.omo` model this iOS version cannot read falls back to its `.mom`.
+
+The recovery screen remains the last resort for what cannot be repaired without
+the user: a Keychain or file error that persists, a wallet whose PIN is missing
+while an owner record exists, or a saved repair plan that cannot be met.
