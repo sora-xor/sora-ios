@@ -12,6 +12,9 @@ import Darwin
 @testable import NexusTransferCodec
 import SSFUtils
 import IrohaCrypto
+import BigInt
+import Combine
+import RobinHood
 @testable import SoraPassport
 
 final class AnalyticsPriceAdmissionTests: XCTestCase {
@@ -3174,6 +3177,9 @@ private final class NeonRawSeedVisualPresenter: AccountExportRawSeedPresenterPro
 
 // Test-only data adapters. All layout, typography, controls, and QR generation are production code.
 private final class StoreAssetPresentation: Produtable {
+    /// A list longer than any screen: its end is under the keyboard unless the list stops at the keyboard.
+    let many: Bool
+    init(many: Bool = false) { self.many = many }
     var searchBarPlaceholder: String { R.string.localizable.assetListSearchPlaceholder(preferredLanguages: ["en"]) }
     var searchText = ""
     var mode: WalletViewMode = .view
@@ -3184,9 +3190,11 @@ private final class StoreAssetPresentation: Produtable {
     var dismiss: ((Bool) -> Void)?
     func viewDidLoad() {
         setupNavigationBar?(mode)
-        let assets = [("XOR", "SORA", "0x0200000000000000000000000000000000000000000000000000000000000000"),
+        let assets: [(String, String, String)] = [("XOR", "SORA", "0x0200000000000000000000000000000000000000000000000000000000000000"),
                       ("VAL", "SORA Validator Token", "0x0200040000000000000000000000000000000000000000000000000000000000"),
                       ("PSWAP", "Polkaswap", "0x0200050000000000000000000000000000000000000000000000000000000000")]
+            + (many ? ScreenFitTests.moreTokens.enumerated().map { index, token in
+                (token.0, token.1, "0x03" + String(format: "%062lx", index + 1)) } : [])
         setupItems?(assets.map { symbol, name, id in
             let info = AssetInfo(id: id, symbol: symbol, chainId: "", precision: 18, icon: nil, displayName: name, visible: true)
             var model = AssetViewModel(identifier: id, title: name, subtitle: "0 " + symbol,
@@ -3209,8 +3217,8 @@ private final class StoreReceivePresentation: GenerateQRViewModelProtocol {
     init(address: String, image: UIImage) { self.address = address; self.image = image }
     func viewDidLoad() {
         setupSwicherView?(SwitcherViewModel(buttonViewModels: [
-            SwitcherButtonViewModel(title: "Receive", isSelected: true),
-            SwitcherButtonViewModel(title: "Request", isSelected: false)]))
+            SwitcherButtonViewModel(title: R.string.localizable.commonReceive(preferredLanguages: .currentLocale), isSelected: true),
+            SwitcherButtonViewModel(title: R.string.localizable.commonRequest(preferredLanguages: .currentLocale), isSelected: false)]))
         setupReceiveView?(ReceiveQRViewModel(name: "Public demo wallet", address: address, qrImage: image))
         updateContent?(.receive)
     }
@@ -3835,6 +3843,9 @@ final class ScreenFitTests: XCTestCase {
     struct Screen {
         let name: String
         let make: () throws -> UIViewController
+        /// Gallery only: what is done once the screen is in the simulator's window (a keyboard brought up,
+        /// a list scrolled to its end), before its picture is taken.
+        var onScreen: (@MainActor (UIViewController) async -> Void)? = nil
     }
 
     private var windows: [UIWindow] = []
@@ -3996,6 +4007,85 @@ final class ScreenFitTests: XCTestCase {
         return screen
     }
 
+
+    // MARK: Explore, the token picker's search, asset details
+
+    /// Tokens as Explore and the token picker list them: long names, and prices from a dollar to a few millionths.
+    static let moreTokens: [(String, String, String, String)] = [
+        ("XOR", "SORA", "$0.0000412", "$1.23M"), ("VAL", "SORA Validator Token", "$0.0218", "$456.78K"),
+        ("PSWAP", "Polkaswap", "$0.00008125", "$98.7K"), ("TBCD", "100x SORA TBC Dollar", "$0.0123", "$1.2K"),
+        ("XSTUSD", "SORA Synthetic USD", "$1.00", "$345.6K"), ("KEN", "Kensetsu", "$0.000000012345", "$12.3K"),
+        ("ETH", "Wrapped Ether", "$3,456.78", "$2.34M"), ("DAI", "Dai Stablecoin", "$1.00", "$56.7K"),
+        ("CERES", "Ceres", "$0.0456", "$7.8K"), ("DEO", "Demeter", "$0.00123", "$4.5K"),
+        ("HMX", "Hermes", "$0.000345", "$3.2K"), ("APOLLO", "Apollo", "$0.0000234", "$1.1K"),
+        ("DOT", "Polkadot", "$4.56", "$123.4K"), ("KSM", "Kusama", "$12.34", "$45.6K"),
+        ("USDT", "Tether USD", "$1.00", "$678.9K"), ("MGX", "Mangata X", "$0.00456", "$2.3K"),
+        ("ACA", "Acala", "$0.0567", "$9.8K"), ("ASTR", "Astar", "$0.0345", "$6.7K"),
+        ("GLMR", "Moonbeam", "$0.123", "$5.4K"), ("TLM", "Alien Worlds", "$0.00123", "$3.4K")
+    ]
+
+    private static func explore() -> UIViewController {
+        let icon = R.image.wallet.emptyToken()
+        let change = SoramitsuTextItem(text: "+2.13%", fontData: FontType.textBoldXS, textColor: .statusSuccess, alignment: .right)
+        let assets: [ExplorePageSectionItem] = moreTokens.enumerated().map { index, token in
+            .asset(ExploreAssetItem(serialNumber: "\(index + 1)", assetViewModel: ExploreAssetViewModel(
+                assetId: "asset-\(index)", symbol: token.0, title: token.1, price: token.2, serialNumber: "\(index + 1)",
+                marketCap: .loaded(token.3), icon: icon, deltaPrice: .loaded(change))))
+        }
+        let pools: [ExplorePageSectionItem] = moreTokens.dropFirst().prefix(12).enumerated().map { index, token in
+            .pool(ExplorePoolItem(serialNumber: "\(index + 1)", poolViewModel: ExplorePoolViewModel(
+                poolId: "pool-\(index)", title: "XOR-" + token.0, tvl: token.3 + " TVL", serialNumber: "\(index + 1)",
+                apy: "123.45% APY", baseAssetId: "xor", targetAssetId: token.0, baseAssetIcon: icon, targetAssetIcon: icon)))
+        }
+        let farms: [ExplorePageSectionItem] = moreTokens.dropFirst().prefix(12).enumerated().map { index, token in
+            .farm(ExploreFarmItem(serialNumber: "\(index + 1)", farmViewModel: ExploreFarmViewModel(
+                farmId: "farm-\(index)", title: "XOR-" + token.0, tvl: token.3 + " TVL", serialNumber: "\(index + 1)",
+                apr: "45.67% APR", baseAssetIcon: icon, targetAssetIcon: icon, rewardAssetIcon: icon)))
+        }
+        let screen = ExploreViewController(viewModels: [FitExplorePage(assets), FitExplorePage(pools), FitExplorePage(farms)],
+                                           searchViewModel: FitExplorePage(assets))
+        screen.localizationManager = LocalizationManager.shared
+        return UINavigationController(rootViewController: screen)
+    }
+
+    /// The first view controller of `type` in a container's tree.
+    private static func controller<T: UIViewController>(_ type: T.Type, in root: UIViewController) -> T? {
+        if let match = root as? T { return match }
+        for child in root.children + [root.presentedViewController].compactMap({ $0 }) {
+            if let found = controller(type, in: child) { return found }
+        }
+        return nil
+    }
+
+    private static func visibleTables(in view: UIView) -> [UITableView] {
+        guard !view.isHidden else { return [] }
+        return ((view as? UITableView).map { [$0] } ?? []) + view.subviews.flatMap { visibleTables(in: $0) }
+    }
+
+    /// The screen's search as a person starts one: the field focused with the keyboard up, then the list
+    /// scrolled to its end, to see whether its last row can be reached above the keyboard.
+    @MainActor
+    private static func searchToTheEnd(of screen: UIViewController) async {
+        guard let search = screen.navigationItem.searchController else { return }
+        search.isActive = true
+        search.searchBar.becomeFirstResponder()
+        try? await Task.sleep(nanoseconds: 1_500_000_000)
+        screen.view.layoutIfNeeded()
+        for table in visibleTables(in: screen.view) where table.contentSize.height > table.bounds.height {
+            let end = table.contentSize.height + table.adjustedContentInset.bottom - table.bounds.height
+            table.setContentOffset(CGPoint(x: 0, y: max(-table.adjustedContentInset.top, end)), animated: false)
+        }
+        try? await Task.sleep(nanoseconds: 300_000_000)
+    }
+
+    private static func assetDetails() -> UIViewController {
+        presented(AssetDetailsViewController(viewModel: FitAssetDetails()))
+    }
+
+    private static func holdings() -> UIViewController {
+        FitHoldingsController()
+    }
+
     static var screens: [Screen] {
         var all: [Screen] = [
             Screen(name: "swap") { swap(filled: false) },
@@ -4046,7 +4136,21 @@ final class ScreenFitTests: XCTestCase {
             Screen(name: "phrase") { phrase() },
             Screen(name: "raw-seed") { rawSeed() },
             Screen(name: "recovery") { recovery() },
-            Screen(name: "settings") { UINavigationController(rootViewController: AppSettingsFactory.createAppSettings().controller) }
+            Screen(name: "settings") { UINavigationController(rootViewController: AppSettingsFactory.createAppSettings().controller) },
+            Screen(name: "explore") { explore() },
+            Screen(name: "explore-search", make: { explore() }, onScreen: { root in
+                if let screen = controller(ExploreViewController.self, in: root) { await searchToTheEnd(of: screen) }
+            }),
+            Screen(name: "token-picker-search", make: {
+                presented(ProductListViewController(viewModel: StoreAssetPresentation(many: true)))
+            }, onScreen: { root in
+                if let screen = controller(ProductListViewController.self, in: root) { await searchToTheEnd(of: screen) }
+            }),
+            Screen(name: "asset-details") { assetDetails() },
+            Screen(name: "holdings") { holdings() },
+            Screen(name: "account-warning") {
+                UINavigationController(rootViewController: AccountWarningViewController(warningType: .passphrase))
+            }
         ]
         #if DEBUG
         all.append(Screen(name: "home") {
@@ -4220,11 +4324,14 @@ final class ScreenFitTests: XCTestCase {
         let size = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.coordinateSpace.bounds.size
             ?? UIScreen.main.bounds.size
         var report: [String] = ["window \(Int(size.width))x\(Int(size.height))"]
+        // SORA_FIT_SCREENS=a,b: only those screens (a picture of each changed screen without the whole catalogue).
+        let wanted = Set((environment["SORA_FIT_SCREENS"] ?? "").split(separator: ",").map(String.init))
         for language in (environment["SORA_FIT_LANGUAGES"] ?? "en,ja").split(separator: ",").map(String.init) {
             LocalizationManager.shared.selectedLocalization = language
-            for screen in Self.screens {
+            for screen in Self.screens where wanted.isEmpty || wanted.contains(screen.name) {
                 BrokenConstraints.reset()
                 let window = show(try screen.make(), size: size, insets: nil)
+                if let onScreen = screen.onScreen, let root = window.rootViewController { await onScreen(root) }
                 try await Task.sleep(nanoseconds: 900_000_000)
                 window.layoutIfNeeded()
                 let name = "\(screen.name)-\(language)"
@@ -4269,5 +4376,107 @@ private final class FitConfirmModel: ConfirmViewModelProtocol {
                                      fontData: FontType.buttonM, textColor: .custom(uiColor: .white), alignment: .center),
             isEnable: true, handler: nil)
         setupItems?([assets, ConfirmOptionsItem(toleranceText: "0.5%", market: .smart), button])
+    }
+}
+
+/// One page of Explore with a fixed list.
+private final class FitExplorePage: ExplorePageViewModelProtocol {
+    @Published var snapshot = ExplorePageSnapshot()
+    var snapshotPublisher: Published<ExplorePageSnapshot>.Publisher { $snapshot }
+    var isNeedHeaders: Bool { false }
+    init(_ items: [ExplorePageSectionItem]) {
+        var snapshot = ExplorePageSnapshot()
+        let section = ExplorePageSection(items: items)
+        snapshot.appendSections([section])
+        snapshot.appendItems(items, toSection: section)
+        self.snapshot = snapshot
+    }
+    func setup() {}
+    func didSelect(with item: ExplorePageSectionItem?) {}
+    func searchTextChanged(with text: String) {}
+}
+
+/// Asset details of a holding worth more than a million, a long token name, and Taira's card with its faucet.
+private final class FitAssetDetails: AssetDetailsViewModelProtocol {
+    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
+    var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
+    private var keep: [AnyObject] = []
+    func viewDidLoad() {
+        let xor = AssetInfo(id: WalletAssetId.xor.rawValue, symbol: "XOR", chainId: "", precision: 18, icon: nil,
+                            displayName: "SORA", visible: true)
+        let amount = Decimal(string: "799994.8779")!
+        let service = TransferableItemService(assetInfo: xor, eventCenter: FitSilentEvents(),
+                                              assetsProvider: FitBalances(), referralFactory: FitNoReferrals())
+        service.usdPrice = Decimal(string: "1.6")!
+        let balance = TransferableItem(assetInfo: xor, fiat: WalletUX.balanceFiatText(amount: amount, price: service.usdPrice),
+                                       balance: Amount(value: amount), service: service,
+                                       balanceData: BalanceData(identifier: xor.assetId, balance: AmountDecimal(value: amount)))
+        let price = PriceItem(icon: nil, tokenName: "100x SORA TBC Dollar", tokenSymbol: "TBCD", priceText: "$1.02",
+                              deltaPriceText: SoramitsuTextItem(text: "+12.34%", fontData: FontType.textBoldS,
+                                                                textColor: .statusSuccess, alignment: .left))
+        let taira = NexusBalanceItem(balanceText: "799,994.8779 XOR", showsSend: true,
+                                     faucet: NexusFaucetState(title: WalletUX.text("Get test XOR"), message: "", busy: false, enabled: true))
+        keep = [service]
+        setupItems?([price, balance, taira])
+    }
+}
+
+private final class FitSilentEvents: EventCenterProtocol {
+    func notify(with _: EventProtocol) {}
+    func notify(with _: EventProtocol, completionOnMain: @escaping () -> Void) { DispatchQueue.main.async(execute: completionOnMain) }
+    func add(observer _: EventVisitorProtocol, dispatchIn _: DispatchQueue?) {}
+    func remove(observer _: EventVisitorProtocol) {}
+}
+
+private final class FitBalances: AssetProviderProtocol {
+    func getBalances(with assetIds: [String]) -> [BalanceData] { [] }
+    func unavailableBalanceAssetIds(among assetIds: [String]) -> Set<String> { [] }
+    func add(observer _: AssetProviderObserverProtocol) {}
+    func remove(observer _: AssetProviderObserverProtocol) {}
+}
+
+private final class FitNoReferrals: ReferralsOperationFactoryProtocol {
+    func createReferrerBalancesOperation() -> JSONRPCListOperation<JSONScaleDecodable<SoraPassport.Balance>>? { nil }
+    func createExtrinsicSetReferrerOperation(with _: String) -> BaseOperation<String> { ClosureOperation { "" } }
+    func createExtrinsicReserveReferralBalanceOperation(with _: BigUInt) -> BaseOperation<String> { ClosureOperation { "" } }
+    func createExtrinsicUnreserveReferralBalanceOperation(with _: BigUInt) -> BaseOperation<String> { ClosureOperation { "" } }
+    func createReferrerOperation() -> JSONRPCListOperation<String?>? { nil }
+}
+
+/// "Where it lives" on a token's page: one network per row, the wallet's name under it, the amount at the side.
+private final class FitHoldingsController: UIViewController {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .clear
+        let card = GlassView()
+        card.shape = .rounded(26)
+        card.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(card)
+        let rows = UIStackView()
+        rows.axis = .vertical
+        rows.translatesAutoresizingMaskIntoConstraints = false
+        card.contentView.addSubview(rows)
+        let holdings: [(PortfolioNetwork, String, String, String, PortfolioTag?)] = [
+            (.sora2, "Savings wallet for the family", "799,994.8779 XOR", "$1,279,991.80", .network(.main)),
+            (.taira, "Audit imported phrase", "799,994.88 XOR", "—", .network(.testnet)),
+            (.minamoto, "Main", "0 XOR", "—", .network(.comingSoon))
+        ]
+        for (index, holding) in holdings.enumerated() {
+            let row = PortfolioDetailHoldingRow()
+            row.configure(PortfolioDetailModel.Holding(id: "\(index)", network: holding.0, walletName: holding.1,
+                                                       walletSlot: .slot(index), amount: holding.2, value: holding.3,
+                                                       tag: holding.4, isSelected: index == 0, accessibilityLabel: holding.1),
+                          showsSeparator: index > 0)
+            rows.addArrangedSubview(row)
+        }
+        NSLayoutConstraint.activate([
+            card.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+            card.leadingAnchor.constraint(equalTo: view.litColumnGuide.leadingAnchor),
+            card.trailingAnchor.constraint(equalTo: view.litColumnGuide.trailingAnchor),
+            rows.topAnchor.constraint(equalTo: card.contentView.topAnchor, constant: 8),
+            rows.bottomAnchor.constraint(equalTo: card.contentView.bottomAnchor, constant: -8),
+            rows.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor),
+            rows.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor)
+        ])
     }
 }
