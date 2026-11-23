@@ -326,17 +326,23 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         ] {
             let attempt = Result {
                 try Sora2SubmissionRecoveryContext.make(
-                    walletId: "cnTestWallet",
-                    accountId: Data(repeating: 0x11, count: 32),
-                    publicKey: Data(repeating: 0x11, count: 32),
+                    signer: .init(
+                        walletId: "cnTestWallet",
+                        accountId: Data(repeating: 0x11, count: 32),
+                        publicKey: Data(repeating: 0x11, count: 32)
+                    ),
                     transactionHash: "0x" + String(repeating: "ab", count: 32),
-                    genesisHash: PIIndexerClient.soraMainnetGenesis,
-                    specVersion: spec,
-                    transactionVersion: tx,
-                    metadataSHA256: Self.fixtureHexLineSHA256,
-                    era: .mortal(period: 64, phase: 1_000 % 64),
-                    eraBirthBlock: 1_000,
-                    eraBirthBlockHash: "0x" + String(repeating: "cd", count: 32)
+                    runtime: .init(
+                        genesisHash: PIIndexerClient.soraMainnetGenesis,
+                        specVersion: spec,
+                        transactionVersion: tx,
+                        metadataSHA256: Self.fixtureHexLineSHA256
+                    ),
+                    mortality: .init(
+                        era: .mortal(period: 64, phase: 1_000 % 64),
+                        eraBirthBlock: 1_000,
+                        eraBirthBlockHash: "0x" + String(repeating: "cd", count: 32)
+                    )
                 )
             }
             switch attempt {
@@ -348,17 +354,23 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         }
         XCTAssertThrowsError(
             try Sora2SubmissionRecoveryContext.make(
-                walletId: "cnTestWallet",
-                accountId: Data(repeating: 0x11, count: 32),
-                publicKey: Data(repeating: 0x11, count: 32),
+                signer: .init(
+                    walletId: "cnTestWallet",
+                    accountId: Data(repeating: 0x11, count: 32),
+                    publicKey: Data(repeating: 0x11, count: 32)
+                ),
                 transactionHash: "0x" + String(repeating: "ab", count: 32),
-                genesisHash: PIIndexerClient.soraMainnetGenesis,
-                specVersion: 133,
-                transactionVersion: 131,
-                metadataSHA256: Self.fixtureHexLineSHA256.uppercased(),
-                era: .mortal(period: 64, phase: 1_000 % 64),
-                eraBirthBlock: 1_000,
-                eraBirthBlockHash: "0x" + String(repeating: "cd", count: 32)
+                runtime: .init(
+                    genesisHash: PIIndexerClient.soraMainnetGenesis,
+                    specVersion: 133,
+                    transactionVersion: 131,
+                    metadataSHA256: Self.fixtureHexLineSHA256.uppercased()
+                ),
+                mortality: .init(
+                    era: .mortal(period: 64, phase: 1_000 % 64),
+                    eraBirthBlock: 1_000,
+                    eraBirthBlockHash: "0x" + String(repeating: "cd", count: 32)
+                )
             )
         )
     }
@@ -371,11 +383,13 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         var signedPayloads: [Data] = []
         let (data, _) = try ExtrinsicService.assembleSignedExtrinsic(
             codingFactory: factory,
-            genesisHash: PIIndexerClient.soraMainnetGenesis,
-            accountId: accountId,
-            nonce: 7,
-            era: .mortal(period: 64, phase: 5),
-            eraBlockHash: "0x" + String(repeating: "ee", count: 32),
+            parameters: .init(
+                genesisHash: PIIndexerClient.soraMainnetGenesis,
+                accountId: accountId,
+                nonce: 7,
+                era: .mortal(period: 64, phase: 5),
+                eraBlockHash: "0x" + String(repeating: "ee", count: 32)
+            ),
             cryptoType: .sr25519,
             customClosure: { builder in
                 try builder.adding(
@@ -2602,11 +2616,13 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         var payloads: [Data] = []
         let (data, _) = try ExtrinsicService.assembleSignedExtrinsic(
             codingFactory: factory,
-            genesisHash: PIIndexerClient.soraMainnetGenesis,
-            accountId: accountId,
-            nonce: 7,
-            era: .mortal(period: 64, phase: 5),
-            eraBlockHash: "0x" + String(repeating: "ee", count: 32),
+            parameters: .init(
+                genesisHash: PIIndexerClient.soraMainnetGenesis,
+                accountId: accountId,
+                nonce: 7,
+                era: .mortal(period: 64, phase: 5),
+                eraBlockHash: "0x" + String(repeating: "ee", count: 32)
+            ),
             cryptoType: .sr25519,
             customClosure: { builder in
                 try builder.adding(

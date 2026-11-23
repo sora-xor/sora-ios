@@ -267,32 +267,7 @@ enum PIStrictJSONAdmission {
                     guard index < bytes.count else { try invalid() }
                     let escaped = bytes[index]
                     index += 1
-                    switch escaped {
-                    case 0x22, 0x5C, 0x2F:
-                        if capturingValue {
-                            guard let scalar = UnicodeScalar(UInt32(escaped)) else {
-                                try invalid()
-                            }
-                            decoded.append(contentsOf: String(scalar))
-                        }
-                    case 0x62:
-                        if capturingValue { decoded.append("\u{08}") }
-                    case 0x66:
-                        if capturingValue { decoded.append("\u{0C}") }
-                    case 0x6E:
-                        if capturingValue { decoded.append("\n") }
-                    case 0x72:
-                        if capturingValue { decoded.append("\r") }
-                    case 0x74:
-                        if capturingValue { decoded.append("\t") }
-                    case 0x75:
-                        let scalar = try parseEscapedUnicodeScalar()
-                        if capturingValue {
-                            decoded.append(contentsOf: String(scalar))
-                        }
-                    default:
-                        try invalid()
-                    }
+                    try appendEscape(escaped, capturingValue: capturingValue, decoded: &decoded)
                     chunkStart = index
                     continue
                 }
@@ -300,6 +275,38 @@ enum PIStrictJSONAdmission {
                 index += 1
             }
             try invalid()
+        }
+
+        /// Decodes one escape; `escaped` is the byte after the backslash and
+        /// `index` points just past it.
+        private mutating func appendEscape(_ escaped: UInt8, capturingValue: Bool, decoded: inout String) throws {
+            switch escaped {
+            case 0x22, 0x5C, 0x2F:
+                if capturingValue {
+                    guard let scalar = UnicodeScalar(UInt32(escaped)) else { try invalid() }
+                    decoded.append(contentsOf: String(scalar))
+                }
+            case 0x75:
+                let scalar = try parseEscapedUnicodeScalar()
+                if capturingValue { decoded.append(contentsOf: String(scalar)) }
+            default:
+                try appendControlEscape(escaped, capturingValue: capturingValue, decoded: &decoded)
+            }
+        }
+
+        /// \b, \f, \n, \r and \t. Any other escape is invalid, whether or not
+        /// the value is captured.
+        private func appendControlEscape(_ escaped: UInt8, capturingValue: Bool, decoded: inout String) throws {
+            let control: String
+            switch escaped {
+            case 0x62: control = "\u{08}"
+            case 0x66: control = "\u{0C}"
+            case 0x6E: control = "\n"
+            case 0x72: control = "\r"
+            case 0x74: control = "\t"
+            default: try invalid()
+            }
+            if capturingValue { decoded.append(control) }
         }
 
         private mutating func appendUTF8Chunk(
@@ -1852,6 +1859,15 @@ struct PIHistoryPageRead {
     let coverage: PIHistoryCoverage
 }
 
+/// The `MobileHealth` query's data, which GraphQL names `_health`.
+private struct PIHealthPayload: Decodable {
+    let health: PIHealth
+
+    private enum CodingKeys: String, CodingKey {
+        case health = "_health"
+    }
+}
+
 final class PIIndexerClient {
     static let endpoint = URL(string: "https://pi.soramitsu.io/graphql")!
     static let soraMainnetGenesis =
@@ -1998,8 +2014,7 @@ final class PIIndexerClient {
     }
 
     func health(requireLive: Bool = false) async throws -> PIHealth {
-        struct Payload: Decodable { let _health: PIHealth }
-        let result: Payload = try await execute(
+        let result: PIHealthPayload = try await execute(
             operationName: "MobileHealth",
             query: """
             query MobileHealth {
@@ -2021,12 +2036,12 @@ final class PIIndexerClient {
                 // header reports, so a device clock that is somewhat wrong
                 // does not make a healthy indexer look stale.
                 try Self.validateHealth(
-                    payload._health,
+                    payload.health,
                     nowEpochSeconds: nowEpochSeconds
                 )
             }
         )
-        return result._health
+        return result.health
     }
 
     /// The time to judge one response's freshness against, and how far the
@@ -4737,7 +4752,8 @@ final class PIIndexerClient {
         func inconsistent(_ error: PIIndexerError) -> PIIndexerError {
             checkpointMoved ? .staleCheckpoint : error
         }
-        for _ in 0 ..< maximumPages {
+        /// Reads the page at `cursor`, asking again for one lost on the way.
+        func loadPage() async throws -> PIQualifiedRead<PIConnection<Node>> {
             let previousLiveHealth =
                 expectedQualification?.source == .live
                     ? expectedQualification?.health
@@ -4759,50 +4775,44 @@ final class PIIndexerClient {
             guard let read = loaded else {
                 throw PIIndexerError.invalidResponse
             }
-            if read.checkpointAdvanced {
-                // PI moved while this very page was being read, so the
-                // page can already differ from the ones before it.
-                checkpointMoved = true
+            return read
+        }
+        /// Checks a page's checkpoint against the walk's first and previous
+        /// pages and records it.
+        func admitQualification(
+            of read: PIQualifiedRead<PIConnection<Node>>
+        ) throws {
+            guard let qualification = read.qualification else {
+                throw PIIndexerError.missingChainIdentityCapability
             }
-            if requireQualification {
-                guard let qualification = read.qualification else {
-                    throw PIIndexerError.missingChainIdentityCapability
-                }
-                if let firstQualification {
-                    try Self.validateWalkAdvance(
-                        first: firstQualification,
-                        current: qualification
-                    )
-                } else {
-                    firstQualification = qualification
-                }
-                if let previous = expectedQualification {
-                    // Never compose one logical result from cached and live
-                    // pages, from another indexer, or from a checkpoint that
-                    // went backwards. Forward progress is accepted.
-                    try Self.validatePageCheckpoint(
-                        previous: previous,
-                        current: qualification
-                    )
-                    if previous.health != qualification.health {
-                        checkpointMoved = true
-                    }
-                }
-                expectedQualification = qualification
+            if let firstQualification {
+                try Self.validateWalkAdvance(
+                    first: firstQualification,
+                    current: qualification
+                )
+            } else {
+                firstQualification = qualification
             }
-            let page = read.value
-            let values = page.values
-            guard
-                page.totalCount >= 0,
-                values.count <= pageSize,
-                (page.nodes != nil) != (page.edges != nil),
-                page.pageInfo.hasPreviousPage == (cursor != nil),
-                !page.pageInfo.hasNextPage || !values.isEmpty,
-                Self.isBoundedCursor(page.pageInfo.startCursor),
-                Self.isBoundedCursor(page.pageInfo.endCursor)
-            else {
-                throw PIIndexerError.invalidResponse
+            if let previous = expectedQualification {
+                // Never compose one logical result from cached and live
+                // pages, from another indexer, or from a checkpoint that
+                // went backwards. Forward progress is accepted.
+                try Self.validatePageCheckpoint(
+                    previous: previous,
+                    current: qualification
+                )
+                if previous.health != qualification.health {
+                    checkpointMoved = true
+                }
             }
+            expectedQualification = qualification
+        }
+        /// Checks a page's values against the pages before it and adds them
+        /// to the result.
+        func appendValues(
+            _ values: [Node],
+            of page: PIConnection<Node>
+        ) throws {
             guard
                 expectedTotalCount.map({ $0 == page.totalCount }) ?? true
             else {
@@ -4838,6 +4848,31 @@ final class PIIndexerClient {
                 throw inconsistent(.invalidResponse)
             }
             result.append(contentsOf: values)
+        }
+        for _ in 0 ..< maximumPages {
+            let read = try await loadPage()
+            if read.checkpointAdvanced {
+                // PI moved while this very page was being read, so the
+                // page can already differ from the ones before it.
+                checkpointMoved = true
+            }
+            if requireQualification {
+                try admitQualification(of: read)
+            }
+            let page = read.value
+            let values = page.values
+            guard
+                page.totalCount >= 0,
+                values.count <= pageSize,
+                (page.nodes != nil) != (page.edges != nil),
+                page.pageInfo.hasPreviousPage == (cursor != nil),
+                !page.pageInfo.hasNextPage || !values.isEmpty,
+                Self.isBoundedCursor(page.pageInfo.startCursor),
+                Self.isBoundedCursor(page.pageInfo.endCursor)
+            else {
+                throw PIIndexerError.invalidResponse
+            }
+            try appendValues(values, of: page)
             guard page.pageInfo.hasNextPage else {
                 guard result.count == page.totalCount else {
                     throw inconsistent(.invalidResponse)

@@ -227,11 +227,13 @@ final class Sora2MainnetLiveSigningTests: XCTestCase {
         )
         let (extrinsicData, _) = try ExtrinsicService.assembleSignedExtrinsic(
             codingFactory: factory,
-            genesisHash: genesis,
-            accountId: publicKey,
-            nonce: nonce,
-            era: era,
-            eraBlockHash: finalizedHash,
+            parameters: .init(
+                genesisHash: genesis,
+                accountId: publicKey,
+                nonce: nonce,
+                era: era,
+                eraBlockHash: finalizedHash
+            ),
             cryptoType: .sr25519,
             customClosure: { builder in
                 try builder.adding(
@@ -359,11 +361,13 @@ final class Sora2MainnetLiveSigningTests: XCTestCase {
         let market = LiquiditySourceType.smart
         let (extrinsicData, _) = try ExtrinsicService.assembleSignedExtrinsic(
             codingFactory: factory,
-            genesisHash: genesis,
-            accountId: publicKey,
-            nonce: nonce,
-            era: era,
-            eraBlockHash: finalizedHash,
+            parameters: .init(
+                genesisHash: genesis,
+                accountId: publicKey,
+                nonce: nonce,
+                era: era,
+                eraBlockHash: finalizedHash
+            ),
             cryptoType: .sr25519,
             customClosure: { builder in
                 try builder.adding(

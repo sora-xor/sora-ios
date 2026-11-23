@@ -229,55 +229,9 @@ struct WalletStartupDiagnostic: Codable, Equatable {
         if let error = error as? KeystoreSystemError {
             return (.keychainSystem, Int(error.status))
         }
-        if let error = error as? KeystoreError {
-            switch error {
-            case .invalidIdentifierFormat: return (.keychainIdentifier, nil)
-            case .noKeyFound: return (.keychainMissing, nil)
-            case .duplicatedItem: return (.keychainDuplicate, nil)
-            case .unexpectedFail: return (.keychainResult, nil)
-            }
-        }
-        if let error = error as? SelectedWalletSettingsError {
-            switch error {
-            case .duplicateAccountIdentifiers: return (.duplicateAccounts, nil)
-            case .multipleSelectedAccounts: return (.multipleSelections, nil)
-            case .missingSelectedAccount: return (.missingSelection, nil)
-            }
-        }
-        if let error = error as? WalletIntegrityError {
-            switch error {
-            case .selectedAccountSecretMissing: return (.missingSecret, nil)
-            case .selectedAccountMissing: return (.missingSelection, nil)
-            case .legacyWalletUpgradeVerificationFailed: return (.legacyUpgradeProof, nil)
-            }
-        }
-        if let error = error as? WalletNetworkMigrationError {
-            switch error {
-            case .invalidMnemonic: return (.invalidMnemonic, nil)
-            case .invalidDerivationPath, .nonHardenedDerivationComponent,
-                 .invalidDerivationIndex: return (.invalidDerivation, nil)
-            case .keyDerivationFailed: return (.derivationFailed, nil)
-            case .invalidPrivateKey: return (.invalidPrivateKey, nil)
-            case .snapshotVerificationFailed: return (.snapshotVerification, nil)
-            case .missingSnapshot: return (.missingSnapshot, nil)
-            case .missingSelectedWallet: return (.missingSelection, nil)
-            case .lifecycleMutationBusy: return (.lifecycleBusy, nil)
-            case .walletRecoveryRequired: return (.recoveryRequired, nil)
-            case .legacyIdentityMismatch: return (.legacyIdentityMismatch, nil)
-            case .explicitRemovalTargetMissing, .explicitRemovalInventoryMismatch,
-                 .explicitRemovalSelectionMismatch: return (.removalMismatch, nil)
-            }
-        }
-        if error is DecodingError { return (.decoding, nil) }
-        if error is EncodingError { return (.encoding, nil) }
-        if error is FileProtectionMetadata.Failure { return (.fileProtection, nil) }
-        if error is WalletMigrationSafetyNamespaceAdmission.Failure { return (.migrationNamespace, nil) }
-        if let error = error as? DurableFileWriter.Failure {
-            switch error {
-            case .invalidTarget: return (.durableTarget, nil)
-            case .fileSystemFailure: return (.durableCommit, nil)
-            }
-        }
+        // The app's own error types, in this order, then the system domains.
+        if let cause = walletCause(of: error) { return (cause, nil) }
+        if let cause = storageCause(of: error) { return (cause, nil) }
         let systemError = error as NSError
         let family: Cause
         switch systemError.domain {
@@ -288,6 +242,85 @@ struct WalletStartupDiagnostic: Codable, Equatable {
         default: return (.unexpected, nil)
         }
         return (family, systemError.code)
+    }
+
+    /// Keychain, account selection, wallet integrity and network migration
+    /// errors; nil for any other error.
+    private static func walletCause(of error: Error) -> Cause? {
+        if let error = error as? KeystoreError { return keystoreCause(error) }
+        if let error = error as? SelectedWalletSettingsError { return selectionCause(error) }
+        if let error = error as? WalletIntegrityError { return integrityCause(error) }
+        if let error = error as? WalletNetworkMigrationError { return migrationCause(error) }
+        return nil
+    }
+
+    /// Coding, file protection, migration namespace and durable file errors;
+    /// nil for any other error.
+    private static func storageCause(of error: Error) -> Cause? {
+        if error is DecodingError { return .decoding }
+        if error is EncodingError { return .encoding }
+        if error is FileProtectionMetadata.Failure { return .fileProtection }
+        if error is WalletMigrationSafetyNamespaceAdmission.Failure { return .migrationNamespace }
+        if let error = error as? DurableFileWriter.Failure {
+            switch error {
+            case .invalidTarget: return .durableTarget
+            case .fileSystemFailure: return .durableCommit
+            }
+        }
+        return nil
+    }
+
+    private static func keystoreCause(_ error: KeystoreError) -> Cause {
+        switch error {
+        case .invalidIdentifierFormat: return .keychainIdentifier
+        case .noKeyFound: return .keychainMissing
+        case .duplicatedItem: return .keychainDuplicate
+        case .unexpectedFail: return .keychainResult
+        }
+    }
+
+    private static func selectionCause(_ error: SelectedWalletSettingsError) -> Cause {
+        switch error {
+        case .duplicateAccountIdentifiers: return .duplicateAccounts
+        case .multipleSelectedAccounts: return .multipleSelections
+        case .missingSelectedAccount: return .missingSelection
+        }
+    }
+
+    private static func integrityCause(_ error: WalletIntegrityError) -> Cause {
+        switch error {
+        case .selectedAccountSecretMissing: return .missingSecret
+        case .selectedAccountMissing: return .missingSelection
+        case .legacyWalletUpgradeVerificationFailed: return .legacyUpgradeProof
+        }
+    }
+
+    private static func migrationCause(_ error: WalletNetworkMigrationError) -> Cause {
+        switch error {
+        case .invalidMnemonic, .invalidDerivationPath, .nonHardenedDerivationComponent,
+             .invalidDerivationIndex, .keyDerivationFailed, .invalidPrivateKey:
+            return keyMaterialCause(error)
+        case .snapshotVerificationFailed: return .snapshotVerification
+        case .missingSnapshot: return .missingSnapshot
+        case .missingSelectedWallet: return .missingSelection
+        case .lifecycleMutationBusy: return .lifecycleBusy
+        case .walletRecoveryRequired: return .recoveryRequired
+        case .legacyIdentityMismatch: return .legacyIdentityMismatch
+        case .explicitRemovalTargetMissing, .explicitRemovalInventoryMismatch,
+             .explicitRemovalSelectionMismatch: return .removalMismatch
+        }
+    }
+
+    /// migrationCause's recovery phrase and key derivation cases.
+    private static func keyMaterialCause(_ error: WalletNetworkMigrationError) -> Cause {
+        switch error {
+        case .invalidMnemonic: return .invalidMnemonic
+        case .invalidDerivationPath, .nonHardenedDerivationComponent,
+             .invalidDerivationIndex: return .invalidDerivation
+        case .keyDerivationFailed: return .derivationFailed
+        case .invalidPrivateKey: return .invalidPrivateKey
+        default: return .unexpected // Not reached: migrationCause sends only the cases above.
+        }
     }
 
     static func record(_ error: Error, phase: Phase, settings: SettingsManagerProtocol) {

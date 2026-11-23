@@ -225,11 +225,14 @@ final class MigrationSubmissionBoundaryTests: XCTestCase {
   private func witnessedPending(_ byte: String = "ab") throws -> Sora2PendingSubmission {
     let hash = String(repeating: byte, count: 32)
     let context = try Sora2SubmissionRecoveryContext.make(
-      walletId: account.address, accountId: account.publicKeyData, publicKey: account.publicKeyData,
-      transactionHash: hash, genesisHash: PIIndexerClient.soraMainnetGenesis,
-      specVersion: 130, transactionVersion: 130, metadataSHA256: String(repeating: "cd", count: 32),
-      era: .mortal(period: 64, phase: 0), eraBirthBlock: 128,
-      eraBirthBlockHash: String(repeating: "ef", count: 32))
+      signer: .init(walletId: account.address, accountId: account.publicKeyData, publicKey: account.publicKeyData),
+      transactionHash: hash,
+      runtime: .init(
+        genesisHash: PIIndexerClient.soraMainnetGenesis,
+        specVersion: 130, transactionVersion: 130, metadataSHA256: String(repeating: "cd", count: 32)),
+      mortality: .init(
+        era: .mortal(period: 64, phase: 0), eraBirthBlock: 128,
+        eraBirthBlockHash: String(repeating: "ef", count: 32)))
     return try store.stage(
       account: account.address, hash: hash, recoveryContext: context, purpose: .legacyMigration)
   }

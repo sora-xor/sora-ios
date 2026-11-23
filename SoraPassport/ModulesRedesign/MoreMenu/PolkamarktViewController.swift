@@ -368,78 +368,13 @@ final class PolkamarktViewController: WalletTableViewController {
                     qualifications.append(
                         loadedPositions?.qualification
                     )
-                    let candidateMarketIds = claimReviewCandidateMarketIds
-                    var pendingReadCompleted = false
-                    do {
-                        let pendingStore = try makePendingStore()
-                        let coordinator = makeCoordinator(pendingStore)
-                        let pending: [PolkamarktPendingMutation]
-                        if let coordinator {
-                            pending = try await
-                                coordinator.reconcilePending(
-                                    account: account
-                                )
-                        } else {
-                            pending = try await pendingStore.all()
-                        }
-                        guard catalogContextIsCurrent(
-                            capturedAccount: selectedAccount
-                        ) else {
-                            handleCatalogContextChange(
-                                capturedAccount: selectedAccount
-                            )
-                            return
-                        }
-                        shouldObservePending =
-                            PolkamarktPendingObservationPolicy
-                                .requiresObservation(
-                                    pending,
-                                    account: account
-                                )
-                        pendingReadCompleted = true
-                        if shouldObservePending {
-                            clearClaimReview()
-                        } else if
-                            mutationsAllowed(),
-                            let coordinator,
-                            !candidateMarketIds.isEmpty
-                        {
-                            let review = try await
-                                coordinator.authoritativeClaimables(
-                                    account: account,
-                                    marketIds: candidateMarketIds
-                                )
-                            guard catalogContextIsCurrent(
-                                capturedAccount: selectedAccount
-                            ) else {
-                                handleCatalogContextChange(
-                                    capturedAccount: selectedAccount
-                                )
-                                return
-                            }
-                            reviewedClaims = review.claims.reduce(
-                                into: [:]
-                            ) { result, claim in
-                                result[claim.marketId] = claim
-                            }
-                            claimReviewAccount = review.account
-                            claimReviewFinalizedBlockHash =
-                                review.finalizedBlockHash
-                        } else {
-                            clearClaimReview()
-                        }
-                    } catch {
-                        if PolkamarktTaskPolicy.isCancellation(error) {
-                            refreshControl?.endRefreshing()
-                            return
-                        }
-                        // A failed status read is not terminal evidence. Only
-                        // that failure starts the durable-journal retry loop;
-                        // an authoritative claim-read failure stays disabled
-                        // without pretending a transaction is pending.
-                        shouldObservePending = !pendingReadCompleted
-                        clearClaimReview()
+                    guard let observePending = await reconcilePendingAndClaims(
+                        account: account,
+                        selectedAccount: selectedAccount
+                    ) else {
+                        return
                     }
+                    shouldObservePending = observePending
                 } else {
                     positions = []
                     positionsAccount = nil
@@ -455,58 +390,205 @@ final class PolkamarktViewController: WalletTableViewController {
                     )
                     return
                 }
-                marketsFromCache =
-                    loadedMarkets.qualification?.source == .cache
-                indexedDataFromCache = qualifications
-                    .compactMap { $0 }
-                    .contains { $0.source == .cache }
-                if shouldObservePending {
-                    navigationItem.prompt =
-                        "Pending SORA2 transaction — reconciling finalized status"
-                } else {
-                    navigationItem.prompt = indexedDataFromCache
-                        ? "Offline PI snapshot — runtime actions still require live checks"
-                        : nil
-                }
-                if let account = selectedAccount, shouldObservePending {
-                    beginPendingReconciliation(account: account)
-                }
-                applyFilter()
-            } catch {
-                if PolkamarktTaskPolicy.isCancellation(error) {
-                    refreshControl?.endRefreshing()
-                    return
-                }
-                guard catalogContextIsCurrent(
-                    capturedAccount: selectedAccount
-                ) else {
-                    handleCatalogContextChange(
-                        capturedAccount: selectedAccount
-                    )
-                    return
-                }
-                if !markets.isEmpty {
-                    // Preserve the last readable catalog for continuity, but
-                    // never continue presenting it as a fresh PI response.
-                    marketsFromCache = true
-                    indexedDataFromCache = true
-                    navigationItem.prompt =
-                        "Refresh failed — displayed PI data may be stale"
-                    tableView.reloadData()
-                }
-                if let account = selectedAccount {
-                    beginPendingReconciliation(
-                        account: account,
-                        reloadWhenSettled: false
-                    )
-                }
-                showError(
-                    title: "Markets unavailable",
-                    message: error.localizedDescription
+                presentCatalogRead(
+                    marketsQualification: loadedMarkets.qualification,
+                    qualifications: qualifications,
+                    shouldObservePending: shouldObservePending,
+                    selectedAccount: selectedAccount
                 )
+            } catch {
+                guard presentCatalogLoadFailure(
+                    error,
+                    selectedAccount: selectedAccount
+                ) else {
+                    return
+                }
             }
             refreshControl?.endRefreshing()
         }
+    }
+
+    /// Reads the account's pending SORA2 transactions and, when none needs
+    /// watching, its authoritative claims. Returns whether pending
+    /// transactions need watching, or nil when the load should stop: it was
+    /// cancelled (the refresh is ended here) or the catalog context changed.
+    private func reconcilePendingAndClaims(
+        account: String,
+        selectedAccount: String?
+    ) async -> Bool? {
+        let candidateMarketIds = claimReviewCandidateMarketIds
+        var shouldObservePending = false
+        var pendingReadCompleted = false
+        do {
+            let (pending, coordinator) = try await readPending(
+                account: account
+            )
+            guard catalogContextIsCurrent(
+                capturedAccount: selectedAccount
+            ) else {
+                handleCatalogContextChange(
+                    capturedAccount: selectedAccount
+                )
+                return nil
+            }
+            shouldObservePending =
+                PolkamarktPendingObservationPolicy
+                    .requiresObservation(
+                        pending,
+                        account: account
+                    )
+            pendingReadCompleted = true
+            if shouldObservePending {
+                clearClaimReview()
+            } else if
+                mutationsAllowed(),
+                let coordinator,
+                !candidateMarketIds.isEmpty
+            {
+                guard try await reviewClaims(
+                    coordinator: coordinator,
+                    account: account,
+                    marketIds: candidateMarketIds,
+                    selectedAccount: selectedAccount
+                ) else {
+                    return nil
+                }
+            } else {
+                clearClaimReview()
+            }
+        } catch {
+            if PolkamarktTaskPolicy.isCancellation(error) {
+                refreshControl?.endRefreshing()
+                return nil
+            }
+            // A failed status read is not terminal evidence. Only
+            // that failure starts the durable-journal retry loop;
+            // an authoritative claim-read failure stays disabled
+            // without pretending a transaction is pending.
+            shouldObservePending = !pendingReadCompleted
+            clearClaimReview()
+        }
+        return shouldObservePending
+    }
+
+    /// The account's pending SORA2 transactions, reconciled when a
+    /// coordinator is available, and that coordinator.
+    private func readPending(
+        account: String
+    ) async throws -> (
+        pending: [PolkamarktPendingMutation],
+        coordinator: PolkamarktTransactionCoordinator?
+    ) {
+        let pendingStore = try makePendingStore()
+        let coordinator = makeCoordinator(pendingStore)
+        let pending: [PolkamarktPendingMutation]
+        if let coordinator {
+            pending = try await
+                coordinator.reconcilePending(
+                    account: account
+                )
+        } else {
+            pending = try await pendingStore.all()
+        }
+        return (pending, coordinator)
+    }
+
+    /// Reads the authoritative claims for the candidate markets. Returns
+    /// false when the catalog context changed meanwhile.
+    private func reviewClaims(
+        coordinator: PolkamarktTransactionCoordinator,
+        account: String,
+        marketIds candidateMarketIds: [UInt32],
+        selectedAccount: String?
+    ) async throws -> Bool {
+        let review = try await
+            coordinator.authoritativeClaimables(
+                account: account,
+                marketIds: candidateMarketIds
+            )
+        guard catalogContextIsCurrent(
+            capturedAccount: selectedAccount
+        ) else {
+            handleCatalogContextChange(
+                capturedAccount: selectedAccount
+            )
+            return false
+        }
+        reviewedClaims = review.claims.reduce(
+            into: [:]
+        ) { result, claim in
+            result[claim.marketId] = claim
+        }
+        claimReviewAccount = review.account
+        claimReviewFinalizedBlockHash =
+            review.finalizedBlockHash
+        return true
+    }
+
+    private func presentCatalogRead(
+        marketsQualification: PIReadQualification?,
+        qualifications: [PIReadQualification?],
+        shouldObservePending: Bool,
+        selectedAccount: String?
+    ) {
+        marketsFromCache =
+            marketsQualification?.source == .cache
+        indexedDataFromCache = qualifications
+            .compactMap { $0 }
+            .contains { $0.source == .cache }
+        if shouldObservePending {
+            navigationItem.prompt =
+                "Pending SORA2 transaction — reconciling finalized status"
+        } else {
+            navigationItem.prompt = indexedDataFromCache
+                ? "Offline PI snapshot — runtime actions still require live checks"
+                : nil
+        }
+        if let account = selectedAccount, shouldObservePending {
+            beginPendingReconciliation(account: account)
+        }
+        applyFilter()
+    }
+
+    /// Shows a failed catalog read. Returns false when the load should stop
+    /// without ending the refresh: it was cancelled (the refresh is ended
+    /// here) or the catalog context changed.
+    private func presentCatalogLoadFailure(
+        _ error: Error,
+        selectedAccount: String?
+    ) -> Bool {
+        if PolkamarktTaskPolicy.isCancellation(error) {
+            refreshControl?.endRefreshing()
+            return false
+        }
+        guard catalogContextIsCurrent(
+            capturedAccount: selectedAccount
+        ) else {
+            handleCatalogContextChange(
+                capturedAccount: selectedAccount
+            )
+            return false
+        }
+        if !markets.isEmpty {
+            // Preserve the last readable catalog for continuity, but
+            // never continue presenting it as a fresh PI response.
+            marketsFromCache = true
+            indexedDataFromCache = true
+            navigationItem.prompt =
+                "Refresh failed — displayed PI data may be stale"
+            tableView.reloadData()
+        }
+        if let account = selectedAccount {
+            beginPendingReconciliation(
+                account: account,
+                reloadWhenSettled: false
+            )
+        }
+        showError(
+            title: "Markets unavailable",
+            message: error.localizedDescription
+        )
+        return true
     }
 
     private func catalogContextIsCurrent(
@@ -1419,142 +1501,31 @@ final class PolkamarktMarketViewController: WalletTableViewController {
                 return
             }
             var shouldObservePending = false
-            if let coordinator {
-                do {
-                    let review = try await
-                        coordinator.authoritativeMarketReview(
-                            account: account,
-                            marketId: marketId
-                        )
-                    guard reloadContextIsCurrent() else {
-                        return
-                    }
-                    state = review.state
-                    claimable = review.claimable
-                    runtimeReviewFinalizedBlockHash =
-                        review.finalizedBlockHash
-                    runtimeReviewLoadError = nil
-                } catch {
-                    if PolkamarktTaskPolicy.isCancellation(error) {
-                        refreshControl?.endRefreshing()
-                        return
-                    }
-                    guard reloadContextIsCurrent() else {
-                        return
-                    }
-                    state = nil
-                    claimable = nil
-                    runtimeReviewFinalizedBlockHash = nil
-                    runtimeReviewLoadError =
-                        "Finalized SORA2 market state is unavailable."
-                }
-            } else {
-                runtimeReviewLoadError =
-                    "Finalized SORA2 market state is unavailable."
+            guard await loadMarketReview(marketId: marketId) else {
+                return
             }
             var qualifications: [PIReadQualification?] = []
-            do {
-                let snapshotRead =
-                    try await client.qualifiedAllMarketSnapshots(
-                        marketId: Int(marketId),
-                        pageSize: 100,
-                        maximumPages: 20
-                    )
-                guard reloadContextIsCurrent() else {
-                    return
-                }
-                snapshots = snapshotRead.value
-                snapshotLoadError = nil
-                qualifications.append(snapshotRead.qualification)
-            } catch {
-                if PolkamarktTaskPolicy.isCancellation(error) {
-                    refreshControl?.endRefreshing()
-                    return
-                }
-                guard reloadContextIsCurrent() else {
-                    return
-                }
-                snapshots = []
-                snapshotLoadError =
-                    "Indexed probability history is unavailable."
+            guard await loadSnapshots(
+                marketId: marketId,
+                qualifications: &qualifications
+            ) else {
+                return
             }
             if let account {
-                do {
-                    let accountTrades =
-                        try await client.qualifiedAllAccountTrades(
-                            account: account,
-                            pageSize: 100,
-                            maximumPages: 20
-                        )
-                    guard reloadContextIsCurrent() else {
-                        return
-                    }
-                    trades = accountTrades.value.filter {
-                        $0.includesMarket(marketId)
-                    }
-                    tradesLoadError = nil
-                    qualifications.append(
-                        accountTrades.qualification
-                    )
-                } catch {
-                    if PolkamarktTaskPolicy.isCancellation(error) {
-                        refreshControl?.endRefreshing()
-                        return
-                    }
-                    guard reloadContextIsCurrent() else {
-                        return
-                    }
-                    trades = []
-                    tradesLoadError =
-                        "Indexed trade history is unavailable."
+                guard await loadTrades(
+                    account: account,
+                    marketId: marketId,
+                    qualifications: &qualifications
+                ) else {
+                    return
                 }
-                do {
-                    let durableValues = try await pendingStore.all()
-                    guard reloadContextIsCurrent() else {
-                        return
-                    }
-                    applyPendingOverlay(
-                        durableValues,
-                        account: account,
-                        marketId: marketId
-                    )
-                    tableView.reloadData()
-                    let pendingValues: [PolkamarktPendingMutation]
-                    if let coordinator {
-                        pendingValues = try await coordinator.reconcilePending(
-                            account: account
-                        )
-                    } else {
-                        pendingValues = durableValues
-                    }
-                    guard reloadContextIsCurrent() else {
-                        return
-                    }
-                    applyPendingOverlay(
-                        pendingValues,
-                        account: account,
-                        marketId: marketId
-                    )
-                    shouldObservePending =
-                        PolkamarktPendingObservationPolicy
-                            .requiresObservation(
-                                pendingValues,
-                                account: account
-                            )
-                    pendingLoadError = nil
-                } catch {
-                    if PolkamarktTaskPolicy.isCancellation(error) {
-                        refreshControl?.endRefreshing()
-                        return
-                    }
-                    guard reloadContextIsCurrent() else {
-                        return
-                    }
-                    mutationAdmissionAvailable = false
-                    shouldObservePending = true
-                    pendingLoadError =
-                        "The protected pending-transaction journal or its finalized checkpoint is unavailable. Mutations are disabled until recovery succeeds."
+                guard let observePending = await loadPending(
+                    account: account,
+                    marketId: marketId
+                ) else {
+                    return
                 }
+                shouldObservePending = observePending
             } else {
                 trades = []
                 tradesLoadError = nil
@@ -1593,6 +1564,176 @@ final class PolkamarktMarketViewController: WalletTableViewController {
             refreshControl?.endRefreshing()
             tableView.reloadData()
         }
+    }
+
+    // Each reload step below returns false (or nil) when the reload should
+    // stop: it was cancelled (the refresh is ended there) or its context
+    // changed.
+
+    /// Reads the finalized SORA2 market state and claimable.
+    private func loadMarketReview(marketId: UInt32) async -> Bool {
+        if let coordinator {
+            do {
+                let review = try await
+                    coordinator.authoritativeMarketReview(
+                        account: account,
+                        marketId: marketId
+                    )
+                guard reloadContextIsCurrent() else {
+                    return false
+                }
+                state = review.state
+                claimable = review.claimable
+                runtimeReviewFinalizedBlockHash =
+                    review.finalizedBlockHash
+                runtimeReviewLoadError = nil
+            } catch {
+                if PolkamarktTaskPolicy.isCancellation(error) {
+                    refreshControl?.endRefreshing()
+                    return false
+                }
+                guard reloadContextIsCurrent() else {
+                    return false
+                }
+                state = nil
+                claimable = nil
+                runtimeReviewFinalizedBlockHash = nil
+                runtimeReviewLoadError =
+                    "Finalized SORA2 market state is unavailable."
+            }
+        } else {
+            runtimeReviewLoadError =
+                "Finalized SORA2 market state is unavailable."
+        }
+        return true
+    }
+
+    /// Reads the market's indexed probability history.
+    private func loadSnapshots(
+        marketId: UInt32,
+        qualifications: inout [PIReadQualification?]
+    ) async -> Bool {
+        do {
+            let snapshotRead =
+                try await client.qualifiedAllMarketSnapshots(
+                    marketId: Int(marketId),
+                    pageSize: 100,
+                    maximumPages: 20
+                )
+            guard reloadContextIsCurrent() else {
+                return false
+            }
+            snapshots = snapshotRead.value
+            snapshotLoadError = nil
+            qualifications.append(snapshotRead.qualification)
+        } catch {
+            if PolkamarktTaskPolicy.isCancellation(error) {
+                refreshControl?.endRefreshing()
+                return false
+            }
+            guard reloadContextIsCurrent() else {
+                return false
+            }
+            snapshots = []
+            snapshotLoadError =
+                "Indexed probability history is unavailable."
+        }
+        return true
+    }
+
+    /// Reads the account's indexed trades in this market.
+    private func loadTrades(
+        account: String,
+        marketId: UInt32,
+        qualifications: inout [PIReadQualification?]
+    ) async -> Bool {
+        do {
+            let accountTrades =
+                try await client.qualifiedAllAccountTrades(
+                    account: account,
+                    pageSize: 100,
+                    maximumPages: 20
+                )
+            guard reloadContextIsCurrent() else {
+                return false
+            }
+            trades = accountTrades.value.filter {
+                $0.includesMarket(marketId)
+            }
+            tradesLoadError = nil
+            qualifications.append(
+                accountTrades.qualification
+            )
+        } catch {
+            if PolkamarktTaskPolicy.isCancellation(error) {
+                refreshControl?.endRefreshing()
+                return false
+            }
+            guard reloadContextIsCurrent() else {
+                return false
+            }
+            trades = []
+            tradesLoadError =
+                "Indexed trade history is unavailable."
+        }
+        return true
+    }
+
+    /// Reads the account's pending transactions, first from the durable
+    /// journal and then reconciled. Returns whether they need watching.
+    private func loadPending(
+        account: String,
+        marketId: UInt32
+    ) async -> Bool? {
+        var shouldObservePending = false
+        do {
+            let durableValues = try await pendingStore.all()
+            guard reloadContextIsCurrent() else {
+                return nil
+            }
+            applyPendingOverlay(
+                durableValues,
+                account: account,
+                marketId: marketId
+            )
+            tableView.reloadData()
+            let pendingValues: [PolkamarktPendingMutation]
+            if let coordinator {
+                pendingValues = try await coordinator.reconcilePending(
+                    account: account
+                )
+            } else {
+                pendingValues = durableValues
+            }
+            guard reloadContextIsCurrent() else {
+                return nil
+            }
+            applyPendingOverlay(
+                pendingValues,
+                account: account,
+                marketId: marketId
+            )
+            shouldObservePending =
+                PolkamarktPendingObservationPolicy
+                    .requiresObservation(
+                        pendingValues,
+                        account: account
+                    )
+            pendingLoadError = nil
+        } catch {
+            if PolkamarktTaskPolicy.isCancellation(error) {
+                refreshControl?.endRefreshing()
+                return nil
+            }
+            guard reloadContextIsCurrent() else {
+                return nil
+            }
+            mutationAdmissionAvailable = false
+            shouldObservePending = true
+            pendingLoadError =
+                "The protected pending-transaction journal or its finalized checkpoint is unavailable. Mutations are disabled until recovery succeeds."
+        }
+        return shouldObservePending
     }
 
     private func applyPendingOverlay(

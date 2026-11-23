@@ -389,6 +389,7 @@ private final class Sora2EncoderShape {
         guard depth < maximumDepth, remainingNodes > 0 else { return "?limit" }
         remainingNodes -= 1
         let next = depth + 1
+        // First match wins; a node no case here matches goes on to renderScalar's cases, in order.
         switch node {
         case let value as AliasNode:
             return render(type: value.underlyingTypeName, depth: next)
@@ -396,59 +397,61 @@ private final class Sora2EncoderShape {
             guard let underlying = value.resolver?.resolve(for: value.typeName) else { return "?proxy" }
             if underlying is GenericNode { return render(type: value.typeName, depth: next) }
             return render(node: underlying, depth: next)
-        case let value as StructNode:
-            guard value.typeMapping.count <= 64,
-                  value.typeMapping.allSatisfy({ $0.name.utf8.count <= 128 }) else { return "?fields" }
-            return "{" + value.typeMapping.map {
-                "\($0.name):\(render(type: $0.node.typeName, depth: next))"
-            }.joined(separator: ",") + "}"
-        case let value as MappingNode:
-            guard value.typeMapping.count <= 64,
-                  value.typeMapping.allSatisfy({ $0.name.utf8.count <= 128 }) else { return "?fields" }
-            return "{" + value.typeMapping.map {
-                "\($0.name):\(render(type: $0.type, depth: next))"
-            }.joined(separator: ",") + "}"
-        case let value as EnumNode:
-            guard value.typeMapping.count <= 256,
-                  value.typeMapping.allSatisfy({ $0.name.utf8.count <= 128 }) else { return "?variants" }
-            if value.typeName == "framenode_runtime::RuntimeCall" {
-                return renderRuntimeCall(value, depth: next)
-            }
-            return "enum{" + value.typeMapping.map {
-                let payload = render(type: $0.node.typeName, depth: next)
-                return "\($0.index)=\($0.name)" + (["()", "{}"].contains(payload) ? "" : ":\(payload)")
-            }.joined(separator: "|") + "}"
-        case let value as EnumValuesNode:
-            guard value.values.count <= 256,
-                  value.values.allSatisfy({ $0.utf8.count <= 128 }) else { return "?variants" }
-            return "enum{" + value.values.enumerated().map { "\($0.offset)=\($0.element)" }.joined(separator: "|") + "}"
+        case let value as StructNode: return renderStruct(value, next: next)
+        case let value as MappingNode: return renderMapping(value, next: next)
+        case let value as EnumNode: return renderEnum(value, next: next)
+        case let value as EnumValuesNode: return renderEnumValues(value)
+        default: return renderScalar(node, next: next)
+        }
+    }
+
+    private func renderStruct(_ value: StructNode, next: Int) -> String {
+        guard value.typeMapping.count <= 64, value.typeMapping.allSatisfy({ $0.name.utf8.count <= 128 }) else { return "?fields" }
+        return "{" + value.typeMapping.map { "\($0.name):\(render(type: $0.node.typeName, depth: next))" }.joined(separator: ",") + "}"
+    }
+
+    private func renderMapping(_ value: MappingNode, next: Int) -> String {
+        guard value.typeMapping.count <= 64, value.typeMapping.allSatisfy({ $0.name.utf8.count <= 128 }) else { return "?fields" }
+        return "{" + value.typeMapping.map { "\($0.name):\(render(type: $0.type, depth: next))" }.joined(separator: ",") + "}"
+    }
+
+    private func renderEnum(_ value: EnumNode, next: Int) -> String {
+        guard value.typeMapping.count <= 256, value.typeMapping.allSatisfy({ $0.name.utf8.count <= 128 }) else { return "?variants" }
+        if value.typeName == "framenode_runtime::RuntimeCall" { return renderRuntimeCall(value, depth: next) }
+        return "enum{" + value.typeMapping.map {
+            let payload = render(type: $0.node.typeName, depth: next)
+            return "\($0.index)=\($0.name)" + (["()", "{}"].contains(payload) ? "" : ":\(payload)")
+        }.joined(separator: "|") + "}"
+    }
+
+    private func renderEnumValues(_ value: EnumValuesNode) -> String {
+        guard value.values.count <= 256, value.values.allSatisfy({ $0.utf8.count <= 128 }) else { return "?variants" }
+        return "enum{" + value.values.enumerated().map { "\($0.offset)=\($0.element)" }.joined(separator: "|") + "}"
+    }
+
+    /// render(node:depth:)'s cases after EnumValuesNode, in their order.
+    private func renderScalar(_ node: Node, next: Int) -> String {
+        switch node {
         case let value as TupleNode:
             guard value.innerNodes.count <= 64 else { return "?tuple" }
             return "(" + value.innerNodes.map { render(type: $0.typeName, depth: next) }.joined(separator: ",") + ")"
-        case let value as VectorNode:
-            return "Vec<\(render(type: value.underlying.typeName, depth: next))>"
-        case let value as FixedArrayNode:
-            return "[\(render(type: value.elementType.typeName, depth: next));\(value.length)]"
-        case let value as OptionNode:
-            return "Option<\(render(type: value.underlying.typeName, depth: next))>"
-        case let value as CompactNode:
-            return "Compact<\(render(type: value.underlying.typeName, depth: next))>"
-        case let value as GenericCallNode:
-            return value.runtimeMetadata === factory.metadata ? "Call" : "?metadata"
+        case let value as VectorNode: return "Vec<\(render(type: value.underlying.typeName, depth: next))>"
+        case let value as FixedArrayNode: return "[\(render(type: value.elementType.typeName, depth: next));\(value.length)]"
+        case let value as OptionNode: return "Option<\(render(type: value.underlying.typeName, depth: next))>"
+        case let value as CompactNode: return "Compact<\(render(type: value.underlying.typeName, depth: next))>"
+        case let value as GenericCallNode: return value.runtimeMetadata === factory.metadata ? "Call" : "?metadata"
         case is GenericAccountIdNode, is H256Node: return "bytes[32]"
         case is BytesNode: return "Vec<\(render(type: PrimitiveType.u8.name, depth: next))>"
-        case is NullNode: return "()"
-        case is U8Node: return "u8"
-        case is U16Node: return "u16"
-        case is U32Node: return "u32"
-        case is U64Node: return "u64"
-        case is U128Node: return "u128"
-        case is U256Node: return "u256"
-        case is BoolNode: return "bool"
-        case is StringNode: return "str"
-        default: return "?unsupported"
+        default: return Self.primitiveNames.first(where: { $0.matches(node) })?.name ?? "?unsupported"
         }
     }
+
+    /// render(node:depth:)'s last cases, in their order; the first match names the node.
+    private static let primitiveNames: [(matches: (Node) -> Bool, name: String)] = [
+        ({ $0 is NullNode }, "()"), ({ $0 is U8Node }, "u8"), ({ $0 is U16Node }, "u16"), ({ $0 is U32Node }, "u32"),
+        ({ $0 is U64Node }, "u64"), ({ $0 is U128Node }, "u128"), ({ $0 is U256Node }, "u256"),
+        ({ $0 is BoolNode }, "bool"), ({ $0 is StringNode }, "str")
+    ]
 
     /// Batch items use SSF's runtime enum encoder, not GenericCallNode. Check
     /// that enum's own discriminants and argument nodes independently: matching
