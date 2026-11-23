@@ -134,15 +134,17 @@ final class ExplorePageView: SoramitsuView {
         addSubview(emptyListLabel)
         
         NSLayoutConstraint.activate([
-            tableView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            // The list is a card in the content column: 16 points from the sides on a phone, the readable
+            // width in a wider window (on an iPad it ran from edge to edge, its rows in the middle of it).
+            // A page is as wide as its screen, so its own column guide is the screen's.
+            tableView.leadingAnchor.constraint(equalTo: litColumnGuide.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: litColumnGuide.trailingAnchor),
             tableView.topAnchor.constraint(equalTo: topAnchor),
             tableView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            tableView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            tableView.heightAnchor.constraint(equalTo: heightAnchor),
             
             emptyIcon.centerXAnchor.constraint(equalTo: emptyListLabel.centerXAnchor),
             emptyIcon.bottomAnchor.constraint(equalTo: emptyListLabel.topAnchor, constant: -12),
-            emptyListLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            emptyListLabel.leadingAnchor.constraint(equalTo: litColumnGuide.leadingAnchor),
             emptyListLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             emptyListLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])

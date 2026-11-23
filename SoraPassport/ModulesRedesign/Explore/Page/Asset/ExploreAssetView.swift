@@ -140,6 +140,15 @@ public final class ExploreAssetView: SoramitsuView {
 }
 
 private extension ExploreAssetView {
+    /// The name's column keeps 100 points while it can. A price that needs more (a few millionths of a
+    /// dollar, on a 375-point phone) takes it from the name, which is cut short: before, the price and the
+    /// name both insisted and Auto Layout broke one of them.
+    var infoMinimumWidth: NSLayoutConstraint {
+        let minimum = infoStackView.widthAnchor.constraint(greaterThanOrEqualToConstant: 100)
+        minimum.priority = .defaultHigh
+        return minimum
+    }
+
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
 
@@ -168,7 +177,7 @@ private extension ExploreAssetView {
             amountStackView.widthAnchor.constraint(greaterThanOrEqualToConstant: 50),
             amountStackView.centerYAnchor.constraint(equalTo: stackView.centerYAnchor),
 
-            infoStackView.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
+            infoMinimumWidth,
             infoStackView.centerYAnchor.constraint(equalTo: stackView.centerYAnchor),
             
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
