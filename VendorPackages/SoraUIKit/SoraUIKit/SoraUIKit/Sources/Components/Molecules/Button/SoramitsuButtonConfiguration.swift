@@ -50,10 +50,13 @@ public final class SoramitsuButtonConfiguration<Type: SoramitsuButton>: Soramits
         }
     }
     
+    /// The space kept at each side of the title and glyphs. With an inset the button is as wide as its
+    /// content and the insets wherever nothing else sets its width (a pad, a chip), and fills whatever
+    /// width its screen gives it (a main button pinned to its column). Nil leaves the width to the screen.
     public var horizontalOffset: CGFloat? {
         didSet {
             owner?.horizontalConstaint?.constant = horizontalOffset ?? 16
-            owner?.horizontalConstaint?.isActive = true
+            owner?.horizontalConstaint?.isActive = horizontalOffset != nil
         }
     }
 

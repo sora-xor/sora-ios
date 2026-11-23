@@ -15,7 +15,18 @@ public final class SoramitsuButton: UIControl, Molecule {
     // MARK: - UI
 
     var type: SoramitsuButtonType = .filled(.primary)
-    
+
+    /// How firmly a button with a side inset keeps to the width of its title and glyphs, and to the
+    /// height of its size: the way a view keeps to its own size. It holds wherever nothing else sets the
+    /// button's width or height, and gives way to the screen that does, so a button pinned to both sides
+    /// of its column fills it. These were required once: the button then insisted on being exactly as wide
+    /// as its title, and a column that ran from one side of that button to the other came out as wide as
+    /// the word on it (the swap and send screens' Review), or Auto Layout had to break a constraint on
+    /// every layout to get out of it.
+    public static let fittedSizePriority = UILayoutPriority(990)
+    /// Below the fitted width: with too little room the title gets smaller before it leaves its button.
+    static let titleCompressionPriority = UILayoutPriority(980)
+
     var horizontalConstaint: NSLayoutConstraint?
     var leftImageSizeConstaint: NSLayoutConstraint?
     var rightImageSizeConstaint: NSLayoutConstraint?
@@ -32,8 +43,12 @@ public final class SoramitsuButton: UIControl, Molecule {
         label.sora.isHidden = true
         label.sora.alignment = .center
         label.sora.backgroundColor = .custom(uiColor: .clear)
-        label.setContentCompressionResistancePriority(.required, for: .horizontal)
+        label.setContentCompressionResistancePriority(SoramitsuButton.titleCompressionPriority, for: .horizontal)
         label.setContentHuggingPriority(.required, for: .horizontal)
+        // A long title in a narrow button (Japanese on a small phone) gets smaller, down to seven tenths,
+        // before it is cut.
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.7
         return label
     }()
 
@@ -80,7 +95,9 @@ public final class SoramitsuButton: UIControl, Molecule {
         fatalError("init(coder:) has not been implemented")
     }
 
-    private let glass = LitCutGlass()
+    /// The cut glass of a filled button, made when the button is one: pads, links and disabled buttons
+    /// carry no glass and nothing of theirs follows the light.
+    private var glass: LitCutGlass?
     private var plate: LitPlateLayer?
 
     override public func layoutSubviews() {
@@ -133,13 +150,16 @@ public final class SoramitsuButton: UIControl, Molecule {
             pressingView.layer.cornerRadius = layer.cornerRadius
         }
         if isFilled, !isPlate, isEnabled {
-            if glass.layer.superlayer == nil { layer.insertSublayer(glass.layer, at: 0) }
-            glass.layout(in: self, radius: radius, color: glassColor, pressed: isHighlighted)
+            let face = glass ?? LitCutGlass()
+            glass = face
+            if face.layer.superlayer == nil { layer.insertSublayer(face.layer, at: 0) }
+            face.layout(in: self, radius: radius, color: glassColor, pressed: isHighlighted)
             // The glass is the face; the flat fill under it would show round its cut edge.
             backgroundColor = .clear
             layer.masksToBounds = false
         } else {
-            glass.layer.removeFromSuperlayer()
+            glass?.layer.removeFromSuperlayer()
+            glass = nil
             if !isPlate { layer.shadowOpacity = 0 }
         }
         if isPlate, isEnabled, bounds.height > 0 {
@@ -247,8 +267,10 @@ private extension SoramitsuButton {
         stackView.addArrangedSubview(titleLabel)
         stackView.addArrangedSubview(rightImageView)
         
-        horizontalConstaint = stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16)
-        
+        let side = stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16)
+        side.priority = Self.fittedSizePriority
+        horizontalConstaint = side
+
         leftImageSizeConstaint = leftImageView.heightAnchor.constraint(equalToConstant: 24)
         leftImageSizeConstaint?.isActive = true
         
@@ -266,10 +288,12 @@ private extension SoramitsuButton {
             stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
             
             rightImageView.widthAnchor.constraint(equalTo: rightImageView.heightAnchor),
-            leftImageView.widthAnchor.constraint(equalTo: leftImageView.heightAnchor),
-
-            heightAnchor.constraint(equalToConstant: size.height)
+            leftImageView.widthAnchor.constraint(equalTo: leftImageView.heightAnchor)
         ])
+        // The size's own height, unless the screen gives the button another one (a PIN key, a token chooser).
+        let height = heightAnchor.constraint(equalToConstant: size.height)
+        height.priority = Self.fittedSizePriority
+        height.isActive = true
     }
 }
 

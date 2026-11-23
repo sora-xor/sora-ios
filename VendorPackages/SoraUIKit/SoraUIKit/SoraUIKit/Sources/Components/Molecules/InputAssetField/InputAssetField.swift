@@ -55,6 +55,9 @@ public final class InputAssetField: UIControl, Molecule {
         label.sora.font = FontType.textBoldXS
         label.setContentHuggingPriority(.required, for: .horizontal)
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // A long balance beside a long fiat value gets smaller before it is cut: what is held matters.
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.75
         return label
     }()
     
@@ -116,6 +119,12 @@ private extension InputAssetField {
         let glyphWidth = balanceGlyph.widthAnchor.constraint(equalToConstant: 0)
         balanceGlyphWidth = glyphWidth
         glyphWidth.isActive = true
+
+        // The amount keeps room to be typed and read whatever stands beside it: a long token name gets
+        // smaller, then is cut, before the amount is squeezed to a lone digit.
+        let amountRoom = textField.widthAnchor.constraint(greaterThanOrEqualToConstant: LayoutCanvas.minimumFieldWidth)
+        amountRoom.priority = UILayoutPriority(995)
+        amountRoom.isActive = true
 
         NSLayoutConstraint.activate([
             containerView.topAnchor.constraint(equalTo: topAnchor),
