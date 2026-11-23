@@ -4035,6 +4035,14 @@ final class ScreenFitTests: XCTestCase {
                 pin.presenter = NeonPINVisualPresenter(view: pin, count: 6)
                 return pin
             },
+            Screen(name: "export-json") {
+                let export = AccountExportViewController()
+                export.presenter = FitExportPresenter()
+                export.localizationManager = LocalizationManager.shared
+                export.loadViewIfNeeded()
+                export.applyLocalization()
+                return UINavigationController(rootViewController: export)
+            },
             Screen(name: "phrase") { phrase() },
             Screen(name: "raw-seed") { rawSeed() },
             Screen(name: "recovery") { recovery() },
@@ -4069,11 +4077,24 @@ final class ScreenFitTests: XCTestCase {
         window.frame = CGRect(origin: .zero, size: size)
         window.backgroundColor = WalletUX.page
         window.tintColor = SoramitsuUI.shared.theme.palette.color(.accentPrimary)
-        if let insets { controller.additionalSafeAreaInsets = insets }
         window.rootViewController = controller
         window.makeKeyAndVisible()
         windows.append(window)
+        if let insets {
+            // The host scene gives insets of its own to a window that reaches its edges (the simulator's status
+            // bar and home bar). The screen gets the difference, so that its safe area is the device's, no more.
+            window.layoutIfNeeded()
+            let host = window.safeAreaInsets
+            controller.additionalSafeAreaInsets = UIEdgeInsets(top: insets.top - host.top, left: insets.left - host.left,
+                                                               bottom: insets.bottom - host.bottom, right: insets.right - host.right)
+        }
         settle(window)
+        if let insets {
+            let safe = controller.view.safeAreaInsets
+            XCTAssertEqual(window.bounds.size, size, "the host window is not the device's size")
+            XCTAssertEqual(safe.top, insets.top, accuracy: 0.5, "the host's safe area, top, at \(size)")
+            XCTAssertEqual(safe.bottom, insets.bottom, accuracy: 0.5, "the host's safe area, bottom, at \(size)")
+        }
         return window
     }
 
@@ -4125,6 +4146,33 @@ final class ScreenFitTests: XCTestCase {
             }
         }
         XCTAssertEqual(checked, 2 * Self.devices.count * 3)
+    }
+
+    /// The JSON export card where it is taller than the room left above a keyboard (here a window that short):
+    /// its top stays under the bar, never above it, and the rest scrolls up as far as Download.
+    func testExportCardScrollsWhereItDoesNotFit() throws {
+        func all<T: UIView>(_ type: T.Type, _ view: UIView) -> [T] {
+            ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { all(type, $0) }
+        }
+        let screen = try XCTUnwrap(Self.screens.first { $0.name == "export-json" })
+        for (height, scrolls) in [(CGFloat(340), true), (CGFloat(667), false)] {
+            let window = show(try screen.make(), size: CGSize(width: 375, height: height),
+                              insets: UIEdgeInsets(top: 20, left: 0, bottom: 0, right: 0))
+            let export = try XCTUnwrap((window.rootViewController as? UINavigationController)?.viewControllers.first)
+            let scroll = try XCTUnwrap(all(UIScrollView.self, export.view).first { all(InputField.self, $0).count == 2 })
+            let card = try XCTUnwrap(scroll.subviews.first { all(InputField.self, $0).count == 2 })
+            let download = try XCTUnwrap(all(SoramitsuButton.self, card).last { $0.bounds.height >= 48 })
+            let bar = export.view.safeAreaInsets.top
+            XCTAssertEqual(card.convert(card.bounds, to: export.view).minY, bar, accuracy: 0.5, "\(height)")
+            let room = scroll.bounds.height - scroll.adjustedContentInset.top - scroll.adjustedContentInset.bottom
+            XCTAssertEqual(scroll.contentSize.height > room + 0.5, scrolls, "\(height): content \(scroll.contentSize.height), room \(room)")
+            scroll.scrollRectToVisible(download.convert(download.bounds, to: scroll), animated: false)
+            window.layoutIfNeeded()
+            let frame = download.convert(download.bounds, to: export.view)
+            XCTAssertGreaterThanOrEqual(frame.minY, bar - 0.5, "\(height)")
+            XCTAssertLessThanOrEqual(frame.maxY, export.view.bounds.height + 0.5, "\(height)")
+            close(window)
+        }
     }
 
     /// Every screen at every size in both languages: nothing hangs over, is cut short or collapses, and
@@ -4188,15 +4236,21 @@ final class ScreenFitTests: XCTestCase {
                 let acknowledgement = output.appendingPathComponent("capture-ack.txt")
                 try? FileManager.default.removeItem(at: acknowledgement)
                 try Data(name.utf8).write(to: output.appendingPathComponent("capture-request.txt"), options: .atomic)
-                for _ in 0..<300 {
-                    if (try? String(contentsOf: acknowledgement, encoding: .utf8)) == name { break }
-                    try await Task.sleep(nanoseconds: 100_000_000)
+                var pictured = false
+                for _ in 0..<300 where !pictured {
+                    pictured = (try? String(contentsOf: acknowledgement, encoding: .utf8)) == name
+                    if !pictured { try await Task.sleep(nanoseconds: 100_000_000) }
                 }
                 close(window)
+                XCTAssertTrue(pictured, "no picture was taken of \(name)")
             }
         }
         try Data("done".utf8).write(to: output.appendingPathComponent("capture-request.txt"), options: .atomic)
     }
+}
+
+private final class FitExportPresenter: AccountExportPresenterProtocol {
+    func exportWith(password: String) {}
 }
 
 /// A swap about to be signed: the two amounts, the route's settings and the button that signs.

@@ -411,6 +411,32 @@ final class LitMaterialsTests: XCTestCase {
         XCTAssertFalse(rig.isAnimating)
     }
 
+    /// Surfaces go away by being released, not by saying so. With the light at rest nothing on the main thread
+    /// looks at them, so the resting sensor asks every ten seconds whether any is left, and stops when none is.
+    func testTheSensorStopsOnceItsLastSurfaceIsReleasedAtRest() async throws {
+        let sensor = StillPhone()
+        let rig = LitLightRig(source: sensor)
+        var time: TimeInterval = 100
+        autoreleasepool {
+            let plate = LitPlateLayer()
+            rig.add(plate)
+            for _ in 0..<(LitLightRig.restAfter + 2) {
+                time += 1 / LitLightRig.movingRate
+                rig.sensed(x: 0.10, y: -0.70, time: time)
+                if rig.isAnimating { rig.step() }
+            }
+        }
+        XCTAssertFalse(rig.isAnimating, "at rest")
+        XCTAssertTrue(sensor.isRunning, "the resting sensor still reads the phone")
+        XCTAssertEqual(rig.listenerCount, 0, "the surface is gone")
+        for _ in 0..<Int(LitLightRig.restingRate * 10) + 2 {
+            time += 1 / LitLightRig.restingRate
+            rig.sensed(x: 0.10, y: -0.70, time: time)
+        }
+        for _ in 0..<100 where sensor.isRunning { try await Task.sleep(nanoseconds: 10_000_000) }
+        XCTAssertFalse(sensor.isRunning, "nothing is left to light")
+    }
+
     // MARK: A number that rolls still ends on the true value
 
     func testRollEndsOnTheNewTextAndWithoutItsOverlay() {

@@ -833,7 +833,10 @@ final class PolkaswapScreenInteractionCoverageTests: RootActionFixtureTests {
         let (controller, _) = open(); let container = try XCTUnwrap(all(ScrollableContainerView.self, controller.view).first)
         let data = [UIResponder.keyboardFrameEndUserInfoKey: NSValue(cgRect: CGRect(x: 0, y: 500, width: 390, height: 240))]
         NotificationCenter.default.post(name: UIResponder.keyboardWillShowNotification, object: nil, userInfo: data)
-        XCTAssertEqual(container.stackView.layoutMargins.bottom, 240)
+        // What that keyboard covers of this screen: all 240 points on a tall simulator, less on a short one.
+        let screen: UICoordinateSpace = controller.view.window?.screen.coordinateSpace ?? UIScreen.main.coordinateSpace
+        let covered = controller.view.convert(CGRect(x: 0, y: 500, width: 390, height: 240), from: screen).intersection(controller.view.bounds)
+        XCTAssertGreaterThan(covered.height, 0); XCTAssertEqual(container.stackView.layoutMargins.bottom, covered.height)
         NotificationCenter.default.post(name: UIResponder.keyboardWillHideNotification, object: nil, userInfo: data)
         XCTAssertEqual(container.stackView.layoutMargins.bottom, 0); XCTAssertEqual(container.stackView.layoutMargins.top, 16)
     }
