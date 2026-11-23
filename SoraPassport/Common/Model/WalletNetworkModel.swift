@@ -5942,6 +5942,9 @@ enum LegacySoraIdentityValidator {
         }
     }
 
+    // The key-safety identity check, called with these nine arguments from 24 places in the
+    // migration, keystore and account code; a parameter object would rewrite every one of them.
+    // swiftlint:disable:next function_parameter_count
     static func validate(
         address: String,
         publicKey: Data,

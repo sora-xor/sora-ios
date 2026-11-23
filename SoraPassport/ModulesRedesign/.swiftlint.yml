@@ -1,0 +1,6 @@
+# Nested SwiftLint configuration: merged with the repository's .swiftlint.yml for files in this folder.
+function_parameter_count:
+  warning: 5
+  # The VIPER wireframes and view factories carried over from SORA 3.8.0 (2023) pass the wallet's
+  # services one by one, up to 20 of them; those signatures stay warnings. Elsewhere the error stays at 8.
+  error: 20
