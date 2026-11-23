@@ -403,7 +403,8 @@ final class LitMaterialsTests: XCTestCase {
 
         // Held in the new posture, that posture becomes straight and the light comes back to rest.
         await hold(x: 0.30, y: -0.70, frames: Int(LitLightRig.movingRate * 30))
-        XCTAssertLessThan(abs(rig.x), 0.05)
+        // Within the dead band of straight: nearer than a tilt that would set it off again.
+        XCTAssertLessThan(abs(rig.x), LitLightRig.startDistance + 2 * LitLightRig.settleStep)
         rig.remove(plate)
     }
 
