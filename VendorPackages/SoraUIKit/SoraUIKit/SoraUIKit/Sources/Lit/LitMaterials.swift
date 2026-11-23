@@ -825,6 +825,7 @@ public final class LitLightRig: NSObject {
     private var target: (x: Double, y: Double) = (0, 0)
     private var resting = false
     private var restingAt: (x: Double, y: Double) = (0, 0)
+    private var restingSamples = 0
 
     init(source: LitTiltSource) {
         self.source = source
@@ -835,6 +836,8 @@ public final class LitLightRig: NSObject {
         center.addObserver(self, selector: #selector(policyChanged), name: UIAccessibility.reduceMotionStatusDidChangeNotification, object: nil)
         center.addObserver(self, selector: #selector(policyChanged), name: .NSProcessInfoPowerStateDidChange, object: nil)
         center.addObserver(self, selector: #selector(policyChanged), name: ProcessInfo.thermalStateDidChangeNotification, object: nil)
+        // A window shown again (the wallet's, when the PIN window over it goes): its surfaces take the light.
+        center.addObserver(self, selector: #selector(windowShown), name: UIWindow.didBecomeVisibleNotification, object: nil)
         #if DEBUG
         // Films on a simulator, which has no tilt: `-LitTiltDemo 1` carries the light round slowly.
         if UserDefaults.standard.bool(forKey: "LitTiltDemo") { demoStart = CACurrentMediaTime() }
@@ -854,6 +857,8 @@ public final class LitLightRig: NSObject {
 
     public func remove(_ listener: LitLightListener) {
         listeners.remove(listener)
+        // With nothing left to light, the sensor stops too (the frame loop may already be at rest).
+        if listeners.anyObject == nil { refresh() }
     }
 
     /// Places the light. Both axes run -1...1. The rig calls this itself from the phone's tilt.
@@ -897,7 +902,7 @@ public final class LitLightRig: NSObject {
     }
 
     private func refresh() {
-        let wanted = allowed && listeners.count > 0 && (source.isAvailable || demoStart != nil)
+        let wanted = allowed && listeners.anyObject != nil && (source.isAvailable || demoStart != nil)
         if wanted, !sensing {
             sensing = true
             stillFrames = 0
@@ -948,8 +953,18 @@ public final class LitLightRig: NSObject {
         let far = Double(Self.startDistance)
         let wake = resting && (abs(target.x - restingAt.x) > far || abs(target.y - restingAt.y) > far)
         if wake { resting = false }
+        // At rest nothing on the main thread looks at the listeners: every ten seconds of samples it is
+        // asked whether any are left (surfaces go away by being released, not by saying so).
+        restingSamples = resting ? restingSamples + 1 : 0
+        let check = restingSamples >= Int(Self.restingRate * 10)
+        if check { restingSamples = 0 }
         lock.unlock()
         if wake { DispatchQueue.main.async { [weak self] in self?.wake() } }
+        if check { DispatchQueue.main.async { [weak self] in self?.stopIfUnheard() } }
+    }
+
+    private func stopIfUnheard() {
+        if listeners.anyObject == nil { refresh() }
     }
 
     private func wake() {
@@ -984,13 +999,17 @@ public final class LitLightRig: NSObject {
         DispatchQueue.main.async { self.refresh() }
     }
 
+    @objc private func windowShown() {
+        surfacesDidAppear()
+    }
+
     @objc private func tick() {
         step()
     }
 
     /// One frame: the light eases towards its target. Internal so tests can step it without a display.
     func step() {
-        if listeners.count == 0 {
+        if listeners.anyObject == nil {
             refresh()
             return
         }

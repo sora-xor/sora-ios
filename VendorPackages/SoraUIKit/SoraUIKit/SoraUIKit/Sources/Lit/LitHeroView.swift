@@ -174,6 +174,12 @@ public final class LitHeroView: UIView {
     private let inFlight = LitFrameCount()
     private var cometShouldRun: Bool { isCometRunning && CACurrentMediaTime() >= Self.restUntil }
     private var isOnScreen = false
+    /// Looks again, once a second, while the scene is in a window but hidden: whoever hides it may show it
+    /// again without telling anyone.
+    private var hiddenCheck: Timer?
+    /// The GPU was behind and a frame was skipped: it is drawn on a later tick. Kept apart from `needsFrame`,
+    /// which says something other than the comet changed and asks for sixty frames a second.
+    private var retryFrame = false
     private var isInBackground = false
     private var observers: [NSObjectProtocol] = []
 
@@ -196,7 +202,10 @@ public final class LitHeroView: UIView {
             },
             // A screen that covers this one whole hides it: the scene stops drawing until it shows again.
             center.addObserver(forName: LitStage.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
-                self?.shownMayHaveChanged()
+                self?.updateLink()
+            },
+            center.addObserver(forName: UIWindow.didBecomeVisibleNotification, object: nil, queue: .main) { [weak self] _ in
+                self?.updateLink()
             }
         ]
     }
@@ -206,6 +215,7 @@ public final class LitHeroView: UIView {
     }
 
     deinit {
+        hiddenCheck?.invalidate()
         link?.invalidate()
         observers.forEach(NotificationCenter.default.removeObserver)
     }
@@ -298,19 +308,38 @@ public final class LitHeroView: UIView {
 
     public override func didMoveToWindow() {
         super.didMoveToWindow()
-        shownMayHaveChanged(force: true)
-    }
-
-    /// In a window, with nothing hidden above it.
-    private func shownMayHaveChanged(force: Bool = false) {
-        let shown = window != nil && LitStage.isShown(layer)
-        guard force || shown != isOnScreen else { return }
-        isOnScreen = shown
-        if isOnScreen {
+        if window != nil {
             updateDrawableSize()
             needsFrame = true
         }
         updateLink()
+    }
+
+    public override var isHidden: Bool {
+        didSet { if isHidden != oldValue { updateLink() } }
+    }
+
+    /// Whether the scene can be seen: in a window, with nothing hidden above it. Looked at afresh each
+    /// time a frame is asked for; a scene that has just come back into view draws at once.
+    private func lookWhetherShown() {
+        let shown = window != nil && LitStage.isShown(layer)
+        if shown, !isOnScreen {
+            updateDrawableSize()
+            needsFrame = true
+        }
+        isOnScreen = shown
+        // In a window but hidden (a screen covers this one, or an ancestor was hidden): look again shortly.
+        if window != nil, !shown {
+            if hiddenCheck == nil {
+                let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.updateLink() }
+                timer.tolerance = 0.5
+                RunLoop.main.add(timer, forMode: .common)
+                hiddenCheck = timer
+            }
+        } else {
+            hiddenCheck?.invalidate()
+            hiddenCheck = nil
+        }
     }
 
     public override func layoutSubviews() {
@@ -337,7 +366,8 @@ public final class LitHeroView: UIView {
     }
 
     private func updateLink() {
-        guard renderer != nil, isOnScreen, !isInBackground, needsFrame || isAnimating else {
+        lookWhetherShown()
+        guard renderer != nil, isOnScreen, !isInBackground, needsFrame || retryFrame || isAnimating else {
             link?.invalidate()
             link = nil
             return
@@ -402,6 +432,7 @@ public final class LitHeroView: UIView {
         }
         setCadence(onlyComet ? 30 : 60)
         needsFrame = false
+        retryFrame = false
         drawFrame()
         updateLink()
     }
@@ -434,7 +465,7 @@ public final class LitHeroView: UIView {
     private func drawFrame() {
         // Frames still on the GPU: a later tick draws instead of holding up the main thread for a drawable.
         guard inFlight.value < 2 else {
-            needsFrame = true
+            retryFrame = true
             notePace(behind: true)
             return
         }

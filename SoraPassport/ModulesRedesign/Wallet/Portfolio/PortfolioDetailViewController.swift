@@ -148,6 +148,7 @@ final class PortfolioDetailViewController: UIViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        parallax?.surface = orbit
         parallax?.start()
         parallax?.setHeroVisible(true)
         #if !F_RELEASE

@@ -256,6 +256,7 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
     override func didMoveToWindow() {
         super.didMoveToWindow()
         if window != nil {
+            parallax.surface = sky
             parallax.start()
             #if !F_RELEASE
             if let tilt = PortfolioDebugOptions.injectedTilt {

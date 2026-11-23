@@ -18,6 +18,9 @@ open class BlurViewController: UIViewController {
     /// is hidden: that screen is no longer composited behind the page, its lit surfaces stop following
     /// the light and its hero stops drawing. It is shown again before this screen leaves or is dragged.
     private weak var coveredView: UIView?
+    /// True from the moment this screen starts to leave until it has appeared again: a drag's snap-back
+    /// that ends after that must not hide the screen underneath a second time.
+    private var isLeaving = false
 
     open override func viewDidLoad() {
         super.viewDidLoad()
@@ -27,11 +30,13 @@ open class BlurViewController: UIViewController {
 
     open override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        isLeaving = false
         coverPresenter()
     }
 
     open override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        isLeaving = true
         uncoverPresenter()
     }
 
@@ -47,7 +52,7 @@ open class BlurViewController: UIViewController {
     }
 
     private func coverPresenter() {
-        guard coveredView == nil, modalPresentationStyle == .overFullScreen, view.window != nil,
+        guard coveredView == nil, !isLeaving, modalPresentationStyle == .overFullScreen, view.window != nil,
               let under = presentingViewController?.view, !under.isHidden, under.window === view.window,
               view.convert(view.bounds, to: nil).insetBy(dx: -0.5, dy: -0.5).contains(under.convert(under.bounds, to: nil))
         else { return }
@@ -118,11 +123,14 @@ open class BlurViewController: UIViewController {
             } else {
                 UIView.animate(withDuration: 0.2, animations: {
                     self.view.center = self.originalPosition!
-                }, completion: { [weak self] _ in
-                    self?.coverPresenter()
+                }, completion: { [weak self] finished in
+                    // Back in place and still the screen on top: what is under it is covered again.
+                    if finished { self?.coverPresenter() }
                 })
             }
         } else if panGesture.state == .cancelled || panGesture.state == .failed {
+            // An interrupted drag (a call, an alert) leaves the screen where the finger was: put it back.
+            if let originalPosition { view.center = originalPosition }
             coverPresenter()
         }
     }

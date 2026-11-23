@@ -73,9 +73,14 @@ final class PortfolioParallaxController {
                                   heroVisible: heroVisible)
     }
 
+    /// The view the layers stand on (the sky, the orbit). The layers themselves may be hidden while the
+    /// surface shows something else in their place (the ray-traced hero hides the drawn sky).
+    weak var surface: UIView?
+
     /// A screen presented over this one hides it whole (`BlurViewController`): no tilt is read behind it.
     private var isCovered: Bool {
-        layers.contains { $0.view.window != nil && !LitStage.isShown($0.view.layer) }
+        guard let surface, surface.window != nil else { return false }
+        return !LitStage.isShown(surface.layer)
     }
 
     /// The current smoothed deflection.

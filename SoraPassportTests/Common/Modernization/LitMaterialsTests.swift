@@ -405,7 +405,10 @@ final class LitMaterialsTests: XCTestCase {
         await hold(x: 0.30, y: -0.70, frames: Int(LitLightRig.movingRate * 30))
         // Within the dead band of straight: nearer than a tilt that would set it off again.
         XCTAssertLessThan(abs(rig.x), LitLightRig.startDistance + 2 * LitLightRig.settleStep)
+        // With its last surface gone the sensor stops too, at rest or not.
         rig.remove(plate)
+        XCTAssertFalse(sensor.isRunning)
+        XCTAssertFalse(rig.isAnimating)
     }
 
     // MARK: A number that rolls still ends on the true value
