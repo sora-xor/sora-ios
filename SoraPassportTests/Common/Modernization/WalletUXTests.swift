@@ -3685,6 +3685,8 @@ private final class FaucetPersistenceFixture: @unchecked Sendable {
 enum BrokenConstraints {
     private static var installed = false
     private(set) static var log: [String] = []
+    /// Who was laying out when the first constraint of a run broke.
+    private(set) static var firstStack: [String] = []
 
     static func install() {
         guard !installed else { return }
@@ -3694,13 +3696,21 @@ enum BrokenConstraints {
         typealias Original = @convention(c) (AnyObject, Selector, AnyObject, AnyObject, AnyObject) -> Void
         let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
         let block: @convention(block) (AnyObject, AnyObject, AnyObject, AnyObject) -> Void = { view, engine, constraint, others in
+            if BrokenConstraints.log.isEmpty {
+                BrokenConstraints.firstStack = Thread.callStackSymbols.dropFirst(2).prefix(28).map {
+                    $0.split(separator: " ", omittingEmptySubsequences: true).dropFirst(3).joined(separator: " ")
+                }
+            }
             BrokenConstraints.log.append(String(describing: constraint))
             original(view, selector, engine, constraint, others)
         }
         method_setImplementation(method, imp_implementationWithBlock(block))
     }
 
-    static func reset() { log = [] }
+    static func reset() {
+        log = []
+        firstStack = []
+    }
 }
 
 /// What "fits" means for a screen laid out in a window: nothing a person reads or taps hangs over the
@@ -4050,6 +4060,8 @@ final class ScreenFitTests: XCTestCase {
             window = UIWindow(frame: CGRect(origin: .zero, size: size))
         }
         window.frame = CGRect(origin: .zero, size: size)
+        window.backgroundColor = WalletUX.page
+        window.tintColor = SoramitsuUI.shared.theme.palette.color(.accentPrimary)
         if let insets { controller.additionalSafeAreaInsets = insets }
         window.rootViewController = controller
         window.makeKeyAndVisible()
@@ -4096,6 +4108,7 @@ final class ScreenFitTests: XCTestCase {
                     if broken > 0 {
                         report.append(key + " — \(broken) constraints broken to lay it out")
                         Set(BrokenConstraints.log.map(Self.plain)).sorted().prefix(30).forEach { report.append(key + " —   broke " + $0) }
+                        BrokenConstraints.firstStack.forEach { report.append(key + " —   first from " + $0) }
                     }
                     close(window)
                 }
