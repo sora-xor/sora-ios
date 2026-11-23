@@ -3756,6 +3756,10 @@ enum ScreenFit {
             if readsOrTaps, inWindow, !sideways, frame.width > 0, frame.minX < -0.5 || frame.maxX > width + 0.5 {
                 note("over the side", view, frame)
             }
+            // Wholly past a side is no better than hanging over it.
+            if readsOrTaps, !inWindow, !sideways, frame.width > 0, frame.height > 0 {
+                note("off the side", view, frame)
+            }
             if let label = view as? UILabel, let string = label.text, !string.isEmpty, frame.width > 0, inWindow,
                !(view.superview is UITextField) {
                 let free = CGRect(x: 0, y: 0, width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
@@ -3823,6 +3827,7 @@ final class ScreenFitTests: XCTestCase {
     static let devices = [
         Device(name: "375x667", size: CGSize(width: 375, height: 667), insets: UIEdgeInsets(top: 20, left: 0, bottom: 0, right: 0)),
         Device(name: "393x852", size: CGSize(width: 393, height: 852), insets: UIEdgeInsets(top: 59, left: 0, bottom: 34, right: 0)),
+        Device(name: "402x874", size: CGSize(width: 402, height: 874), insets: UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0)),
         Device(name: "440x956", size: CGSize(width: 440, height: 956), insets: UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0)),
         Device(name: "820x1180", size: CGSize(width: 820, height: 1180), insets: UIEdgeInsets(top: 24, left: 0, bottom: 20, right: 0))
     ]
@@ -3836,6 +3841,8 @@ final class ScreenFitTests: XCTestCase {
     private var language: String?
     private var theme: SoramitsuThemeMode?
     private var previousWindow: UIWindow?
+    /// What a screen needs kept alive while it is shown (the home's host): let go when its window closes.
+    private static var fixtures: [AnyObject] = []
 
     override func setUp() async throws {
         try await super.setUp()
@@ -4038,7 +4045,7 @@ final class ScreenFitTests: XCTestCase {
             let defaults = UserDefaults(suiteName: "screen.fit")!
             defaults.removePersistentDomain(forName: "screen.fit")
             let host = PortfolioCaptureHost(variant: .full, defaults: defaults)
-            objc_setAssociatedObject(host.tabBar, &presenterKey, host, .OBJC_ASSOCIATION_RETAIN)
+            fixtures.append(host)
             return host.tabBar
         })
         #endif
@@ -4085,7 +4092,39 @@ final class ScreenFitTests: XCTestCase {
         window.isHidden = true
         window.rootViewController = nil
         windows.removeAll { $0 === window }
+        Self.fixtures = []
         RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+    }
+
+    /// Review on Swap and on Send is exactly as wide as the content column, enabled or not, at every size.
+    func testReviewFillsItsColumnOnSwapAndSend() throws {
+        var checked = 0
+        for language in ["en", "ja"] {
+            LocalizationManager.shared.selectedLocalization = language
+            let review = R.string.localizable.review(preferredLanguages: .currentLocale)
+            for device in Self.devices {
+                WalletDisplay.canvasOverride = LayoutCanvas(size: device.size)
+                let column = LayoutCanvas.columnWidth(forWidth: device.size.width)
+                for screen in Self.screens where ["swap", "swap-filled", "send-amount"].contains(screen.name) {
+                    let window = show(try screen.make(), size: device.size, insets: device.insets)
+                    func buttons(_ view: UIView) -> [SoramitsuButton] {
+                        ((view as? SoramitsuButton).map { [$0] } ?? []) + view.subviews.flatMap(buttons)
+                    }
+                    func title(_ view: UIView) -> String? {
+                        ((view as? UILabel)?.text).flatMap { $0.isEmpty ? nil : $0 } ?? view.subviews.lazy.compactMap(title).first
+                    }
+                    let button = try XCTUnwrap(buttons(window).first { $0.bounds.height >= 48 && title($0) == review },
+                                               "\(screen.name) \(device.name) \(language)")
+                    let frame = button.convert(button.bounds, to: window)
+                    XCTAssertEqual(frame.width, column, accuracy: 0.5, "\(screen.name) \(device.name) \(language)")
+                    XCTAssertEqual(frame.midX, window.bounds.midX, accuracy: 0.5, "\(screen.name) \(device.name) \(language)")
+                    XCTAssertEqual(frame.height, LayoutCanvas.primaryButtonHeight, accuracy: 0.5)
+                    checked += 1
+                    close(window)
+                }
+            }
+        }
+        XCTAssertEqual(checked, 2 * Self.devices.count * 3)
     }
 
     /// Every screen at every size in both languages: nothing hangs over, is cut short or collapses, and
