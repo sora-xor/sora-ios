@@ -173,9 +173,10 @@ final class GenerateQRViewController: SoramitsuViewController {
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
-            
-            switcherView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
         ])
+        // The switcher is as wide as the card under it: left to its titles, its two halves were each as wide
+        // as a word, "Receive" ran into "Request" and the pill covered one word (every phone, both languages).
+        WalletDisplay.pinReadable(switcherView, width: view.widthAnchor, centerX: view.centerXAnchor, margin: 24)
         // The same places on a phone; a readable column in the middle of a wider window.
         WalletDisplay.pinReadable(inputSendInfoView, width: stackView.widthAnchor,
                                   centerX: stackView.centerXAnchor, margin: 24)
