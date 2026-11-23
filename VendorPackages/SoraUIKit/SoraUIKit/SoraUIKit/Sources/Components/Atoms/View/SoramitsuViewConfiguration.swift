@@ -192,8 +192,8 @@ public class SoramitsuViewConfiguration<Type: Element & UIView>: SoramitsuConfig
     }
     
     private func ownerSizeDidChange() {
+        // Setting the radius again lays the plate out for the new size.
         retrigger(self, \.cornerRadius)
-        updatePlate()
     }
     
     public override func styleDidChange(options: UpdateOptions) {
