@@ -173,7 +173,6 @@ public final class LitHeroView: UIView {
     private var cometShouldRun: Bool { isCometRunning && CACurrentMediaTime() >= Self.restUntil }
     private var isOnScreen = false
     private var isInBackground = false
-    private var skipNext = false
     private var observers: [NSObjectProtocol] = []
 
     public override init(frame: CGRect) {
@@ -192,6 +191,10 @@ public final class LitHeroView: UIView {
             center.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
                 self?.isInBackground = false
                 self?.setNeedsFrame()
+            },
+            // A screen that covers this one whole hides it: the scene stops drawing until it shows again.
+            center.addObserver(forName: LitStage.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
+                self?.shownMayHaveChanged()
             }
         ]
     }
@@ -293,7 +296,14 @@ public final class LitHeroView: UIView {
 
     public override func didMoveToWindow() {
         super.didMoveToWindow()
-        isOnScreen = window != nil
+        shownMayHaveChanged(force: true)
+    }
+
+    /// In a window, with nothing hidden above it.
+    private func shownMayHaveChanged(force: Bool = false) {
+        let shown = window != nil && LitStage.isShown(layer)
+        guard force || shown != isOnScreen else { return }
+        isOnScreen = shown
         if isOnScreen {
             updateDrawableSize()
             needsFrame = true
@@ -334,9 +344,24 @@ public final class LitHeroView: UIView {
         lastTick = CACurrentMediaTime()
         let target = LitLinkTarget { [weak self] in self?.tick() }
         let displayLink = CADisplayLink(target: target, selector: #selector(LitLinkTarget.tick))
-        displayLink.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
+        displayLink.preferredFrameRateRange = Self.frameRates(60)
         displayLink.add(to: .main, forMode: .common)
         link = displayLink
+        cadence = 60
+    }
+
+    private static func frameRates(_ cadence: Int) -> CAFrameRateRange {
+        cadence == 30 ? CAFrameRateRange(minimum: 24, maximum: 30, preferred: 30)
+            : CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
+    }
+
+    /// Frames a second the frame loop asks for: thirty while only the comet moves, sixty for anything else.
+    private var cadence = 60
+
+    private func setCadence(_ wanted: Int) {
+        guard wanted != cadence, let link else { return }
+        cadence = wanted
+        link.preferredFrameRateRange = Self.frameRates(wanted)
     }
 
     private func tick() {
@@ -368,14 +393,14 @@ public final class LitHeroView: UIView {
             shown[index].widthScale += (targets[index].widthScale - shown[index].widthScale) * k
             shown[index].lift += (targets[index].lift - shown[index].lift) * k
         }
-        // A comet alone needs only thirty frames a second; anything else that moves gets sixty.
+        // A comet alone needs only thirty frames a second; anything else that moves gets sixty. The frame
+        // loop itself slows to thirty then: it used to wake sixty times a second and draw on every other one.
         let onlyComet = !needsFrame && revealFrom == nil && bloom == 0 && zip(targets, shown).allSatisfy {
             abs($0.strength - $1.strength) <= 0.002 && abs($0.widthScale - $1.widthScale) <= 0.002 && abs($0.lift - $1.lift) <= 0.002
         }
-        skipNext.toggle()
-        let draws = !onlyComet || skipNext
+        setCadence(onlyComet ? 30 : 60)
         needsFrame = false
-        if draws { drawFrame() }
+        drawFrame()
         updateLink()
     }
 

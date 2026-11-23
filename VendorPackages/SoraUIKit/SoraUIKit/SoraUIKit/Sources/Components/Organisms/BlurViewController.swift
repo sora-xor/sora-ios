@@ -14,10 +14,53 @@ open class BlurViewController: UIViewController {
     var originalPosition: CGPoint?
     var currentPositionTouched: CGPoint?
 
+    /// The screen this one covers whole. The page here is opaque, so once it is up the screen under it
+    /// is hidden: that screen is no longer composited behind the page, its lit surfaces stop following
+    /// the light and its hero stops drawing. It is shown again before this screen leaves or is dragged.
+    private weak var coveredView: UIView?
+
     open override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .clear
         setupView()
+    }
+
+    open override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        coverPresenter()
+    }
+
+    open override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        uncoverPresenter()
+    }
+
+    deinit {
+        // Never leave a screen hidden behind a cover that is gone.
+        if let coveredView {
+            DispatchQueue.main.async {
+                guard coveredView.isHidden else { return }
+                coveredView.isHidden = false
+                LitStage.changed()
+            }
+        }
+    }
+
+    private func coverPresenter() {
+        guard coveredView == nil, modalPresentationStyle == .overFullScreen, view.window != nil,
+              let under = presentingViewController?.view, !under.isHidden, under.window === view.window,
+              view.convert(view.bounds, to: nil).insetBy(dx: -0.5, dy: -0.5).contains(under.convert(under.bounds, to: nil))
+        else { return }
+        under.isHidden = true
+        coveredView = under
+        LitStage.changed()
+    }
+
+    private func uncoverPresenter() {
+        guard let under = coveredView else { return }
+        coveredView = nil
+        under.isHidden = false
+        LitStage.changed()
     }
     
     public init() {
@@ -48,6 +91,8 @@ open class BlurViewController: UIViewController {
         let translation = panGesture.translation(in: view)
 
         if panGesture.state == .began {
+            // The screen underneath shows as this one is dragged down.
+            uncoverPresenter()
             originalPosition = view.center
             currentPositionTouched = panGesture.location(in: view)
         } else if panGesture.state == .changed {
@@ -73,8 +118,12 @@ open class BlurViewController: UIViewController {
             } else {
                 UIView.animate(withDuration: 0.2, animations: {
                     self.view.center = self.originalPosition!
+                }, completion: { [weak self] _ in
+                    self?.coverPresenter()
                 })
             }
+        } else if panGesture.state == .cancelled || panGesture.state == .failed {
+            coverPresenter()
         }
     }
 }

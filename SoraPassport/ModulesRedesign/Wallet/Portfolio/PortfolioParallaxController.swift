@@ -69,8 +69,13 @@ final class PortfolioParallaxController {
         return PortfolioTilt.Gate(enabled: policy.enabled,
                                   reduceMotion: policy.reduceMotion,
                                   lowPower: policy.lowPower,
-                                  hidden: !appActive,
+                                  hidden: !appActive || isCovered,
                                   heroVisible: heroVisible)
+    }
+
+    /// A screen presented over this one hides it whole (`BlurViewController`): no tilt is read behind it.
+    private var isCovered: Bool {
+        layers.contains { $0.view.window != nil && !LitStage.isShown($0.view.layer) }
     }
 
     /// The current smoothed deflection.
@@ -103,7 +108,10 @@ final class PortfolioParallaxController {
             center.addObserver(forName: .NSProcessInfoPowerStateDidChange, object: nil, queue: .main) {
                 [weak self] _ in self?.refresh()
             },
-            center.addObserver(forName: .neonFxChanged, object: nil, queue: .main) { [weak self] _ in self?.refresh() }
+            center.addObserver(forName: .neonFxChanged, object: nil, queue: .main) { [weak self] _ in self?.refresh() },
+            center.addObserver(forName: LitStage.didChangeNotification, object: nil, queue: .main) {
+                [weak self] _ in self?.refresh()
+            }
         ]
         refresh()
     }

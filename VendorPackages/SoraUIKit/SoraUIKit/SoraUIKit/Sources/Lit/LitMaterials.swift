@@ -698,28 +698,128 @@ enum LitImages {
 public protocol LitLightListener: AnyObject {
     /// The light moved. Both axes run -1...1.
     func lightDidMove(x: CGFloat, y: CGFloat)
+    /// False while nothing of the listener can be seen (its view is in no window, or hidden, or a covered
+    /// screen): it is not told about the light then, and takes the light as it stands when it is laid out
+    /// or shown again.
+    var isLitOnScreen: Bool { get }
+}
+
+public extension LitLightListener {
+    var isLitOnScreen: Bool { true }
+}
+
+/// What is on show. A screen that covers another one whole hides it (`BlurViewController`), views leave
+/// their window with their tab; whatever draws on its own (the light, the hero's comet) asks here whether
+/// it can be seen, and is told when that may have changed.
+public enum LitStage {
+    /// Posted on the main thread when something large was shown, covered or uncovered.
+    public static let didChangeNotification = Notification.Name("co.jp.sora.wallet.lit.stage.didChange")
+
+    /// Whether `layer` is in a window on screen with nothing hidden above it.
+    public static func isShown(_ layer: CALayer) -> Bool {
+        var current: CALayer? = layer
+        while let here = current {
+            if here.isHidden { return false }
+            if here.delegate is UIWindow { return true }
+            current = here.superlayer
+        }
+        return false
+    }
+
+    /// Call when a screen was covered or uncovered. Surfaces that came back take the light as it stands.
+    public static func changed() {
+        NotificationCenter.default.post(name: didChangeNotification, object: nil)
+        LitLightRig.shared.surfacesDidAppear()
+    }
+}
+
+/// Where the rig reads the phone's tilt from: gravity along the screen's two axes, with the time of each
+/// sample. The rig's own source is the motion sensor; tests give it samples by hand.
+protocol LitTiltSource: AnyObject {
+    var isAvailable: Bool { get }
+    /// Starts samples every `interval` seconds, delivered on a queue of the source's own.
+    func start(interval: TimeInterval, handler: @escaping (_ x: Double, _ y: Double, _ time: TimeInterval) -> Void)
+    func setInterval(_ interval: TimeInterval)
+    func stop()
+}
+
+private final class LitMotionSource: LitTiltSource {
+    private let motion = CMMotionManager()
+    private let queue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "co.jp.sora.wallet.lit.tilt"
+        queue.maxConcurrentOperationCount = 1
+        queue.qualityOfService = .utility
+        return queue
+    }()
+
+    var isAvailable: Bool { motion.isDeviceMotionAvailable }
+
+    func start(interval: TimeInterval, handler: @escaping (Double, Double, TimeInterval) -> Void) {
+        motion.deviceMotionUpdateInterval = interval
+        motion.startDeviceMotionUpdates(to: queue) { sample, _ in
+            guard let sample else { return }
+            handler(sample.gravity.x, sample.gravity.y, sample.timestamp)
+        }
+    }
+
+    func setInterval(_ interval: TimeInterval) {
+        motion.deviceMotionUpdateInterval = interval
+    }
+
+    func stop() {
+        motion.stopDeviceMotionUpdates()
+    }
 }
 
 /// The key light, moved by how the phone is held. While the app is in front and anything listens, the rig
-/// reads the phone's tilt and every surface answers: sheets of glass slide their sheen and shift their
-/// shadows, glints run along their edges, the mica print on the page catches the light. Whatever posture
-/// the phone is held in becomes "straight" within a few seconds, so the light rests where it was designed
-/// and moves only when the phone does. Reduce Motion, Low Power and a hot phone leave the light still.
+/// reads the phone's tilt and every surface on screen answers: sheets of glass slide their sheen and shift
+/// their shadows, glints run along their edges, the mica print on the page catches the light. Whatever
+/// posture the phone is held in becomes "straight" within a few seconds, so the light rests where it was
+/// designed and moves only when the phone does. Reduce Motion, Low Power and a hot phone leave the light still.
+///
+/// Nothing runs on the main thread while the phone lies still. The sensor is read on a queue of its own,
+/// where the posture and the light's target are worked out; the frame loop that eases the light towards
+/// that target stops once the light has settled, and a tilt starts it again. A step of the light goes only
+/// to the surfaces that can be seen, in one transaction.
 public final class LitLightRig: NSObject {
-    public static let shared = LitLightRig()
+    public static let shared = LitLightRig(source: LitMotionSource())
 
     public private(set) var x: CGFloat = 0
     public private(set) var y: CGFloat = 0
 
+    /// Samples a second while the light moves, and while it rests and only a tilt is waited for.
+    static let movingRate: Double = 30
+    static let restingRate: Double = 10
+    /// A step that would move the light less than this is not taken: a phone lying still draws no frames.
+    static let settleStep: CGFloat = 0.003
+    /// The light has arrived when it is this near its target; after `restAfter` frames of that the frame
+    /// loop stops. A light still creeping after a slowly moving target has not arrived.
+    static let restDistance: CGFloat = 0.004
+    static let restAfter = 20
+    /// A resting light is woken when its target is this far from where it rests.
+    static let wakeDistance: Double = 0.02
+    /// Seconds for the posture the phone is held in to count as straight.
+    static let postureSeconds: Double = 2.8
+
     private let listeners = NSHashTable<AnyObject>.weakObjects()
-    private let motion = CMMotionManager()
+    private let source: LitTiltSource
     private var link: CADisplayLink?
-    private var restX: Double?
-    private var restY: Double?
+    private var sensing = false
     private var inFront = true
     private var demoStart: CFTimeInterval?
+    private var stillFrames = 0
+    private var refreshQueued = false
 
-    private override init() {
+    // Shared with the sensor's queue.
+    private let lock = NSLock()
+    private var posture: (x: Double, y: Double, time: TimeInterval)?
+    private var target: (x: Double, y: Double) = (0, 0)
+    private var resting = false
+    private var restingAt: (x: Double, y: Double) = (0, 0)
+
+    init(source: LitTiltSource) {
+        self.source = source
         super.init()
         let center = NotificationCenter.default
         center.addObserver(self, selector: #selector(cameToFront), name: UIApplication.didBecomeActiveNotification, object: nil)
@@ -732,6 +832,11 @@ public final class LitLightRig: NSObject {
         if UserDefaults.standard.bool(forKey: "LitTiltDemo") { demoStart = CACurrentMediaTime() }
         #endif
     }
+
+    /// How many surfaces are registered, seen or not.
+    public var listenerCount: Int { listeners.allObjects.count }
+    /// Whether the frame loop is running: false while the light rests.
+    public var isAnimating: Bool { link != nil }
 
     public func add(_ listener: LitLightListener) {
         listeners.add(listener)
@@ -748,9 +853,31 @@ public final class LitLightRig: NSObject {
         guard newX != x || newY != y else { return }
         x = newX
         y = newY
-        for case let listener as LitLightListener in listeners.allObjects {
+        deliver()
+    }
+
+    /// Surfaces came on screen (a tab shown again, a covered screen uncovered): they take the light as it
+    /// stands. Many calls in one turn of the run loop make one pass.
+    public func surfacesDidAppear() {
+        guard !refreshQueued else { return }
+        refreshQueued = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.refreshQueued = false
+            self.deliver()
+        }
+    }
+
+    /// The light as it stands to every surface that can be seen, in one transaction.
+    private func deliver() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let all = listeners.objectEnumerator()
+        while let next = all.nextObject() {
+            guard let listener = next as? LitLightListener, listener.isLitOnScreen else { continue }
             listener.lightDidMove(x: x, y: y)
         }
+        CATransaction.commit()
     }
 
     private var allowed: Bool {
@@ -760,24 +887,75 @@ public final class LitLightRig: NSObject {
     }
 
     private func refresh() {
-        let wanted = allowed && listeners.count > 0 && (motion.isDeviceMotionAvailable || demoStart != nil)
-        if wanted, link == nil {
-            if motion.isDeviceMotionAvailable {
-                motion.deviceMotionUpdateInterval = 1.0 / 30.0
-                motion.startDeviceMotionUpdates()
+        let wanted = allowed && listeners.count > 0 && (source.isAvailable || demoStart != nil)
+        if wanted, !sensing {
+            sensing = true
+            stillFrames = 0
+            lock.lock()
+            posture = nil
+            target = (0, 0)
+            resting = false
+            lock.unlock()
+            if source.isAvailable {
+                source.start(interval: 1 / Self.movingRate) { [weak self] x, y, time in
+                    self?.sensed(x: x, y: y, time: time)
+                }
             }
-            let created = CADisplayLink(target: self, selector: #selector(tick))
-            created.preferredFramesPerSecond = 30
-            created.add(to: .main, forMode: .common)
-            link = created
-        } else if !wanted, link != nil {
-            link?.invalidate()
-            link = nil
-            motion.stopDeviceMotionUpdates()
-            restX = nil
-            restY = nil
+            startLink()
+        } else if !wanted, sensing {
+            sensing = false
+            stopLink()
+            source.stop()
             if !allowed { set(x: 0, y: 0) }
         }
+    }
+
+    private func startLink() {
+        guard link == nil else { return }
+        let created = CADisplayLink(target: self, selector: #selector(tick))
+        created.preferredFramesPerSecond = Int(Self.movingRate)
+        created.add(to: .main, forMode: .common)
+        link = created
+    }
+
+    private func stopLink() {
+        link?.invalidate()
+        link = nil
+    }
+
+    /// A sample of gravity, on the sensor's queue. The posture the phone is held in drifts to "straight" in a
+    /// few seconds; what is left is the tilt, and the light's target. A resting light is woken by a real tilt.
+    func sensed(x gravityX: Double, y gravityY: Double, time: TimeInterval) {
+        lock.lock()
+        var base = posture ?? (gravityX, gravityY, time)
+        let elapsed = max(0, min(time - base.time, 1))
+        let drift = 1 - exp(-elapsed / Self.postureSeconds)
+        base.x += (gravityX - base.x) * drift
+        base.y += (gravityY - base.y) * drift
+        base.time = time
+        posture = base
+        target = (max(-1, min(1, (gravityX - base.x) * 3.4)), max(-1, min(1, (base.y - gravityY) * 3.4)))
+        let wake = resting && (abs(target.x - restingAt.x) > Self.wakeDistance || abs(target.y - restingAt.y) > Self.wakeDistance)
+        if wake { resting = false }
+        lock.unlock()
+        if wake { DispatchQueue.main.async { [weak self] in self?.wake() } }
+    }
+
+    private func wake() {
+        guard sensing, link == nil else { return }
+        stillFrames = 0
+        source.setInterval(1 / Self.movingRate)
+        startLink()
+    }
+
+    /// The light has settled: the frame loop stops and the sensor, read less often, watches for a tilt.
+    private func rest() {
+        stopLink()
+        lock.lock()
+        resting = true
+        restingAt = (Double(x), Double(y))
+        lock.unlock()
+        source.setInterval(1 / Self.restingRate)
     }
 
     @objc private func cameToFront() {
@@ -795,6 +973,11 @@ public final class LitLightRig: NSObject {
     }
 
     @objc private func tick() {
+        step()
+    }
+
+    /// One frame: the light eases towards its target. Internal so tests can step it without a display.
+    func step() {
         if listeners.count == 0 {
             refresh()
             return
@@ -804,19 +987,25 @@ public final class LitLightRig: NSObject {
             let t = CACurrentMediaTime() - start
             targetX = 0.85 * sin(t * 2 * .pi / 6)
             targetY = 0.60 * sin(t * 2 * .pi / 9 + 1.1)
-        } else if let gravity = motion.deviceMotion?.gravity {
-            // The posture the phone is held in drifts to "straight" in a few seconds.
-            let baseX = restX ?? gravity.x, baseY = restY ?? gravity.y
-            restX = baseX + (gravity.x - baseX) * 0.012
-            restY = baseY + (gravity.y - baseY) * 0.012
-            targetX = max(-1, min(1, (gravity.x - baseX) * 3.4))
-            targetY = max(-1, min(1, (baseY - gravity.y) * 3.4))
+        } else {
+            lock.lock()
+            (targetX, targetY) = target
+            lock.unlock()
         }
         let nextX = x + (CGFloat(targetX) - x) * 0.22
         let nextY = y + (CGFloat(targetY) - y) * 0.22
-        // A phone lying still draws no frames.
-        guard abs(nextX - x) > 0.003 || abs(nextY - y) > 0.003 else { return }
-        set(x: nextX, y: nextY)
+        // A phone lying still draws no frames,
+        if abs(nextX - x) > Self.settleStep || abs(nextY - y) > Self.settleStep {
+            set(x: nextX, y: nextY)
+        }
+        // and once the light has arrived where the phone points it, runs no frame loop either.
+        let arrived = abs(CGFloat(targetX) - x) < Self.restDistance && abs(CGFloat(targetY) - y) < Self.restDistance
+        guard arrived, demoStart == nil else {
+            stillFrames = 0
+            return
+        }
+        stillFrames += 1
+        if stillFrames >= Self.restAfter { rest() }
     }
 }
 
@@ -1046,8 +1235,13 @@ public final class LitPlateLayer: CALayer, LitLightListener {
         edge.frame = bounds
         sweepClip.frame = bounds
         sweep.frame = bounds
-        if !bounce.isHidden { layoutBounce() }
+        // Where the glints lie follows the sheet's size alone; the light only slides the bright spot along them.
+        let radius = cornerRadiusValue
+        glintTop.frame = CGRect(x: radius, y: 0.2, width: max(bounds.width - 2 * radius, 0), height: 1.2)
+        glintSide.frame = CGRect(x: 0.2, y: radius, width: 1.2, height: max(bounds.height - 2 * radius, 0))
         CATransaction.commit()
+        // A sheet that was off screen while the light moved takes the light as it stands now.
+        light = CGPoint(x: LitLightRig.shared.x, y: LitLightRig.shared.y)
         placeLight()
     }
 
@@ -1063,19 +1257,19 @@ public final class LitPlateLayer: CALayer, LitLightListener {
             let slide = CGPoint(x: light.x * 0.22, y: light.y * 0.22)
             face.startPoint = CGPoint(x: slide.x, y: slide.y)
             face.endPoint = CGPoint(x: 1 + slide.x, y: 1 + slide.y)
-            let radius = cornerRadiusValue
             let across = max(0.12, min(0.88, 0.30 + light.x * 0.42))
-            glintTop.frame = CGRect(x: radius, y: 0.2, width: max(bounds.width - 2 * radius, 0), height: 1.2)
             glintTop.locations = [NSNumber(value: Double(across) - 0.16), NSNumber(value: Double(across)), NSNumber(value: Double(across) + 0.16)]
             let down = max(0.12, min(0.88, 0.26 + light.y * 0.42))
-            glintSide.frame = CGRect(x: 0.2, y: radius, width: 1.2, height: max(bounds.height - 2 * radius, 0))
             glintSide.locations = [NSNumber(value: Double(down) - 0.20), NSNumber(value: Double(down)), NSNumber(value: Double(down) + 0.20)]
         }
         if !bounce.isHidden { layoutBounce() }
         CATransaction.commit()
     }
 
+    public var isLitOnScreen: Bool { LitStage.isShown(self) }
+
     public func lightDidMove(x: CGFloat, y: CGFloat) {
+        guard x != light.x || y != light.y else { return }
         light = CGPoint(x: x, y: y)
         placeLight()
     }
@@ -1207,6 +1401,13 @@ public final class LitCutGlassView: UIView, LitLightListener {
         layoutIfNeeded()
     }
 
+    public var isLitOnScreen: Bool { LitStage.isShown(layer) }
+
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil { LitLightRig.shared.surfacesDidAppear() }
+    }
+
     /// The window's reflection slides over the table as the phone tilts.
     public func lightDidMove(x: CGFloat, y: CGFloat) {
         CATransaction.begin()
@@ -1261,6 +1462,8 @@ public final class LitCutGlass: LitLightListener {
         CATransaction.commit()
         lightDidMove(x: LitLightRig.shared.x, y: LitLightRig.shared.y)
     }
+
+    public var isLitOnScreen: Bool { LitStage.isShown(layer) }
 
     public func lightDidMove(x: CGFloat, y: CGFloat) {
         CATransaction.begin()
@@ -1537,6 +1740,14 @@ public final class LitPageView: UIView, LitLightListener {
         pool.bounds = CGRect(x: 0, y: 0, width: side, height: side)
         CATransaction.commit()
         lightDidMove(x: LitLightRig.shared.x, y: LitLightRig.shared.y)
+    }
+
+    public var isLitOnScreen: Bool { LitStage.isShown(layer) }
+
+    /// A page comes on screen with its screen: everything on it takes the light as it stands.
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil { LitLightRig.shared.surfacesDidAppear() }
     }
 
     public func lightDidMove(x: CGFloat, y: CGFloat) {
