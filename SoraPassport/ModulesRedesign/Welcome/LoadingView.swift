@@ -62,7 +62,12 @@ final class SoramitsuLoadingView: SoramitsuView {
     }
 
     private func setupConstrains() {
+        // Laid out by these constraints alone: left with its autoresizing constraints (a frame of zero), the
+        // cover's size fought them on every pass and Auto Layout broke two constraints each time.
+        blurredView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
+            blurredView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            blurredView.topAnchor.constraint(equalTo: topAnchor),
             blurredView.widthAnchor.constraint(equalTo: widthAnchor),
             blurredView.heightAnchor.constraint(equalTo: heightAnchor),
             

@@ -199,9 +199,13 @@ final class PortfolioTableBinding: NSObject, UIScrollViewDelegate {
         backdropHeight?.constant = top
         guard top != home.heroItem.topInset else { return }
         home.heroItem.topInset = top
+        // A table that has no width yet has measured nothing: its first layout measures the rows with this
+        // inset. Asked to re-measure now (the safe area arrives before the first layout), it fitted every
+        // row to a width of zero, and Auto Layout broke some 150 constraints to answer.
+        guard let tableView, tableView.bounds.width > 0 else { return }
         UIView.performWithoutAnimation {
-            tableView?.beginUpdates()
-            tableView?.endUpdates()
+            tableView.beginUpdates()
+            tableView.endUpdates()
         }
     }
 
