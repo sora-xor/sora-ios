@@ -298,7 +298,8 @@ final class TransferableCell: SoramitsuTableViewCell {
 
             separatorView.heightAnchor.constraint(equalToConstant: 1),
 
-            actionsStackView.heightAnchor.constraint(equalToConstant: 76)
+            // At least the pads and their captions; taller if a caption ever takes two lines.
+            actionsStackView.heightAnchor.constraint(greaterThanOrEqualToConstant: 76)
         ])
     }
     

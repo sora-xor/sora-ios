@@ -197,12 +197,16 @@ final class NexusBalanceCell: SoramitsuTableViewCell {
         view.sora.backgroundColor = .custom(uiColor: .clear)
         view.sora.axis = .horizontal
         view.sora.distribution = .equalSpacing
-        view.sora.alignment = .center
+        // The pads stay level when one caption takes two lines.
+        view.sora.alignment = .top
         view.sora.shadow = .small
         view.spacing = 20
         view.clipsToBounds = false
         return view
     }()
+
+    /// Each shown action's share of the row, set from how many are shown (Send and the faucet come and go).
+    private var actionShares: [NSLayoutConstraint] = []
 
     private(set) lazy var sendButton: AssetActionView = action(
         title: R.string.localizable.commonSend(preferredLanguages: .currentLocale),
@@ -290,13 +294,21 @@ final class NexusBalanceCell: SoramitsuTableViewCell {
             faucetSpinner.centerXAnchor.constraint(equalTo: faucetButton.button.centerXAnchor),
             faucetSpinner.centerYAnchor.constraint(equalTo: faucetButton.button.centerYAnchor),
         ])
-        // Each action has at most a third of the card's row: "テスト用XORを受け取る" and "Check faucet request"
-        // were wider than that on a 375-point phone and pushed their pad off the row's rhythm or were cut;
-        // they wrap under the pad now.
-        for action in [sendButton, receiveButton, faucetButton] {
-            action.widthAnchor.constraint(lessThanOrEqualTo: separatorView.widthAnchor, multiplier: 1.0 / 3,
-                                          constant: -actionsStackView.spacing * 2 / 3).isActive = true
+        shareTheRow()
+    }
+
+    /// Each shown action has at most its share of the card's row: "テスト用XORを受け取る" and "Check faucet
+    /// request" were wider than a third of it on a 375-point phone, pushed their pad off the row's rhythm or
+    /// were cut; they wrap under the pad now. One or two actions share the row between them.
+    private func shareTheRow() {
+        let shown = [sendButton, receiveButton, faucetButton].filter { !$0.isHidden }
+        let count = CGFloat(max(1, shown.count))
+        NSLayoutConstraint.deactivate(actionShares)
+        actionShares = shown.map {
+            $0.widthAnchor.constraint(lessThanOrEqualTo: separatorView.widthAnchor, multiplier: 1 / count,
+                                      constant: -actionsStackView.spacing * (count - 1) / count)
         }
+        NSLayoutConstraint.activate(actionShares)
     }
 
     @available(*, unavailable)
@@ -349,6 +361,7 @@ extension NexusBalanceCell: SoramitsuTableViewCellProtocol {
             faucetSpinner.stopAnimating()
             faucetStatusLabel.sora.isHidden = true
         }
+        shareTheRow()
         let notes = item.notes.joined(separator: "\n\n")
         notesLabel.sora.text = notes
         notesLabel.sora.isHidden = notes.isEmpty
