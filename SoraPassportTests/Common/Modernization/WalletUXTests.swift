@@ -3751,7 +3751,9 @@ enum ScreenFit {
                 let free = CGRect(x: 0, y: 0, width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
                 let oneLine = label.textRect(forBounds: free, limitedToNumberOfLines: 1).width
                 let middle = label.lineBreakMode == .byTruncatingMiddle || label.lineBreakMode == .byTruncatingHead
-                if label.numberOfLines == 1 {
+                // A label that draws its own text (links) does not answer for its size this way.
+                if !oneLine.isFinite || oneLine > 100_000 {
+                } else if label.numberOfLines == 1 {
                     let shrinks = label.adjustsFontSizeToFitWidth ? max(label.minimumScaleFactor, 0.5) : 1
                     if oneLine * shrinks > label.bounds.width + 1, !middle {
                         note("cut short", view, frame, String(format: "needs %.0f", oneLine))
@@ -3760,7 +3762,7 @@ enum ScreenFit {
                     let column = CGRect(x: 0, y: 0, width: label.bounds.width, height: CGFloat.greatestFiniteMagnitude)
                     let all = label.textRect(forBounds: column, limitedToNumberOfLines: 0).height
                     let allowed = label.textRect(forBounds: column, limitedToNumberOfLines: label.numberOfLines).height
-                    if all > allowed + 1 || allowed > label.bounds.height + 1.5 {
+                    if all.isFinite, allowed.isFinite, all > allowed + 1 || allowed > label.bounds.height + 1.5 {
                         note("cut short", view, frame, String(format: "needs %.0f high, has %.0f", all, label.bounds.height))
                     }
                 }
@@ -3774,7 +3776,9 @@ enum ScreenFit {
             if let field = view as? UITextField, inWindow, frame.width < 44 {
                 note("no room to type", field, frame)
             }
-            if let button = view as? SoramitsuButton, inWindow, frame.height >= 48, button.sora.horizontalOffset == 0,
+            // A tall button with a small side inset is a screen's main button; a pill has a wide one.
+            if let button = view as? SoramitsuButton, inWindow, frame.height >= 48,
+               let inset = button.sora.horizontalOffset, inset <= LayoutCanvas.pageMargin,
                text(in: button) != nil, frame.width < column * 0.6 {
                 note("main button narrower than its column", button, frame)
             }
@@ -4033,6 +4037,11 @@ final class ScreenFitTests: XCTestCase {
 
     // MARK: Laying out
 
+    /// A constraint's description without the addresses that differ from run to run.
+    private static func plain(_ constraint: String) -> String {
+        constraint.replacingOccurrences(of: "0x[0-9a-f]+", with: "", options: .regularExpression)
+    }
+
     private func show(_ controller: UIViewController, size: CGSize, insets: UIEdgeInsets?) -> UIWindow {
         let window: UIWindow
         if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
@@ -4059,9 +4068,12 @@ final class ScreenFitTests: XCTestCase {
     }
 
     private func close(_ window: UIWindow) {
+        // A screen that takes the keyboard (slippage) must not leave it up over the next one.
+        UIView.performWithoutAnimation { _ = window.endEditing(true) }
         window.isHidden = true
         window.rootViewController = nil
         windows.removeAll { $0 === window }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.05))
     }
 
     /// Every screen at every size in both languages: nothing hangs over, is cut short or collapses, and
@@ -4081,7 +4093,10 @@ final class ScreenFitTests: XCTestCase {
                     checked += 1
                     let key = "\(screen.name) \(device.name) \(language)"
                     problems.forEach { report.append(key + " — " + $0) }
-                    if broken > 0 { report.append(key + " — \(broken) constraints broken to lay it out") }
+                    if broken > 0 {
+                        report.append(key + " — \(broken) constraints broken to lay it out")
+                        Set(BrokenConstraints.log.map(Self.plain)).sorted().prefix(30).forEach { report.append(key + " —   broke " + $0) }
+                    }
                     close(window)
                 }
             }
@@ -4116,7 +4131,7 @@ final class ScreenFitTests: XCTestCase {
                 let problems = ScreenFit.problems(in: window)
                 report.append("\(name): \(problems.count) problems, \(BrokenConstraints.log.count) broken constraints")
                 problems.forEach { report.append("  " + $0) }
-                Set(BrokenConstraints.log).sorted().prefix(6).forEach { report.append("  broke " + $0) }
+                Set(BrokenConstraints.log.map(Self.plain)).sorted().prefix(30).forEach { report.append("  broke " + $0) }
                 try report.joined(separator: "\n").write(to: output.appendingPathComponent("fit-report.txt"), atomically: true, encoding: .utf8)
                 let acknowledgement = output.appendingPathComponent("capture-ack.txt")
                 try? FileManager.default.removeItem(at: acknowledgement)

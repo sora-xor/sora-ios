@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import SoraUIKit
+@testable import SoraUIKit
 import UIKit
 import XCTest
 @testable import SoraPassport
@@ -280,9 +280,13 @@ final class LitMaterialsTests: XCTestCase {
 
     func testTheLightMovesPlatesAndComesBackToRest() {
         LitLightRig.shared.set(x: 0, y: 0)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.isHidden = false
+        defer { window.isHidden = true }
         let plate = LitPlateLayer()
         plate.elevation = 16
         plate.frame = CGRect(x: 0, y: 0, width: 300, height: 200)
+        window.layer.addSublayer(plate)
         plate.layoutSublayers()
         let shadow = try? XCTUnwrap(plate.sublayers?.first)
         let rest = shadow?.frame.origin
@@ -290,6 +294,87 @@ final class LitMaterialsTests: XCTestCase {
         XCTAssertNotEqual(shadow?.frame.origin, rest)
         LitLightRig.shared.set(x: 0, y: 0)
         XCTAssertEqual(shadow?.frame.origin, rest)
+    }
+
+    func testASheetOffScreenIsNotToldAboutTheLightAndTakesItWhenItIsLaidOut() {
+        LitLightRig.shared.set(x: 0, y: 0)
+        defer { LitLightRig.shared.set(x: 0, y: 0) }
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.isHidden = false
+        defer { window.isHidden = true }
+        let covered = UIView(frame: window.bounds)
+        window.addSubview(covered)
+        func sheet(in layer: CALayer?) -> (LitPlateLayer, CALayer?) {
+            let plate = LitPlateLayer()
+            plate.elevation = 16
+            plate.frame = CGRect(x: 0, y: 0, width: 300, height: 200)
+            layer?.addSublayer(plate)
+            plate.layoutSublayers()
+            return (plate, plate.sublayers?.first)
+        }
+        let shown = sheet(in: window.layer), hidden = sheet(in: covered.layer), nowhere = sheet(in: nil)
+        let rest = shown.1?.frame.origin
+        XCTAssertTrue(shown.0.isLitOnScreen)
+        covered.isHidden = true
+        XCTAssertFalse(hidden.0.isLitOnScreen, "under a hidden screen")
+        XCTAssertFalse(nowhere.0.isLitOnScreen, "in no window")
+
+        LitLightRig.shared.set(x: 1, y: 0)
+        XCTAssertNotEqual(shown.1?.frame.origin, rest)
+        XCTAssertEqual(hidden.1?.frame.origin, rest, "a covered sheet costs nothing while the light moves")
+        XCTAssertEqual(nowhere.1?.frame.origin, rest)
+
+        // Shown again and laid out, each takes the light as it stands.
+        covered.isHidden = false
+        hidden.0.layoutSublayers()
+        nowhere.0.layoutSublayers()
+        XCTAssertEqual(hidden.1?.frame.origin, shown.1?.frame.origin)
+        XCTAssertEqual(nowhere.1?.frame.origin, shown.1?.frame.origin)
+    }
+
+    /// A phone lying still runs no frame loop for the light; a tilt starts it again.
+    func testTheLightRestsWhenThePhoneIsStillAndWakesOnATilt() async throws {
+        let sensor = StillPhone()
+        let rig = LitLightRig(source: sensor)
+        let plate = LitPlateLayer()
+        rig.add(plate)
+        XCTAssertTrue(sensor.isRunning)
+        XCTAssertTrue(rig.isAnimating)
+        XCTAssertEqual(sensor.interval, 1 / LitLightRig.movingRate, accuracy: 0.0001)
+
+        // Held still: the light does not move, and after a moment the frame loop stops.
+        var time: TimeInterval = 100
+        func hold(x: Double, y: Double, frames: Int) async {
+            for _ in 0..<frames {
+                time += 1 / LitLightRig.movingRate
+                rig.sensed(x: x, y: y, time: time)
+                // A wake is handed to the main thread: let it arrive.
+                if !rig.isAnimating { try? await Task.sleep(nanoseconds: 1_000_000) }
+                if rig.isAnimating { rig.step() }
+            }
+        }
+        await hold(x: 0.10, y: -0.70, frames: LitLightRig.restAfter + 2)
+        XCTAssertFalse(rig.isAnimating, "no frame loop on a still phone")
+        XCTAssertEqual(rig.x, 0, accuracy: 0.001)
+        XCTAssertEqual(sensor.interval, 1 / LitLightRig.restingRate, accuracy: 0.0001, "the sensor is read less often at rest")
+
+        // Sensor noise on a table does not wake it.
+        await hold(x: 0.1005, y: -0.7004, frames: 30)
+        XCTAssertFalse(rig.isAnimating)
+
+        // A tilt does, on the main thread, and the light follows it.
+        time += 0.1
+        rig.sensed(x: 0.30, y: -0.70, time: time)
+        for _ in 0..<50 where !rig.isAnimating { try await Task.sleep(nanoseconds: 10_000_000) }
+        XCTAssertTrue(rig.isAnimating, "a tilt starts the frame loop again")
+        XCTAssertEqual(sensor.interval, 1 / LitLightRig.movingRate, accuracy: 0.0001)
+        await hold(x: 0.30, y: -0.70, frames: 6)
+        XCTAssertGreaterThan(rig.x, 0.2, "the light moved towards the tilt")
+
+        // Held in the new posture, that posture becomes straight and the light comes back to rest.
+        await hold(x: 0.30, y: -0.70, frames: Int(LitLightRig.movingRate * 30))
+        XCTAssertLessThan(abs(rig.x), 0.05)
+        rig.remove(plate)
     }
 
     // MARK: A number that rolls still ends on the true value
@@ -360,4 +445,20 @@ final class LitMaterialsTests: XCTestCase {
     private func descendants(_ view: UIView) -> [UIView] {
         view.subviews + view.subviews.flatMap(descendants)
     }
+}
+
+/// A tilt sensor fed by hand.
+private final class StillPhone: LitTiltSource {
+    var isAvailable: Bool { true }
+    private(set) var isRunning = false
+    private(set) var interval: TimeInterval = 0
+
+    func start(interval: TimeInterval, handler: @escaping (Double, Double, TimeInterval) -> Void) {
+        isRunning = true
+        self.interval = interval
+    }
+
+    func setInterval(_ interval: TimeInterval) { self.interval = interval }
+
+    func stop() { isRunning = false }
 }

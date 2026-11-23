@@ -889,6 +889,7 @@ final class RenderCostTests: XCTestCase {
         defaults.removePersistentDomain(forName: "render.cost")
 
         // The home: built, laid out and committed.
+        BrokenConstraints.reset()
         var start = cpu()
         let host = PortfolioCaptureHost(variant: .full, defaults: defaults)
         window.rootViewController = host.tabBar
@@ -896,9 +897,28 @@ final class RenderCostTests: XCTestCase {
         host.tabBar.loadViewIfNeeded()
         window.layoutIfNeeded()
         CATransaction.flush()
-        note("home build + first layout: \(ms(cpu() - start)) ms")
+        note("home build + first layout: \(ms(cpu() - start)) ms, \(BrokenConstraints.log.count) constraints broken")
         try await Task.sleep(nanoseconds: 2_500_000_000)
         window.layoutIfNeeded()
+
+        // A second home in a window of its own, with every baked image already made: what a home costs
+        // each time, without what the first one pays once.
+        do {
+            BrokenConstraints.reset()
+            let again = UIWindow(windowScene: scene)
+            again.frame = scene.coordinateSpace.bounds
+            start = cpu()
+            let second = PortfolioCaptureHost(variant: .full, defaults: defaults)
+            again.rootViewController = second.tabBar
+            again.isHidden = false
+            second.tabBar.loadViewIfNeeded()
+            again.layoutIfNeeded()
+            CATransaction.flush()
+            note("home build + first layout, second time: \(ms(cpu() - start)) ms, \(BrokenConstraints.log.count) constraints broken")
+            again.isHidden = true
+            again.rootViewController = nil
+        }
+        window.makeKeyAndVisible()
 
         func census(_ label: String) {
             var plates = 0, all = 0, shadowsWithoutPath = 0, masked = 0
