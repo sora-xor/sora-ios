@@ -291,12 +291,15 @@ final class NexusBalanceCell: SoramitsuTableViewCell {
             faucetSpinner.centerXAnchor.constraint(equalTo: faucetButton.button.centerXAnchor),
             faucetSpinner.centerYAnchor.constraint(equalTo: faucetButton.button.centerYAnchor),
         ])
-        // The actions never run past the card's row: where their captions do not fit on one line beside each
-        // other ("テスト用XORを受け取る" or "Check faucet request" on a 375-point phone), the longest caption takes a
-        // second line under its pad instead of being cut. Where they fit, nothing changes: one line each.
+        // The actions never run past the card's row. Where the three captions do not fit beside each other
+        // ("テスト用XORを受け取る" or "Check faucet request" on a 375-point phone) the faucet's caption, the long
+        // one, gets a little smaller, as a kit button's title does, instead of being cut ("テスト用XORを受け…") or
+        // breaking inside a word on a second line. Where they fit, nothing changes.
         actionsStackView.widthAnchor.constraint(lessThanOrEqualTo: separatorView.widthAnchor).isActive = true
-        // The faucet's caption is the long one: it is the one that wraps, never "送る" or "Send".
         faucetButton.titleLabel.setContentCompressionResistancePriority(.defaultHigh - 1, for: .horizontal)
+        faucetButton.titleLabel.sora.numberOfLines = 1
+        faucetButton.titleLabel.adjustsFontSizeToFitWidth = true
+        faucetButton.titleLabel.minimumScaleFactor = 0.7
     }
 
     @available(*, unavailable)
