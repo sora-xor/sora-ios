@@ -95,25 +95,32 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
         configure()
     }
 
-    // The card does not scroll. Where the keyboard would cover Download (a folded cover, an unfolded
-    // screen in landscape, and an iPhone SE once both password notes show) the card rides above the
-    // keyboard instead of staying under the bar. Where there is room it stays where it was.
-    private var pinnedTop: NSLayoutConstraint?
-    private lazy var looseTop: NSLayoutConstraint = {
-        let constraint = containerView.topAnchor.constraint(equalTo: view.soraSafeTopAnchor)
-        constraint.priority = .defaultHigh
-        return constraint
+    // The card scrolls where it does not fit between the bar and the keyboard (an iPhone SE once both
+    // password notes show, a folded cover, an unfolded screen in landscape): its top never goes under the
+    // bar, and the field being typed in and Download can always be reached. Where there is room the card
+    // stays where it was and nothing scrolls.
+    private let scrollView: UIScrollView = {
+        let view = UIScrollView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.keyboardDismissMode = .interactive
+        view.showsVerticalScrollIndicator = false
+        return view
     }()
-    private lazy var aboveKeyboard = containerView.bottomAnchor.constraint(
-        lessThanOrEqualTo: view.keyboardLayoutGuide.topAnchor, constant: -8)
+    private var shownHeight: CGFloat = 0
 
-    override func viewWillLayoutSubviews() {
-        super.viewWillLayoutSubviews()
-        // The top is a preference and "above the keyboard" a limit: on a tall phone both hold and nothing moves.
-        guard !aboveKeyboard.isActive else { return }
-        pinnedTop?.isActive = false
-        looseTop.isActive = true
-        aboveKeyboard.isActive = true
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // The keyboard came or went: the field being typed in stays on screen.
+        guard scrollView.bounds.height != shownHeight else { return }
+        shownHeight = scrollView.bounds.height
+        revealEditedField()
+    }
+
+    @objc private func revealEditedField() {
+        guard let field = [passwordInputField, confirmPasswordInputField].first(where: { $0.textField.isFirstResponder })
+        else { return }
+        scrollView.layoutIfNeeded()
+        scrollView.scrollRectToVisible(field.convert(field.bounds, to: scrollView).insetBy(dx: 0, dy: -8), animated: false)
     }
 
     private func configure() {
@@ -122,7 +129,8 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
         navigationItem.title = R.string.localizable.exportJsonDownloadJson(preferredLanguages: languages)
         titleLabel.sora.text = R.string.localizable.exportJsonDescription(preferredLanguages: languages)
 
-        view.addSubview(containerView)
+        view.addSubview(scrollView)
+        scrollView.addSubview(containerView)
 
         stackView.removeArrangedSubviews()
         containerView.addSubview(stackView)
@@ -136,8 +144,19 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
         stackView.addArrangedSubview(downloadButton)
         stackView.setCustomSpacing(20, after: titleLabel)
         // 16 from each side on a phone; a readable column in the middle of a wider window.
-        WalletDisplay.pinReadable(containerView, width: view.widthAnchor, centerX: view.centerXAnchor, margin: 16)
-        pinnedTop = (containerView.topAnchor == view.soraSafeTopAnchor)
+        WalletDisplay.pinReadable(containerView, inScroll: scrollView, margin: 16)
+        NSLayoutConstraint.activate([
+            // Under the bar by the scroll view's own safe-area inset, down to the keyboard.
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+            containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -8)
+        ])
+        [passwordInputField, confirmPasswordInputField].forEach {
+            $0.textField.addTarget(self, action: #selector(revealEditedField), for: .editingDidBegin)
+        }
         stackView.do {
             $0.horizontalAnchors == containerView.horizontalAnchors + 24
             $0.verticalAnchors == containerView.verticalAnchors + 24
