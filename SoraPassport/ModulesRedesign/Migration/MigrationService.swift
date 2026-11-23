@@ -471,7 +471,8 @@ class MigrationService: MigrationServiceProtocol {
                                 self.decideMigration()
                             } else {
                                 self.migrationSuccess(
-                                    accountAddress: account.address
+                                    accountAddress: account.address,
+                                    announce: .unlessRecorded
                                 )
                             }
                         }
@@ -499,8 +500,24 @@ class MigrationService: MigrationServiceProtocol {
         eventCenter.notify(with: MigrationEvent(service: self))
     }
 
-    private func migrationSuccess(accountAddress: String) {
+    /// Whether a success is announced (`MigrationSuccsessEvent`, which takes down a claim and
+    /// builds the Wallet tab again).
+    private enum SuccessAnnouncement {
+        /// A migration that just finished, or one the user asked about.
+        case always
+        /// The launch-time check: an account that needs no migration is told so at every launch,
+        /// and a finished journal entry is found again at every launch. Announced only the first
+        /// time this device records the account; announcing it at every launch rebuilt the Wallet
+        /// tab right after it opened and threw away its balance reads.
+        case unlessRecorded
+    }
+
+    private func migrationSuccess(accountAddress: String, announce: SuccessAnnouncement = .always) {
         eligibilityGate.invalidate()
+        let wasRecorded = (try? MigrationAccountCompletionStore.contains(
+            accountAddress: accountAddress,
+            settings: settings
+        )) ?? false
         do {
             try MigrationAccountCompletionStore.record(
                 accountAddress: accountAddress,
@@ -513,6 +530,9 @@ class MigrationService: MigrationServiceProtocol {
             logger.error("Per-account migration completion was not recorded")
         }
         settings.hasMigrated = true
+        if announce == .unlessRecorded, wasRecorded {
+            return
+        }
         eventCenter.notify(with: MigrationSuccsessEvent(service: self))
     }
 
@@ -803,7 +823,7 @@ class MigrationService: MigrationServiceProtocol {
         if migrationValues.contains(where: {
             $0.terminalResolution?.kind == .finalizedSuccess
         }) {
-            migrationSuccess(accountAddress: account.address)
+            migrationSuccess(accountAddress: account.address, announce: completion == nil ? .unlessRecorded : .always)
             completion?(.success(""))
             return true
         }

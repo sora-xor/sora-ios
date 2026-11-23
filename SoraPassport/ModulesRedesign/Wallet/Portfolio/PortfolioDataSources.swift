@@ -47,6 +47,13 @@ struct PortfolioWalletReadState: Equatable {
     var lastRead: Date?
     var lastAttempt: Date?
     var failed: [PortfolioNetwork] = []
+    /// SORA2 reads that failed in a row in this run (not saved): they bring the next attempt forward.
+    var failedReads = 0
+    /// When the last of them failed: the retry is counted from here, not from the attempt's start.
+    var lastFailure: Date?
+
+    /// The time the next retry interval is counted from.
+    var retryCountedFrom: Date? { failedReads > 0 ? (lastFailure ?? lastAttempt) : lastAttempt }
 }
 
 struct PortfolioPriceSource: Equatable {
@@ -252,6 +259,10 @@ final class LivePortfolioDataSource: PortfolioDataSource {
     /// Each wallet's accounts on networks other than SORA2 (public addresses only), for the reads.
     private var networkAccounts: [String: [PortfolioNetwork: NetworkAccount]] = [:]
     private var refreshTask: Task<Void, Never>?
+    private var retryTask: Task<Void, Never>?
+    /// Prices are read on their own, so a slow price service never holds back the next balance read.
+    private var priceTask: Task<Void, Never>?
+    private var pendingPriceIds: [String]?
     private var pendingForce = false
     private var pendingRefresh = false
     private var selectedBalanceRevision: UInt64 = 0
@@ -308,6 +319,8 @@ final class LivePortfolioDataSource: PortfolioDataSource {
     deinit {
         timer?.invalidate()
         refreshTask?.cancel()
+        retryTask?.cancel()
+        priceTask?.cancel()
         if let blacklistObserver {
             NotificationCenter.default.removeObserver(blacklistObserver)
         }
@@ -327,6 +340,8 @@ final class LivePortfolioDataSource: PortfolioDataSource {
         started = false
         timer?.invalidate()
         timer = nil
+        retryTask?.cancel()
+        retryTask = nil
     }
 
     func refreshAll() {
@@ -401,8 +416,13 @@ final class LivePortfolioDataSource: PortfolioDataSource {
         let now = Date()
         let due = wallets.filter { wallet in
             force || (wallet.isSelected && selectedDirty) ||
-                PortfolioFreshnessPolicy.isDue(lastAttempt: cache.reads[wallet.id]?.lastAttempt, now: now)
+                PortfolioFreshnessPolicy.isDue(lastAttempt: cache.reads[wallet.id]?.retryCountedFrom,
+                                               failedReads: cache.reads[wallet.id]?.failedReads ?? 0, now: now)
         }
+        // Prices are read beside the balances, for the tokens held when this pass began: a slow
+        // price service never holds back a balance, nor the end of loading.
+        let pricedIds = priceIds(assets: assets)
+        readPrices(ids: pricedIds)
         // The selected wallet first, then the others, a few at a time.
         var waiting = (due.filter(\.isSelected) + due.filter { !$0.isSelected }).makeIterator()
         await withTaskGroup(of: Void.self) { group in
@@ -415,39 +435,121 @@ final class LivePortfolioDataSource: PortfolioDataSource {
             (0..<Self.parallelReads).forEach { _ in addNext() }
             while await group.next() != nil { addNext() }
         }
-        await loadPrices(assets: assets)
         firstPassDone = true
         cache.save()
         publish()
+        scheduleRetryAfterFailures()
+        // A token this pass found held that the price read did not ask about.
+        let heldIds = priceIds(assets: assets)
+        if !Set(heldIds).isSubset(of: Set(pricedIds)) {
+            readPrices(ids: heldIds)
+        }
     }
 
+    /// One price read at a time; a request made meanwhile runs once it has finished.
+    private func readPrices(ids: [String]) {
+        guard priceTask == nil else {
+            pendingPriceIds = ids
+            return
+        }
+        priceTask = Task { @MainActor [weak self] in
+            await self?.loadPrices(ids: ids)
+            guard let self, !Task.isCancelled else { return }
+            self.cache.save()
+            self.publish()
+            self.priceTask = nil
+            if let next = self.pendingPriceIds {
+                self.pendingPriceIds = nil
+                self.readPrices(ids: next)
+            }
+        }
+    }
+
+    /// Reads one wallet on every network at once. Each network's answer shows as soon as it
+    /// arrives: SORA2 never waits for SORA Nexus or Taira, nor they for each other.
     private func read(_ wallet: PortfolioWalletSource, assets: [(id: String, precision: Int16)]) async {
-        var state = cache.reads[wallet.id] ?? PortfolioWalletReadState()
-        state.lastAttempt = Date()
+        // A wallet removed while this read waited for its turn (here or in a newer tab, which
+        // keeps the shared list) is not read, nor put back.
+        guard cache.wallets.contains(where: { $0.id == wallet.id }) else { return }
         let readRevision = selectedBalanceRevision
-        var failed: [PortfolioNetwork] = []
-        let sora2Reader = self.sora2Reader, nexusReader = self.nexusReader
-        do {
-            state.sora2 = try await PortfolioReadDeadline.run(seconds: readDeadline) {
-                try await sora2Reader.balances(address: wallet.id, assets: assets)
-            }
-        } catch {
-            failed.append(.sora2)
+        let sora2Reader = self.sora2Reader, nexusReader = self.nexusReader, deadline = readDeadline
+        let networks = liveNetworks.subtracting([.sora2]).sorted(by: { $0.rank() < $1.rank() })
+            .compactMap { network in networkAccounts[wallet.id]?[network].map { (network, $0) } }
+        var attempt = cache.reads[wallet.id] ?? PortfolioWalletReadState()
+        let attemptStart = Date()
+        attempt.lastAttempt = attemptStart
+        // A network this attempt does not read (turned off since) is no longer reported as failing.
+        attempt.failed = attempt.failed.filter { failed in
+            failed == .sora2 || networks.contains { $0.0 == failed }
         }
-        for network in liveNetworks.subtracting([.sora2]).sorted(by: { $0.rank() < $1.rank() }) {
-            guard let account = networkAccounts[wallet.id]?[network], !Task.isCancelled else { continue }
-            do {
-                state.nexus[network] = try await PortfolioReadDeadline.run(seconds: readDeadline) {
-                    try await nexusReader.xorBalance(account: account)
+        cache.reads[wallet.id] = attempt
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { @MainActor [weak self] in
+                let balances = try? await PortfolioReadDeadline.run(seconds: deadline) {
+                    try await sora2Reader.balances(address: wallet.id, assets: assets)
                 }
-            } catch {
-                failed.append(network)
+                self?.record(wallet: wallet.id, attempt: attemptStart, network: .sora2,
+                             succeeded: balances != nil) { state in
+                    guard let balances else {
+                        state.failedReads += 1
+                        state.lastFailure = Date()
+                        return
+                    }
+                    state.sora2 = balances
+                    state.lastRead = Date()
+                    state.failedReads = 0
+                }
+            }
+            for (network, account) in networks {
+                group.addTask { @MainActor [weak self] in
+                    var amount: Decimal?
+                    if !Task.isCancelled {
+                        amount = try? await PortfolioReadDeadline.run(seconds: deadline) {
+                            try await nexusReader.xorBalance(account: account)
+                        }
+                    }
+                    self?.record(wallet: wallet.id, attempt: attemptStart, network: network,
+                                 succeeded: amount != nil) { state in
+                        if let amount { state.nexus[network] = amount }
+                    }
+                }
             }
         }
-        if !failed.contains(.sora2) { state.lastRead = Date() }
-        state.failed = failed
-        cache.reads[wallet.id] = state
         if wallet.isSelected { selectedDirty = selectedBalanceRevision != readRevision }
+    }
+
+    /// A wallet whose SORA2 read failed is read again after its retry interval, sooner than the
+    /// 15-second tick would get to it.
+    private func scheduleRetryAfterFailures() {
+        let now = Date()
+        let waits = wallets.compactMap { wallet -> TimeInterval? in
+            guard let state = cache.reads[wallet.id], state.failedReads > 0, let since = state.retryCountedFrom else {
+                return nil
+            }
+            return PortfolioFreshnessPolicy.retryInterval(failedReads: state.failedReads) - now.timeIntervalSince(since)
+        }
+        guard let wait = waits.min(), wait < 15 else { return }
+        retryTask?.cancel()
+        retryTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(max(0.5, wait) * 1_000_000_000))
+            guard !Task.isCancelled, let self, self.started else { return }
+            self.refresh(force: false)
+        }
+    }
+
+    /// One network's answer for one wallet. A failed network stays listed until it answers again.
+    /// The answer is dropped when its attempt is no longer the wallet's latest in the shared cache:
+    /// the wallet was removed meanwhile (by this tab or a newer one), or a newer attempt began, so an
+    /// older answer never replaces a newer one.
+    private func record(wallet id: String, attempt: Date, network: PortfolioNetwork, succeeded: Bool,
+                        _ update: (inout PortfolioWalletReadState) -> Void) {
+        guard wallets.contains(where: { $0.id == id }),
+              var state = cache.reads[id], state.lastAttempt == attempt else { return }
+        update(&state)
+        var failed = state.failed.filter { $0 != network }
+        if !succeeded { failed.append(network) }
+        state.failed = failed.sorted { $0.rank() < $1.rank() }
+        cache.reads[id] = state
         publish()
     }
 
@@ -488,11 +590,15 @@ final class LivePortfolioDataSource: PortfolioDataSource {
         cache.reads = cache.reads.filter { ids.contains($0.key) }
     }
 
-    private func loadPrices(assets: [PortfolioAssetSource]) async {
+    /// The tokens whose prices are read: those any wallet holds, and XOR.
+    private func priceIds(assets: [PortfolioAssetSource]) -> [String] {
         let held = Set(cache.reads.values.flatMap { read in
             (read.sora2 ?? [:]).filter { $0.value.total > 0 }.map(\.key)
         } + [PortfolioSnapshotBuilder.xorId])
-        let ids = assets.map(\.id).filter { held.contains($0) }
+        return assets.map(\.id).filter { held.contains($0) }
+    }
+
+    private func loadPrices(ids: [String]) async {
         guard !ids.isEmpty else { return }
         let priceService = self.priceService
         let info = try? await PortfolioReadDeadline.run(seconds: readDeadline) {

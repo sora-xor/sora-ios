@@ -267,5 +267,9 @@ final class PortfolioPolicyTests: XCTestCase {
         XCTAssertTrue(PortfolioFreshnessPolicy.isDue(lastAttempt: nil, now: now))
         XCTAssertFalse(PortfolioFreshnessPolicy.isDue(lastAttempt: now.addingTimeInterval(-59), now: now))
         XCTAssertTrue(PortfolioFreshnessPolicy.isDue(lastAttempt: now.addingTimeInterval(-60), now: now))
+        // A failed read comes back sooner, doubling up to the minute.
+        XCTAssertEqual((0...6).map { PortfolioFreshnessPolicy.retryInterval(failedReads: $0) }, [60, 5, 10, 20, 40, 60, 60])
+        XCTAssertTrue(PortfolioFreshnessPolicy.isDue(lastAttempt: now.addingTimeInterval(-5), failedReads: 1, now: now))
+        XCTAssertFalse(PortfolioFreshnessPolicy.isDue(lastAttempt: now.addingTimeInterval(-9), failedReads: 2, now: now))
     }
 }

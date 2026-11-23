@@ -69,6 +69,15 @@ final class MigrationEligibilityFlowTests: XCTestCase {
         XCTAssertTrue(settings.hasMigrated)
         XCTAssertTrue(try MigrationAccountCompletionStore.contains(accountAddress: account.address, settings: settings))
     }
+    func testARoutineCheckOfAnAccountAlreadyRecordedAnnouncesNothing() async throws {
+        // Every launch asks again; a success this device recorded before rebuilds nothing.
+        try MigrationAccountCompletionStore.record(accountAddress: account.address, settings: settings)
+        EligibilityURLProtocol.result = false
+        service.checkMigration(); await settle { !EligibilityURLProtocol.methods.isEmpty }
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertTrue(events.values.isEmpty)
+        XCTAssertTrue(settings.hasMigrated)
+    }
     func testLegacyCompletionFlagDoesNotSkipFreshEligibility() async {
         settings.hasMigrated = true; EligibilityURLProtocol.result = true
         service.checkMigration(); await settle { !self.events.values.isEmpty }

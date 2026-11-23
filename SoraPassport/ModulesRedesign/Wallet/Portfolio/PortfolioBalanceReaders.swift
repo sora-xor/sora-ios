@@ -111,29 +111,49 @@ final class PortfolioSora2BalanceReader: PortfolioSora2BalanceReading {
                   seen.insert(identifier).inserted else { throw PortfolioReaderError.invalidAsset }
         }
 
-        var result: [String: PortfolioRawBalance] = [:]
-        if let xor = assets.first(where: { $0.id == xorId }) {
-            let info = try await accountInfo(accountId: accountId, engine: engine, runtime: runtime)
-            if let data = info?.data {
-                result[xorId] = PortfolioRawBalance(
-                    free: try amount(data.free, precision: xor.precision),
-                    reserved: try amount(data.reserved, precision: xor.precision),
-                    frozen: try amount(max(data.miscFrozen, data.feeFrozen), precision: xor.precision)
-                )
-            } else {
-                result[xorId] = .zero
-            }
-        }
-
+        let xor = assets.first(where: { $0.id == xorId })
         let tokens = assets.filter { $0.id != xorId }
-        guard !tokens.isEmpty else { return result }
+        guard xor != nil || !tokens.isEmpty else { return [:] }
         let keyFactory = StorageKeyFactory()
+        let xorKey = try xor.map { _ in try keyFactory.accountInfoKeyForId(accountId) }
         var keyToAsset: [Data: (id: String, precision: Int16)] = [:]
         for token in tokens {
             let key = try keyFactory.accountsKey(account: accountId, asset: Data.sora(hex: token.id))
             keyToAsset[key] = token
         }
-        let values = try await storageValues(keys: Array(keyToAsset.keys), engine: engine)
+        // XOR and every token in one request. XOR's account record is decoded with the runtime's
+        // types, which are made ready while the node answers instead of before asking it.
+        let coder = xor == nil ? nil : Task { try await self.run(runtime.fetchCoderFactoryOperation()) }
+        let values: [Data: Data?]
+        do {
+            values = try await storageValues(keys: (xorKey.map { [$0] } ?? []) + Array(keyToAsset.keys),
+                                             engine: engine)
+        } catch {
+            coder?.cancel()
+            throw error
+        }
+
+        var result: [String: PortfolioRawBalance] = [:]
+        if let xor, let xorKey, let coder {
+            if let data = values[xorKey] ?? nil {
+                let operation = StorageDecodingOperation<AccountInfo>(path: .account, data: data)
+                operation.codingFactory = try await withTaskCancellationHandler {
+                    try await coder.value
+                } onCancel: {
+                    coder.cancel()
+                }
+                let info = try await run(operation)
+                result[xorId] = PortfolioRawBalance(
+                    free: try amount(info.data.free, precision: xor.precision),
+                    reserved: try amount(info.data.reserved, precision: xor.precision),
+                    frozen: try amount(max(info.data.miscFrozen, info.data.feeFrozen), precision: xor.precision)
+                )
+            } else {
+                coder.cancel()
+                result[xorId] = .zero
+            }
+        }
+
         for (key, token) in keyToAsset {
             guard let value = values[key] ?? nil else {
                 result[token.id] = .zero
@@ -196,17 +216,6 @@ final class PortfolioSora2BalanceReader: PortfolioSora2BalanceReading {
         return values
     }
 
-    private func accountInfo(accountId: Data, engine: JSONRPCEngine,
-                             runtime: RuntimeCodingServiceProtocol) async throws -> AccountInfo? {
-        let factory = try await run(runtime.fetchCoderFactoryOperation())
-        let key = try StorageKeyFactory().accountInfoKeyForId(accountId)
-        let values = try await storageValues(keys: [key], engine: engine)
-        guard let data = values[key] ?? nil else { return nil }
-        let operation = StorageDecodingOperation<AccountInfo>(path: .account, data: data)
-        operation.codingFactory = factory
-        return try await run(operation)
-    }
-
     /// Enqueues `operation` (its dependencies must already be queued) and awaits its result.
     private func run<T>(_ operation: BaseOperation<T>) async throws -> T {
         try Task.checkCancellation()
@@ -247,6 +256,11 @@ final class PortfolioNexusBalanceReader: PortfolioNexusBalanceReading {
         }
         let current = try await readCurrentNexusXorBalance(account: account, configuration: configuration,
                                                            readClient: readClient)
-        return current.quantity.decimalValue ?? 0
+        // An amount the display type cannot hold exactly is an unread balance, never zero or rounded.
+        guard let amount = Decimal.parseLocalizedAmount(current.quantity.rawValue,
+                                                        locale: Locale(identifier: "en_US_POSIX")) else {
+            throw PortfolioReaderError.unrepresentableBalance
+        }
+        return amount
     }
 }
