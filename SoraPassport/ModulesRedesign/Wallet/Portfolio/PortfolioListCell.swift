@@ -236,6 +236,12 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         header.addSubview(titleLabel)
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
         emptyView.addSubview(emptyLabel)
+        // Rows come and go inside the cell (balances read, a lens changed) and are laid out at once, while the
+        // cell still has the height the table gave it for the old rows; the table measures it again right after
+        // (`onHeightChange`). Just under required, the card's bottom gives way for that moment, instead of Auto
+        // Layout breaking rows' own constraints (116 of them on every home build, at every size).
+        let cardBottom = card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12)
+        cardBottom.priority = UILayoutPriority(999)
         NSLayoutConstraint.activate([
             titleLabel.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 16),
             titleLabel.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -16),
@@ -248,7 +254,7 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
             card.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
             card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             card.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
+            cardBottom,
             stack.topAnchor.constraint(equalTo: card.contentView.topAnchor, constant: 6),
             stack.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor),
