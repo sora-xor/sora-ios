@@ -428,6 +428,10 @@ final class LitMaterialsTests: XCTestCase {
         }
         XCTAssertFalse(rig.isAnimating, "at rest")
         XCTAssertTrue(sensor.isRunning, "the resting sensor still reads the phone")
+        // A layer made outside a transaction is held by Core Animation's implicit transaction until the run loop
+        // commits it: commit it, and let the run loop turn, before asking whether the surface was released.
+        CATransaction.flush()
+        for _ in 0..<50 where rig.listenerCount > 0 { try await Task.sleep(nanoseconds: 10_000_000) }
         XCTAssertEqual(rig.listenerCount, 0, "the surface is gone")
         for _ in 0..<Int(LitLightRig.restingRate * 10) + 2 {
             time += 1 / LitLightRig.restingRate
