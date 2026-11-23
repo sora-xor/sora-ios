@@ -4,9 +4,20 @@ Copyright Soramitsu Co., Ltd.
 
 Polka Biome and Soramitsu-owned application source is licensed under the
 Apache License, Version 2.0 (see LICENSE). Existing copyright notices are
-retained. External dependencies and files bearing third-party notices retain
+retained. This includes the owned SoraFoundation, SoraUI, SoraUIKit,
+NexusTransferCodec and shared-feature source packages in VendorPackages.
+
+SSF modules that previously carried MIT grants are also available under
+Apache-2.0; their module LICENSE files preserve the original copyright and
+MIT permission text as an alternative (Apache-2.0 OR MIT).
+
+External dependencies and files bearing third-party notices retain
 their original licenses and attribution; the root Apache license does not
-relicense third-party code or binary frameworks.
+relicense third-party code or binary frameworks. In particular, FireMock
+and Rswift retain MIT terms; the Google source packages retain their Apache
+notices; keccak retains CC0 terms; scrypt retains Colin Percival's BSD
+notices and the SSE2NEON compatibility header retains its MIT notice;
+IrohaCrypto retains ERussel's MIT notice.
 
 Historical source fixtures in Fixtures/Modernization retain their original
 license and copyright notices as provenance evidence.

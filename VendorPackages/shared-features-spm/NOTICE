@@ -1,0 +1,11 @@
+Soramitsu-owned shared-feature source
+Copyright Soramitsu Co., Ltd.
+
+Owned source is licensed under Apache-2.0 (see LICENSE). Existing copyright
+notices are retained. The module LICENSE files retain their original MIT
+grants as an alternative (Apache-2.0 OR MIT). Third-party code in this
+package (blake2lib, keccak, libed25519, scrypt with its SSE2NEON header, and
+sr25519lib) retains its original terms and notices. Sources/IrohaCrypto is
+IrohaCrypto 0.9.0, Copyright (c) 2018 ERussel, under the MIT license in
+LICENSE-IrohaCrypto. See the repository root NOTICE for the preserved
+component and provenance scope.
