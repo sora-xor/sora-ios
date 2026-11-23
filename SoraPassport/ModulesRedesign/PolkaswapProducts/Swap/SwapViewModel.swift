@@ -744,8 +744,12 @@ extension SwapViewModel {
             return
         }
 
+        // A chosen market is quoted on that market alone: the signed call keeps only the selected source, so a
+        // quote over every source could show a route (and price) the swap will not take.
         let filterMode: FilterMode = selectedMarket == .smart ? .disabled : .allowSelected
-        let liquiditySources = marketSourcer.getServerMarketSources()
+        let liquiditySources = selectedMarket == .smart
+            ? marketSourcer.getServerMarketSources()
+            : [selectedMarket.rawValue]
         let params = PolkaswapMainInteractorQuoteParams(fromAssetId: firstAssetId,
                                                         toAssetId: secondAssetId,
                                                         amount: amount,

@@ -531,6 +531,14 @@ extension SwapEditorFlowTests {
         let quote = try await awaitQuote(f)
         XCTAssertEqual(quote.filterMode, .allowSelected); XCTAssertEqual(quote.liquiditySources, [LiquiditySourceType.tbc.rawValue])
     }
+    func testAChosenMarketIsQuotedOnThatMarketAloneWhenSeveralAreListed() async throws {
+        let f = make(); f.model.selectedMarket = .tbc
+        f.model.didLoadMarketSources(
+            [LiquiditySourceType.xyk.rawValue, LiquiditySourceType.tbc.rawValue], fromAssetId: f.xor, toAssetId: f.val
+        )
+        let quote = try await awaitQuote(f)
+        XCTAssertEqual(quote.filterMode, .allowSelected); XCTAssertEqual(quote.liquiditySources, [LiquiditySourceType.tbc.rawValue])
+    }
     func testObsoleteMarketDiscoveryDoesNotChangeTheCurrentMarketOrScheduleAQuote() async {
         let f = make(); f.view.marketLoading = true
         f.model.didLoadMarketSources([LiquiditySourceType.tbc.rawValue], fromAssetId: f.val, toAssetId: f.pswap)
