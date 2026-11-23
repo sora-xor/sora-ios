@@ -36,12 +36,19 @@ final class PortfolioHandoffInbox {
     static let shared = PortfolioHandoffInbox()
     static let lifetime: TimeInterval = 60
 
-    private var pending: (walletId: String, handoff: PortfolioHandoff, date: Date, id: UUID)?
+    private struct Pending {
+        let walletId: String
+        let handoff: PortfolioHandoff
+        let date: Date
+        let id: UUID
+    }
+
+    private var pending: Pending?
 
     @discardableResult
     func put(_ handoff: PortfolioHandoff, walletId: String, now: Date = Date()) -> UUID {
         let id = UUID()
-        pending = (walletId, handoff, now, id)
+        pending = Pending(walletId: walletId, handoff: handoff, date: now, id: id)
         return id
     }
 

@@ -36,8 +36,8 @@ public class SoramitsuNumpadView: SoramitsuView {
 
     lazy var buttons: [SoramitsuButton] = {
         var buttons: [SoramitsuButton] = []
-        for i in 0...9 {
-            let text = SoramitsuTextItem(text: "\(i)",
+        for digit in 0...9 {
+            let text = SoramitsuTextItem(text: "\(digit)",
                                          fontData: FontType.displayL,
                                          textColor: .fgSecondary,
                                          alignment: .center)
@@ -50,11 +50,11 @@ public class SoramitsuNumpadView: SoramitsuView {
             view.sora.cornerRadius = .circle
             view.widthAnchor.constraint(equalToConstant: 80).isActive = true
             view.heightAnchor.constraint(equalToConstant: 80).isActive = true
-            view.tag = i
-            view.accessibilityLabel = "\(i)"
+            view.tag = digit
+            view.accessibilityLabel = "\(digit)"
             view.sora.addHandler(for: .touchUpInside) { [weak self] in
                 guard let self = self else { return }
-                self.delegate?.numpadView(self, didSelectNumAt: i)
+                self.delegate?.numpadView(self, didSelectNumAt: digit)
             }
             buttons.append(view)
         }

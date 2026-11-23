@@ -140,8 +140,8 @@ enum WalletUX {
             }
             return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
         }
-        let a = luminance(first), b = luminance(second)
-        return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+        let firstLuminance = luminance(first), secondLuminance = luminance(second)
+        return (max(firstLuminance, secondLuminance) + 0.05) / (min(firstLuminance, secondLuminance) + 0.05)
     }
 
     static func readableAttributedText(_ text: NSAttributedString) -> NSAttributedString {

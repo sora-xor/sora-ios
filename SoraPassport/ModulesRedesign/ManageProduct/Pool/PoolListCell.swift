@@ -41,7 +41,7 @@ final class PoolListCell: SoramitsuTableViewCell {
         view.subtitleLabel.sora.loadingPlaceholder.type = .none
         view.amountUpLabel.sora.loadingPlaceholder.type = .none
         view.amountDownLabel.sora.loadingPlaceholder.type = .none
-        view.favoriteButton.sora.associate(states: .pressed) { [weak self] g in
+        view.favoriteButton.sora.associate(states: .pressed) { [weak self] _ in
             guard let item = self?.assetItem else { return }
             view.sora.isFavorite.toggle()
             self?.assetItem?.favoriteHandle?(item)

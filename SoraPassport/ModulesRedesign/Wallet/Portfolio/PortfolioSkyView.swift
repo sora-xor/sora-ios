@@ -21,19 +21,19 @@ struct PortfolioRingPose {
 
     private var roll: CGFloat { rollDeg * .pi / 180 }
 
-    /// The point of the plane's circle of radius `r` (the band's centre line by default) at `deg`.
-    func point(_ deg: CGFloat, radius r: CGFloat? = nil) -> CGPoint {
-        let r = r ?? radius
-        let t = deg * .pi / 180
-        let x = r * cos(t)
-        let y = r * aspect * sin(t)
+    /// The point of the plane's circle of radius `circleRadius` (the band's centre line by default) at `deg`.
+    func point(_ deg: CGFloat, radius circleRadius: CGFloat? = nil) -> CGPoint {
+        let planeRadius = circleRadius ?? radius
+        let angle = deg * .pi / 180
+        let x = planeRadius * cos(angle)
+        let y = planeRadius * aspect * sin(angle)
         return CGPoint(x: center.x + x * cos(roll) - y * sin(roll), y: center.y + x * sin(roll) + y * cos(roll))
     }
 
     /// A screen point in the ring's own plane (roll undone, height restored).
-    func toPlane(_ p: CGPoint) -> CGPoint {
-        let dx = p.x - center.x
-        let dy = p.y - center.y
+    func toPlane(_ screenPoint: CGPoint) -> CGPoint {
+        let dx = screenPoint.x - center.x
+        let dy = screenPoint.y - center.y
         return CGPoint(x: dx * cos(roll) + dy * sin(roll), y: (dy * cos(roll) - dx * sin(roll)) / aspect)
     }
 
@@ -374,15 +374,15 @@ final class PortfolioSkyView: UIView {
         }
         // A few brighter stars with a cross flare; they twinkle while the sky loops.
         for (index, flare) in flareLayers.enumerated() {
-            let p = CGPoint(x: next() * bounds.width,
-                            y: topInset * 0.4 + (0.08 + next() * 0.5) * (bounds.height - topInset * 0.4))
+            let star = CGPoint(x: next() * bounds.width,
+                               y: topInset * 0.4 + (0.08 + next() * 0.5) * (bounds.height - topInset * 0.4))
             let arm: CGFloat = index % 2 == 0 ? 5 : 7
             let path = UIBezierPath()
-            path.move(to: CGPoint(x: p.x - arm, y: p.y))
-            path.addLine(to: CGPoint(x: p.x + arm, y: p.y))
-            path.move(to: CGPoint(x: p.x, y: p.y - arm))
-            path.addLine(to: CGPoint(x: p.x, y: p.y + arm))
-            path.append(UIBezierPath(ovalIn: CGRect(x: p.x - 1.4, y: p.y - 1.4, width: 2.8, height: 2.8)))
+            path.move(to: CGPoint(x: star.x - arm, y: star.y))
+            path.addLine(to: CGPoint(x: star.x + arm, y: star.y))
+            path.move(to: CGPoint(x: star.x, y: star.y - arm))
+            path.addLine(to: CGPoint(x: star.x, y: star.y + arm))
+            path.append(UIBezierPath(ovalIn: CGRect(x: star.x - 1.4, y: star.y - 1.4, width: 2.8, height: 2.8)))
             flare.frame = bounds
             flare.path = path.cgPath
         }
@@ -393,8 +393,8 @@ final class PortfolioSkyView: UIView {
         CATransaction.setDisableActions(true)
         let arcs = model.showsFan ? PortfolioRing.arcs(model.segments) : []
         let gap = arcs.count > 1 ? PortfolioTheme.Sky.gapDeg : 0
-        let drawn = arcs.map { (key: $0.segment.key, color: PortfolioTheme.color(for: $0.segment.slot),
-                                start: $0.start, sweep: $0.sweep) }
+        let drawn = arcs.map { PortfolioRingHalf.Arc(key: $0.segment.key, color: PortfolioTheme.color(for: $0.segment.slot),
+                                                     start: $0.start, sweep: $0.sweep) }
         ringBack.setSegments(drawn, gap: gap)
         ringFront.setSegments(drawn, gap: gap)
         CATransaction.commit()
@@ -482,21 +482,21 @@ final class PortfolioSkyView: UIView {
     func segmentKey(at point: CGPoint) -> String? {
         guard model.showsFan, !model.segments.isEmpty else { return nil }
         // The parallax moves the planet and its ring together, and the page's scroll leaves them behind.
-        var p = orbitView.convert(point, from: self)
-        p.y -= scrollLag
+        var touch = orbitView.convert(point, from: self)
+        touch.y -= scrollLag
         let pose = self.pose
-        let q = pose.toPlane(p)
-        let r = (q.x * q.x + q.y * q.y).squareRoot()
-        guard r > 0 else { return nil }
-        var deg = atan2(q.y, q.x) * 180 / .pi
+        let inPlane = pose.toPlane(touch)
+        let distance = (inPlane.x * inPlane.x + inPlane.y * inPlane.y).squareRoot()
+        guard distance > 0 else { return nil }
+        var deg = atan2(inPlane.y, inPlane.x) * 180 / .pi
         if deg < 0 { deg += 360 }
-        let t = deg * .pi / 180
+        let angle = deg * .pi / 180
         // Screen length of one plane unit along the radius at this angle: the plane is flattened.
-        let radial = (cos(t) * cos(t) + pose.aspect * pose.aspect * sin(t) * sin(t)).squareRoot()
-        guard abs(r - pose.radius) <= PortfolioTheme.Sky.ringWidth / 2 + PortfolioTheme.Sky.tapSlop / radial else {
+        let radial = (cos(angle) * cos(angle) + pose.aspect * pose.aspect * sin(angle) * sin(angle)).squareRoot()
+        guard abs(distance - pose.radius) <= PortfolioTheme.Sky.ringWidth / 2 + PortfolioTheme.Sky.tapSlop / radial else {
             return nil
         }
-        if sin(t) < 0, hypot(p.x - pose.center.x, p.y - pose.center.y) < PortfolioTheme.Sky.planetRadius {
+        if sin(angle) < 0, hypot(touch.x - pose.center.x, touch.y - pose.center.y) < PortfolioTheme.Sky.planetRadius {
             return nil
         }
         var offset = (deg - PortfolioRing.start(model.segments)).truncatingRemainder(dividingBy: 360)
@@ -525,6 +525,14 @@ final class PortfolioSkyView: UIView {
 /// flattened and rolled with the plane and masked to its half. The back half fades towards its far
 /// edge, which is in the planet's shadow.
 private final class PortfolioRingHalf {
+    /// One coloured segment of the band, in degrees of the ring's own circle.
+    struct Arc {
+        let key: String
+        let color: UIColor
+        let start: CGFloat
+        let sweep: CGFloat
+    }
+
     static let side = 2 * (PortfolioTheme.Sky.orbitOuter + 16)
 
     let layer = CALayer()
@@ -558,11 +566,11 @@ private final class PortfolioRingHalf {
         }
         layer.mask = mask
 
-        let r = PortfolioTheme.Sky.ringRadius
+        let trackRadius = PortfolioTheme.Sky.ringRadius
         let band = PortfolioTheme.Sky.ringWidth
         for (shape, radius, width) in [(outer, PortfolioTheme.Sky.orbitOuter, 1.4),
                                        (inner, PortfolioTheme.Sky.orbitInner, 1.2),
-                                       (track, r, band)] as [(CAShapeLayer, CGFloat, CGFloat)] {
+                                       (track, trackRadius, band)] as [(CAShapeLayer, CGFloat, CGFloat)] {
             shape.frame = layer.bounds
             shape.fillColor = nil
             shape.lineWidth = width
@@ -585,7 +593,7 @@ private final class PortfolioRingHalf {
             glint.fillColor = nil
             glint.lineWidth = band
             glint.strokeColor = UIColor.white.withAlphaComponent(alpha).cgColor
-            glint.path = UIBezierPath(arcCenter: mid, radius: r, startAngle: (90 - span / 2) * .pi / 180,
+            glint.path = UIBezierPath(arcCenter: mid, radius: trackRadius, startAngle: (90 - span / 2) * .pi / 180,
                                       endAngle: (90 + span / 2) * .pi / 180, clockwise: true).cgPath
             glint.isHidden = !front
             layer.addSublayer(glint)
@@ -625,7 +633,7 @@ private final class PortfolioRingHalf {
         glints.forEach { $0.transform = turn }
     }
 
-    func setSegments(_ arcs: [(key: String, color: UIColor, start: CGFloat, sweep: CGFloat)], gap: CGFloat) {
+    func setSegments(_ arcs: [Arc], gap: CGFloat) {
         segments.forEach { $0.removeFromSuperlayer() }
         segments = arcs.map { arc in
             let shape = CAShapeLayer()
@@ -704,13 +712,13 @@ private final class PortfolioPlanet {
     private let radius = PortfolioTheme.Sky.planetRadius
 
     init() {
-        let r = radius
-        let disc = CGRect(x: 0, y: 0, width: 2 * r, height: 2 * r)
+        let planetRadius = radius
+        let disc = CGRect(x: 0, y: 0, width: 2 * planetRadius, height: 2 * planetRadius)
         layer.bounds = disc
 
         atmosphere.type = .radial
-        atmosphere.bounds = CGRect(x: 0, y: 0, width: 2.6 * r, height: 2.6 * r)
-        atmosphere.position = CGPoint(x: r, y: r)
+        atmosphere.bounds = CGRect(x: 0, y: 0, width: 2.6 * planetRadius, height: 2.6 * planetRadius)
+        atmosphere.position = CGPoint(x: planetRadius, y: planetRadius)
         atmosphere.startPoint = CGPoint(x: 0.5, y: 0.5)
         atmosphere.endPoint = CGPoint(x: 1, y: 1)
         atmosphere.locations = [0, 0.72, 0.79, 1]
@@ -719,7 +727,7 @@ private final class PortfolioPlanet {
         for sphere in [body, shade] {
             sphere.type = .radial
             sphere.frame = disc
-            sphere.cornerRadius = r
+            sphere.cornerRadius = planetRadius
             sphere.masksToBounds = true
             sphere.startPoint = CGPoint(x: 0.33, y: 0.31)
             sphere.endPoint = CGPoint(x: 0.33 + 0.81, y: 0.31 + 0.81)
@@ -736,10 +744,10 @@ private final class PortfolioPlanet {
         mark.path = PortfolioGlyphs.soraMarkPath(in: disc).cgPath
 
         gloss.frame = disc
-        gloss.cornerRadius = r
+        gloss.cornerRadius = planetRadius
         gloss.masksToBounds = true
         highlight.type = .radial
-        highlight.bounds = CGRect(x: 0, y: 0, width: r, height: r * 0.58)
+        highlight.bounds = CGRect(x: 0, y: 0, width: planetRadius, height: planetRadius * 0.58)
         highlight.startPoint = CGPoint(x: 0.5, y: 0.5)
         highlight.endPoint = CGPoint(x: 1, y: 1)
         highlight.colors = [UIColor.white.withAlphaComponent(0.55), UIColor.clear].map(\.cgColor)

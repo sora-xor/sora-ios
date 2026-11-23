@@ -143,12 +143,12 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
         stackView.topAnchor.constraint(equalTo: scrollView.topAnchor).isActive = true
         stackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor).isActive = true
         
-        for i in 0 ..< slides.count {
-            slides[i].viewModel = viewModels[i]
+        for index in 0 ..< slides.count {
+            slides[index].viewModel = viewModels[index]
             
-            stackView.addArrangedSubview(slides[i])
-            slides[i].heightAnchor.constraint(equalTo: scrollView.heightAnchor).isActive = true
-            slides[i].widthAnchor.constraint(equalTo: scrollView.widthAnchor).isActive = true
+            stackView.addArrangedSubview(slides[index])
+            slides[index].heightAnchor.constraint(equalTo: scrollView.heightAnchor).isActive = true
+            slides[index].widthAnchor.constraint(equalTo: scrollView.widthAnchor).isActive = true
         }
     }
     

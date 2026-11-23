@@ -37,21 +37,22 @@ actor TairaFaucetService: TairaFaucetServing {
     private var active: Set<String> = []
 
     init(client: TairaFaucetClient? = nil, directory: URL? = nil) {
-        self.client = client ?? TairaFaucetClient(scrypt: { nonce, salt, n, r, p in
-            try Self.scrypt(nonce, salt, n, r, p)
+        self.client = client ?? TairaFaucetClient(scrypt: { nonce, salt, cost, blockSize, parallelism in
+            try Self.scrypt(nonce, salt, cost, blockSize, parallelism)
         })
         self.directory = directory ?? FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
         ).first?.appendingPathComponent("SORA/TairaFaucet", isDirectory: true)
     }
 
+    /// scrypt with N = `cost`, r = `blockSize` and p = `parallelism`.
     nonisolated static func scrypt(
-        _ nonce: Data, _ salt: Data, _ n: UInt64, _ r: UInt32, _ p: UInt32
+        _ nonce: Data, _ salt: Data, _ cost: UInt64, _ blockSize: UInt32, _ parallelism: UInt32
     ) throws -> Data {
         try autoreleasepool {
             try IRScryptKeyDeriviation().deriveKey(
-                from: nonce, salt: salt, scryptN: UInt(n),
-                scryptP: UInt(p), scryptR: UInt(r), length: 32
+                from: nonce, salt: salt, scryptN: UInt(cost),
+                scryptP: UInt(parallelism), scryptR: UInt(blockSize), length: 32
             )
         }
     }

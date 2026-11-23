@@ -26,7 +26,7 @@ enum PalleteName: String {
 //    case Referrals
 //    case Staking
 //    case Tokens
-    case Assets
+    case assets = "Assets"
 }
 
 extension StorageKeyFactoryProtocol {
@@ -41,7 +41,7 @@ extension StorageKeyFactoryProtocol {
     }
 
     func assetsInfoKeysPaged() throws -> Data {
-        try createStorageKey(moduleName: PalleteName.Assets.rawValue,
+        try createStorageKey(moduleName: PalleteName.assets.rawValue,
                              storageName: "AssetInfos")
     }
 

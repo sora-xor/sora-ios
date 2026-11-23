@@ -64,7 +64,7 @@ public class PolkadotIconGenerator: IconGenerating {
     static let circleRadius: CGFloat = 5.0
 
     struct Rotation {
-        let r: CGFloat
+        let radius: CGFloat
         let ro2: CGFloat
         let r3o4: CGFloat
         let ro4: CGFloat
@@ -181,7 +181,7 @@ public class PolkadotIconGenerator: IconGenerating {
         let rotation = createRotation()
 
         return [
-            CGPoint(x: 0.0, y: -rotation.r),
+            CGPoint(x: 0.0, y: -rotation.radius),
             CGPoint(x: 0.0, y: -rotation.ro2),
             CGPoint(x: -rotation.rroot3o4, y: -rotation.r3o4),
             CGPoint(x: -rotation.rroot3o2, y: -rotation.ro2),
@@ -190,7 +190,7 @@ public class PolkadotIconGenerator: IconGenerating {
             CGPoint(x: -rotation.rroot3o2, y: rotation.ro2),
             CGPoint(x: -rotation.rroot3o4, y: rotation.ro4),
             CGPoint(x: -rotation.rroot3o4, y: rotation.r3o4),
-            CGPoint(x: 0.0, y: rotation.r),
+            CGPoint(x: 0.0, y: rotation.radius),
             CGPoint(x: 0.0, y: rotation.ro2),
             CGPoint(x: rotation.rroot3o4, y: rotation.r3o4),
             CGPoint(x: rotation.rroot3o2, y: rotation.ro2),
@@ -204,15 +204,15 @@ public class PolkadotIconGenerator: IconGenerating {
     }
 
     private func createRotation() -> Rotation {
-        let r: CGFloat = Self.diameter / 8.0 * 3.0
-        let rroot3o2: CGFloat = r * sqrt(3.0) / 2.0
-        let ro2 = r / 2.0
-        let rroot3o4 = r * sqrt(3.0) / 4.0
-        let ro4 = r / 4.0
-        let r3o4 = r * 3.0 / 4.0
+        let radius: CGFloat = Self.diameter / 8.0 * 3.0
+        let rroot3o2: CGFloat = radius * sqrt(3.0) / 2.0
+        let ro2 = radius / 2.0
+        let rroot3o4 = radius * sqrt(3.0) / 4.0
+        let ro4 = radius / 4.0
+        let r3o4 = radius * 3.0 / 4.0
 
         return Rotation(
-            r: r,
+            radius: radius,
             ro2: ro2,
             r3o4: r3o4,
             ro4: ro4,

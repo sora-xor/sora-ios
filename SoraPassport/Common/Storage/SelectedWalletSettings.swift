@@ -1707,10 +1707,11 @@ final class WalletCloudBackupRecoveryService {
         guard data.count >= ScryptParameters.encodedLength + 24 + 16,
               data.count <= maximumBackupBytes else { throw WalletCloudBackupRecoveryError.invalidBackup }
         let params = try ScryptParameters(data: data)
-        let n = UInt64(params.scryptN), r = UInt64(params.scryptR), p = UInt64(params.scryptP)
-        guard n >= 2, n.nonzeroBitCount == 1, n <= 262_144,
-              r > 0, r <= 32, p > 0, p <= 16,
-              n * r <= 2_097_152, n * r * p <= 4_194_304 else {
+        let cost = UInt64(params.scryptN), blockSize = UInt64(params.scryptR)
+        let parallelism = UInt64(params.scryptP)
+        guard cost >= 2, cost.nonzeroBitCount == 1, cost <= 262_144,
+              blockSize > 0, blockSize <= 32, parallelism > 0, parallelism <= 16,
+              cost * blockSize <= 2_097_152, cost * blockSize * parallelism <= 4_194_304 else {
             throw WalletCloudBackupRecoveryError.invalidBackup
         }
         return params
@@ -1760,7 +1761,7 @@ final class WalletCloudBackupRecoveryService {
         if account.cryptoType == .sr25519 {
             var scalar = Array(pkcs[header.count..<header.count + 32])
             guard scalar[0] & 7 == 0 else { throw WalletCloudBackupRecoveryError.invalidBackup }
-            for i in 0..<31 { scalar[i] = (scalar[i] >> 3) | (scalar[i + 1] << 5) }
+            for index in 0..<31 { scalar[index] = (scalar[index] >> 3) | (scalar[index + 1] << 5) }
             scalar[31] >>= 3
             guard isCanonicalScalar(scalar) else { throw WalletCloudBackupRecoveryError.invalidBackup }
         }
@@ -1797,8 +1798,8 @@ final class WalletCloudBackupRecoveryService {
             0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10]
         guard bytes.count == 32 else { return false }
-        for i in (0..<32).reversed() {
-            if bytes[i] != order[i] { return bytes[i] < order[i] }
+        for index in (0..<32).reversed() {
+            if bytes[index] != order[index] { return bytes[index] < order[index] }
         }
         return false
     }

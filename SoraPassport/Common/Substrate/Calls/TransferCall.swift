@@ -77,12 +77,6 @@ extension MultiAddress {
     }
 }
 
-struct getPools {
-    
-    var two: AssetId
-    var one: AssetId
-}
-
 struct AssetId: Codable {
     @ArrayCodable var value: String
 
