@@ -79,7 +79,8 @@ final class AccountOnboardingNavigationTests: XCTestCase {
     }
     func testBackupSelectionPushesTheAccountChooser() async throws {
         let (route, host, nav) = make()
-        route.showBackupedAccounts(from: host, accounts: [OpenBackupAccount(name: "Fixture", address: "public-account")])
+        route.showBackupedAccounts(from: host, accounts: [OpenBackupAccount(name: "Fixture", address: "public-account")],
+                                   googleAccount: CloudStorageAccountIdentity(userID: "fixture-google-user", email: "fixture@example.com"))
         await drainMainQueue()
         let view = try XCTUnwrap(nav.topViewController as? BackupedAccountsViewController)
         XCTAssertNotNil(view.viewModel)
@@ -192,14 +193,16 @@ final class AccountOnboardingNavigationTests: XCTestCase {
     }
     func testBackupPasswordFactoryBuildsAndRendersTheChosenPublicAccount() throws {
         let account = OpenBackupAccount(name: "Fixture backup", address: "public-account")
-        let view = try XCTUnwrap(EnterPasswordViewFactory.createView(with: account.address, backedUpAccounts: [account]) as? EnterPasswordViewController)
+        let view = try XCTUnwrap(EnterPasswordViewFactory.createView(with: account.address, backedUpAccounts: [account],
+            googleAccount: CloudStorageAccountIdentity(userID: "fixture-google-user", email: "fixture@example.com")) as? EnterPasswordViewController)
         XCTAssertNotNil(view.viewModel)
         view.loadViewIfNeeded()
         XCTAssertFalse(view.view.subviews.isEmpty)
     }
     func testBackupPasswordFactoryRequiresItsImportService() {
         URLHandlingService.shared.setup(children: [])
-        XCTAssertNil(EnterPasswordViewFactory.createView(with: "public-account", backedUpAccounts: []))
+        XCTAssertNil(EnterPasswordViewFactory.createView(with: "public-account", backedUpAccounts: [],
+            googleAccount: CloudStorageAccountIdentity(userID: "fixture-google-user")))
     }
     func testConfirmationFactoriesBindTheSamePublicFixtureMnemonicToTheirInteractors() throws {
         let words = Array(repeating: "abandon", count: 11) + ["about"]
@@ -340,7 +343,10 @@ private final class OnboardingActionInput: OnboardingMainInteractorInputProtocol
     var setups = 0, resets = 0, reads = 0; var failure: Error?
     func setup() { setups += 1 }
     func resetGoogleState() { resets += 1 }
-    func getBackupedAccounts() async throws -> [OpenBackupAccount] { reads += 1; if let failure { throw failure }; return [] }
+    func getBackupedAccounts() async throws -> WalletDriveBackupListing {
+        reads += 1; if let failure { throw failure }
+        return WalletDriveBackupListing(accounts: [], googleAccount: CloudStorageAccountIdentity(userID: "fixture-google-user"))
+    }
 }
 private final class OnboardingActionRoute: OnboardingMainWireframeProtocol {
     var activityIndicatorWindow: UIWindow?
@@ -349,7 +355,8 @@ private final class OnboardingActionRoute: OnboardingMainWireframeProtocol {
     func showSignup(from view: OnboardingMainViewProtocol?, isGoogleBackupSelected: Bool) { source = view; signups.append(isGoogleBackupSelected); didFinish?() }
     func showAccountRestoreRedesign(from view: OnboardingMainViewProtocol?, sourceType: AccountImportSource) { source = view; restore.append(sourceType) }
     func showKeystoreImport(from view: OnboardingMainViewProtocol?) { source = view; keystoreCount += 1 }
-    func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount]) { XCTFail("No cloud account expected") }
+    func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount],
+                              googleAccount: CloudStorageAccountIdentity) { XCTFail("No cloud account expected") }
     func showImportMethods(from view: OnboardingMainViewProtocol?, select: @escaping (OnboardingImportMethod) -> Void) {
         source = view
         sheets.append(select)

@@ -15,11 +15,19 @@ import XCTest
 final class AccountOptionsCloudLifecycleTests: XCTestCase {
     private let phrase = "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
     private var previousBackups: [String] = []
+    private var suites: [String] = []
     override func setUp() { super.setUp(); previousBackups = ApplicationConfig.shared.backupedAccountAddresses }
-    override func tearDown() { ApplicationConfig.shared.backupedAccountAddresses = previousBackups; super.tearDown() }
-    private struct Fixture { let interactor: AccountOptionsInteractor; let cloud: OptionsCloud; let keys: InMemoryKeychain; let settings: InMemorySettingsManager; let repository: OptionsAccounts; let account: AccountItem; let keystore: OptionsKeystore; let selection: OptionsSelection; let events: EventCenter; let notifications: NotificationCenter }
-    private func make(path: String = "", crypto: CryptoType = .sr25519, customNodes: Bool = false) throws -> Fixture {
+    override func tearDown() {
+        ApplicationConfig.shared.backupedAccountAddresses = previousBackups
+        suites.forEach { UserDefaults.standard.removePersistentDomain(forName: $0) }; suites = []
+        super.tearDown()
+    }
+    private struct Fixture { let interactor: AccountOptionsInteractor; let cloud: OptionsCloud; let keys: InMemoryKeychain; let settings: InMemorySettingsManager; let repository: OptionsAccounts; let account: AccountItem; let keystore: OptionsKeystore; let selection: OptionsSelection; let events: EventCenter; let notifications: NotificationCenter; let store: WalletGoogleBackupAccountStore; let gate: WalletRecoveryCapabilityGate }
+    private func make(path: String = "", crypto: CryptoType = .sr25519, customNodes: Bool = false,
+                      signer: AccountOptionsLocalSignerProbe? = nil) throws -> Fixture {
         let keys = InMemoryKeychain(), settings = InMemorySettingsManager(), cloud = OptionsCloud()
+        let suite = "AccountOptionsCloudLifecycleTests." + UUID().uuidString
+        suites.append(suite); let store = WalletGoogleBackupAccountStore(userDefaults: UserDefaults(suiteName: suite)!)
         let gate = WalletRecoveryCapabilityGate(settings: settings, unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
         let factory = AccountOperationFactory(keystore: keys, recoveryGate: gate)
         let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromList: phrase)
@@ -28,8 +36,11 @@ final class AccountOptionsCloudLifecycleTests: XCTestCase {
         let account = prepared.account, repository = OptionsAccounts(items: [account]), facade = UserDataStorageTestFacade()
         let keystore = OptionsKeystore(keys), selection = OptionsSelection(account), events = EventCenter(), notifications = NotificationCenter()
         let chain = ChainModel(chainId: Chain.sora.genesisHash(), name: "SORA", nodes: [], addressPrefix: 69, icon: nil, customNodes: customNodes ? [ChainNodeModel(url: URL(string: "wss://fixture.invalid")!, name: "Fixture", apikey: nil)] : [], iosMinAppVersion: nil)
-        let interactor = AccountOptionsInteractor(keystore: keystore, settings: settings, chain: chain, cacheFacade: CoreDataCacheTestFacade(), substrateDataFacade: facade, userDataFacade: facade, account: account, accountRepository: AnyDataProviderRepository(repository), operationManager: OperationManager(), eventCenter: events, mnemonicCreator: IRMnemonicCreator(language: .english), cloudStorageService: cloud, recoveryGate: gate, selectedSettings: selection, notificationCenter: notifications)
-        return Fixture(interactor: interactor, cloud: cloud, keys: keys, settings: settings, repository: repository, account: account, keystore: keystore, selection: selection, events: events, notifications: notifications)
+        let interactor = AccountOptionsInteractor(keystore: keystore, settings: settings, chain: chain, cacheFacade: CoreDataCacheTestFacade(), substrateDataFacade: facade, userDataFacade: facade, account: account, accountRepository: AnyDataProviderRepository(repository), operationManager: OperationManager(), eventCenter: events, mnemonicCreator: IRMnemonicCreator(language: .english), cloudStorageService: cloud, recoveryGate: gate, selectedSettings: selection, notificationCenter: notifications,
+            // The production check over this fixture's own keys and settings, without the app's wallet lease and network store.
+            localSignerProbe: signer ?? { WalletAccountCapability.evaluate(account: $0, keystore: keys, settings: settings, recoveryGate: gate) },
+            backupAccountStore: store)
+        return Fixture(interactor: interactor, cloud: cloud, keys: keys, settings: settings, repository: repository, account: account, keystore: keystore, selection: selection, events: events, notifications: notifications, store: store, gate: gate)
     }
     private func prepare(_ f: Fixture, _ authorization: AccountOptionsCloudBackupAuthorization) async -> AccountOptionsCloudBackupPreparation? {
         let done = expectation(description: "sign-in completion"); var result: AccountOptionsCloudBackupPreparation?
@@ -147,6 +158,76 @@ final class AccountOptionsCloudLifecycleTests: XCTestCase {
         XCTAssertEqual(error as? AccountOptionsCloudBackupError, .authorizationRequired)
         XCTAssertTrue(f.cloud.deleted.isEmpty); XCTAssertEqual(ApplicationConfig.shared.backupedAccountAddresses, [f.account.address])
     }
+    // MARK: The Drive backup is deleted only while this iPhone's keys prove the wallet
+    private func refusedDeletion(_ f: Fixture, file: StaticString = #filePath, line: UInt = #line) async -> WalletAccountCapability.State? {
+        ApplicationConfig.shared.backupedAccountAddresses = [f.account.address]
+        let authorization = f.interactor.makeCloudBackupAuthorization()
+        let error = await deleteCloudBackup(f, authorization)
+        XCTAssertTrue(f.cloud.deleted.isEmpty, "The backup may be the only copy of the keys", file: file, line: line)
+        XCTAssertEqual(ApplicationConfig.shared.backupedAccountAddresses, [f.account.address], file: file, line: line)
+        XCTAssertNoThrow(try authorization.require(for: f.account.address), "A refusal leaves the authorization unused", file: file, line: line)
+        guard case let .localSignerUnavailable(state)? = error as? AccountOptionsCloudBackupError else {
+            XCTFail("Unexpected \(String(describing: error))", file: file, line: line); return nil
+        }
+        XCTAssertFalse((error?.localizedDescription ?? "").isEmpty, file: file, line: line)
+        return state
+    }
+    func testBackupIsKeptWhenTheWalletKeysAreNotOnThisDevice() async throws {
+        let f = try make()
+        for tag in [KeystoreTag.secretKeyTagForAddress(f.account.address), KeystoreTag.entropyTagForAddress(f.account.address),
+                    KeystoreTag.seedTagForAddress(f.account.address)] { try? f.keys.deleteKey(for: tag) }
+        let state = await refusedDeletion(f)
+        XCTAssertEqual(state, .missingKeys)
+    }
+    func testBackupIsKeptWhenTheStoredKeysDoNotProveTheWallet() async throws {
+        let f = try make(), other = try make(path: "//another-wallet")
+        XCTAssertNotEqual(f.account.address, other.account.address)
+        for tag in [KeystoreTag.entropyTagForAddress(f.account.address), KeystoreTag.seedTagForAddress(f.account.address)] { try? f.keys.deleteKey(for: tag) }
+        // Another wallet's valid secret key under this wallet's tag.
+        let foreign = try other.keys.fetchKey(for: KeystoreTag.secretKeyTagForAddress(other.account.address))
+        try f.keys.updateKey(foreign, with: KeystoreTag.secretKeyTagForAddress(f.account.address))
+        let state = await refusedDeletion(f)
+        XCTAssertNotNil(state); XCTAssertNotEqual(state, .signing)
+    }
+    func testBackupIsKeptForAWatchOnlyWallet() async throws {
+        let f = try make(); f.settings.set(value: true, for: "wallet.watchOnly.\(f.account.address)")
+        let state = await refusedDeletion(f)
+        XCTAssertEqual(state, .watchOnly)
+    }
+    func testBackupIsKeptWhileTheKeysCannotBeCheckedOrARepairIsPending() async throws {
+        for unusable in [WalletAccountCapability.State.unavailable, .repairPending, .invalidKeys, .checking] {
+            let f = try make(signer: { _ in unusable })
+            let state = await refusedDeletion(f)
+            XCTAssertEqual(state, unusable)
+        }
+    }
+    func testALapsedAuthorizationReadsNoKeyBeforeRefusingTheDeletion() async throws {
+        var probes = 0
+        let f = try make(signer: { _ in probes += 1; return .signing })
+        let authorization = f.interactor.makeCloudBackupAuthorization(); leaveApp(f)
+        let error = await deleteCloudBackup(f, authorization)
+        XCTAssertEqual(error as? AccountOptionsCloudBackupError, .authorizationRequired)
+        XCTAssertEqual(probes, 0); XCTAssertTrue(f.cloud.deleted.isEmpty)
+    }
+    func testDeletionWithUsableKeysForgetsOnlyTheGoogleAccountThatServedIt() async throws {
+        let f = try make()
+        f.store.record(googleUserID: "google-user-a", googleEmail: "a@example.com", for: f.account.address)
+        f.store.record(googleUserID: "google-user-b", googleEmail: "b@example.com", for: f.account.address)
+        f.store.record(googleUserID: "google-user-a", googleEmail: "a@example.com", for: "another-wallet")
+        f.cloud.identity = CloudStorageAccountIdentity(userID: "google-user-a", email: "a@example.com")
+        let error = await deleteCloudBackup(f, f.interactor.makeCloudBackupAuthorization())
+        XCTAssertNil(error); XCTAssertEqual(f.cloud.deleted.map(\.address), [f.account.address])
+        XCTAssertEqual(f.store.accounts(for: f.account.address).map(\.googleUserID), ["google-user-b"])
+        XCTAssertEqual(f.store.accounts(for: "another-wallet").map(\.googleUserID), ["google-user-a"])
+    }
+    func testFailedDeletionKeepsTheGoogleAccountRecord() async throws {
+        let f = try make(); f.cloud.deleteError = OptionsFailure.offline
+        f.store.record(googleUserID: "google-user-a", googleEmail: nil, for: f.account.address)
+        f.cloud.identity = CloudStorageAccountIdentity(userID: "google-user-a")
+        let error = await deleteCloudBackup(f, f.interactor.makeCloudBackupAuthorization())
+        XCTAssertTrue(error is OptionsFailure)
+        XCTAssertEqual(f.store.accounts(for: f.account.address).map(\.googleUserID), ["google-user-a"])
+    }
     func testOneAuthorizationDeletesTheBackupOnce() async throws {
         let f = try make(); let authorization = f.interactor.makeCloudBackupAuthorization()
         let first = await deleteCloudBackup(f, authorization); XCTAssertNil(first)
@@ -160,14 +241,19 @@ final class AccountOptionsCloudLifecycleTests: XCTestCase {
 }
 private enum OptionsFailure: Error { case offline }
 private final class OptionsCloud: CloudStorageServiceProtocol {
+    /// The Google account that serves this fixture's operations, when it can be named.
+    var identity: CloudStorageAccountIdentity?
+    var currentAccountIdentity: CloudStorageAccountIdentity? { identity }
     var isUserAuthorized: Bool { true }; var auth: CloudStorageAccountState = .authorized
     var signInError: Error?, listError: Error?, deleteError: Error?; var accounts: [OpenBackupAccount] = [], deleted: [OpenBackupAccount] = []
     var signIns = 0; var duringSignIn: (() -> Void)?
     func signInIfNeeded() async throws -> CloudStorageAccountState { signIns += 1; duringSignIn?(); if let signInError { throw signInError }; return auth }
     func getBackupAccounts() async throws -> [OpenBackupAccount] { if let listError { throw listError }; return accounts }
     func deleteBackup(account: OpenBackupAccount) async throws { if let deleteError { throw deleteError }; deleted.append(account) }
+    func deleteBackupNamingAccount(account: OpenBackupAccount) async throws -> CloudStorageAccountIdentity? { try await deleteBackup(account: account); return identity }
     func saveBackup(account: OpenBackupAccount, password: String) async throws { XCTFail("Unexpected cloud write") }
     func importBackup(account: OpenBackupAccount, password: String) async throws -> OpenBackupAccount { XCTFail("Unexpected cloud import"); throw OptionsFailure.offline }
+    func importBackup(account: OpenBackupAccount, password: String, expectedAccountUserID: String) async throws -> OpenBackupAccount { XCTFail("Unexpected cloud import"); throw OptionsFailure.offline }
     func disconnect() {}
 }
 // Counts secret reads; the material itself lives in the wrapped keychain.

@@ -141,6 +141,17 @@ final class CredentialAndQRCodeScreenTests: XCTestCase {
         cell.set(item: fresh, context: nil); XCTAssertEqual(field.sora.state, .default); XCTAssertTrue((field.sora.descriptionLabelText ?? "").isEmpty)
         let account = try XCTUnwrap(descendants(AccountView.self, in: cell).first); XCTAssertEqual(account.accountTitle.text, "New"); XCTAssertEqual(account.accountAddress.text, "address-two")
     }
+    /// The line under the password field names the Google account the backup is read from. An error replaces it until the password is edited.
+    func testEnterPasswordCellNamesTheGoogleAccountUntilAnErrorReplacesIt() throws {
+        let cell = EnterPasswordCell(style: .default, reuseIdentifier: nil)
+        let named = EnterPasswordItem(accountName: "Wallet", accountAddress: "address-one", googleAccountText: "owner@example.com", errorText: "", continueButtonHandler: nil)
+        let failed = EnterPasswordItem(accountName: "Wallet", accountAddress: "address-one", googleAccountText: "owner@example.com", errorText: "wrong", continueButtonHandler: nil)
+        cell.set(item: named, context: nil); let field = try XCTUnwrap(descendants(InputField.self, in: cell).first)
+        XCTAssertEqual(field.sora.descriptionLabelText, "owner@example.com"); XCTAssertNotEqual(field.sora.state, .fail)
+        cell.set(item: failed, context: nil); XCTAssertEqual(field.sora.descriptionLabelText, "wrong"); XCTAssertEqual(field.sora.state, .fail)
+        field.textField.text = "next"; field.textField.sendActions(for: .editingChanged)
+        XCTAssertEqual(field.sora.descriptionLabelText, "owner@example.com"); XCTAssertNotEqual(field.sora.state, .fail)
+    }
     func testEnterPasswordUsesOnlyCurrentAccountAndPreservesEnteredWhitespace() throws {
         let cell = EnterPasswordCell(style: .default, reuseIdentifier: nil); var oldCalls = 0; var submissions: [String] = []
         let old = EnterPasswordItem(accountName: "Old", accountAddress: "one", errorText: "", continueButtonHandler: { _ in oldCalls += 1 })

@@ -85,6 +85,101 @@ private struct InternalConfig: Codable {
     var ethereumExplorerTemplate: String
 }
 
+/// A Google account that completed a Drive backup operation for one wallet.
+struct WalletGoogleBackupAccount: Codable, Equatable {
+    let walletAddress: String
+    /// Google's stable identifier of the account.
+    let googleUserID: String
+    let googleEmail: String?
+    let verifiedAt: Date
+}
+
+/// Which Google accounts are known to hold a wallet's Drive backup.
+///
+/// An entry is written only after an operation for that exact wallet address
+/// completed with that Google account: its backup was saved and read back,
+/// read for a restore, or restored. Being signed in to Google alone records
+/// nothing. The entry for an account goes when the backup is deleted from it,
+/// and all of a wallet's entries go when the wallet is removed.
+///
+/// The record tells the owner where a backup is. It authorizes nothing: every
+/// read, save, restore and deletion still proves the wallet and the Google
+/// account itself. It holds no key material, only the wallet address and the
+/// Google account's ID and email, beside the backed-up address list.
+final class WalletGoogleBackupAccountStore {
+    static let shared = WalletGoogleBackupAccountStore()
+
+    static let defaultStorageKey = "walletGoogleBackupAccounts.v1"
+    /// Entries kept per wallet; the oldest go first.
+    static let maximumAccountsPerWallet = 8
+
+    private let userDefaults: UserDefaults
+    private let storageKey: String
+    private let lock = NSLock()
+
+    init(userDefaults: UserDefaults = .standard, storageKey: String = WalletGoogleBackupAccountStore.defaultStorageKey) {
+        self.userDefaults = userDefaults
+        self.storageKey = storageKey
+    }
+
+    /// The accounts recorded for a wallet, the most recently verified first.
+    func accounts(for walletAddress: String) -> [WalletGoogleBackupAccount] {
+        lock.lock(); defer { lock.unlock() }
+        return stored()
+            .filter { $0.walletAddress == walletAddress }
+            .sorted { $0.verifiedAt > $1.verifiedAt }
+    }
+
+    @discardableResult
+    func record(googleUserID: String, googleEmail: String?, for walletAddress: String,
+                verifiedAt: Date = Date()) -> Bool {
+        let userID = googleUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let email = googleEmail?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !walletAddress.isEmpty, !userID.isEmpty else { return false }
+
+        lock.lock(); defer { lock.unlock() }
+        var values = stored()
+        values.removeAll { $0.walletAddress == walletAddress && $0.googleUserID == userID }
+        values.append(WalletGoogleBackupAccount(
+            walletAddress: walletAddress,
+            googleUserID: userID,
+            googleEmail: (email ?? "").isEmpty ? nil : email,
+            verifiedAt: verifiedAt
+        ))
+        let kept = values.filter { $0.walletAddress == walletAddress }
+            .sorted { $0.verifiedAt > $1.verifiedAt }
+            .prefix(Self.maximumAccountsPerWallet)
+        values = values.filter { $0.walletAddress != walletAddress } + kept
+        return persist(values)
+    }
+
+    /// Removes one Google account's entry for a wallet, or all of the
+    /// wallet's entries when no account is named.
+    func remove(for walletAddress: String, googleUserID: String? = nil) {
+        lock.lock(); defer { lock.unlock() }
+        var values = stored()
+        let count = values.count
+        values.removeAll {
+            $0.walletAddress == walletAddress && (googleUserID == nil || $0.googleUserID == googleUserID)
+        }
+        if values.count != count { _ = persist(values) }
+    }
+
+    private func stored() -> [WalletGoogleBackupAccount] {
+        guard let data = userDefaults.data(forKey: storageKey),
+              let values = try? JSONDecoder().decode([WalletGoogleBackupAccount].self, from: data) else {
+            return []
+        }
+        return values
+    }
+
+    private func persist(_ values: [WalletGoogleBackupAccount]) -> Bool {
+        guard let data = try? JSONEncoder().encode(values) else { return false }
+        userDefaults.set(data, forKey: storageKey)
+        return true
+    }
+}
+
 final class ApplicationConfig {
     static let shared: ApplicationConfig! = ApplicationConfig()
 

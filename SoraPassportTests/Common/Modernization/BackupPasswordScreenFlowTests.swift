@@ -222,7 +222,8 @@ final class BackupPasswordScreenFlowTests: XCTestCase {
   private func profilePresenter(
     _ account: AccountItem, _ keystore: BackupPasswordKeystore, _ gate: WalletRecoveryCapabilityGate,
     _ cloud: BackupPasswordCloudSpy, authorization: AccountOptionsCloudBackupAuthorization?,
-    reauthorize: AccountOptionsCloudBackupReauthorization?
+    reauthorize: AccountOptionsCloudBackupReauthorization?,
+    store: WalletGoogleBackupAccountStore = .shared
   ) -> (SetupPasswordPresenter, BackupPasswordViewSpy, BackupPasswordRouteSpy) {
     let presenter = SetupPasswordPresenter(
       account: OpenBackupAccount(address: account.address, cryptoType: "sr25519", substrateDerivationPath: ""),
@@ -233,7 +234,8 @@ final class BackupPasswordScreenFlowTests: XCTestCase {
       reauthorizeCloudBackup: reauthorize,
       currentAccount: { account },
       lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate),
-      recoveryGate: gate)
+      recoveryGate: gate,
+      backupAccountStore: store)
     let view = BackupPasswordViewSpy(), route = BackupPasswordRouteSpy()
     presenter.view = view
     presenter.wireframe = route
@@ -244,6 +246,31 @@ final class BackupPasswordScreenFlowTests: XCTestCase {
     view.onHide = { ended.fulfill() }
     presenter.backupAccount(with: strongPassword)
     await fulfillment(of: [ended], timeout: 10)
+  }
+  /// A verified save is recorded for the Google account that served it; a
+  /// failed one, or one whose account cannot be named, records nothing.
+  func testVerifiedSaveRecordsTheGoogleAccountThatServedIt() async throws {
+    let suite = "BackupPasswordScreenFlowTests." + UUID().uuidString
+    defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
+    let store = WalletGoogleBackupAccountStore(userDefaults: UserDefaults(suiteName: suite)!)
+    let cases: [(CloudStorageAccountIdentity?, Error?, [String])] = [
+      (CloudStorageAccountIdentity(userID: "save-google-user", email: "save@example.com"), nil, ["save-google-user"]),
+      (CloudStorageAccountIdentity(userID: "failed-google-user"), NSError(domain: "save-fixture", code: 1), []),
+      (nil, nil, []),
+    ]
+    for (identity, failure, expected) in cases {
+      let (account, keystore, gate) = try profileWallet()
+      let cloud = BackupPasswordCloudSpy()
+      cloud.currentAccountIdentity = identity
+      cloud.saveError = failure
+      let (presenter, view, _) = profilePresenter(
+        account, keystore, gate, cloud, authorization: authorization(for: account.address),
+        reauthorize: nil, store: store)
+      await save(presenter, view)
+      XCTAssertEqual(cloud.saves, 1)
+      XCTAssertEqual(store.accounts(for: account.address).map(\.googleUserID), expected)
+      store.remove(for: account.address)
+    }
   }
   func testProfileBackupReadsTheSecretUnderTheHandedOverAuthorizationAndUsesItUp() async throws {
     let (account, keystore, gate) = try profileWallet()
@@ -334,6 +361,7 @@ final class BackupPasswordScreenFlowTests: XCTestCase {
   }
 }
 private final class BackupPasswordCloudSpy: CloudStorageServiceProtocol {
+  var currentAccountIdentity: CloudStorageAccountIdentity?
   var isUserAuthorized = true
   var saves = 0
   var saveError: Error?
@@ -343,7 +371,15 @@ private final class BackupPasswordCloudSpy: CloudStorageServiceProtocol {
     saves += 1
     if let saveError { throw saveError }
   }
+  func saveBackupNamingAccount(account: OpenBackupAccount, password: String) async throws -> CloudStorageAccountIdentity? {
+    try await saveBackup(account: account, password: password)
+    return currentAccountIdentity
+  }
   func importBackup(account: OpenBackupAccount, password: String) async throws -> OpenBackupAccount { account }
+  func importBackup(account: OpenBackupAccount, password: String, expectedAccountUserID: String) async throws -> OpenBackupAccount {
+    XCTFail("Saving must not import a wallet")
+    return account
+  }
   func deleteBackup(account: OpenBackupAccount) async throws {}
   func disconnect() {}
 }

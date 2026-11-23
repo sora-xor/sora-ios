@@ -1050,3 +1050,8 @@
 "Camera unavailable" = "Camera unavailable";
 "Photos unavailable" = "Photos unavailable";
 "Recent recipients unavailable" = "Recent recipients unavailable";
+"Google is signed in to another account than the one this backup list came from. Go back and choose Google again." = "Google is signed in to another account than the one this backup list came from. Go back and choose Google again.";
+"This wallet’s keys could not be checked, so its Google Drive backup was kept. Unlock this iPhone and try again." = "This wallet’s keys could not be checked, so its Google Drive backup was kept. Unlock this iPhone and try again.";
+"This iPhone has no usable keys for this wallet, so its Google Drive backup may be the only copy. The backup was kept. Restore the wallet’s keys first." = "This iPhone has no usable keys for this wallet, so its Google Drive backup may be the only copy. The backup was kept. Restore the wallet’s keys first.";
+"Backup not deleted" = "Backup not deleted";
+"This account’s Google Drive backup is being deleted. Wait until that has finished, then try again. Nothing was removed." = "This account’s Google Drive backup is being deleted. Wait until that has finished, then try again. Nothing was removed.";

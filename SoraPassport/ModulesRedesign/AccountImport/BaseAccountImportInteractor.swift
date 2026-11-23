@@ -329,10 +329,18 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
         Task { [weak self] in
             guard let cloudStorage = self?.cloudStorage else { return }
             do {
-                let account = try await cloudStorage.importBackup(account: request.account, password: request.password)
+                // Read only from the Google account that listed this backup.
+                // Another account signed in meanwhile is refused before any
+                // read, even if it holds a file for the same address.
+                let account = try await cloudStorage.importBackup(
+                    account: request.account,
+                    password: request.password,
+                    expectedAccountUserID: request.expectedGoogleUserID
+                )
                 self?.importAccount(account, password: request.password)
             } catch {
-                self?.presenter.didReceiveAccountImport(error: error)
+                // The presenter updates its screen with the failure.
+                await MainActor.run { self?.presenter.didReceiveAccountImport(error: error) }
             }
         }
     }

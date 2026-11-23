@@ -77,8 +77,10 @@ final class OnboardingMainWireframe: OnboardingMainWireframeProtocol {
         showAccountRestore(from: view)
     }
     
-    func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount]) {
-        guard let viewController = BackupedAccountsViewFactory.createView(with: accounts, endAddingBlock: endAddingBlock)?.controller else { return }
+    func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount],
+                              googleAccount: CloudStorageAccountIdentity) {
+        guard let viewController = BackupedAccountsViewFactory.createView(
+            with: accounts, googleAccount: googleAccount, endAddingBlock: endAddingBlock)?.controller else { return }
         
         DispatchQueue.main.async {
             view?.controller.navigationController?.pushViewController(viewController, animated: true)

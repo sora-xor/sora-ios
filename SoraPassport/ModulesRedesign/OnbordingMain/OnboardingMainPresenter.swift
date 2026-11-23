@@ -97,7 +97,7 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
         view?.showLoading()
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let outcome: Result<[OpenBackupAccount], Error>
+            let outcome: Result<WalletDriveBackupListing, Error>
             do { outcome = .success(try await self.interactor.getBackupedAccounts()) }
             catch { outcome = .failure(error) }
             self.isConnectingCloudStorage = false
@@ -105,11 +105,12 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
             switch outcome {
             case .success(let result):
                 // Accounts whose keys are not on this iPhone stay listed.
-                let accounts = result.filter { !WalletDriveBackupList.hidesBackup(of: $0.address) }
+                let accounts = result.accounts.filter { !WalletDriveBackupList.hidesBackup(of: $0.address) }
                 if accounts.isEmpty {
                     self.wireframe.showSignup(from: self.view, isGoogleBackupSelected: true)
                 } else {
-                    self.wireframe.showBackupedAccounts(from: self.view, accounts: accounts)
+                    self.wireframe.showBackupedAccounts(from: self.view, accounts: accounts,
+                                                        googleAccount: result.googleAccount)
                 }
             case .failure(let error):
                 self.showCloudImportError(error)

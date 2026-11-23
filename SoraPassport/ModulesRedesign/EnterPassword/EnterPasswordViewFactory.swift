@@ -23,9 +23,12 @@ import SSFUtils
 import RobinHood
 
 final class EnterPasswordViewFactory {
+    /// `googleAccount` is the Google account the backup list was read from;
+    /// the chosen backup is read only from it.
     static func createView(
         with selectedAddress: String,
         backedUpAccounts: [OpenBackupAccount],
+        googleAccount: CloudStorageAccountIdentity,
         endAddingBlock: (() -> Void)? = nil
     ) -> EnterPasswordViewProtocol? {
         guard let keystoreImportService: KeystoreImportServiceProtocol =
@@ -55,6 +58,7 @@ final class EnterPasswordViewFactory {
         let wireframe = EnterPasswordWireframe(currentController: view, endAddingBlock: endAddingBlock)
         let viewModel = EnterPasswordViewModel(selectedAddress: selectedAddress,
                                                backedUpAccounts: backedUpAccounts,
+                                               googleAccount: googleAccount,
                                                interactor: interactor,
                                                wireframe: wireframe,
                                                view: view)

@@ -232,10 +232,11 @@ final class AccountImportPreparationBoundaryTests: XCTestCase {
     private func definition(crypto: String = "sr25519") -> KeystoreDefinition {
         KeystoreDefinition(address: nil, encoded: "AA==", encoding: KeystoreEncoding(content: ["pkcs8", crypto], type: ["scrypt", "xsalsa20-poly1305"], version: "3"), meta: nil)
     }
-    private func backup(_ f: Fixture, value: OpenBackupAccount, password: String = "fixture password") async {
+    private func backup(_ f: Fixture, value: OpenBackupAccount, password: String = "fixture password",
+                        googleUser: String = PreparationImportCloud.listedBy) async {
         let done = expectation(description: "backup preparation completed")
         f.interactor.onPrepared = { done.fulfill() }; f.output.onError = { done.fulfill() }
-        f.cloud.account = value; f.interactor.importBackedupAccount(request: AccountImportBackedupRequest(account: OpenBackupAccount(address: value.address), password: password))
+        f.cloud.account = value; f.interactor.importBackedupAccount(request: AccountImportBackedupRequest(account: OpenBackupAccount(address: value.address), password: password, expectedGoogleUserID: googleUser))
         await fulfillment(of: [done], timeout: 3)
     }
     func testSetupPublishesTheSupportedImportChoicesAndRegistersForKeystoreFiles() throws {
@@ -341,6 +342,25 @@ final class AccountImportPreparationBoundaryTests: XCTestCase {
         let f = fixture(); await backup(f, value: OpenBackupAccount(address: "public-fixture", passphrase: "invalid", json: .init(substrateJson: "invalid-json")))
         XCTAssertTrue(f.interactor.accounts.isEmpty); XCTAssertEqual(f.interactor.failures.count, 1)
     }
+    /// The interactor asks for a read bound to the Google account that listed the backup, never an unbound one.
+    func testBackupIsReadBoundToTheGoogleAccountThatListedIt() async throws {
+        let f = fixture(), account = try expected(f)
+        await backup(f, value: OpenBackupAccount(address: account.address, passphrase: phrase), googleUser: PreparationImportCloud.listedBy)
+        XCTAssertEqual(f.cloud.boundTo, [PreparationImportCloud.listedBy])
+        XCTAssertEqual(f.interactor.accounts.first?.address, account.address); XCTAssertTrue(f.output.errors.isEmpty)
+    }
+    /// The service refuses the read because another Google account is signed in. Nothing is imported, and the screen is told on the main thread.
+    func testBackupRefusedForAnotherGoogleAccountIsNotImported() async throws {
+        let f = fixture(), account = try expected(f)
+        f.cloud.currentAccountIdentity = CloudStorageAccountIdentity(userID: "another-google-user", email: "other@example.com")
+        var reportedOnMain: Bool?
+        f.output.onErrorThread = { reportedOnMain = Thread.isMainThread }
+        await backup(f, value: OpenBackupAccount(name: "Cloud fixture", address: account.address, passphrase: phrase))
+        guard let refusal = f.output.errors.first, case CloudStorageServiceError.accountChanged = refusal else { return XCTFail("\(f.output.errors)") }
+        XCTAssertEqual(f.cloud.boundTo, [PreparationImportCloud.listedBy]); XCTAssertEqual(reportedOnMain, true)
+        XCTAssertEqual(f.output.errors.count, 1); XCTAssertTrue(f.cloud.passwords.isEmpty, "The password must not reach a read from another account")
+        XCTAssertEqual(f.interactor.imports, 0); XCTAssertTrue(f.interactor.accounts.isEmpty)
+    }
     func testCloudReadFailureIsReportedWithoutStartingPreparation() async {
         let f = fixture(); f.cloud.failure = NSError(domain: "cloud-fixture", code: 1)
         await backup(f, value: OpenBackupAccount(address: "public-fixture"))
@@ -386,7 +406,8 @@ private final class PreparationImportOutput: AccountImportInteractorOutputProtoc
     func didRestoreShortPhraseWallet() { shortPhraseRestores += 1 }
     func didReceiveAccountImport(metadata: AccountImportMetadata) { self.metadata.append(metadata) }
     func didCompleteAccountImport() { XCTFail("Preparation must not persist an account") }
-    func didReceiveAccountImport(error: Error) { errors.append(error); onError?() }
+    var onErrorThread: (() -> Void)?
+    func didReceiveAccountImport(error: Error) { errors.append(error); onErrorThread?(); onError?() }
     func didSuggestKeystore(text: String, preferredInfo: AccountImportPreferredInfo?) { suggestions.append(text); infos.append(preferredInfo) }
 }
 private final class PreparationImportService: KeystoreImportServiceProtocol {
@@ -395,10 +416,20 @@ private final class PreparationImportService: KeystoreImportServiceProtocol {
     func clear() { clears += 1; definition = nil }; func handle(url: URL) -> Bool { false }
 }
 private final class PreparationImportCloud: CloudStorageServiceProtocol {
+    /// The Google account that listed the fixture backups and serves reads unless a test signs in another.
+    static let listedBy = "import-fixture-google-user"
+    var currentAccountIdentity: CloudStorageAccountIdentity? = CloudStorageAccountIdentity(userID: PreparationImportCloud.listedBy)
     var isUserAuthorized: Bool { true }; var account = OpenBackupAccount(address: "fixture"), passwords: [String] = []; var failure: Error?
     func signInIfNeeded() async throws -> CloudStorageAccountState { .authorized }
     func getBackupAccounts() async throws -> [OpenBackupAccount] { [] }
-    func importBackup(account: OpenBackupAccount, password: String) async throws -> OpenBackupAccount { passwords.append(password); if let failure { throw failure }; return self.account }
+    /// The Google user ID each read was bound to, as the interactor asked for it.
+    var boundTo: [String] = []
+    func importBackup(account: OpenBackupAccount, password: String) async throws -> OpenBackupAccount { XCTFail("A chosen backup is read bound to the account that listed it"); throw CloudStorageServiceError.notAuthorized }
+    func importBackup(account: OpenBackupAccount, password: String, expectedAccountUserID: String) async throws -> OpenBackupAccount {
+        boundTo.append(expectedAccountUserID)
+        guard currentAccountIdentity?.userID == expectedAccountUserID else { throw CloudStorageServiceError.accountChanged }
+        passwords.append(password); if let failure { throw failure }; return self.account
+    }
     func saveBackup(account: OpenBackupAccount, password: String) async throws { XCTFail("No cloud writes allowed") }
     func deleteBackup(account: OpenBackupAccount) async throws { XCTFail("No cloud deletions allowed") }
     func disconnect() {}

@@ -35,16 +35,24 @@ final class EnterPasswordViewModel {
     private var restoredShortPhrase = false
     private let selectedAccount: OpenBackupAccount?
     private var backedUpAccounts: [OpenBackupAccount]
+    /// The Google account the backup list was read from. The chosen backup
+    /// is read only from it, and a completed restore is recorded for it.
+    private let googleAccount: CloudStorageAccountIdentity
+    private let backupAccountStore: WalletGoogleBackupAccountStore
     private weak var view: EnterPasswordViewProtocol?
 
     init(selectedAddress: String,
          backedUpAccounts: [OpenBackupAccount],
+         googleAccount: CloudStorageAccountIdentity,
          interactor: AccountImportInteractorInputProtocol,
          wireframe: EnterPasswordWireframeProtocol,
-         view: EnterPasswordViewProtocol?) {
+         view: EnterPasswordViewProtocol?,
+         backupAccountStore: WalletGoogleBackupAccountStore = .shared) {
         self.selectedAccount = backedUpAccounts.first(where: { $0.address == selectedAddress })
         self.interactor = interactor
         self.backedUpAccounts = backedUpAccounts
+        self.googleAccount = googleAccount
+        self.backupAccountStore = backupAccountStore
         self.wireframe = wireframe
         self.view = view
     }
@@ -66,6 +74,7 @@ final class EnterPasswordViewModel {
     private func contentSection() -> EnterPasswordSection {
         let item = EnterPasswordItem(accountName: selectedAccount?.name ?? "",
                                      accountAddress: selectedAccount?.address ?? "",
+                                     googleAccountText: googleAccount.email,
                                      errorText: errorText,
                                      continueButtonHandler: { [weak self] password in self?.checkPassword(password: password) })
         return EnterPasswordSection(items: [ .enterPassword(item) ])
@@ -78,7 +87,8 @@ final class EnterPasswordViewModel {
         errorText = ""
         reload()
         view?.showLoading()
-        let request = AccountImportBackedupRequest(account: selectedAccount, password: password)
+        let request = AccountImportBackedupRequest(account: selectedAccount, password: password,
+                                                   expectedGoogleUserID: googleAccount.userID)
         interactor.importBackedupAccount(request: request)
     }
 }
@@ -100,10 +110,14 @@ extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
             backupedAccountAddresses.append(selectedAccount.address)
         }
         ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
+        // The restore read this wallet's backup from this Google account.
+        backupAccountStore.record(googleUserID: googleAccount.userID, googleEmail: googleAccount.email,
+                                  for: selectedAccount.address)
         
-        let wireframe = wireframe, accounts = backedUpAccounts
+        let wireframe = wireframe, accounts = backedUpAccounts, googleAccount = googleAccount
         let openSuccess: () -> Void = {
-            wireframe?.openSuccessImport(importedAccountAddress: selectedAccount.address, accounts: accounts)
+            wireframe?.openSuccessImport(importedAccountAddress: selectedAccount.address, accounts: accounts,
+                                         googleAccount: googleAccount)
         }
         if restoredShortPhrase {
             restoredShortPhrase = false
@@ -127,6 +141,10 @@ extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
             errorText = R.string.localizable.enterPasswordIncorectTitle(preferredLanguages: languages)
         case .notAuthorized:
             errorText = WalletUX.text("Sign in to the Google account used for this wallet’s backup. SORA will read its encrypted backup.")
+        case .accountChanged:
+            // Nothing was read: Google is no longer signed in to the account
+            // this list came from.
+            errorText = WalletUX.text("Google is signed in to another account than the one this backup list came from. Go back and choose Google again.")
         case .notFound:
             errorText = WalletUX.text("Backup not found")
         case .incorectJson:

@@ -29,9 +29,13 @@ final class BackupedAccountsViewModel {
     
     var wireframe: BackupedAccountsWireframeProtocol
     var backedUpAccounts: [OpenBackupAccount]
+    /// The Google account the list was read from.
+    let googleAccount: CloudStorageAccountIdentity
 
-    init(backedUpAccounts: [OpenBackupAccount], wireframe: BackupedAccountsWireframeProtocol) {
+    init(backedUpAccounts: [OpenBackupAccount], googleAccount: CloudStorageAccountIdentity,
+         wireframe: BackupedAccountsWireframeProtocol) {
         self.backedUpAccounts = backedUpAccounts
+        self.googleAccount = googleAccount
         self.wireframe = wireframe
     }
     
@@ -113,7 +117,8 @@ extension BackupedAccountsViewModel: BackupedAccountsViewModelProtocol {
     }
     
     func didSelectAccount(with address: String) {
-        wireframe.openInputPassword(selectedAddress: address, backedUpAccounts: backedUpAccounts)
+        wireframe.openInputPassword(selectedAddress: address, backedUpAccounts: backedUpAccounts,
+                                    googleAccount: googleAccount)
     }
 }
 

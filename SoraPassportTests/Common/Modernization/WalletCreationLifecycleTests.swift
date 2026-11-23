@@ -723,6 +723,12 @@ private final class CreationLifecycleCloud: CloudStorageServiceProtocol {
   func saveBackup(account: OpenBackupAccount, password: String) async throws {
     XCTFail("Unexpected cloud write")
   }
+  func importBackup(
+    account: OpenBackupAccount, password: String, expectedAccountUserID: String
+  ) async throws -> OpenBackupAccount {
+    XCTFail("Unexpected cloud import")
+    throw CreationLifecycleFailure.selection
+  }
   func importBackup(account: OpenBackupAccount, password: String) async throws -> OpenBackupAccount
   {
     XCTFail("Unexpected cloud import")

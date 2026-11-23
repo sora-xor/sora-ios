@@ -239,6 +239,17 @@ final class AccountOptionsPresenterLifecycleTests: XCTestCase {
         p.setup(); p.deleteBackup(); await settle()
         XCTAssertTrue(v.states.last?.0 == .backedUp); XCTAssertEqual(v.hidden, 1); XCTAssertEqual(v.alertTitles.last, "Backup unavailable")
     }
+    func testDeletionRefusedForMissingKeysKeepsTheBackedUpStateAndExplainsWhy() async {
+        for state in [WalletAccountCapability.State.missingKeys, .unavailable] {
+            let (p, i, v, r) = fixture(.backedUp); i.deleteError = AccountOptionsCloudBackupError.localSignerUnavailable(state)
+            p.setup(); p.deleteBackup(); await settle()
+            XCTAssertTrue(v.states.last?.0 == .backedUp); XCTAssertEqual(v.hidden, 1)
+            XCTAssertEqual(r.authorizationRequests, 1, "The owner is not asked for the PIN again")
+            XCTAssertEqual(v.alertTitles, [WalletUX.text("Backup not deleted")])
+            XCTAssertEqual(v.alertMessages, [AccountOptionsCloudBackupError.localSignerUnavailable(state).localizedDescription])
+            XCTAssertFalse(v.alertMessages[0].isEmpty)
+        }
+    }
     func testCloudBackupReadsNothingUntilTheWalletAuthorizationSucceeds() {
         let (p, i, v, r) = fixture(); r.authorizationResult = nil; i.cloudAccount = OpenBackupAccount(address: i.currentAccount.address)
         p.createBackup()

@@ -48,6 +48,7 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     private var createdAccountForBackup: AccountItem?
     private let lifecycleCoordinator: WalletLifecycleCoordinator
     private let recoveryGate: WalletRecoveryCapabilityGate
+    private let backupAccountStore: WalletGoogleBackupAccountStore
     /// For an existing wallet (`.profile`): the Account Options authorization
     /// its secret is read under, and how to ask the owner again once that
     /// lapsed or was used.
@@ -66,7 +67,8 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
          completion: (() -> Void)? = nil,
          currentAccount: @escaping () -> AccountItem? = { SelectedWalletSettings.shared.currentAccount },
          lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
-         recoveryGate: WalletRecoveryCapabilityGate = .shared) {
+         recoveryGate: WalletRecoveryCapabilityGate = .shared,
+         backupAccountStore: WalletGoogleBackupAccountStore = .shared) {
         self.backupAccount = account
         self.completion = completion
         self.createAccountRequest = createAccountRequest
@@ -80,6 +82,7 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
         self.currentAccount = currentAccount
         self.lifecycleCoordinator = lifecycleCoordinator
         self.recoveryGate = recoveryGate
+        self.backupAccountStore = backupAccountStore
     }
     
     deinit {
@@ -144,10 +147,17 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
                 }
                 // The production service returns only after preserving the previous
                 // revision and reading back the exact newly encoded payload.
-                try await self.cloudStorageService.saveBackup(account: self.backupAccount, password: password)
+                // It names the Google account that served the whole save.
+                let googleAccount = try await self.cloudStorageService.saveBackupNamingAccount(
+                    account: self.backupAccount, password: password)
                 var addresses = ApplicationConfig.shared.backupedAccountAddresses
                 if !addresses.contains(self.backupAccount.address) { addresses.append(self.backupAccount.address) }
                 ApplicationConfig.shared.backupedAccountAddresses = addresses
+                if let googleAccount {
+                    self.backupAccountStore.record(googleUserID: googleAccount.userID,
+                                                   googleEmail: googleAccount.email,
+                                                   for: self.backupAccount.address)
+                }
                 if let completion = self.completion {
                     self.view?.controller.dismiss(animated: true, completion: completion)
                 } else {

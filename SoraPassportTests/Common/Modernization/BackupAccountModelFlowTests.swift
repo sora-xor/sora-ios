@@ -16,7 +16,8 @@ final class BackupAccountModelFlowTests: XCTestCase {
     BackupedAccountsViewModel, BackupModelRoutes
   ) {
     let routes = BackupModelRoutes()
-    let model = BackupedAccountsViewModel(backedUpAccounts: accounts, wireframe: routes)
+    let model = BackupedAccountsViewModel(
+      backedUpAccounts: accounts, googleAccount: BackupModelRoutes.listedBy, wireframe: routes)
     model.reload()
     return (model, routes)
   }
@@ -80,6 +81,8 @@ final class BackupAccountModelFlowTests: XCTestCase {
     XCTAssertEqual(routes.selected, [values[1].address])
     XCTAssertEqual(routes.catalogs.first?.map(\.address), values.map(\.address))
     XCTAssertEqual(routes.catalogs.first?.map(\.name), values.map(\.name))
+    // The password screen reads the chosen backup from the account that listed it.
+    XCTAssertEqual(routes.googleAccounts, [BackupModelRoutes.listedBy])
   }
   func testReloadReplacesObsoleteBackupRows() {
     let (model, _) = make([account("one"), account("two")])
@@ -122,10 +125,16 @@ final class BackupAccountModelFlowTests: XCTestCase {
   }
 }
 private final class BackupModelRoutes: BackupedAccountsWireframeProtocol {
+  static let listedBy = CloudStorageAccountIdentity(userID: "list-google-user", email: "list@example.com")
   var selected = [String](), catalogs = [[OpenBackupAccount]](), creates = 0
-  func openInputPassword(selectedAddress: String, backedUpAccounts: [OpenBackupAccount]) {
+  var googleAccounts = [CloudStorageAccountIdentity]()
+  func openInputPassword(
+    selectedAddress: String, backedUpAccounts: [OpenBackupAccount],
+    googleAccount: CloudStorageAccountIdentity
+  ) {
     selected.append(selectedAddress)
     catalogs.append(backedUpAccounts)
+    googleAccounts.append(googleAccount)
   }
   func showCreateAccount() { creates += 1 }
 }

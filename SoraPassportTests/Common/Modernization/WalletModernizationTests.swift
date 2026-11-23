@@ -159,6 +159,9 @@ private final class BackupSavingCloudFixture: CloudStorageServiceProtocol {
     func importBackup(account: OpenBackupAccount, password: String) async throws -> OpenBackupAccount {
         XCTFail("Saving must not import a wallet"); return account
     }
+    func importBackup(account: OpenBackupAccount, password: String, expectedAccountUserID: String) async throws -> OpenBackupAccount {
+        XCTFail("Saving must not import a wallet"); return account
+    }
     func saveBackup(account: OpenBackupAccount, password: String) async throws {
         saves.append(account)
         try await withCheckedThrowingContinuation {

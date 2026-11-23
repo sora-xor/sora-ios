@@ -166,6 +166,13 @@ final class AccountOptionsPresenter {
                     }
                     return
                 }
+                if case .localSignerUnavailable? = error as? AccountOptionsCloudBackupError {
+                    self?.view?.present(message: error.localizedDescription,
+                                        title: WalletUX.text("Backup not deleted"),
+                                        closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+                                        from: self?.view)
+                    return
+                }
                 self?.view?.present(message: nil,
                                     title: error.localizedDescription,
                                     closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),

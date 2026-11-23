@@ -53,6 +53,9 @@ final class CloudStorageServiceTests: XCTestCase {
         signInProvider?._currentUser = nil
         signInProvider?.signInCallsCount = 0
         signInProvider?.signInClosure = nil
+        // The provider is the shared sign-in instance; its counts outlive a test.
+        signInProvider?.signOutCallsCount = 0
+        signInProvider?.disconnectCompletionCallsCount = 0
         signInProvider = nil
         delegate = nil
         queue = nil
@@ -182,14 +185,50 @@ final class CloudStorageServiceTests: XCTestCase {
         signInProvider?._currentUser = TestData.user
 
         // act
-        try await service?.deleteBackup(account: TestData.account)
+        let deletedBy = try await service?.deleteBackupNamingAccount(account: TestData.account)
 
         // assert
-        XCTAssertEqual(googleService?.setAuthorizerCallsCount, 3)
+        XCTAssertEqual(deletedBy, TestData.identity)
         XCTAssertEqual(googleService?.executeQueryCallsCount, 5)
+        // Each Drive request of the deletion is authorized for the same
+        // Google account; the number of authorizations is not the point.
+        let installed = googleService?.setAuthorizerReceivedInvocations ?? []
+        XCTAssertFalse(installed.isEmpty)
+        XCTAssertTrue(installed.allSatisfy { $0 === TestData.user.fetcherAuthorizer })
+    }
 
-        XCTAssertTrue(googleService?.setAuthorizerCalled ?? false)
-        XCTAssertTrue(googleService?.executeQueryCalled ?? false)
+    func testOperationsNameTheGoogleAccountThatServedThem() async throws {
+        // arrange
+        signInProvider?._currentUser = TestData.user
+        googleService?.account = TestData.encryptedAccount
+
+        // act
+        let listing = try await service?.getBackupAccountsNamingAccount()
+
+        // assert
+        XCTAssertEqual(listing?.googleAccount, TestData.identity)
+        XCTAssertEqual(listing?.accounts.first?.address, TestData.account.address)
+        XCTAssertEqual(service?.currentAccountIdentity, TestData.identity)
+    }
+
+    func testAccountThatCannotBeNamedServesNothingAndIsSignedOut() async throws {
+        // arrange
+        signInProvider?._currentUser = GIDGoogleUser()
+
+        // act
+        do {
+            _ = try await service?.getBackupAccounts()
+            XCTFail("An unnamed Google account listed backups")
+        } catch {
+            // assert
+            XCTAssertEqual(
+                error.localizedDescription,
+                CloudStorageServiceError.notAuthorized.localizedDescription
+            )
+        }
+        XCTAssertEqual(googleService?.executeQueryCallsCount, 0)
+        XCTAssertEqual(signInProvider?.signOutCallsCount, 1)
+        XCTAssertNil(service?.currentAccountIdentity)
     }
 
     func testDeleteBackupAccountWithError() async throws {
@@ -223,8 +262,26 @@ final class CloudStorageServiceTests: XCTestCase {
 }
 
 extension CloudStorageServiceTests {
+    /// A Google account with an ID. The SDK sets one only during a sign-in,
+    /// so the test overrides what the service reads.
+    final class NamedGoogleUser: GIDGoogleUser {
+        private let authorizer = TestAuthorizer()
+        override var userID: String? { "cloud-storage-tests-user" }
+        override var fetcherAuthorizer: GTMFetcherAuthorizationProtocol { authorizer }
+    }
+
+    final class TestAuthorizer: NSObject, GTMFetcherAuthorizationProtocol {
+        var userEmail: String? { nil }
+        func authorizeRequest(_ request: NSMutableURLRequest?, delegate: Any, didFinish selector: Selector) {}
+        func stopAuthorization() {}
+        func stopAuthorization(for request: URLRequest) {}
+        func isAuthorizingRequest(_ request: URLRequest) -> Bool { false }
+        func isAuthorizedRequest(_ request: URLRequest) -> Bool { false }
+    }
+
     enum TestData {
-        static let user = GIDGoogleUser()
+        static let user: GIDGoogleUser = NamedGoogleUser()
+        static let identity = CloudStorageAccountIdentity(userID: "cloud-storage-tests-user")
 
         static let substrateJson = """
         {\"address\":\"cnSNFyYFzPPJWm1yKjZCKZnGhhrZWWx1Mme1gw64YvjJhNGoJ\",\"encoded\":\"AAUbK8HDAE7Mw26rox6dktexv9pG5MRk\\/WtCJFtV2+kAgAAAAQAAAAgAAACivZKIFh9rMwauWG97MJ0ONwPg6eOpXNygK6X9RQfKMPvETRAfpHbRJp42LKEeWDNczqKaxltMj3yeMUi9kOYIz1sXMt7g7PC7aHUvSsF2G8nzV+XrNpC7nc8s+ty1OmVeKJWsSACfNj3OW9gxesmAtpfSrWx2ppSviKwvU1SKNYPfq+rxFCG+sXx4lggOFouAmT5iaPTL9fck\\/1vI\",\"encoding\":{\"content\":[\"pkcs8\",\"sr25519\"],\"type\":[\"scrypt\",\"xsalsa20-poly1305\"],\"version\":\"3\"},\"meta\":{\"genesisHash\":\"0xded5a658e6ff2c82ce640caf8910ea2bb700aad5511ec7c3014cc7c256f5d956\",\"name\":\"chop\",\"whenCreated\":1706609064}}

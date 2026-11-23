@@ -57,8 +57,15 @@ extension OnboardingMainInteractor: OnboardingMainInteractorInputProtocol {
         backupService.disconnect()
     }
     
-    func getBackupedAccounts() async throws -> [OpenBackupAccount] {
-        return try await backupService.getBackupAccounts()
+    func getBackupedAccounts() async throws -> WalletDriveBackupListing {
+        // The whole list comes from one Google account, named by the read
+        // itself. A backup chosen from it is later read only from that
+        // account, so a list whose account is not named is not shown.
+        let listing = try await backupService.getBackupAccountsNamingAccount()
+        guard let googleAccount = listing.googleAccount else {
+            throw CloudStorageServiceError.notAuthorized
+        }
+        return WalletDriveBackupListing(accounts: listing.accounts, googleAccount: googleAccount)
     }
 }
 

@@ -5,6 +5,9 @@ public enum CloudStorageServiceError: Error {
     case incorectPassword
     case incorectJson
     case notAuthorized
+    /// The Google account that would serve the request is not the one the
+    /// caller named. Nothing was read from it.
+    case accountChanged
 }
 
 extension CloudStorageServiceError: LocalizedError {
@@ -18,6 +21,8 @@ extension CloudStorageServiceError: LocalizedError {
             return "Incorect json"
         case .notAuthorized:
             return "Not authorized"
+        case .accountChanged:
+            return "Google account changed"
         }
     }
 }

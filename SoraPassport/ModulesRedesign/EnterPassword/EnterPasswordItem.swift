@@ -21,12 +21,17 @@ final class EnterPasswordItem: NSObject {
 
     let accountName: String?
     let accountAddress: String
+    /// The Google account the backup is read from, shown under the password
+    /// field while it has no error.
+    let googleAccountText: String?
     let errorText: String
     let continueButtonHandler: ((String) -> Void)?
 
-    init(accountName: String? = nil, accountAddress: String, errorText: String, continueButtonHandler: ((String) -> Void)?) {
+    init(accountName: String? = nil, accountAddress: String, googleAccountText: String? = nil, errorText: String,
+         continueButtonHandler: ((String) -> Void)?) {
         self.accountName = accountName
         self.accountAddress = accountAddress
+        self.googleAccountText = googleAccountText
         self.errorText = errorText
         self.continueButtonHandler = continueButtonHandler
     }

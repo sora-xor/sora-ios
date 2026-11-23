@@ -45,7 +45,7 @@ final class EnterPasswordCell: SoramitsuTableViewCell {
         view.textField.returnKeyType = .go
         view.textField.sora.addHandler(for: .editingDidEndOnExit) { [weak self] in self?.submit() }
         view.textField.sora.addHandler(for: .editingChanged) { [weak self] in
-            self?.passwordInputField.sora.resetValidation()
+            self?.resetValidation()
         }
         view.textField.isSecureTextEntry = true
         return view
@@ -83,6 +83,15 @@ final class EnterPasswordCell: SoramitsuTableViewCell {
     private func submit() {
         guard let password = passwordInputField.textField.text else { return }
         item?.continueButtonHandler?(password)
+    }
+
+    /// Without an error, the line under the field names the Google account
+    /// the backup is read from.
+    private func resetValidation(for item: EnterPasswordItem? = nil) {
+        passwordInputField.sora.resetValidation()
+        if let account = (item ?? self.item)?.googleAccountText, !account.isEmpty {
+            passwordInputField.sora.descriptionLabelText = account
+        }
     }
 
     private func setupView() {
@@ -134,7 +143,7 @@ extension EnterPasswordCell: SoramitsuTableViewCellProtocol {
             passwordInputField.sora.descriptionLabelText = item.errorText
             passwordInputField.sora.state = .fail
         } else {
-            passwordInputField.sora.resetValidation()
+            resetValidation(for: item)
         }
         
         self.item = item

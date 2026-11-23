@@ -598,6 +598,7 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
 
 import UIKit
 import SSFCloudStorage
+import SSFUtils
 import GoogleSignIn
 
 private final class GoogleImportViewFixture: UIViewController, OnboardingMainViewProtocol {
@@ -611,10 +612,12 @@ private final class GoogleImportInteractorFixture: OnboardingMainInteractorInput
     var calls = 0
     var resets = 0
     var onRead: (() -> Void)?
-    var pending: CheckedContinuation<[OpenBackupAccount], Error>?
+    /// The Google account every successful fixture list is read from.
+    static let googleAccount = CloudStorageAccountIdentity(userID: "synthetic-google-user", email: "synthetic@example.com")
+    var pending: CheckedContinuation<WalletDriveBackupListing, Error>?
     func setup() {}
     func resetGoogleState() { resets += 1 }
-    func getBackupedAccounts() async throws -> [OpenBackupAccount] {
+    func getBackupedAccounts() async throws -> WalletDriveBackupListing {
         calls += 1
         return try await withCheckedThrowingContinuation {
             pending = $0
@@ -623,7 +626,9 @@ private final class GoogleImportInteractorFixture: OnboardingMainInteractorInput
     }
     func complete(_ result: Result<[OpenBackupAccount], Error>) {
         let continuation = pending; pending = nil
-        continuation?.resume(with: result)
+        continuation?.resume(with: result.map {
+            WalletDriveBackupListing(accounts: $0, googleAccount: Self.googleAccount)
+        })
     }
 }
 
@@ -632,6 +637,7 @@ private final class GoogleImportWireframeFixture: OnboardingMainWireframeProtoco
     var onFinish: (() -> Void)?
     var alerts: [String] = []
     var accounts: [OpenBackupAccount] = []
+    var googleAccounts: [CloudStorageAccountIdentity] = []
     var signups = 0
     func showSignup(from view: OnboardingMainViewProtocol?, isGoogleBackupSelected: Bool) {
         XCTAssertTrue(Thread.isMainThread)
@@ -639,9 +645,10 @@ private final class GoogleImportWireframeFixture: OnboardingMainWireframeProtoco
         signups += 1; onFinish?()
     }
     func showAccountRestoreRedesign(from view: OnboardingMainViewProtocol?, sourceType: AccountImportSource) {}
-    func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount]) {
+    func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount],
+                              googleAccount: CloudStorageAccountIdentity) {
         XCTAssertTrue(Thread.isMainThread)
-        self.accounts = accounts; onFinish?()
+        self.accounts = accounts; googleAccounts.append(googleAccount); onFinish?()
     }
     func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) {
         XCTAssertTrue(Thread.isMainThread)
@@ -649,7 +656,67 @@ private final class GoogleImportWireframeFixture: OnboardingMainWireframeProtoco
     }
 }
 
+private final class GoogleListKeystoreImports: KeystoreImportServiceProtocol {
+    var definition: KeystoreDefinition?
+    func add(observer: KeystoreImportObserver) {}
+    func remove(observer: KeystoreImportObserver) {}
+    func clear() {}
+    func handle(url: URL) -> Bool { false }
+}
+
+private final class GoogleListCloud: CloudStorageServiceProtocol {
+    var isUserAuthorized = true
+    var identity: CloudStorageAccountIdentity?
+    var currentAccountIdentity: CloudStorageAccountIdentity? { identity }
+    var accounts: [OpenBackupAccount] = []
+    var disconnects = 0
+    func signInIfNeeded() async throws -> CloudStorageAccountState { .authorized }
+    func getBackupAccounts() async throws -> [OpenBackupAccount] { accounts }
+    func getBackupAccountsNamingAccount() async throws -> CloudStorageBackupListing {
+        CloudStorageBackupListing(accounts: accounts, googleAccount: identity)
+    }
+    func saveBackup(account: OpenBackupAccount, password: String) async throws { XCTFail("Unexpected cloud write") }
+    func importBackup(account: OpenBackupAccount, password: String) async throws -> OpenBackupAccount {
+        XCTFail("Listing must not read a backup"); return account
+    }
+    func importBackup(account: OpenBackupAccount, password: String, expectedAccountUserID: String) async throws -> OpenBackupAccount {
+        XCTFail("Listing must not read a backup"); return account
+    }
+    func deleteBackup(account: OpenBackupAccount) async throws { XCTFail("Unexpected cloud deletion") }
+    func disconnect() { disconnects += 1; identity = nil }
+}
+
 final class GoogleImportResponseTests: XCTestCase {
+    /// The list is handed on together with the Google account that served it.
+    func testBackupListCarriesTheGoogleAccountThatServedIt() async throws {
+        let cloud = GoogleListCloud()
+        cloud.identity = CloudStorageAccountIdentity(userID: "list-google-user", email: "list@example.com")
+        cloud.accounts = [OpenBackupAccount(name: "Synthetic backup", address: "synthetic-google-list-test-account")]
+        let interactor = OnboardingMainInteractor(keystoreImportService: GoogleListKeystoreImports(), backupService: cloud)
+        let listing = try await interactor.getBackupedAccounts()
+        XCTAssertEqual(listing.accounts.map(\.address), ["synthetic-google-list-test-account"])
+        XCTAssertEqual(listing.googleAccount, CloudStorageAccountIdentity(userID: "list-google-user", email: "list@example.com"))
+        // Choosing Google again starts from no account.
+        interactor.resetGoogleState()
+        XCTAssertEqual(cloud.disconnects, 1)
+    }
+
+    /// A backup chosen from a list is later read only from the account that
+    /// served the list, so a list whose account cannot be named is not shown.
+    func testBackupListWhoseGoogleAccountCannotBeNamedIsNotShown() async {
+        let cloud = GoogleListCloud()
+        cloud.accounts = [OpenBackupAccount(address: "synthetic-google-list-test-account")]
+        let interactor = OnboardingMainInteractor(keystoreImportService: GoogleListKeystoreImports(), backupService: cloud)
+        do {
+            _ = try await interactor.getBackupedAccounts()
+            XCTFail("A list without a named Google account was shown")
+        } catch CloudStorageServiceError.notAuthorized {
+        } catch {
+            XCTFail("Unexpected \(error)")
+        }
+        XCTAssertEqual(cloud.disconnects, 0, "The service signs out its own unnamed session; the screen resets nothing here")
+    }
+
     @MainActor
     func testFailedGoogleImportStopsLoadingShowsSafeFeedbackAndCanRetry() async {
         let view = GoogleImportViewFixture()
@@ -704,6 +771,8 @@ final class GoogleImportResponseTests: XCTestCase {
         interactor.complete(.success([account]))
         await fulfillment(of: [finished], timeout: 3)
         XCTAssertEqual(wireframe.accounts.map(\.address), [account.address])
+        // The list travels with the Google account it was read from.
+        XCTAssertEqual(wireframe.googleAccounts, [GoogleImportInteractorFixture.googleAccount])
         XCTAssertEqual(view.hides, 1)
         XCTAssertTrue(wireframe.alerts.isEmpty)
         presenter.viewWillAppear()

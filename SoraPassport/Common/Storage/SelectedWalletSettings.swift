@@ -1462,13 +1462,32 @@ final class WalletCloudBackupRecoveryService {
     static let maximumBackupBytes = 1_048_576
     private let drive: GoogleService
     private let authorize: () async throws -> Bool
+    /// The Google account the last authorization gave the Drive service, or
+    /// nil when it cannot be named.
+    private let authorizedAccount: () -> CloudStorageAccountIdentity?
+    private let backupAccountStore: WalletGoogleBackupAccountStore
 
-    init(viewController: UIViewController) {
+    /// The account chosen in Google's sign-in, set together with the Drive
+    /// authorizer and cleared when a new sign-in starts.
+    private final class ChosenAccount {
+        private let lock = NSLock()
+        private var account: CloudStorageAccountIdentity?
+        var value: CloudStorageAccountIdentity? {
+            get { lock.lock(); defer { lock.unlock() }; return account }
+            set { lock.lock(); defer { lock.unlock() }; account = newValue }
+        }
+    }
+
+    init(viewController: UIViewController, backupAccountStore: WalletGoogleBackupAccountStore = .shared) {
         let recoveryDrive = BaseGoogleService(googleService: GTLRDriveService())
+        let chosen = ChosenAccount()
         drive = recoveryDrive
+        authorizedAccount = { chosen.value }
+        self.backupAccountStore = backupAccountStore
         authorize = {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
                 Task { @MainActor in
+                    chosen.value = nil
                     // Recovery must let the user choose the backup's Google account
                     // even when ordinary cloud browsing already has a saved session.
                     GIDSignIn.sharedInstance.signIn(withPresenting: viewController, hint: nil,
@@ -1483,6 +1502,10 @@ final class WalletCloudBackupRecoveryService {
                             return
                         }
                         recoveryDrive.set(authorizer: user.fetcherAuthorizer)
+                        let userID = (user.userID ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                        let email = user.profile?.email.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                        chosen.value = userID.isEmpty ? nil
+                            : CloudStorageAccountIdentity(userID: userID, email: email.isEmpty ? nil : email)
                         continuation.resume(returning: true)
                     }
                 }
@@ -1490,9 +1513,13 @@ final class WalletCloudBackupRecoveryService {
         }
     }
 
-    init(drive: GoogleService, authorize: @escaping () async throws -> Bool) {
+    init(drive: GoogleService, authorize: @escaping () async throws -> Bool,
+         authorizedAccount: @escaping () -> CloudStorageAccountIdentity? = { nil },
+         backupAccountStore: WalletGoogleBackupAccountStore = .shared) {
         self.drive = drive
         self.authorize = authorize
+        self.authorizedAccount = authorizedAccount
+        self.backupAccountStore = backupAccountStore
     }
 
     func readBackup(for address: String) async throws -> Data {
@@ -1500,9 +1527,13 @@ final class WalletCloudBackupRecoveryService {
         guard (32...128).contains(address.count), address.allSatisfy({ alphabet.contains($0) }) else {
             throw WalletCloudBackupRecoveryError.identityMismatch
         }
+        let chosenAccount: CloudStorageAccountIdentity?
         do {
             try Task.checkCancellation()
             guard try await authorize() else { throw WalletCloudBackupRecoveryError.notAuthorized }
+            // The account this authorization chose, taken before the read
+            // so that a later sign-in cannot be recorded in its place.
+            chosenAccount = authorizedAccount()
         } catch let error as WalletCloudBackupRecoveryError { throw error }
         catch { throw WalletCloudBackupRecoveryError.authorizationError(for: error) }
         do {
@@ -1549,6 +1580,12 @@ final class WalletCloudBackupRecoveryService {
                   !data.isEmpty, data.count <= Self.maximumBackupBytes,
                   Int64(data.count) == file.size?.int64Value else {
                 throw WalletCloudBackupRecoveryError.invalidBackup
+            }
+            // The chosen Google account holds this wallet's backup file: the
+            // read found exactly one and downloaded it whole.
+            if let googleAccount = chosenAccount {
+                backupAccountStore.record(googleUserID: googleAccount.userID,
+                                          googleEmail: googleAccount.email, for: address)
             }
             return data
         } catch let error as WalletCloudBackupRecoveryError { throw error }

@@ -281,7 +281,8 @@ final class WalletScreenBehaviorTests: XCTestCase {
         let wireframe = ImportedAccountRecorder()
         let address = "screen-fixture-\(UUID().uuidString)"
         let model = AccountImportedViewModel(importedAccountAddress: address,
-            backedUpAccounts: [.init(name: "Imported savings", address: address)], wireframe: wireframe)
+            backedUpAccounts: [.init(name: "Imported savings", address: address)],
+            googleAccount: ImportedAccountRecorder.listedBy, wireframe: wireframe)
         let view = AccountImportedViewController()
         view.viewModel = model
         mount(view)
@@ -296,6 +297,8 @@ final class WalletScreenBehaviorTests: XCTestCase {
         XCTAssertEqual(wireframe.pinSetups, 1)
         item.loadMoreTapHandler?()
         XCTAssertEqual(wireframe.backups.map(\.address), [address])
+        // The remaining backups stay tied to the Google account that listed them.
+        XCTAssertEqual(wireframe.googleAccounts, [ImportedAccountRecorder.listedBy])
         let table = try XCTUnwrap(all(UITableView.self, in: view.view).first)
         XCTAssertEqual(table.numberOfRows(inSection: 0), 1)
     }
@@ -304,6 +307,7 @@ final class WalletScreenBehaviorTests: XCTestCase {
         let wireframe = ImportedAccountRecorder()
         var completions = 0
         let model = AccountImportedViewModel(importedAccountAddress: "absent", backedUpAccounts: [],
+                                            googleAccount: ImportedAccountRecorder.listedBy,
                                             wireframe: wireframe, endAddingBlock: { completions += 1 })
         model.reload()
         guard case let .accountImported(item) = model.snapshot.itemIdentifiers.first else {
@@ -367,7 +371,11 @@ private final class ImportedAccountRecorder: AccountImportedWireframeProtocol {
     var dismissals = 0
     var backups: [OpenBackupAccount] = []
     func showSetupPinCode() { pinSetups += 1 }
-    func showBackepedAccounts(accounts: [OpenBackupAccount]) { backups = accounts }
+    static let listedBy = CloudStorageAccountIdentity(userID: "imported-list-google-user", email: "imported@example.com")
+    var googleAccounts = [CloudStorageAccountIdentity]()
+    func showBackepedAccounts(accounts: [OpenBackupAccount], googleAccount: CloudStorageAccountIdentity) {
+        backups = accounts; googleAccounts.append(googleAccount)
+    }
     func dismiss(completion: (() -> Void)?) { dismissals += 1; completion?() }
 }
 

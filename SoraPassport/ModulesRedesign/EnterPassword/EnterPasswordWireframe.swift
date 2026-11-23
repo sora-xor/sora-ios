@@ -35,10 +35,12 @@ final class EnterPasswordWireframe: CustomPresentable {
 }
 
 extension EnterPasswordWireframe: EnterPasswordWireframeProtocol {
-    func openSuccessImport(importedAccountAddress: String, accounts: [OpenBackupAccount]) {
+    func openSuccessImport(importedAccountAddress: String, accounts: [OpenBackupAccount],
+                           googleAccount: CloudStorageAccountIdentity) {
         guard let successView = AccountImportedViewFactory.createView(
             with: importedAccountAddress,
             accounts: accounts,
+            googleAccount: googleAccount,
             endAddingBlock: endAddingBlock
         )?.controller else { return }
         currentController?.controller.navigationController?.setViewControllers([successView], animated: true)
