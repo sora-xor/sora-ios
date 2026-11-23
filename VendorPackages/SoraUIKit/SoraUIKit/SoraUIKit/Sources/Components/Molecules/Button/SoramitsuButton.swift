@@ -24,7 +24,11 @@ public final class SoramitsuButton: UIControl, Molecule {
     /// the word on it (the swap and send screens' Review), or Auto Layout had to break a constraint on
     /// every layout to get out of it.
     public static let fittedSizePriority = UILayoutPriority(990)
-    /// Below the fitted width: with too little room the title gets smaller before it leaves its button.
+    /// Just below the fitted width: a button given more width than it needs keeps its insets and lets its
+    /// title's label fill the rest, so the title stands where its own alignment puts it (a "Show more"
+    /// link is left-aligned in its row), as it did when UIKit settled the old conflict that way.
+    static let titleHuggingPriority = UILayoutPriority(989)
+    /// Below that: with too little room the title gets smaller before it leaves its button.
     static let titleCompressionPriority = UILayoutPriority(980)
 
     var horizontalConstaint: NSLayoutConstraint?
@@ -44,7 +48,7 @@ public final class SoramitsuButton: UIControl, Molecule {
         label.sora.alignment = .center
         label.sora.backgroundColor = .custom(uiColor: .clear)
         label.setContentCompressionResistancePriority(SoramitsuButton.titleCompressionPriority, for: .horizontal)
-        label.setContentHuggingPriority(.required, for: .horizontal)
+        label.setContentHuggingPriority(SoramitsuButton.titleHuggingPriority, for: .horizontal)
         // A long title in a narrow button (Japanese on a small phone) gets smaller, down to seven tenths,
         // before it is cut.
         label.adjustsFontSizeToFitWidth = true
@@ -288,13 +292,17 @@ private extension SoramitsuButton {
             pressingView.centerXAnchor.constraint(equalTo: centerXAnchor),
             pressingView.centerYAnchor.constraint(equalTo: centerYAnchor),
 
-            stackView.topAnchor.constraint(equalTo: topAnchor, constant: 4),
             stackView.centerXAnchor.constraint(equalTo: centerXAnchor),
             stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
             
             rightImageView.widthAnchor.constraint(equalTo: rightImageView.heightAnchor),
             leftImageView.widthAnchor.constraint(equalTo: leftImageView.heightAnchor)
         ])
+        // The content keeps four points from the top, unless the button has no height at all: a button hidden
+        // in a stack is collapsed to zero, and a required inset then asked its content for a height of minus eight.
+        let inset = stackView.topAnchor.constraint(equalTo: topAnchor, constant: 4)
+        inset.priority = UILayoutPriority(999)
+        inset.isActive = true
         // The size's own height, unless the screen gives the button another one (a PIN key, a token chooser).
         let height = heightAnchor.constraint(equalToConstant: size.height)
         height.priority = Self.fittedSizePriority
