@@ -126,6 +126,12 @@ enum WalletDisplay {
     /// is `margin` from each side of the container, exactly where a pair of leading and trailing
     /// constraints puts it: no phone is wider than the readable width, so the limit never applies.
     /// Returns the constraints, already active.
+    ///
+    /// The width is a preference just under required, so it gives way to the readable limit; it also
+    /// gives way to anything required inside `content` that insists on being narrower. Nothing in the
+    /// kit does now (a button used to), and the fit tests lay these screens out at every size. For a form
+    /// whose rows run from one margin to the other, `LitColumnStackView` or `UIView.litColumnGuide` set
+    /// the column from the screen's width alone.
     @discardableResult
     static func pinReadable(_ content: UIView, width: NSLayoutDimension, centerX: NSLayoutXAxisAnchor,
                             margin: CGFloat) -> [NSLayoutConstraint] {

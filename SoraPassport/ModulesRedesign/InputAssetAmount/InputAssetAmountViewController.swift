@@ -35,17 +35,15 @@ protocol InputAssetAmountViewProtocol: ControllerBackedProtocol, Warningable {
 final class InputAssetAmountViewController: SoramitsuViewController {
     
     private let generator = PolkadotIconGenerator()
-    private var spaceConstraint: NSLayoutConstraint?
-    
-    private let stackView: SoramitsuStackView = {
-        let stackView = SoramitsuStackView()
-        stackView.sora.alignment = .center
-        stackView.sora.axis = .vertical
-        stackView.sora.distribution = .fill
+
+    /// The screen's content column: the recipient, the amount, a warning and Review fill it.
+    private let stackView: LitColumnStackView = {
+        let stackView = LitColumnStackView()
+        stackView.backgroundColor = .clear
         stackView.spacing = 24
+        stackView.topInset = 16
+        stackView.bottomInset = 16
         stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 0, right: 16)
-        stackView.isLayoutMarginsRelativeArrangement = true
         return stackView
     }()
 
@@ -104,7 +102,7 @@ final class InputAssetAmountViewController: SoramitsuViewController {
 
     private lazy var reviewLiquidity: SoramitsuButton = {
         let button = SoramitsuButton()
-        button.sora.horizontalOffset = 0
+        button.sora.horizontalOffset = LayoutCanvas.pageMargin
         button.sora.title = R.string.localizable.review(preferredLanguages: .currentLocale)
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .additionalPolkaswap
@@ -140,12 +138,6 @@ final class InputAssetAmountViewController: SoramitsuViewController {
         viewModel.viewDidLoad()
     }
     
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        // The window's height: on every classic phone that is the screen's.
-        spaceConstraint?.constant = (view.window?.bounds.height ?? UIScreen.main.bounds.height) - 300
-    }
-
     private func setupView() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubviews(scrollView)
@@ -155,36 +147,24 @@ final class InputAssetAmountViewController: SoramitsuViewController {
         stackView.addArrangedSubview(assetView)
         stackView.addArrangedSubview(warningView)
         stackView.addArrangedSubview(reviewLiquidity)
-        let spaceView = SoramitsuView()
-        spaceConstraint = spaceView.heightAnchor.constraint(equalToConstant: 0)
-        spaceConstraint?.isActive = true
-        stackView.addArrangedSubviews(spaceView)
     }
 
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            stackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.heightAnchor.constraint(equalTo: view.heightAnchor),
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            
+            // The form ends where the keyboard begins, so Review can be scrolled into view above it. A
+            // spacer most of a screen tall once stood in for this, and the form scrolled away with no
+            // keyboard up.
+            scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+
+            scrollView.contentLayoutGuide.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
+            stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor)
         ])
-        // Each card as wide as the screen less its margins, set against the screen: tied only to the stack
-        // they could shrink with it (the swap screen showed a third-width column on a phone).
-        for card in [recipientView, assetView, warningView, reviewLiquidity] as [UIView] {
-            let width = card.widthAnchor.constraint(equalTo: view.widthAnchor, constant: -32)
-            width.priority = UILayoutPriority(999)
-            NSLayoutConstraint.activate([
-                width,
-                card.widthAnchor.constraint(lessThanOrEqualToConstant: LayoutCanvas.readableWidth - 32),
-                card.centerXAnchor.constraint(equalTo: stackView.centerXAnchor)
-            ])
-        }
-        // The same place on a phone; a readable column in the middle of a wider window.
-        WalletDisplay.pinReadable(stackView, inScroll: scrollView, margin: 0)
     }
 }
 

@@ -127,9 +127,10 @@ final class ContactsViewController: SoramitsuViewController {
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             field.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            field.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 20),
+            // The search field and its action stand in the content column, like the amount screen after them.
+            field.leadingAnchor.constraint(equalTo: view.litColumnGuide.leadingAnchor),
             field.trailingAnchor.constraint(equalTo: fieldAction.leadingAnchor, constant: -8),
-            fieldAction.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -20),
+            fieldAction.trailingAnchor.constraint(equalTo: view.litColumnGuide.trailingAnchor),
             fieldAction.centerYAnchor.constraint(equalTo: field.topAnchor, constant: 28),
             
             tableView.topAnchor.constraint(equalTo: field.bottomAnchor),

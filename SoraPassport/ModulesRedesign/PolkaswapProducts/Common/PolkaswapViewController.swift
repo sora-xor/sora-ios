@@ -58,8 +58,7 @@ final class PolkaswapViewController: SoramitsuViewController {
 
     private lazy var containerView: ScrollableContainerView = {
         let view = ScrollableContainerView()
-        view.stackView.isLayoutMarginsRelativeArrangement = true
-        view.stackView.layoutMargins = UIEdgeInsets(top: 16, left: 0, bottom: 0, right: 0)
+        view.stackView.topInset = 16
         view.stackView.spacing = 16
         view.scrollView.keyboardDismissMode = .onDrag
         view.scrollView.showsVerticalScrollIndicator = false
@@ -120,7 +119,6 @@ final class PolkaswapViewController: SoramitsuViewController {
     
     private lazy var optionsView: OptionsView = {
         let view = OptionsView()
-        view.setContentHuggingPriority(.required, for: .horizontal)
         view.marketButton.sora.isHidden = !viewModel.isSwap
         view.slipageButton.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.viewModel.changeSlippageTolerance()
@@ -139,7 +137,7 @@ final class PolkaswapViewController: SoramitsuViewController {
     
     private lazy var reviewLiquidity: SoramitsuButton = {
         let button = SoramitsuButton()
-        button.sora.horizontalOffset = 0
+        button.sora.horizontalOffset = LayoutCanvas.pageMargin
         button.sora.title = R.string.localizable.review(preferredLanguages: .currentLocale)
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .additionalPolkaswap
@@ -228,8 +226,10 @@ final class PolkaswapViewController: SoramitsuViewController {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubview(containerView)
 
+        // The cards, the warnings and Review fill the column; the two option pads stay their own size
+        // in the middle of their row.
         containerView.addArrangedSubview(assetsView)
-        containerView.addArrangedSubview(optionsView)
+        containerView.addArrangedSubview(LitColumnStackView.centred(optionsView))
         containerView.addArrangedSubview(firstLiquidityWarningView)
         containerView.addArrangedSubview(warningView)
         containerView.addArrangedSubview(reviewLiquidity)
@@ -240,25 +240,10 @@ final class PolkaswapViewController: SoramitsuViewController {
             containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             containerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             containerView.heightAnchor.constraint(equalTo: view.heightAnchor),
-            containerView.topAnchor.constraint(equalTo: view.topAnchor),
-            
+            containerView.topAnchor.constraint(equalTo: view.topAnchor)
         ])
-        // Each card is as wide as the screen less its margins, set against the screen itself. Tied only to
-        // the stack, the stack shrank to its narrowest content on a phone: a third of the width, the amount
-        // field squeezed out and the slippage label cut to "…".
-        [assetsView, warningView, firstLiquidityWarningView, reviewLiquidity].forEach(pinColumn)
     }
 
-    private func pinColumn(_ subview: UIView) {
-        let width = subview.widthAnchor.constraint(equalTo: view.widthAnchor, constant: -32)
-        width.priority = UILayoutPriority(999)
-        NSLayoutConstraint.activate([
-            width,
-            subview.widthAnchor.constraint(lessThanOrEqualToConstant: LayoutCanvas.readableWidth - 32),
-            subview.centerXAnchor.constraint(equalTo: containerView.stackView.centerXAnchor)
-        ])
-    }
-    
     private func rotateAnimation() {
         guard !UIAccessibility.isReduceMotionEnabled else { return }
         let button = assetsView.middleButton
@@ -300,16 +285,17 @@ final class PolkaswapViewController: SoramitsuViewController {
     
     @objc
     private func keyboardWillShow(_ notification:Notification) {
-        if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
-            containerView.stackView.layoutMargins = UIEdgeInsets(top: 16, left: 0, bottom: keyboardSize.height, right: 0)
-        }
+        guard let frame = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue else { return }
+        // Only what the keyboard covers of this screen: a floating or split keyboard on an iPad covers
+        // less than its own height, or nothing.
+        let covered = view.convert(frame, from: nil).intersection(view.bounds)
+        containerView.stackView.bottomInset = covered.isNull ? 0 : covered.height
     }
 
     @objc
     private func keyboardWillHide(_ notification:Notification) {
-        if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
-            containerView.stackView.layoutMargins = UIEdgeInsets(top: 16, left: 0, bottom: 0, right: 0)
-        }
+        guard notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] is NSValue else { return }
+        containerView.stackView.bottomInset = 0
     }
 }
 
@@ -349,7 +335,6 @@ extension PolkaswapViewController: LiquidityViewProtocol {
         
         detailsViews.forEach { detailView in
             containerView.addArrangedSubview(detailView)
-            pinColumn(detailView)
         }
     }
     

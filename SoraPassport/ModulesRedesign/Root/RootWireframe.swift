@@ -413,14 +413,6 @@ final class WalletRecoveryViewController: UIViewController {
             scrollView.bottomAnchor.constraint(
                 equalTo: view.safeAreaLayoutGuide.bottomAnchor
             ),
-            stack.leadingAnchor.constraint(
-                equalTo: scrollView.contentLayoutGuide.leadingAnchor,
-                constant: 24
-            ),
-            stack.trailingAnchor.constraint(
-                equalTo: scrollView.contentLayoutGuide.trailingAnchor,
-                constant: -24
-            ),
             stack.topAnchor.constraint(
                 equalTo: scrollView.contentLayoutGuide.topAnchor,
                 constant: 24
@@ -428,12 +420,10 @@ final class WalletRecoveryViewController: UIViewController {
             stack.bottomAnchor.constraint(
                 equalTo: scrollView.contentLayoutGuide.bottomAnchor,
                 constant: -24
-            ),
-            stack.widthAnchor.constraint(
-                equalTo: scrollView.frameLayoutGuide.widthAnchor,
-                constant: -48
             )
         ])
+        // 24 from each side on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(stack, inScroll: scrollView, margin: 24)
         refreshOptions()
     }
 
@@ -1659,12 +1649,11 @@ final class WalletWelcomeBackViewController: UIViewController {
             scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            stack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -24),
             stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 32),
             stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
-            stack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -48),
         ])
+        // 24 from each side on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(stack, inScroll: scrollView, margin: 24)
         refreshOptions()
     }
 

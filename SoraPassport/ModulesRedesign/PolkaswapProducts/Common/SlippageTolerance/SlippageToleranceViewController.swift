@@ -85,8 +85,11 @@ final class SlippageToleranceViewController: SoramitsuViewController {
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             slippageToleranceView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            slippageToleranceView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            slippageToleranceView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            // The form's card stands in the content column (the form keeps the page margin round its card).
+            slippageToleranceView.leadingAnchor.constraint(equalTo: view.litColumnGuide.leadingAnchor,
+                                                           constant: -LayoutCanvas.pageMargin),
+            slippageToleranceView.trailingAnchor.constraint(equalTo: view.litColumnGuide.trailingAnchor,
+                                                            constant: LayoutCanvas.pageMargin),
         ])
     }
 }

@@ -71,8 +71,8 @@ final class ChoiceMarketViewController: SoramitsuViewController {
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             stackView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            stackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            stackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            stackView.leadingAnchor.constraint(equalTo: view.litColumnGuide.leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: view.litColumnGuide.trailingAnchor),
         ])
     }
     
