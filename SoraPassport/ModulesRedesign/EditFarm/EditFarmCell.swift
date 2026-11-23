@@ -41,8 +41,7 @@ final class EditFarmCell: SoramitsuTableViewCell {
             service.$feeText
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
-                    guard let self = self, let value else { return }
-                    self.feeDetailView.valueLabel.sora.text = value
+                    self?.feeDetailView.valueLabel.sora.text = value ?? "—"
                 }
                 .store(in: &cancellables)
             
@@ -50,9 +49,7 @@ final class EditFarmCell: SoramitsuTableViewCell {
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
                     guard let self = self else { return }
-                    self.networkFeeDetailView.valueLabel.sora.text = value
-                    self.networkFeeDetailView.valueLabel.sora.loadingPlaceholder.type = value.isEmpty ? .shimmer : .none
-                    self.networkFeeDetailView.isShimmerHidden = !value.isEmpty
+                    self.networkFeeDetailView.valueLabel.sora.text = value.isEmpty ? "—" : value
                 }
                 .store(in: &cancellables)
             
@@ -60,7 +57,10 @@ final class EditFarmCell: SoramitsuTableViewCell {
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
                     guard let self = self else { return }
-                    self.sliderView.percentageLabel.sora.text = value
+                    let label = self.sliderView.percentageLabel
+                    let text = SoramitsuTextItem(text: value, fontData: FontType.displayL, textColor: .fgPrimary,
+                                                 alignment: label.textAlignment)
+                    LitRoller.setText(text.attributedString, on: label, animated: label.window != nil)
                 }
                 .store(in: &cancellables)
             
@@ -175,9 +175,7 @@ final class EditFarmCell: SoramitsuTableViewCell {
         view.progressView.isHidden = true
         view.titleLabel.sora.text = R.string.localizable.networkFee(preferredLanguages: .currentLocale)
         view.infoButton.sora.isHidden = false
-        view.valueLabel.sora.loadingPlaceholder.type = .shimmer
-        view.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
-        view.isShimmerHidden = false
+        view.valueLabel.sora.text = "—"
         view.infoButton.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.networkFeeHandler?()
         }

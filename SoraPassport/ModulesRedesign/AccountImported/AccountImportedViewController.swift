@@ -22,6 +22,7 @@ final class AccountImportedViewController: SoramitsuViewController & AccountImpo
     var viewModel: AccountImportedViewModelProtocol? {
         didSet {
             setupSubscriptions()
+            if isViewLoaded { viewModel?.reload() }
         }
     }
     
@@ -78,6 +79,7 @@ final class AccountImportedViewController: SoramitsuViewController & AccountImpo
     }
     
     private func setupSubscriptions() {
+        cancellables.removeAll()
         viewModel?.titlePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] text in

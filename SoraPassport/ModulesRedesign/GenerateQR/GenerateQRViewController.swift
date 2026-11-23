@@ -19,7 +19,13 @@ import Foundation
 import UIKit
 import SoraUIKit
 
-protocol GenerateQRViewProtocol: ControllerBackedProtocol {}
+protocol GenerateQRViewProtocol: ControllerBackedProtocol {
+    func didCopyAddress(_ address: String)
+}
+
+extension GenerateQRViewProtocol {
+    func didCopyAddress(_ address: String) {}
+}
 
 final class GenerateQRViewController: SoramitsuViewController {
 
@@ -57,6 +63,7 @@ final class GenerateQRViewController: SoramitsuViewController {
         return view
     }()
 
+    private var mode = GenerateQRMode.receive
     var viewModel: GenerateQRViewModelProtocol
 
     init(viewModel: GenerateQRViewModelProtocol) {
@@ -80,6 +87,7 @@ final class GenerateQRViewController: SoramitsuViewController {
         viewModel.setupReceiveView = { [weak self] viewModel in
             DispatchQueue.main.async {
                 self?.receiveView.viewModel = viewModel
+                self?.receiveView.isHidden = self?.mode == .request
             }
         }
         
@@ -97,6 +105,7 @@ final class GenerateQRViewController: SoramitsuViewController {
 
         viewModel.updateContent = { [weak self] mode in
             DispatchQueue.main.async {
+                self?.mode = mode
                 self?.receiveView.isHidden = mode == .request
                 self?.inputSendInfoView.isHidden = mode == .receive
                 
@@ -111,7 +120,10 @@ final class GenerateQRViewController: SoramitsuViewController {
         viewModel.showShareContent = { [weak self] sources in
             DispatchQueue.main.async {
                 let activityController = UIActivityViewController(activityItems: sources, applicationActivities: nil)
-                self?.present(activityController, animated: true, completion: nil)
+                guard let self else { return }
+                activityController.popoverPresentationController?.sourceView = self.receiveView.shareButton
+                activityController.popoverPresentationController?.sourceRect = self.receiveView.shareButton.bounds
+                self.present(activityController, animated: true)
             }
         }
         
@@ -120,7 +132,21 @@ final class GenerateQRViewController: SoramitsuViewController {
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        viewModel.closeHadler?()
+        var owner: UIViewController? = self
+        while let current = owner {
+            if current.isBeingDismissed || current.isMovingFromParent {
+                let close = viewModel.closeHadler
+                if let coordinator = transitionCoordinator {
+                    coordinator.animate(alongsideTransition: nil) { context in
+                        if !context.isCancelled { close?() }
+                    }
+                } else {
+                    close?()
+                }
+                return
+            }
+            owner = current.parent
+        }
     }
 
     private func setupView() {
@@ -135,9 +161,6 @@ final class GenerateQRViewController: SoramitsuViewController {
     }
 
     private func setupConstraints() {
-        let scanQrButtonTopOffset: CGFloat = 16
-        let scanQrButtonHeight: CGFloat = 56
-        
         NSLayoutConstraint.activate([
             
             stackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
@@ -149,16 +172,19 @@ final class GenerateQRViewController: SoramitsuViewController {
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor,
-                                               constant: -scanQrButtonHeight - scanQrButtonTopOffset),
+            scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             
             switcherView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
         ])
         // The same places on a phone; a readable column in the middle of a wider window.
         WalletDisplay.pinReadable(inputSendInfoView, width: stackView.widthAnchor,
                                   centerX: stackView.centerXAnchor, margin: 24)
-        WalletDisplay.pinReadable(receiveView, width: view.widthAnchor, centerX: view.centerXAnchor, margin: 0)
+        WalletDisplay.pinReadable(receiveView, width: view.widthAnchor, centerX: view.centerXAnchor, margin: 24)
     }
 }
 
-extension GenerateQRViewController: GenerateQRViewProtocol {}
+extension GenerateQRViewController: GenerateQRViewProtocol {
+    func didCopyAddress(_ address: String) {
+        receiveView.addressCopied(address)
+    }
+}

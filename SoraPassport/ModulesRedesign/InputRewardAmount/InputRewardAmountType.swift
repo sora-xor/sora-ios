@@ -35,8 +35,8 @@ enum InputRewardAmountType: String {
 
     func descriptionText(with fee: String) -> String {
         switch self {
-        case .bond: return R.string.localizable.referralInputRewardDescription(fee)
-        case .unbond: return R.string.localizable.referralUnbondXorDescription(fee)
+        case .bond: return R.string.localizable.referralInputRewardDescription(fee, preferredLanguages: .currentLocale)
+        case .unbond: return R.string.localizable.referralUnbondXorDescription(fee, preferredLanguages: .currentLocale)
         }
     }
 

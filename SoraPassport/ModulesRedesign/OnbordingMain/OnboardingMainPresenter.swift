@@ -39,9 +39,25 @@ final class OnboardingMainPresenter {
             recoveryError = WalletCloudBackupRecoveryError.authorizationError(for: error) == .authorizationCanceled
                 ? .authorizationCanceled : .unavailable
         }
-        wireframe.present(message: WalletCloudBackupRecoveryError.userMessage(for: recoveryError),
-            title: WalletCloudBackupRecoveryError.title(for: recoveryError),
-            closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale), from: view)
+        let title: String
+        let message: String
+        switch recoveryError {
+        case .authorizationCanceled:
+            title = "Google sign-in canceled"
+            message = "Choose Google to try again."
+        case .notAuthorized:
+            title = "Google sign-in required"
+            message = "Sign in to the Google account used for this wallet’s backup. SORA will read its encrypted backup."
+        case .notFound:
+            title = "Backup not found"
+            message = "Check which Google account holds your backup."
+        default:
+            title = "Google Drive unavailable"
+            message = "Check your connection and try again."
+        }
+        let language = locale.identifier
+        wireframe.present(message: WalletUX.text(message, language: language), title: WalletUX.text(title, language: language),
+            closeAction: R.string.localizable.commonOk(preferredLanguages: locale.rLanguages), from: view)
     }
 
 }
@@ -62,7 +78,17 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
     }
 
     func activateAccountRestore() {
-        showActionSheet()
+        wireframe.showImportMethods(from: view) { [weak self] method in
+            guard let self else { return }
+            switch method {
+            case .passphrase:
+                self.wireframe.showAccountRestoreRedesign(from: self.view, sourceType: .mnemonic)
+            case .rawSeed:
+                self.wireframe.showAccountRestoreRedesign(from: self.view, sourceType: .seed)
+            case .google:
+                self.activateCloudStorageConnection()
+            }
+        }
     }
     
     func activateCloudStorageConnection() {
@@ -95,37 +121,5 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
 extension OnboardingMainPresenter: OnboardingMainInteractorOutputProtocol {
     func didSuggestKeystoreImport() {
         wireframe.showKeystoreImport(from: view)
-    }
-}
-
-private extension OnboardingMainPresenter {
-    func showActionSheet() {
-        let title = R.string.localizable.recoveryTitleV2(preferredLanguages: .currentLocale)
-        let message = R.string.localizable.importAccountMessage(preferredLanguages: .currentLocale)
-        let closeActionText = R.string.localizable.commonCancel(preferredLanguages: .currentLocale)
-        let rawSeedText = R.string.localizable.commonRawSeed(preferredLanguages: .currentLocale)
-        let passphraseText = R.string.localizable.recoveryPassphrase(preferredLanguages: .currentLocale)
-        
-        let passphraseAction = AlertPresentableAction(title: passphraseText) { [weak self] in
-            guard let self = self else { return }
-            self.wireframe.showAccountRestoreRedesign(from: self.view, sourceType: .mnemonic)
-        }
-        
-        let rawSeedAction = AlertPresentableAction(title: rawSeedText) { [weak self] in
-            guard let self = self else { return }
-            self.wireframe.showAccountRestoreRedesign(from: self.view, sourceType: .seed)
-        }
-        
-        let googleAction = AlertPresentableAction(title: "Google") { [weak self] in
-            guard let self = self else { return }
-            self.activateCloudStorageConnection()
-        }
-        
-
-        let viewModel = AlertPresentableViewModel(title: title,
-                                                  message: message,
-                                                  actions: [googleAction, passphraseAction, rawSeedAction],
-                                                  closeAction: closeActionText)
-        wireframe.present(viewModel: viewModel, style: .actionSheet, from: view)
     }
 }

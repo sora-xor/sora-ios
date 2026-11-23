@@ -18,7 +18,6 @@
 import SoraUIKit
 import UIKit
 import SSFUtils
-import UIKit
 
 final class RecipientAddressCell: SoramitsuTableViewCell {
     private let generator = PolkadotIconGenerator()
@@ -34,7 +33,11 @@ final class RecipientAddressCell: SoramitsuTableViewCell {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setupView() {
+        recipientView.titleLabel.sora.text = R.string.localizable.recipientAddress(preferredLanguages: .currentLocale)
         recipientView.contactView.arrowImageView.isHidden = true
+        recipientView.contactView.button.isHidden = true
+        recipientView.contactView.usernameTitle.isHidden = true
+        recipientView.contactView.accountTitle.sora.font = FontType.mono
         contentView.addSubviews(recipientView)
     }
 

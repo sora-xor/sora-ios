@@ -80,6 +80,19 @@ final class RequestAmountFlowTests: XCTestCase {
         try XCTUnwrap(buttons(view).last).sendActions(for: .touchUpInside)
         XCTAssertTrue(a.route.receives.isEmpty); XCTAssertEqual(b.route.receives.count, 1)
     }
+    func testCreateButtonFollowsTheEnteredAmount() throws {
+        let f = make()
+        f.model.asset = f.assets.assets[0]
+        let view = InputSendInfoView()
+        view.viewModel = f.model
+        let button = try XCTUnwrap(buttons(view).last)
+        XCTAssertFalse(button.isEnabled)
+        for (text, enabled) in [("1,25", true), ("", false), ("0", false), ("1", true)] {
+            view.assetView.textField.text = text
+            view.assetView.textField.sendActions(for: .editingChanged)
+            XCTAssertEqual(button.isEnabled, enabled)
+        }
+    }
     func testTextFieldAcceptsAnExactDecimalSeparator() {
         let f = make(); let view = InputSendInfoView(); view.viewModel = f.model
         view.assetView.textField.text = "1,25"; view.assetView.textField.sendActions(for: .editingChanged); XCTAssertEqual(f.model.inputedAmount, Decimal(string: "1.25"))

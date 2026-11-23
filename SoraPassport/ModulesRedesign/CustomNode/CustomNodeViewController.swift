@@ -63,6 +63,7 @@ final class CustomNodeViewController: SoramitsuViewController, AlertPresentable 
             $0.textField.delegate = self
             $0.textField.autocorrectionType = .no
             $0.textField.autocapitalizationType = .none
+            $0.textField.keyboardType = .URL
             $0.textField.tag = TextFieldTag.address.rawValue
             $0.textField.sora.addHandler(for: .editingChanged) { [weak self] in
                 self?.presenter.customNodeAddressChange(to: self?.nodeAddressTextField.textField.text ?? "")
@@ -167,7 +168,7 @@ private extension CustomNodeViewController {
 extension CustomNodeViewController: UITextFieldDelegate {
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         if textField.tag == TextFieldTag.name.rawValue {
-            nodeAddressTextField.becomeFirstResponder()
+            nodeAddressTextField.textField.becomeFirstResponder()
         }
 
         if textField.tag == TextFieldTag.address.rawValue {

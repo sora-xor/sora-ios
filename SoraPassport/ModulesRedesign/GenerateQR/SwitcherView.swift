@@ -35,67 +35,32 @@ struct SwitcherViewModel {
 
 final class SwitcherView: SoramitsuView {
 
+    private let segments = PortfolioSegmentedControl()
+
     var viewModel: SwitcherViewModel? {
         didSet {
-            mainStackView.arrangedSubviews.forEach { subview in
-                mainStackView.removeArrangedSubview(subview)
-                subview.removeFromSuperview()
-            }
-
-            guard let viewModel else { return }
-            let butttonViews = viewModel.buttonViewModels.map { buttonViewModel -> SoramitsuButton in
-                let title = SoramitsuTextItem(text:  buttonViewModel.title,
-                                              fontData: FontType.textBoldS,
-                                              textColor: buttonViewModel.isSelected ? .bgSurface : .accentSecondary,
-                                              alignment: .center)
-                let button = SoramitsuButton()
-                button.sora.attributedText = title
-                button.accessibilityLabel = buttonViewModel.title
-                if buttonViewModel.isSelected {
-                    button.accessibilityTraits.insert(.selected)
-                }
-                button.sora.cornerRadius = .circle
-                button.sora.backgroundColor = buttonViewModel.isSelected ? .accentSecondary : .bgSurfaceVariant
-                button.sora.horizontalOffset = 12
-                button.sora.addHandler(for: .touchUpInside) {
-                    buttonViewModel.actionBlock?()
-                }
-                return button
-            }
-
-            mainStackView.addArrangedSubviews(butttonViews)
+            let buttons = viewModel?.buttonViewModels ?? []
+            segments.configure(titles: buttons.map(\.title), selected: buttons.firstIndex(where: \.isSelected) ?? 0,
+                               animated: window != nil && oldValue != nil)
         }
     }
-    
-    private let mainStackView: SoramitsuStackView = {
-        var mainStackView = SoramitsuStackView()
-        mainStackView.sora.backgroundColor = .custom(uiColor: .clear)
-        mainStackView.sora.axis = .horizontal
-        mainStackView.sora.alignment = .fill
-        mainStackView.sora.clipsToBounds = false
-        mainStackView.spacing = 8
-        return mainStackView
-    }()
 
     override init(frame: CGRect = .zero) {
         super.init(frame: frame)
-        setupSubviews()
-        setupConstrains()
-    }
-
-    private func setupSubviews() {
         translatesAutoresizingMaskIntoConstraints = false
         sora.backgroundColor = .custom(uiColor: .clear)
-        addSubview(mainStackView)
-    }
-
-    private func setupConstrains() {
+        segments.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(segments)
         NSLayoutConstraint.activate([
-            mainStackView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            mainStackView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            mainStackView.topAnchor.constraint(equalTo: topAnchor),
-            mainStackView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            mainStackView.heightAnchor.constraint(equalToConstant: 32),
+            segments.leadingAnchor.constraint(equalTo: leadingAnchor),
+            segments.trailingAnchor.constraint(equalTo: trailingAnchor),
+            segments.topAnchor.constraint(equalTo: topAnchor),
+            segments.bottomAnchor.constraint(equalTo: bottomAnchor),
+            segments.heightAnchor.constraint(greaterThanOrEqualToConstant: 52)
         ])
+        segments.onSelect = { [weak self] index in
+            guard let buttons = self?.viewModel?.buttonViewModels, buttons.indices.contains(index) else { return }
+            buttons[index].actionBlock?()
+        }
     }
 }

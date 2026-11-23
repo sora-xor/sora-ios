@@ -22,7 +22,7 @@ class MenuTitleItem: SoramitsuView {
 
     let titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.numberOfLines = 1
+        label.numberOfLines = 0
         label.textAlignment = .left
         label.backgroundColor = .clear
         label.sora.font = FontType.headline4
@@ -45,7 +45,7 @@ class MenuTitleItem: SoramitsuView {
 
     private func setupConstrains() {
         titleLabel.leadingAnchor == leadingAnchor + 24
-        titleLabel.trailingAnchor == trailingAnchor + 24
+        titleLabel.trailingAnchor == trailingAnchor - 24
         titleLabel.topAnchor == topAnchor + 24
         titleLabel.bottomAnchor == bottomAnchor
     }

@@ -189,7 +189,8 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
             skyHeight,
             scopeTop,
             scopeLeading,
-            scopeButton.trailingAnchor.constraint(lessThanOrEqualTo: contentView.centerXAnchor, constant: 40),
+            // The name may use the row: nothing stands to its right, and half the width cut ordinary names.
+            scopeButton.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -16),
             card.topAnchor.constraint(equalTo: sky.bottomAnchor, constant: -PortfolioTheme.Sky.cardOverlap),
             cardLeading,
             cardTrailing,
@@ -340,6 +341,21 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         }
         wasLoading = model.isLoading
         sky.setReading(model.isLoading)
+        // While the total is read its dash breathes, so it reads as on the way rather than as nothing.
+        if model.isLoading, !UIAccessibility.isReduceMotionEnabled {
+            if totalLabel.layer.animation(forKey: "reading") == nil {
+                let breathe = CABasicAnimation(keyPath: "opacity")
+                breathe.fromValue = 1
+                breathe.toValue = 0.3
+                breathe.duration = 0.9
+                breathe.autoreverses = true
+                breathe.repeatCount = .infinity
+                breathe.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                totalLabel.layer.add(breathe, forKey: "reading")
+            }
+        } else {
+            totalLabel.layer.removeAnimation(forKey: "reading")
+        }
         actionViews.forEach { $0.applyTheme() }
         layoutForContentSize()
 

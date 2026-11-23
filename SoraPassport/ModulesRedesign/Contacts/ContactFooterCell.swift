@@ -49,18 +49,16 @@ final class ContactFooterCell: SoramitsuTableViewCell {
         
         NSLayoutConstraint.activate([
             containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -32),
-            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 15),
+            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             containerView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            containerView.heightAnchor.constraint(equalToConstant: 48)
+            containerView.heightAnchor.constraint(equalToConstant: 12)
         ])
     }
 }
 
 extension ContactFooterCell: SoramitsuTableViewCellProtocol {
     func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
-        guard let item = item as? ContactFooterItem else {
-            return
-        }
+        isAccessibilityElement = false
     }
 }

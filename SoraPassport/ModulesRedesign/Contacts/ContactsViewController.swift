@@ -31,34 +31,49 @@ final class ContactsViewController: SoramitsuViewController {
         field.textField.autocorrectionType = .no
         field.textField.autocapitalizationType = .none
         field.textField.spellCheckingType = .no
+        // Addresses are ASCII: a Japanese input method turned typed letters into kana.
+        field.textField.keyboardType = .asciiCapable
         field.textField.returnKeyType = .done
-        field.sora.buttonImage = R.image.wallet.qrScan()
-        field.sora.buttonImageTintColor = .fgSecondary
         field.translatesAutoresizingMaskIntoConstraints = false
-        field.sora.titleLabelText = R.string.localizable.selectAccountAddress1(preferredLanguages: .currentLocale)
+        field.sora.titleLabelText = R.string.localizable.recipientAddress(preferredLanguages: .currentLocale)
         field.sora.textFieldPlaceholder = R.string.localizable.selectAccountAddress1(preferredLanguages: .currentLocale)
+        field.textField.accessibilityLabel = field.sora.titleLabelText
         field.textField.sora.addHandler(for: .editingChanged) { [weak self, weak field] in
-            guard let field else { return }
-            let text = field.textField.text ?? ""
+            guard let self, let field else { return }
             field.sora.resetValidation()
-            self?.viewModel.search(text)
-            
-            field.sora.buttonImage = text.isEmpty ? R.image.wallet.qrScan() : R.image.wallet.cross()
+            updateFieldAction()
+            viewModel.search(field.textField.text ?? "")
         }
-        field.button.sora.addHandler(for: .touchUpInside) { [weak self, weak field] in
-            guard let field else { return }
-            let text = field.textField.text ?? ""
-            
-            if text.isEmpty {
-                self?.viewModel.openQR()
+        field.textField.sora.addHandler(for: .editingDidEndOnExit) { [weak field] in
+            field?.textField.resignFirstResponder()
+        }
+        return field
+    }()
+
+    private(set) lazy var fieldAction: ImageButton = {
+        let action = ImageButton(size: CGSize(width: 48, height: 48))
+        action.sora.backgroundColor = .bgSurface
+        action.sora.cornerRadius = .circle
+        action.sora.tintColor = .accentPrimary
+        action.sora.addHandler(for: .touchUpInside) { [weak self] in
+            guard let self else { return }
+            if field.textField.text?.isEmpty ?? true {
+                field.textField.resignFirstResponder()
+                viewModel.openQR()
             } else {
                 field.sora.text = ""
                 field.textField.sendActions(for: .editingChanged)
             }
         }
-        return field
+        return action
     }()
-    
+
+    private func updateFieldAction() {
+        let empty = field.textField.text?.isEmpty ?? true
+        fieldAction.sora.image = UIImage(systemName: empty ? "qrcode.viewfinder" : "xmark")
+        fieldAction.accessibilityLabel = empty ? R.string.localizable.commonScanQr(preferredLanguages: .currentLocale) : WalletUX.text("Clear search")
+    }
+
     private lazy var tableView: SoramitsuTableView = {
         let tableView = SoramitsuTableView()
         tableView.sora.backgroundColor = .custom(uiColor: .clear)
@@ -84,7 +99,6 @@ final class ContactsViewController: SoramitsuViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        field.textField.becomeFirstResponder()
         setupView()
         setupConstraints()
 
@@ -94,6 +108,7 @@ final class ContactsViewController: SoramitsuViewController {
 
         viewModel.setupItems = { [weak self] items in
             DispatchQueue.main.async {
+                self?.updateFieldAction()
                 self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
             }
         }
@@ -103,20 +118,24 @@ final class ContactsViewController: SoramitsuViewController {
 
     private func setupView() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
+        view.addSubview(fieldAction)
         view.addSubview(field)
+        updateFieldAction()
         view.addSubview(tableView)
     }
 
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             field.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            field.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            field.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            field.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 20),
+            field.trailingAnchor.constraint(equalTo: fieldAction.leadingAnchor, constant: -8),
+            fieldAction.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -20),
+            fieldAction.centerYAnchor.constraint(equalTo: field.topAnchor, constant: 28),
             
             tableView.topAnchor.constraint(equalTo: field.bottomAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
         ])
     }
 }
@@ -125,5 +144,6 @@ extension ContactsViewController: ContactsViewProtocol {
     func show(error: String) {
         field.sora.state = .fail
         field.sora.descriptionLabelText = error
+        UIAccessibility.post(notification: .announcement, argument: error)
     }
 }

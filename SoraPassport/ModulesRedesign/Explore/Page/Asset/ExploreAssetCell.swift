@@ -47,30 +47,17 @@ final class ExploreAssetCell: SoramitsuTableViewCell {
     }
     
     private func updateContent(with viewModel: ExploreAssetViewModel) {
-        if let icon = viewModel.icon {
-            assetView.assetImageView.sora.picture = .logo(image: icon)
-            assetView.assetImageView.sora.loadingPlaceholder.type = .none
-        }
-        
-        if let title = viewModel.title {
-            assetView.titleLabel.sora.text = title
-            assetView.titleLabel.sora.loadingPlaceholder.type = .none
-        }
-        
-        if let marketCap = viewModel.marketCap.value {
-            assetView.subtitleLabel.sora.text = marketCap
-        }
-        assetView.subtitleLabel.sora.loadingPlaceholder.type = viewModel.marketCap.shimmerType
-        
-        if let price = viewModel.price {
-            assetView.amountUpLabel.sora.text = price
-            assetView.amountUpLabel.sora.loadingPlaceholder.type = .none
-        }
-        
-        if let delta = viewModel.deltaPrice.value {
-            assetView.amountDownLabel.sora.attributedText = delta
-        }
-        assetView.amountDownLabel.sora.loadingPlaceholder.type = viewModel.deltaPrice.shimmerType
+        let placeholder: SoramitsuLoadingPlaceholderType = viewModel.assetId == nil && LitMotion.allowed ? .shimmer : .none
+        assetView.assetImageView.sora.picture = viewModel.icon.map { .logo(image: $0) }
+        assetView.assetImageView.sora.loadingPlaceholder.type = placeholder
+        assetView.titleLabel.sora.text = viewModel.title
+        assetView.titleLabel.sora.loadingPlaceholder.type = placeholder
+        assetView.amountUpLabel.sora.text = viewModel.price
+        assetView.amountUpLabel.sora.loadingPlaceholder.type = placeholder
+        assetView.subtitleLabel.sora.text = viewModel.marketCap.value
+        assetView.subtitleLabel.sora.loadingPlaceholder.type = placeholder
+        assetView.amountDownLabel.sora.attributedText = viewModel.deltaPrice.value ?? nil
+        assetView.amountDownLabel.sora.loadingPlaceholder.type = placeholder
     }
 }
 

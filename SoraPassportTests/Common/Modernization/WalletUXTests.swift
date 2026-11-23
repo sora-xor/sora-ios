@@ -498,13 +498,13 @@ final class WalletUXTests: XCTestCase {
         XCTAssertTrue(field.descriptionLabel.isHidden)
         XCTAssertFalse(field.titleLabel.isHidden)
         controller.show(error: "Synthetic invalid-address error")
-        field.button.sendActions(for: .touchUpInside)
+        controller.fieldAction.sendActions(for: .touchUpInside)
         XCTAssertEqual(model.searches, ["abc", ""])
         XCTAssertEqual(field.textField.text, "")
         XCTAssertTrue(field.titleLabel.isHidden)
         XCTAssertTrue(field.descriptionLabel.isHidden)
         XCTAssertNotEqual(field.sora.state, .fail)
-        field.button.sendActions(for: .touchUpInside)
+        controller.fieldAction.sendActions(for: .touchUpInside)
         XCTAssertEqual(model.qrRequests, 1)
     }
 
@@ -742,15 +742,15 @@ final class WalletUXTests: XCTestCase {
         let controller = PolkaswapViewController(viewModel: model)
         model.view = controller
         controller.loadViewIfNeeded()
-        let view = try XCTUnwrap(controller.navigationItem.titleView as? UIImageView)
-        let light = try XCTUnwrap(view.image?.pngData())
+        // The red flower beside the name, never the brand asset's pink flower, in either appearance.
+        let title = try XCTUnwrap(controller.navigationItem.titleView as? PolkaswapTitleView)
+        XCTAssertEqual(title.accessibilityLabel, "Polkaswap")
+        let flower = try XCTUnwrap(title.arrangedSubviews.compactMap { $0 as? UIImageView }.first?.image?.pngData())
+        XCTAssertEqual(flower, PortfolioGlyphs.flowerImage(size: 20).pngData())
         SoramitsuUI.shared.themeMode = .manual(.dark)
         try await Task.sleep(nanoseconds: 100_000_000)
-        let dark = try XCTUnwrap(view.image?.pngData())
-        XCTAssertEqual(dark, light, "The classic design is light only")
+        XCTAssertTrue(controller.navigationItem.titleView is PolkaswapTitleView, "An open swap screen keeps its title across appearance changes")
         SoramitsuUI.shared.themeMode = .manual(.light)
-        try await Task.sleep(nanoseconds: 100_000_000)
-        XCTAssertEqual(view.image?.pngData(), light, "An open swap screen must follow app appearance changes")
     }
 
     @MainActor

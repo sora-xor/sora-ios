@@ -42,6 +42,7 @@ protocol OnboardingMainInteractorOutputProtocol: AnyObject {
 }
 
 protocol OnboardingMainWireframeProtocol: WebPresentable, ErrorPresentable, AlertPresentable, Loadable {
+    func showImportMethods(from view: OnboardingMainViewProtocol?, select: @escaping (OnboardingImportMethod) -> Void)
     func showSignup(from view: OnboardingMainViewProtocol?, isGoogleBackupSelected: Bool)
     func showAccountRestore(from view: OnboardingMainViewProtocol?)
     func showAccountRestoreRedesign(from view: OnboardingMainViewProtocol?, sourceType: AccountImportSource)

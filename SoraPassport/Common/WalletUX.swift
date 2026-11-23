@@ -464,6 +464,8 @@ final class WalletNeonButton: UIButton {
         minimumHeight.priority = UILayoutPriority(999)
         minimumHeight.isActive = true
         layer.masksToBounds = false
+        // A sheet over the screen dims tint; the glass keeps its white title rather than turning maroon.
+        tintAdjustmentMode = .normal
         SoramitsuUI.updates.addObserver(self)
     }
 

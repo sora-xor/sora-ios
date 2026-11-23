@@ -211,6 +211,10 @@ final class ScannerLifecycleTests: XCTestCase {
 }
 private final class ScannerView: UIViewController, ScanQRViewProtocol {
     var controller: UIViewController { self }
+    var cameraUnavailable = false
+    var photoAccess: Bool?
+    func showCameraUnavailable() { cameraUnavailable = true }
+    func showPhotoAccess(_ available: Bool) { photoAccess = available }
     var completeDismissal = true
     var sessions = 0; var alerts: [String] = []; var settingsPrompts = 0; var dismissals = 0
     func didReceive(session: AVCaptureSession) { sessions += 1 }
@@ -321,6 +325,7 @@ extension ScannerLifecycleTests {
             capture.delegate?.qrCapture(service: capture, didReceive: error)
         }
         await settle(); XCTAssertEqual(screen.settingsPrompts, 1); XCTAssertTrue(screen.alerts.isEmpty)
+        XCTAssertEqual(screen.photoAccess, false)
     }
     func testUnknownCaptureErrorDoesNotInventACameraPermissionFailure() async {
         capture.delegate?.qrCapture(service: capture, didReceive: NSError(domain: "fixture", code: 1))
@@ -329,6 +334,7 @@ extension ScannerLifecycleTests {
     func testRestrictedCameraMarksThePermissionAttemptWithoutOfferingSettings() async {
         capture.delegate?.qrCapture(service: capture, didReceive: WalletQRCaptureServiceError.deviceAccessRestricted)
         await settle(); XCTAssertEqual(screen.settingsPrompts, 0)
+        XCTAssertTrue(screen.cameraUnavailable)
         guard case .initializing(let asked) = model.scanState else { return XCTFail("Unexpected camera state") }; XCTAssertTrue(asked)
     }
     func testShowMyQrDismissesTheScannerWhenItsReceiveScreenIsAlreadyUnderneath() {

@@ -105,6 +105,14 @@ final class InputSendInfoViewModel {
         self.marketCapService = marketCapService
     }
     
+    var canCreateRequest: Bool {
+        guard assetManager != nil, fiatService != nil, let asset,
+              let address, !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              inputedAmount > 0, let precision = Int16(exactly: asset.precision),
+              let atomic = inputedAmount.toSubstrateAmount(precision: precision) else { return false }
+        return atomic > 0
+    }
+
     func transform(input: AnyPublisher<Input, Never>) -> AnyPublisher<Output, Never> {
         input.compactMap { [weak self] event -> Output? in
             self?.handle(event)
@@ -129,11 +137,7 @@ final class InputSendInfoViewModel {
                 self?.asset = assetManager.assetInfo(for: selected)
             }
         case .createQr:
-            guard let asset,
-                  let address, !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  inputedAmount > 0,
-                  let precision = Int16(exactly: asset.precision),
-                  let atomic = inputedAmount.toSubstrateAmount(precision: precision), atomic > 0 else { return }
+            guard canCreateRequest, let asset, let address else { return }
             wireframe?.showReceive(selectedAsset: asset, accountId: accountId, address: address,
                                    amount: AmountDecimal(value: inputedAmount), qrEncoder: qrEncoder,
                                    sharingFactory: sharingFactory, fiatService: fiatService,

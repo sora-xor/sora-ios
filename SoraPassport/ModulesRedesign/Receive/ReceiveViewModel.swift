@@ -38,14 +38,14 @@ final class ReceiveViewModel {
     private var address: String
     private var selectedAsset: AssetInfo
     private let accountRepository: AnyDataProviderRepository<AccountItem>
-    private var appEventService = AppEventService()
+    private var accountName = ""
 
     private var currentImage: UIImage?
+    private var generationID: UUID?
     private var amount: AmountDecimal?
     private var qrOperation: Operation?
     private var fiatData: [PIExactFiatData] = []
     private weak var fiatService: FiatServiceProtocol?
-    private weak var assetProvider: AssetProviderProtocol?
     private weak var assetManager: AssetManagerProtocol?
     
     init(
@@ -66,7 +66,6 @@ final class ReceiveViewModel {
         self.selectedAsset = selectedAsset
         self.amount = amount
         self.fiatService = fiatService
-        self.assetProvider = assetProvider
         self.assetManager = assetManager
         
         self.accountRepository = AnyDataProviderRepository(
@@ -103,37 +102,39 @@ extension ReceiveViewModel: ReceiveViewModelProtocol {
 private extension ReceiveViewModel {
     func generateQR(with size: CGSize) {
         cancelQRGeneration()
-
+        let id = UUID()
+        generationID = id
         currentImage = nil
-
+        publishReceive()
         do {
             guard let receiveInfo = createReceiveInfo() else {
+                processOperation(image: nil)
                 return
             }
-
-            qrOperation = try qrService.generate(from: receiveInfo, qrSize: size,
-                                                 runIn: .main) { [weak self] (operationResult) in
-                                                    if let result = operationResult {
-                                                        self?.qrOperation = nil
-                                                        self?.processOperation(result: result)
-                                                    }
+            qrOperation = try qrService.generate(from: receiveInfo, qrSize: size, runIn: .main) { [weak self] result in
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, generationID == id else { return }
+                    processOperation(image: try? result?.get())
+                }
             }
         } catch {
-            processOperation(result: .failure(error))
+            processOperation(image: nil)
         }
     }
-    
-    func processOperation(result: Result<UIImage, Swift.Error>) {
+
+    func processOperation(image: UIImage?) {
+        generationID = nil
+        qrOperation = nil
+        currentImage = image
+        publishReceive()
         let persistentOperation = self.accountRepository.fetchAllOperation(with: RepositoryFetchOptions())
-        
         persistentOperation.completionBlock = { [weak self] in
             guard let accounts = try? persistentOperation.extractNoCancellableResultData() else { return }
-            // On the main queue, where prices are applied too: the item is
-            // built either with the prices or before them, and in the second
-            // case their arrival builds it again.
             DispatchQueue.main.async {
-                guard let receiveItem = self?.setupReceiveItem(with: accounts, generationResult: result) else { return }
-                self?.setupItems?([ receiveItem ])
+                guard let self, let name = accounts.first(where: { $0.address == self.address })?.username,
+                      name != self.accountName else { return }
+                self.accountName = name
+                self.publishReceive()
             }
         }
         OperationManagerFacade.runtimeBuildingQueue.addOperation(persistentOperation)
@@ -143,9 +144,7 @@ private extension ReceiveViewModel {
     func show(fiatData loaded: [PIExactFiatData]) {
         guard loaded != fiatData else { return }
         fiatData = loaded
-        if let currentImage {
-            processOperation(result: .success(currentImage))
-        }
+        publishReceive()
     }
     
     func createReceiveInfo() -> ReceiveInfo? {
@@ -156,6 +155,7 @@ private extension ReceiveViewModel {
     }
     
     func cancelQRGeneration() {
+        generationID = nil
         qrOperation?.cancel()
         qrOperation = nil
     }
@@ -171,56 +171,25 @@ private extension ReceiveViewModel {
 }
 
 private extension ReceiveViewModel {
-    func setupReceiveItem(with accounts: [AccountItem], generationResult: Result<UIImage, Swift.Error>) -> ReceiveItem? {
-        let selectedAccountAddress = SelectedWalletSettings.shared.currentAccount?.address ?? ""
-        let selectedAccount = accounts.first { $0.address == selectedAccountAddress }
-        
-        switch generationResult {
-        case .success(let image):
-            
-            currentImage = image
-            
-            let receiveItem = ReceiveItem(name: selectedAccount?.username ?? "",
-                                          address: selectedAccountAddress,
-                                          qrImage: image,
-                                          sendAssetViewModel: setupSendAsset())
-            receiveItem.shareHandler = { [weak self] in
-                self?.share()
-            }
-            receiveItem.accountTapHandler = { [weak self] in
-                let title = NSAttributedString(string: R.string.localizable.commonCopied(preferredLanguages: .currentLocale))
-                let viewModel = AppEventViewController.ViewModel(title: title)
-                let appEventController = AppEventViewController(style: .custom(viewModel))
-                self?.appEventService.showToasterIfNeeded(viewController: appEventController)
-                UIPasteboard.general.string = selectedAccountAddress
-            }
-            return receiveItem
-        case .failure: break
+    func publishReceive() {
+        let item = ReceiveItem(name: accountName, address: address, qrImage: currentImage, sendAssetViewModel: setupSendAsset(),
+                               isGenerating: generationID != nil)
+        if currentImage != nil { item.shareHandler = { [weak self] in self?.share() } }
+        item.accountTapHandler = { [weak self, address] in
+            UIPasteboard.general.string = address
+            self?.view?.didCopyAddress(address)
         }
-        
-        return nil
+        setupItems?([item])
     }
-    
+
     func setupSendAsset() -> SendAssetViewModel? {
-        guard let amount = amount, let balance = assetProvider?.getBalances(with: [selectedAsset.assetId]).first else { return nil }
+        guard let amount else { return nil }
        
         return SendAssetViewModel(symbol: selectedAsset.symbol,
                                   amount: amount.stringValue,
-                                  balance: setupFullBalanceText(from: balance, fiatData: fiatData),
+                                  balance: nil,
                                   fiat: setupFiatText(from: amount.decimalValue, assetId: selectedAsset.assetId, fiatData: fiatData),
                                   svgString: selectedAsset.icon)
-    }
-    
-    func setupFullBalanceText(from balanceData: BalanceData, fiatData: [PIExactFiatData]) -> String {
-        let balance = NumberFormatter.polkaswapBalance.stringFromDecimal(balanceData.balance.decimalValue) ?? ""
-        var fiatBalanceText = ""
-        
-        if let usdPrice = fiatData.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue {
-            let fiatDecimal = balanceData.balance.decimalValue * usdPrice
-            fiatBalanceText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
-        }
-
-        return fiatBalanceText.isEmpty ? "\(balance)" : "\(balance) (\(fiatBalanceText))"
     }
     
     func setupFiatText(from amount: Decimal, assetId: String, fiatData: [PIExactFiatData]) -> String {

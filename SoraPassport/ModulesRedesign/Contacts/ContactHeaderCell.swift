@@ -30,6 +30,9 @@ final class ContactHeaderCell: SoramitsuTableViewCell {
         return view
     }()
 
+    private let icon = UIImageView()
+    private let row = UIStackView()
+
     private let accountTitle: SoramitsuLabel = {
         var label = SoramitsuLabel()
         label.sora.textColor = .fgSecondary
@@ -51,21 +54,31 @@ final class ContactHeaderCell: SoramitsuTableViewCell {
     private func setupView() {
         sora.clipsToBounds = true
         contentView.addSubview(containerView)
-        containerView.addSubview(accountTitle)
+        icon.tintColor = WalletUX.accent
+        icon.contentMode = .scaleAspectFit
+        icon.setContentHuggingPriority(.required, for: .horizontal)
+        row.axis = .horizontal
+        row.spacing = 10
+        row.alignment = .center
+        row.translatesAutoresizingMaskIntoConstraints = false
+        row.addArrangedSubview(icon)
+        row.addArrangedSubview(accountTitle)
+        containerView.addSubview(row)
+        isAccessibilityElement = true
     }
     
     func setupConstraints() {
         
         NSLayoutConstraint.activate([
             containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 15),
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             containerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             containerView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
 
-            accountTitle.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            accountTitle.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            accountTitle.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
-            accountTitle.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -8),
+            row.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            row.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            row.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 16),
+            row.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -12),
         ])
     }
 }
@@ -76,5 +89,11 @@ extension ContactHeaderCell: SoramitsuTableViewCellProtocol {
             return
         }
         accountTitle.sora.text = item.title
+        icon.image = item.symbol.flatMap { UIImage(systemName: $0) }
+        icon.isHidden = icon.image == nil
+        containerView.sora.cornerMask = item.symbol == nil ? .top : .all
+        accessibilityLabel = item.title
+        accessibilityHint = item.onTap == nil ? nil : R.string.localizable.commonRetry(preferredLanguages: .currentLocale)
+        accessibilityTraits = item.onTap != nil ? .button : (item.symbol == nil ? .header : .staticText)
     }
 }

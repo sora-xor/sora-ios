@@ -34,8 +34,8 @@ final class ClassicPhoneLayoutTests: XCTestCase {
 
     /// Recorded on 2a350001 (iOS 26.5 simulator, English); home and PIN with the white-and-red materials.
     static let recorded: [String: String] = [
-        "home-375x667": "e0b80376a54920e67f32af8ae8df8c90aa219f78ae00c1ca1cfd4bc74cb252c3",
-        "home-402x874": "9ccf9bfd5ab95c38ae1fcb5a62e3fdc776b3e3f92e09b3d538db920cceae5d23",
+        "home-375x667": "38e5d880c5518b2dbf2ddcbd2022007e787ba9154e4869109b17127449099353",
+        "home-402x874": "192e42b9ea9ba78a7c831385bd36d5714414406178a0dba9ad41961e1a4d48d9",
         "launch-375x667": "5ce85bf0039f243875f9b51c7597a3477d7278bc22f02a9383e230c2879a515c",
         "launch-402x874": "2ba0bfaed8d6755af6022315f30b8f1315e0b2583881b1e2d4b93063f42641fe",
         "phrase-hidden-375x667": "3de8be60c4111cda629dcfec347e922c5639403192af832bca38f8fc16b7cc11",
@@ -46,10 +46,8 @@ final class ClassicPhoneLayoutTests: XCTestCase {
         "pin-entry-402x874": "860169971f1584365427b7a30117dfcfc1b1d5fdb20e864f78154ed87675a848",
         "pin-unlock-key-375x667": "84cc4bf050efaabd62c462c0840ae7809e5352a996f4c4eb4914e5348fa69d7e",
         "pin-unlock-key-402x874": "860169971f1584365427b7a30117dfcfc1b1d5fdb20e864f78154ed87675a848",
-        "raw-seed-375x667": "04f4955a810689eda431c3c02ea6e63c82ebfbc7d43090683748b5eafa45c1ee",
-        "raw-seed-402x874": "c98494898e551525f0c6d35ab24808b8f0fffce80a53132d8464f65123c2fa14",
-        "receive-375x667": "011401fb570d936b0243407b42c36da0ea1b282c90703eaa83f64bed51d72125",
-        "receive-402x874": "7b2295abe95832ec17c73f550712b4cc31ea27b2265cd446255b9628edccb9aa"
+        "raw-seed-375x667": "be0f69a9c5bba3821116b45a4e59ae10045abf64cbbfa16f426fc9835126936e",
+        "raw-seed-402x874": "70a1e636f9c5a1dc0ccf550ebe1411fe89a8ccaa97254b2de435986c9a2ae39d",
     ]
 
     private var windows: [UIWindow] = []
@@ -118,13 +116,24 @@ final class ClassicPhoneLayoutTests: XCTestCase {
         }
     }
 
-    func testReceiveCardKeepsItsFrames() {
+    func testReceiveCodeStaysSquareAndLeavesRoomForItsAddressAndShare() throws {
+        let address = "cnVkoGs3rEMqLqY27c2nfVXJRGdzNJk2ns78DcqtppaSRe8qm"
         for phone in Self.phones {
-            let controller = ClassicTableController(rows: [
-                ReceiveItem(name: "Fixture", address: "cnVkoGs3rEMqLqY27c2nfVXJRGdzNJk2ns78DcqtppaSRe8qm",
-                            qrImage: Self.square(.black))
-            ])
-            check("receive", phone, controller)
+            let qr = Self.square(.black)
+            let item = ReceiveItem(name: "Fixture", address: address, qrImage: qr)
+            item.shareHandler = {}
+            item.accountTapHandler = {}
+            let controller = ClassicTableController(rows: [item])
+            let window = show(controller, phone)
+            let views = Self.descendants(of: controller.view)
+            let image = try XCTUnwrap(views.compactMap { $0 as? UIImageView }.first { $0.image === qr })
+            let copy = try XCTUnwrap(views.first { $0.accessibilityLabel == "Fixture, " + address })
+            let share = try XCTUnwrap(views.first { $0.accessibilityLabel == "Share" && $0 is UIControl })
+            XCTAssertEqual(image.bounds.width, image.bounds.height, accuracy: 0.5)
+            XCTAssertGreaterThan(image.bounds.width, 200)
+            XCTAssertGreaterThan(copy.convert(copy.bounds, to: window).minY, image.convert(image.bounds, to: window).maxY)
+            XCTAssertGreaterThan(share.convert(share.bounds, to: window).minY, copy.convert(copy.bounds, to: window).maxY)
+            XCTAssertLessThanOrEqual(share.convert(share.bounds, to: window).maxY, window.bounds.height - phone.insets.bottom)
         }
     }
 

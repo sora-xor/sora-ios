@@ -51,6 +51,7 @@ final class EnterPasswordViewController: SoramitsuViewController & EnterPassword
     private lazy var tableView: UITableView = {
         let tableView = UITableView()
         tableView.delegate = self
+        tableView.keyboardDismissMode = .interactive
         tableView.separatorStyle = .none
         tableView.backgroundColor = .clear
         tableView.translatesAutoresizingMaskIntoConstraints = false
@@ -83,7 +84,7 @@ final class EnterPasswordViewController: SoramitsuViewController & EnterPassword
             tableView.topAnchor.constraint(equalTo: soramitsuView.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: soramitsuView.leadingAnchor),
             tableView.centerXAnchor.constraint(equalTo: soramitsuView.centerXAnchor),
-            tableView.centerYAnchor.constraint(equalTo: soramitsuView.centerYAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             
             loadingView.widthAnchor.constraint(equalTo: view.widthAnchor),
             loadingView.heightAnchor.constraint(equalTo: view.heightAnchor),

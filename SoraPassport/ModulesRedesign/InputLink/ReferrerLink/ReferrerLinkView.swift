@@ -45,6 +45,8 @@ final class ReferrerLinkView: SoramitsuView {
         textField.sora.backgroundColor = .custom(uiColor: .clear)
         textField.autocapitalizationType = .none
         textField.autocorrectionType = .no
+        textField.keyboardType = .URL
+        textField.accessibilityLabel = R.string.localizable.referralReferralLink(preferredLanguages: .currentLocale)
         return textField
     }()
     

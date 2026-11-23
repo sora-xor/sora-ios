@@ -49,34 +49,14 @@ final class FriendsViewController: UIViewController {
         return label
     }()
     
-    private lazy var descriptionLabel: SoramitsuLabel = {
-        let label = SoramitsuLabel()
-        label.sora.text = R.string.localizable.referralSubtitle(preferredLanguages: .currentLocale)
-        label.sora.textColor = .fgPrimary
-        label.sora.font = FontType.paragraphM
-        label.numberOfLines = 6
-        return label
+    private let imageView: UIImageView = {
+        let icon = UIImageView(image: UIImage(systemName: "person.2", withConfiguration: UIImage.SymbolConfiguration(pointSize: 32, weight: .medium)))
+        icon.contentMode = .center
+        icon.tintColor = Lit.lacquerText
+        icon.isAccessibilityElement = false
+        return icon
     }()
-    
-    private lazy var imageView: SoramitsuImageView = {
-        let imageView = SoramitsuImageView()
-        imageView.image = R.image.archerGirl()
-        imageView.sora.contentMode = .scaleAspectFill
-        return imageView
-    }()
-    
-    private lazy var gradientView: GradientView = {
-        let view = GradientView()
-        
-        view.startColor = SoramitsuUI.shared.theme.palette.color(.bgSurface)
-        view.endColor = SoramitsuUI.shared.theme.palette.color(.bgSurface).withAlphaComponent(0.0)
-        
-        view.startPoint = CGPoint(x: 0, y: 0.5)
-        view.endPoint = CGPoint(x: 1, y: 0.5)
-        
-        return view
-    }()
-    
+
     private lazy var buttonStackView: SoramitsuStackView = {
         let stackView = SoramitsuStackView()
         stackView.sora.axis = .vertical
@@ -150,7 +130,6 @@ final class FriendsViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        presenter.setup()
 
         setupLocalization()
         configureNew()
@@ -160,6 +139,7 @@ final class FriendsViewController: UIViewController {
         setupLayout()
         
         activityIndicator.startAnimating()
+        presenter.setup()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -181,9 +161,8 @@ private extension FriendsViewController {
         view.addSubview(tableView)
         view.addSubview(containerView)
         view.addSubview(activityIndicator)
-        containerView.addSubviews([imageView, titleLabel, descriptionLabel, buttonStackView])
+        containerView.addSubviews([imageView, titleLabel, buttonStackView])
         
-        imageView.addSubview(gradientView)
         
         buttonStackView.addArrangedSubviews([startInvitingButton, enterLinkButton])
     }
@@ -200,30 +179,20 @@ private extension FriendsViewController {
         }
         
         imageView.snp.makeConstraints { make in
-            make.top.trailing.equalTo(containerView)
-            make.trailing.equalTo(containerView)
-            make.height.equalTo(325)
-            make.width.equalTo(204)
+            make.leading.top.equalTo(containerView).offset(20)
+            make.size.equalTo(48)
         }
-        
-        gradientView.snp.makeConstraints { make in
-            make.top.bottom.leading.equalTo(imageView)
-            make.trailing.equalTo(imageView).multipliedBy(0.4098)
-        }
-        
+
         titleLabel.snp.makeConstraints { make in
-            make.top.leading.equalTo(containerView).offset(24)
-            make.width.equalTo(179)
+            make.leading.equalTo(imageView.snp.trailing).offset(12)
+            make.trailing.equalTo(containerView).offset(-20)
+            make.centerY.equalTo(imageView)
+            make.top.greaterThanOrEqualTo(containerView).offset(8)
         }
-        
-        descriptionLabel.snp.makeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(16)
-            make.leading.equalTo(containerView).offset(24)
-            make.width.equalTo(147)
-        }
-        
+
         buttonStackView.snp.makeConstraints { make in
-            make.top.equalTo(descriptionLabel.snp.bottom).offset(24)
+            make.top.greaterThanOrEqualTo(titleLabel.snp.bottom).offset(12)
+            make.top.equalTo(imageView.snp.bottom).offset(16).priority(999)
             make.leading.equalTo(containerView).offset(24)
             make.centerX.equalTo(containerView)
             make.bottom.equalTo(containerView).offset(-24)
@@ -290,17 +259,19 @@ extension FriendsViewController: FriendsViewProtocol {
 
         let indexPaths = updatedIndexs.map { IndexPath(row: $0, section: 0) }
 
+        guard let lastChanged = indexPaths.last else { return }
         if isExpanding {
-            tableView.insertRows(at: indexPaths, with: .fade)
-            tableView.scrollToRow(at: IndexPath(row: models.count - 1, section: 0), at: .bottom, animated: true)
+            tableView.insertRows(at: indexPaths, with: LitMotion.allowed ? .fade : .none)
+            tableView.scrollToRow(at: lastChanged, at: .none, animated: LitMotion.allowed)
         } else {
-            tableView.deleteRows(at: indexPaths, with: .fade)
+            tableView.deleteRows(at: indexPaths, with: LitMotion.allowed ? .fade : .none)
         }
     }
 
     func startInvitingScreen(with referrer: String) {
         activityIndicator.isHidden = true
         tableView.isHidden = true
+        if containerView.isHidden { LitMotion.rise(containerView) }
         containerView.sora.isHidden = false
 
         let text = referrer.isEmpty

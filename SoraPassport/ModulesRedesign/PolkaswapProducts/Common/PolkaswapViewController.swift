@@ -83,7 +83,7 @@ final class PolkaswapViewController: SoramitsuViewController {
         view.firstAsset.sora.assetSymbol = R.string.localizable.chooseToken(preferredLanguages: .currentLocale)
         view.firstAsset.sora.fullFiatText = viewModel.firstFieldEmptyStateFullFiatText
         view.firstAsset.sora.text = ""
-        view.firstAsset.sora.assetImage = R.image.wallet.emptyToken()
+        view.firstAsset.sora.assetImage = PortfolioGlyphs.emptyTokenImage()
         view.firstAsset.textField.inputAccessoryView = accessoryView
         view.firstAsset.sora.assetChoiceHandler = { [weak self] in
             self?.viewModel.choiсeBaseAssetButtonTapped()
@@ -101,7 +101,7 @@ final class PolkaswapViewController: SoramitsuViewController {
         view.secondAsset.sora.assetSymbol = R.string.localizable.chooseToken(preferredLanguages: .currentLocale)
         view.secondAsset.sora.fullFiatText = viewModel.secondFieldEmptyStateFullFiatText
         view.secondAsset.sora.text = ""
-        view.secondAsset.sora.assetImage = R.image.wallet.emptyToken()
+        view.secondAsset.sora.assetImage = PortfolioGlyphs.emptyTokenImage()
         view.secondAsset.textField.inputAccessoryView = accessoryView
         view.secondAsset.sora.assetChoiceHandler = { [weak self] in
             self?.viewModel.choiсeTargetAssetButtonTapped()
@@ -121,7 +121,6 @@ final class PolkaswapViewController: SoramitsuViewController {
     private lazy var optionsView: OptionsView = {
         let view = OptionsView()
         view.setContentHuggingPriority(.required, for: .horizontal)
-        view.marketLabel.sora.isHidden = !viewModel.isSwap
         view.marketButton.sora.isHidden = !viewModel.isSwap
         view.slipageButton.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.viewModel.changeSlippageTolerance()
@@ -199,6 +198,11 @@ final class PolkaswapViewController: SoramitsuViewController {
 
     private func updateNavigationLogo() {
         guard let imageName = viewModel.imageName else { return }
+        if imageName.lowercased().contains("polkaswap") {
+            // The flower in SORA red and the name in ink: the brand asset's pink flower is not the app's colour.
+            if !(navigationItem.titleView is PolkaswapTitleView) { navigationItem.titleView = PolkaswapTitleView() }
+            return
+        }
         // The app appearance can differ from the system's trait collection.
         // Resolve the brand asset against the chosen app theme explicitly.
         let traits = UITraitCollection(userInterfaceStyle: SoramitsuUI.shared.theme == .dark ? .dark : .light)
@@ -238,31 +242,47 @@ final class PolkaswapViewController: SoramitsuViewController {
             containerView.heightAnchor.constraint(equalTo: view.heightAnchor),
             containerView.topAnchor.constraint(equalTo: view.topAnchor),
             
-            assetsView.leadingAnchor.constraint(equalTo: containerView.stackView.leadingAnchor, constant: 16),
-            assetsView.trailingAnchor.constraint(equalTo: containerView.stackView.trailingAnchor, constant: -16),
-            
-            warningView.leadingAnchor.constraint(equalTo: containerView.stackView.leadingAnchor, constant: 16),
-            warningView.centerXAnchor.constraint(equalTo: containerView.stackView.centerXAnchor),
-            
-            firstLiquidityWarningView.leadingAnchor.constraint(equalTo: containerView.stackView.leadingAnchor, constant: 16),
-            firstLiquidityWarningView.centerXAnchor.constraint(equalTo: containerView.stackView.centerXAnchor),
+        ])
+        // Each card is as wide as the screen less its margins, set against the screen itself. Tied only to
+        // the stack, the stack shrank to its narrowest content on a phone: a third of the width, the amount
+        // field squeezed out and the slippage label cut to "…".
+        [assetsView, warningView, firstLiquidityWarningView, reviewLiquidity].forEach(pinColumn)
+    }
 
-            reviewLiquidity.leadingAnchor.constraint(equalTo: containerView.stackView.leadingAnchor, constant: 16),
-            reviewLiquidity.centerXAnchor.constraint(equalTo: containerView.stackView.centerXAnchor),
+    private func pinColumn(_ subview: UIView) {
+        let width = subview.widthAnchor.constraint(equalTo: view.widthAnchor, constant: -32)
+        width.priority = UILayoutPriority(999)
+        NSLayoutConstraint.activate([
+            width,
+            subview.widthAnchor.constraint(lessThanOrEqualToConstant: LayoutCanvas.readableWidth - 32),
+            subview.centerXAnchor.constraint(equalTo: containerView.stackView.centerXAnchor)
         ])
     }
     
     private func rotateAnimation() {
-        UIView.animate(withDuration: 0.5) {
-            self.assetsView.middleButton.transform = CGAffineTransform(rotationAngle: .pi)
+        guard !UIAccessibility.isReduceMotionEnabled else { return }
+        let button = assetsView.middleButton
+        // The pad turns half over on a spring, and the two cards pass each other for a moment.
+        UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.65, initialSpringVelocity: 0.6,
+                       options: [.allowUserInteraction]) {
+            button.transform = button.transform.rotated(by: .pi)
         }
-
-        UIView.animate(
-            withDuration: 0.5,
-            delay: 0.45,
-            options: UIView.AnimationOptions.curveEaseIn
-        ) {
-            self.assetsView.middleButton.transform = CGAffineTransform(rotationAngle: 2 * .pi)
+        let first = assetsView.firstAsset
+        let second = assetsView.secondAsset
+        let shift = max(0, second.frame.minY - first.frame.minY) * 0.22
+        UIView.animate(withDuration: 0.16, delay: 0, options: [.curveEaseIn, .allowUserInteraction]) {
+            first.transform = CGAffineTransform(translationX: 0, y: shift).scaledBy(x: 0.97, y: 0.97)
+            second.transform = CGAffineTransform(translationX: 0, y: -shift).scaledBy(x: 0.97, y: 0.97)
+            first.alpha = 0.55
+            second.alpha = 0.55
+        } completion: { _ in
+            UIView.animate(withDuration: 0.4, delay: 0, usingSpringWithDamping: 0.72, initialSpringVelocity: 0,
+                           options: [.allowUserInteraction]) {
+                first.transform = .identity
+                second.transform = .identity
+                first.alpha = 1
+                second.alpha = 1
+            }
         }
     }
     
@@ -329,22 +349,34 @@ extension PolkaswapViewController: LiquidityViewProtocol {
         
         detailsViews.forEach { detailView in
             containerView.addArrangedSubview(detailView)
-            
-            detailView.leadingAnchor.constraint(equalTo: containerView.stackView.leadingAnchor, constant: 16).isActive = true
-            detailView.centerXAnchor.constraint(equalTo: containerView.stackView.centerXAnchor).isActive = true
+            pinColumn(detailView)
         }
     }
     
     func updateFirstAsset(balance: String) {
         DispatchQueue.main.async {
             self.assetsView.firstAsset.sora.fullFiatText = balance
+            if self.assetsView.firstAsset.sora.balanceTapHandler == nil {
+                self.assetsView.firstAsset.sora.balanceTapHandler = { [weak self] in self?.useWholeBalance(of: .one) }
+            }
         }
     }
     
     func updateSecondAsset(balance: String) {
         DispatchQueue.main.async {
             self.assetsView.secondAsset.sora.fullFiatText = balance
+            // In a swap the second card is what you get: all of its balance means nothing there.
+            if !self.viewModel.isSwap, self.assetsView.secondAsset.sora.balanceTapHandler == nil {
+                self.assetsView.secondAsset.sora.balanceTapHandler = { [weak self] in self?.useWholeBalance(of: .two) }
+            }
         }
+    }
+
+    /// The balance under a token is a button: all of it, less the fee when the token pays fees.
+    private func useWholeBalance(of field: FocusedField) {
+        viewModel.focusedField = field
+        viewModel.didSelect(variant: 1)
+        viewModel.recalculate(field: field)
     }
     
     func updateFirstAsset(symbol: String, image: UIImage?) {
@@ -475,4 +507,37 @@ extension PolkaswapViewController: LiquidityViewProtocol {
             self.firstLiquidityWarningView.setupView(with: model)
         }
     }
+}
+
+/// The Polkaswap flower in SORA red beside the name, for the navigation bar of the Polkaswap screens.
+final class PolkaswapTitleView: UIStackView {
+    init() {
+        super.init(frame: .zero)
+        axis = .horizontal
+        alignment = .center
+        spacing = 6
+        let flower = UIImageView(image: PortfolioGlyphs.flowerImage(size: 20))
+        flower.widthAnchor.constraint(equalToConstant: 20).isActive = true
+        flower.heightAnchor.constraint(equalToConstant: 20).isActive = true
+        let name = UILabel()
+        name.text = "Polkaswap"
+        name.font = .systemFont(ofSize: 17, weight: .semibold)
+        name.textColor = SoramitsuUI.shared.theme.palette.color(.fgPrimary)
+        addArrangedSubview(flower)
+        addArrangedSubview(name)
+        isAccessibilityElement = true
+        accessibilityLabel = "Polkaswap"
+        accessibilityTraits = .header
+        // A slow turn of the flower when the screen opens.
+        if !UIAccessibility.isReduceMotionEnabled {
+            let turn = CABasicAnimation(keyPath: "transform.rotation.z")
+            turn.fromValue = -CGFloat.pi / 3
+            turn.toValue = 0
+            turn.duration = 0.9
+            turn.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.3, 1)
+            flower.layer.add(turn, forKey: "turn")
+        }
+    }
+
+    required init(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }

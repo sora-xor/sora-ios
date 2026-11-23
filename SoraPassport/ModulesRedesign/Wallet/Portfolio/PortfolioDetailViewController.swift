@@ -190,6 +190,8 @@ final class PortfolioDetailViewController: UIViewController {
         symbolLabel.textColor = tokens.textPrimary
         nameLabel.text = model.name
         nameLabel.textColor = tokens.textSecondary
+        // "XOR XOR": the name says nothing the symbol has not.
+        nameLabel.isHidden = model.name.caseInsensitiveCompare(model.symbol) == .orderedSame
         amountLabel.text = model.amount
         amountLabel.textColor = tokens.textPrimary
         let summary = NSMutableAttributedString(string: model.value, attributes: [.foregroundColor: tokens.textSecondary])
@@ -354,7 +356,8 @@ final class PortfolioDetailViewController: UIViewController {
         top.spacing = 14
         top.alignment = .center
         polkaswapStack.addArrangedSubview(top)
-        for check in model.polkaswap.checks {
+        // Only what is still to do: ticks for what is already true were a list to read past.
+        for check in model.polkaswap.checks where !check.isMet {
             let symbol = check.isMet ? "checkmark" : "circle"
             let color = check.isMet ? tokens.success : tokens.textTertiary
             let label = UILabel.portfolio(FontType.textS, .subheadline, lines: 0, maximum: 26)
@@ -367,8 +370,8 @@ final class PortfolioDetailViewController: UIViewController {
             polkaswapStack.addArrangedSubview(label)
         }
         let action = model.polkaswap.action
-        let button = PortfolioPrimaryButton(title: action.title, style: action.kind == .swap ? .swap : .primary,
-                                            showsFlower: action.kind == .swap) { [weak self] in
+        // A raised pad: the holding's own action above is the page's one slab of red glass.
+        let button = PortfolioSecondaryButton(action: action) { [weak self] in
             guard let self else { return }
             if action.kind == .swap {
                 self.onPolkaswap?(self.model?.polkaswap.holdingId)
@@ -378,7 +381,7 @@ final class PortfolioDetailViewController: UIViewController {
         }
         polkaswapStack.setCustomSpacing(16, after: polkaswapStack.arrangedSubviews.last!)
         polkaswapStack.addArrangedSubview(button)
-        if let reason = action.reason {
+        if let reason = action.reason, reason != PortfolioStrings.polkaswapRunsOnSora2 {
             polkaswapStack.addArrangedSubview(reasonLabel(reason))
         }
     }
@@ -599,8 +602,9 @@ final class PortfolioBreakdownView: UIView {
 
 /// The breakdown's bar: a solid transferable part, a gap, then the locked part in stripes.
 final class PortfolioBreakdownBar: UIView {
-    static let lockedFill = UIColor(portfolioHex: 0x8B5CFF, alpha: 0.35)
-    static let lockedStripe = UIColor(portfolioHex: 0x8B5CFF)
+    // Ink stripes, not violet: the page is white and red.
+    static let lockedFill = Lit.inkTertiary.withAlphaComponent(0.22)
+    static let lockedStripe = Lit.inkSecondary
 
     var fraction: CGFloat = 1 {
         didSet { setNeedsLayout() }

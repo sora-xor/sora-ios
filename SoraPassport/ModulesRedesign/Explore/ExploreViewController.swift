@@ -151,17 +151,15 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
     }
     
     private func updateRightButtonItem() {
-        let cratePoolButton = UIBarButtonItem(title: R.string.localizable.exploreCreatePool(preferredLanguages: .currentLocale),
-                                              style: .plain,
-                                              target: self,
-                                              action: #selector(createPool))
-        // Styled by the bar appearance (`NeonChrome`), which follows the
-        // theme: no red text on bars.
-
-        navigationItem.rightBarButtonItem = cratePoolButton
+        let create = UIBarButtonItem(image: PortfolioGlyphs.polkaswapMark, style: .plain,
+                                     target: self, action: #selector(createPool))
+        create.accessibilityLabel = R.string.localizable.exploreCreatePool(preferredLanguages: .currentLocale)
+        navigationItem.rightBarButtonItem = create
         if SettingsManager.shared.polkamarktEnabled {
-            navigationItem.leftBarButtonItem = UIBarButtonItem(title: WalletUX.text("Prediction markets"), style: .plain,
-                target: self, action: #selector(openPredictionMarkets))
+            let markets = UIBarButtonItem(image: UIImage(systemName: "chart.bar"), style: .plain,
+                                          target: self, action: #selector(openPredictionMarkets))
+            markets.accessibilityLabel = R.string.localizable.predictionMarkets(preferredLanguages: .currentLocale)
+            navigationItem.leftBarButtonItem = markets
         } else {
             navigationItem.leftBarButtonItem = nil
         }
@@ -186,11 +184,11 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
         let color = SoramitsuUI.shared.theme == .light ? UIColor(hex: "#3C3C43", alpha: 0.6) : .white
         
         searchController.searchBar.searchTextField.attributedPlaceholder = NSAttributedString.init(
-            string: R.string.localizable.search(),
+            string: R.string.localizable.search(preferredLanguages: .currentLocale),
             attributes: [ NSAttributedString.Key.foregroundColor: color]
         )
         searchController.searchBar.setLeftImage(R.image.magnifyingglass()!, with: 8, tintColor: color)
-        searchController.searchBar.searchTextField.textColor = color
+        searchController.searchBar.searchTextField.textColor = Lit.ink
     }
 }
 
@@ -208,11 +206,9 @@ extension ExploreViewController: Localizable {
 extension ExploreViewController: TitleSegmentControlViewModelDelegate {
     func changeCurrentPage(to number: Int) {
         let pageWidth = scrollView.bounds.width
-        let offset = number * Int(pageWidth)
+        let offset = CGFloat(number) * pageWidth
         
-        UIView.animate(withDuration: 0.33, animations: { [weak self] in
-          self?.scrollView.contentOffset.x = CGFloat(offset)
-        })
+        scrollView.setContentOffset(CGPoint(x: offset, y: 0), animated: LitMotion.allowed)
     }
 }
 

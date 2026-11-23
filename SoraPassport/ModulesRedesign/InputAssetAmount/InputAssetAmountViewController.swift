@@ -80,7 +80,7 @@ final class InputAssetAmountViewController: SoramitsuViewController {
     public lazy var assetView: InputAssetField = {
         let field = InputAssetField()
         field.sora.assetArrow = R.image.wallet.arrow()
-        field.sora.assetImage = R.image.wallet.emptyToken()
+        field.sora.assetImage = PortfolioGlyphs.emptyTokenImage()
         field.textField.sora.placeholder = "0"
         field.sora.inputedFiatAmountText = "$0"
         field.translatesAutoresizingMaskIntoConstraints = false
@@ -171,18 +171,18 @@ final class InputAssetAmountViewController: SoramitsuViewController {
             scrollView.heightAnchor.constraint(equalTo: view.heightAnchor),
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             
-            recipientView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
-            recipientView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
-            
-            assetView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
-            assetView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
-            
-            warningView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
-            warningView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
-            
-            reviewLiquidity.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
-            reviewLiquidity.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
         ])
+        // Each card as wide as the screen less its margins, set against the screen: tied only to the stack
+        // they could shrink with it (the swap screen showed a third-width column on a phone).
+        for card in [recipientView, assetView, warningView, reviewLiquidity] as [UIView] {
+            let width = card.widthAnchor.constraint(equalTo: view.widthAnchor, constant: -32)
+            width.priority = UILayoutPriority(999)
+            NSLayoutConstraint.activate([
+                width,
+                card.widthAnchor.constraint(lessThanOrEqualToConstant: LayoutCanvas.readableWidth - 32),
+                card.centerXAnchor.constraint(equalTo: stackView.centerXAnchor)
+            ])
+        }
         // The same place on a phone; a readable column in the middle of a wider window.
         WalletDisplay.pinReadable(stackView, inScroll: scrollView, margin: 0)
     }
@@ -192,6 +192,10 @@ extension InputAssetAmountViewController: InputAssetAmountViewProtocol {
     
     func updateFirstAsset(balance: String) {
         assetView.sora.fullFiatText = balance
+        // The balance is a button: all of it, less the fee when the token pays fees.
+        if assetView.sora.balanceTapHandler == nil {
+            assetView.sora.balanceTapHandler = { [weak self] in self?.viewModel.didSelect(variant: 1) }
+        }
     }
     
     func updateFirstAsset(symbol: String, image: UIImage?) {

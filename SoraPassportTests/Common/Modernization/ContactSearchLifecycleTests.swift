@@ -60,12 +60,13 @@ final class ContactSearchLifecycleTests: XCTestCase {
     func testContactSearchTrimsPastedAddressWhitespace() async {
         let (model, source, _, _) = fixture(); model.search("  recipient\n"); await pause(600); XCTAssertEqual(source.queries, ["recipient"])
     }
-    func testEmptySearchResultRestoresTheRecentContacts() async {
+    func testEmptySearchResultShowsNoResultsWithoutUnrelatedRecipients() async {
         let (model, source, _, _) = fixture(); model.recentContantsItems = [ContactCellItem(title: "recent")]; var rows: [SoramitsuTableViewItemProtocol] = []; model.setupItems = { rows = $0 }
-        model.search("empty"); await pause(600); source.completions[0](.success(nil)); await pause(); XCTAssertEqual(titles(rows), ["recent"])
+        model.search("empty"); await pause(600); source.completions[0](.success(nil)); await pause()
+        XCTAssertTrue(titles(rows).isEmpty); XCTAssertEqual((rows.first as? ContactHeaderCellItem)?.symbol, "magnifyingglass")
     }
     func testContactSearchPublishesBackgroundCompletionOnMain() async {
-        let (model, source, _, _) = fixture(); let shown = expectation(description: "main results"); model.setupItems = { _ in XCTAssertTrue(Thread.isMainThread); shown.fulfill() }
+        let (model, source, _, _) = fixture(); let shown = expectation(description: "main results"); model.setupItems = { rows in guard !self.titles(rows).isEmpty else { return }; XCTAssertTrue(Thread.isMainThread); shown.fulfill() }
         model.search("query"); await pause(600); let completion = source.completions[0]; DispatchQueue.global().async { completion(.success([SearchData(accountId: "receiver", firstName: "receiver", lastName: "")])) }
         await fulfillment(of: [shown], timeout: 2)
     }
@@ -81,9 +82,9 @@ final class ContactSearchLifecycleTests: XCTestCase {
     }
     func testContactScreenForwardsEditsAndClearOrScanActions() {
         let model = ContactScreenModel(); let view = ContactsViewController(viewModel: model); view.loadViewIfNeeded(); XCTAssertEqual(model.loads, 1)
-        view.field.button.sendActions(for: .touchUpInside); XCTAssertEqual(model.scans, 1)
+        view.fieldAction.sendActions(for: .touchUpInside); XCTAssertEqual(model.scans, 1)
         view.field.textField.text = "recipient"; view.field.textField.sendActions(for: .editingChanged); XCTAssertEqual(model.queries, ["recipient"])
-        view.field.button.sendActions(for: .touchUpInside); XCTAssertEqual(model.queries, ["recipient", ""]); XCTAssertEqual(model.scans, 1); XCTAssertEqual(view.field.textField.text, "")
+        view.fieldAction.sendActions(for: .touchUpInside); XCTAssertEqual(model.queries, ["recipient", ""]); XCTAssertEqual(model.scans, 1); XCTAssertEqual(view.field.textField.text, "")
     }
     func testContactScreenClearsValidationWhenTheAddressChanges() {
         let model = ContactScreenModel(); let view = ContactsViewController(viewModel: model); view.loadViewIfNeeded(); view.show(error: "Invalid recipient")
@@ -91,7 +92,10 @@ final class ContactSearchLifecycleTests: XCTestCase {
         XCTAssertEqual(view.field.textField.autocorrectionType, .no); XCTAssertEqual(view.field.textField.autocapitalizationType, .none)
     }
     func testContactScreenRendersPublishedHeaderRecipientAndFooter() async {
-        let model = ContactScreenModel(); let view = ContactsViewController(viewModel: model); view.loadViewIfNeeded(); view.view.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        let model = ContactScreenModel(); let view = ContactsViewController(viewModel: model)
+        // In a window, as on a phone: the list ends at the keyboard layout guide, which needs one.
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844)); window.rootViewController = view; window.isHidden = false
+        defer { window.isHidden = true }
         model.setupItems?([ContactHeaderCellItem(title: "RECENT"), ContactCellItem(title: "receiver"), ContactFooterItem()]); await pause(); view.view.layoutIfNeeded()
         func all(_ root: UIView) -> [UIView] { [root] + root.subviews.flatMap(all) }
         let table = all(view.view).compactMap { $0 as? SoramitsuTableView }.first; XCTAssertEqual(table?.numberOfRows(inSection: 0), 3)
@@ -111,6 +115,18 @@ final class ContactSearchLifecycleTests: XCTestCase {
     private func selectedAccount() -> AccountItem {
         AccountItem(address: "current-wallet", cryptoType: .sr25519, networkType: 69, username: "Current", publicKeyData: Data(repeating: 3, count: 32), settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
     }
+    func testFirstEmptyRecipientListShowsOneNonselectableState() async throws {
+        let (model, _, _, _) = fixture()
+        var rows: [SoramitsuTableViewItemProtocol] = []
+        model.setupItems = { rows = $0 }
+        model.viewDidLoad()
+        for _ in 0..<100 where rows.isEmpty { await pause(20) }
+        let state = try XCTUnwrap(rows.first as? ContactHeaderCellItem)
+        XCTAssertEqual(rows.count, 1)
+        XCTAssertEqual(state.symbol, "clock")
+        XCTAssertNil(state.onTap)
+    }
+
     func testInitialContactLoadPublishesCachedRecipientsBetweenHeaderAndFooter() async {
         let (model, _, _, _) = fixture(contacts: [contact("first"), contact("second")])
         var rows: [SoramitsuTableViewItemProtocol] = []; model.setupItems = { rows = $0 }
@@ -165,12 +181,18 @@ final class ContactSearchLifecycleTests: XCTestCase {
     func testAuthoritativeEmptyLocalResultDoesNotFallBackToRemoteSearch() async {
         let local = ContactLocalMatches(), (model, source, _, _) = fixture(local: local); local.results = []
         var rows: [SoramitsuTableViewItemProtocol] = []; model.setupItems = { rows = $0 }; model.search("self")
-        XCTAssertTrue(titles(rows).isEmpty); XCTAssertEqual(rows.count, 2); await pause(600); XCTAssertTrue(source.queries.isEmpty)
+        XCTAssertTrue(titles(rows).isEmpty); XCTAssertEqual(rows.count, 1); await pause(600); XCTAssertTrue(source.queries.isEmpty)
     }
-    func testFailedRemoteSearchDoesNotReplacePreviouslyVisibleContacts() async {
-        let (model, source, _, _) = fixture(); var updates = 0; model.setupItems = { _ in updates += 1 }
-        model.search("query"); await pause(600); source.completions[0](.failure(NSError(domain: "fixture", code: 1))); await pause()
-        XCTAssertEqual(updates, 0)
+    func testFailedSearchOffersRetryForTheVisibleQuery() async throws {
+        let (model, source, _, _) = fixture()
+        var rows: [SoramitsuTableViewItemProtocol] = []
+        model.setupItems = { rows = $0 }
+        model.search("query"); await pause(600)
+        source.completions[0](.failure(NSError(domain: "fixture", code: 1))); await pause()
+        XCTAssertTrue(titles(rows).isEmpty)
+        let retry = try XCTUnwrap(rows.first as? ContactHeaderCellItem)
+        retry.itemActionTap(with: nil); await pause(600)
+        XCTAssertEqual(source.queries, ["query", "query"])
     }
 }
 private final class ContactSearchView: UIViewController, ContactsViewProtocol {

@@ -576,14 +576,16 @@ final class PortfolioDetailActionCoverageTests: XCTestCase {
         XCTAssertTrue(f.swaps.isEmpty)
     }
     func testSelectedHoldingSecondaryActionsDispatchTheirOwnKinds() throws {
-        let f = Fixture(); let buttons = views(PortfolioSecondaryButton.self, f.controller.view)
-        XCTAssertEqual(buttons.count, 2)
+        // The holding's two pads, then the Polkaswap card's pad (the page's one red slab is the holding's primary).
+        let f = Fixture(); let all = views(PortfolioSecondaryButton.self, f.controller.view)
+        XCTAssertEqual(all.count, 3)
+        let buttons = Array(all.prefix(2))
         for button in buttons { XCTAssertTrue(button.isEnabled); button.sendActions(for: .touchUpInside) }
         XCTAssertEqual(f.actions.map(\.0), [.send, .move])
         XCTAssertEqual(f.actions.map(\.1), [f.initial, f.initial])
     }
     func testPolkaswapCardUsesItsDedicatedRouteAndSoraHolding() throws {
-        let f = Fixture(); let button = try XCTUnwrap(views(PortfolioPrimaryButton.self, f.controller.view).last)
+        let f = Fixture(); let button = try XCTUnwrap(views(PortfolioSecondaryButton.self, f.controller.view).last)
         button.sendActions(for: .touchUpInside)
         XCTAssertEqual(f.swaps.count, 1)
         XCTAssertEqual(f.swaps.first!, f.model.polkaswap.holdingId)
@@ -591,9 +593,10 @@ final class PortfolioDetailActionCoverageTests: XCTestCase {
     }
     func testNontradableTokenExplainsItsRouteAndOffersSoraReceive() throws {
         let f = Fixture(token: PortfolioFixtures.meme)
-        let button = try XCTUnwrap(views(PortfolioPrimaryButton.self, f.controller.view).last)
+        let button = try XCTUnwrap(views(PortfolioSecondaryButton.self, f.controller.view).last)
         let reason = try XCTUnwrap(f.model.polkaswap.action.reason)
-        XCTAssertTrue(views(UILabel.self, f.controller.view).contains { $0.text == reason })
+        // Shown under the pad unless the card's one line already says it; always the pad's spoken hint.
+        XCTAssertTrue(views(UILabel.self, f.controller.view).contains { $0.text == reason } || button.accessibilityHint == reason)
         button.sendActions(for: .touchUpInside)
         XCTAssertEqual(f.actions.map(\.0), [.receiveOnSora2])
         XCTAssertEqual(f.actions.map(\.1), [f.initial])

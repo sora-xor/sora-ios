@@ -71,7 +71,9 @@ import XCTest
     try row(f).continueButtonHandler?("password")
     f.model.didReceiveAccountImport(error: BackupPasswordModelFailure.denied)
     XCTAssertFalse(f.view.loading)
-    XCTAssertEqual(try row(f).errorText, "Fixture rejected password")
+    XCTAssertEqual(try row(f).errorText, WalletUX.text("Could not import this backup. Check your original backup and try again."))
+    f.model.didReceiveAccountImport(error: CloudStorageServiceError.incorectPassword)
+    XCTAssertEqual(try row(f).errorText, R.string.localizable.enterPasswordIncorectTitle(preferredLanguages: .currentLocale))
   }
   func testCancelledKeyRepairHidesProgressWithoutAnErrorAndAllowsRetry() throws {
     let f = make()

@@ -60,34 +60,35 @@ extension ActivityCell: CellProtocol {
             return
         }
         
+        let placeholder: SoramitsuLoadingPlaceholderType = item.model.title.isEmpty && LitMotion.allowed ? .shimmer : .none
         assetItem = item
 
         historyView.sora.firstHistoryTransactionImage  = item.model.firstAssetImageViewModel
-        historyView.firstCurrencyImageView.sora.loadingPlaceholder.type = item.model.firstAssetImageViewModel != nil ? .none : .shimmer
+        historyView.firstCurrencyImageView.sora.loadingPlaceholder.type = placeholder
 
         historyView.sora.secondHistoryTransactionImage = item.model.secondAssetImageViewModel
-        historyView.secondCurrencyImageView.sora.loadingPlaceholder.type = item.model.firstAssetImageViewModel != nil ? .none : .shimmer
+        historyView.secondCurrencyImageView.sora.loadingPlaceholder.type = placeholder
 
         historyView.sora.titleText = item.model.title
-        historyView.titleLabel.sora.loadingPlaceholder.type = item.model.title.isEmpty ? .shimmer : .none
+        historyView.titleLabel.sora.loadingPlaceholder.type = placeholder
         
         historyView.sora.subtitleText = item.model.subtitle
-        historyView.subtitleLabel.sora.loadingPlaceholder.type = item.model.subtitle.isEmpty ? .shimmer : .none
+        historyView.subtitleLabel.sora.loadingPlaceholder.type = placeholder
         
         historyView.sora.transactionType = item.model.typeTransactionImage
-        historyView.transactionTypeImageView.sora.loadingPlaceholder.type = item.model.typeTransactionImage == nil ? .shimmer : .none
+        historyView.transactionTypeImageView.sora.loadingPlaceholder.type = placeholder
         
         historyView.sora.upAmountText = item.model.firstBalanceText
         historyView.amountUpLabel.sora.loadingPlaceholder.type = .none
         
         historyView.sora.fiatText = item.model.fiatText
-        historyView.fiatLabel.sora.loadingPlaceholder.type = item.model.fiatText.isEmpty ? .shimmer : .none
+        historyView.fiatLabel.sora.loadingPlaceholder.type = placeholder
         
         historyView.sora.isNeedTwoTokens = item.model.isNeedTwoImage
-        historyView.oneCurrencyImageView.sora.loadingPlaceholder.type = item.model.isNeedTwoImage ? .shimmer : .none
+        historyView.oneCurrencyImageView.sora.loadingPlaceholder.type = placeholder
         
         historyView.sora.statusImage = item.model.status.image
-        historyView.statusImageView.sora.loadingPlaceholder.type = item.model.status.image == nil ? .shimmer : .none
+        historyView.statusImageView.sora.loadingPlaceholder.type = placeholder
         
         
         let defaultAlignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left

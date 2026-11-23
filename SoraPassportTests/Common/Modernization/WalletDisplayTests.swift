@@ -587,14 +587,18 @@ final class WalletDisplayTests: XCTestCase {
     }
 
     private func receiveRow() -> ReceiveItem {
-        ReceiveItem(name: "Fixture", address: "cnVkoGs3rEMqLqY27c2nfVXJRGdzNJk2ns78DcqtppaSRe8qm",
+        let row = ReceiveItem(name: "Fixture", address: "cnVkoGs3rEMqLqY27c2nfVXJRGdzNJk2ns78DcqtppaSRe8qm",
                     qrImage: ClassicPhoneLayoutTests.square(.black))
+        row.shareHandler = {}
+        row.accountTapHandler = {}
+        return row
     }
 
     /// The white card the code is in: the superview of the image view that shows it.
     private func codeCard(in cell: UIView) throws -> UIView {
         let image = try XCTUnwrap(descendants(of: cell).compactMap { $0 as? UIImageView }
             .first { $0.image?.size == CGSize(width: 64, height: 64) })
+        XCTAssertEqual(image.bounds.height, image.bounds.width, accuracy: 0.5)
         return try XCTUnwrap(image.superview)
     }
 

@@ -113,6 +113,23 @@ final class WalletScreenBehaviorTests: XCTestCase {
         }
     }
 
+    func testJapaneseConfirmationKeepsRecoveryChoicesVerbatim() {
+        let language = LocalizationManager.shared.selectedLocalization
+        defer { LocalizationManager.shared.selectedLocalization = language }
+        LocalizationManager.shared.selectedLocalization = "ja"
+        let item = WordNumberItem()
+        item.index = 2
+        item.variants = ["search", "review", "route"]
+        var chosen: String?
+        item.tryHandler = { chosen = $0 }
+        let cell = WordNumberCell(style: .default, reuseIdentifier: nil)
+        cell.set(item: item, context: nil)
+        let buttons = all(UIButton.self, in: cell)
+        XCTAssertEqual(buttons.compactMap(title), item.variants)
+        buttons.first?.sendActions(for: .touchUpInside)
+        XCTAssertEqual(chosen, "search")
+    }
+
     func testRecoveryConfirmationAdvancesOnlyCorrectWordsAndCompletesOnce() throws {
         let model = ConfirmPassphraseViewModel(mnemonic: Array(words.prefix(12)))
         let interactor = ConfirmationRecorder()
@@ -432,13 +449,17 @@ extension WalletScreenBehaviorTests {
         await settle()
         XCTAssertTrue(receive.isHidden)
         XCTAssertFalse(request.isHidden)
+        model.setupReceiveView?(ReceiveQRViewModel(name: "Main", address: WalletScreenTestAddresses.mainId, qrImage: UIImage()))
+        await settle()
+        XCTAssertTrue(receive.isHidden, "A late QR must not cover the active request")
         model.updateContent?(.receive)
         await settle()
         XCTAssertFalse(receive.isHidden)
         XCTAssertTrue(request.isHidden)
         XCTAssertFalse(request.assetView.textField.isFirstResponder)
-        view.viewWillDisappear(false)
-        XCTAssertEqual(model.closes, 1)
+        view.beginAppearanceTransition(false, animated: false)
+        view.endAppearanceTransition()
+        XCTAssertEqual(model.closes, 0, "Covering Receive must not restart its presenting scanner")
     }
 
     func testSendAmountFieldRejectsPartiallyNumericPastedInput() {
@@ -673,7 +694,7 @@ extension WalletScreenBehaviorTests {
         XCTAssertEqual(claims, ["new"])
     }
 
-    func testFarmCellTracksEachAssetIconLoadingStateIndependently() throws {
+    func testFarmCellClearsMissingIconsWithoutClaimingTheyAreLoading() throws {
         for (first, second) in [(UIImage(), nil as UIImage?), (nil, UIImage())] {
             let item = FarmDetailsItem(title: "XOR / VAL", subtitle: "Farm", firstAssetImage: first,
                 secondAssetImage: second, rewardAssetImage: nil, detailsViewModel: [], typeImage: .activeFarming,
@@ -681,8 +702,10 @@ extension WalletScreenBehaviorTests {
             let cell = FarmDetailsCell(style: .default, reuseIdentifier: nil)
             cell.set(item: item, context: nil)
             let header = try XCTUnwrap(all(PoolDetailsHeaderView.self, in: cell).first)
-            XCTAssertEqual(header.firstCurrencyImageView.sora.loadingPlaceholder.type, first == nil ? .shimmer : .none)
-            XCTAssertEqual(header.secondCurrencyImageView.sora.loadingPlaceholder.type, second == nil ? .shimmer : .none)
+            XCTAssertEqual(header.firstCurrencyImageView.image, first)
+            XCTAssertEqual(header.secondCurrencyImageView.image, second)
+            XCTAssertEqual(header.firstCurrencyImageView.sora.loadingPlaceholder.type, .none)
+            XCTAssertEqual(header.secondCurrencyImageView.sora.loadingPlaceholder.type, .none)
         }
     }
 

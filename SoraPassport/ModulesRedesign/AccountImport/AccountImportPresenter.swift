@@ -189,28 +189,20 @@ final class AccountImportPresenter {
         }
 
         if preferredInfo.networkType == nil {
-            let locale = localizationManager?.selectedLocale
-            let message = "accountImportJsonNoNetwork"//R.string.localizable.accountImportJsonNoNetwork(preferredLanguages: locale?.rLanguages)
-            view?.setUploadWarning(message: message)
+            view?.setUploadWarning(message: WalletUX.text("This backup does not specify a network. Check that it belongs to SORA."))
             return
         }
 
         if let preferredNetwork = preferredInfo.networkType,
            !metadata.availableNetworks.contains(preferredNetwork) {
-            let locale = localizationManager?.selectedLocale ?? Locale.current
-            let message = "accountImportWrongNetwork"//R.string.localizable
-                //.accountImportWrongNetwork(preferredNetwork.titleForLocale(locale),
-                     //                      metadata.defaultNetwork.titleForLocale(locale))
-            view?.setUploadWarning(message: message)
+            view?.setUploadWarning(message: WalletUX.text("This backup specifies a different network. Check that it belongs to SORA."))
             return
         }
     }
 
     private func applyAdvanced(_ preferredInfo: AccountImportPreferredInfo?) {
         guard let selectedSourceType = selectedSourceType else {
-            let locale = localizationManager?.selectedLocale
-            let warning = "accountImportJsonNoNetwork"//R.string.localizable.accountImportJsonNoNetwork(preferredLanguages: locale?.rLanguages)
-            view?.setUploadWarning(message: warning)
+            view?.setUploadWarning(message: WalletUX.text("This backup does not specify a network. Check that it belongs to SORA."))
             return
         }
 

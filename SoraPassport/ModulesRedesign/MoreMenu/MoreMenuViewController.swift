@@ -19,6 +19,7 @@ import SoraUIKit
 import SoraFoundation
 
 final class MoreMenuViewController: SoramitsuViewController & MoreMenuViewProtocol {
+    private var appearedRows = Set<IndexPath>()
     var presenter: MoreMenuPresenterProtocol?
     
     private lazy var dataSource: MoreMenuDataSource = {
@@ -78,19 +79,22 @@ final class MoreMenuViewController: SoramitsuViewController & MoreMenuViewProtoc
     }
 
     func update(snapshot: MoreMenuSnapshot) {
-        dataSource.apply(snapshot, animatingDifferences: true)
+        dataSource.apply(snapshot, animatingDifferences: false)
     }
 
     func refreshNavigationBar() {
-        guard let navigationBar = navigationController?.navigationBar else { return }
-        let window = navigationBar.superview
-        navigationBar.removeFromSuperview()
-        window?.addSubview(navigationBar)
+        navigationController?.navigationBar.setNeedsLayout()
     }
 }
 
 
 extension MoreMenuViewController: UITableViewDelegate {
+    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+        if appearedRows.insert(indexPath).inserted {
+            LitMotion.rise(cell.contentView, by: 8, after: Double(min(indexPath.row, 5)) * 0.025)
+        }
+    }
+
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         guard let item = dataSource.itemIdentifier(for: indexPath) else {
             return

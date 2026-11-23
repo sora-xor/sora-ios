@@ -212,6 +212,8 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
     private var hasEntered = false
     private let header = UIView()
     private let emptyView = UIView()
+    /// While balances are read: rows drawn as they will stand, with light passing over them, not a sentence.
+    private let shimmer = PortfolioShimmerRowsView()
     private var rowViews: [String: PortfolioRowView] = [:]
     private var wellViews: [String: PortfolioWellView] = [:]
 
@@ -298,7 +300,11 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         wellViews = [:]
         var views: [UIView] = [header]
         var elements: [UIView] = [titleLabel]
-        if let empty = model.emptyText {
+        if let empty = model.emptyText, empty == PortfolioStrings.readingBalances {
+            shimmer.accessibilityLabel = empty
+            views.append(shimmer)
+            elements.append(shimmer)
+        } else if let empty = model.emptyText {
             emptyLabel.text = empty
             emptyLabel.textColor = PortfolioTheme.textSecondary
             views.append(emptyView)
@@ -715,4 +721,83 @@ final class PortfolioChildRowView: UIControl {
     }
 
     @objc private func tapped() { onTap?() }
+}
+
+
+/// Three asset rows drawn as they will stand (coin, name, amount) with a band of light passing over them.
+final class PortfolioShimmerRowsView: UIView {
+    private static let rowHeight: CGFloat = 64
+    private let shapes = CAShapeLayer()
+    private let sweep = CAGradientLayer()
+    private let sweepMask = CAShapeLayer()
+    private var builtWidth: CGFloat = 0
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isAccessibilityElement = true
+        accessibilityTraits = .updatesFrequently
+        layer.addSublayer(shapes)
+        sweep.colors = [UIColor.white.withAlphaComponent(0).cgColor, UIColor.white.withAlphaComponent(0.75).cgColor,
+                        UIColor.white.withAlphaComponent(0).cgColor]
+        sweep.locations = [0.38, 0.5, 0.62]
+        sweep.startPoint = CGPoint(x: 0, y: 0.4)
+        sweep.endPoint = CGPoint(x: 1, y: 0.6)
+        sweep.mask = sweepMask
+        layer.addSublayer(sweep)
+        let height = heightAnchor.constraint(equalToConstant: 3 * Self.rowHeight + 8)
+        height.priority = UILayoutPriority(999)
+        height.isActive = true
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let width = bounds.width
+        guard width > 0, width != builtWidth else { return }
+        builtWidth = width
+        let path = UIBezierPath()
+        for row in 0..<3 {
+            let y = CGFloat(row) * Self.rowHeight + 12
+            path.append(UIBezierPath(ovalIn: CGRect(x: 0, y: y, width: 40, height: 40)))
+            path.append(UIBezierPath(roundedRect: CGRect(x: 52, y: y + 5, width: width * 0.36, height: 13), cornerRadius: 6.5))
+            path.append(UIBezierPath(roundedRect: CGRect(x: 52, y: y + 25, width: width * 0.2, height: 10), cornerRadius: 5))
+            path.append(UIBezierPath(roundedRect: CGRect(x: width - 76, y: y + 5, width: 76, height: 13), cornerRadius: 6.5))
+            path.append(UIBezierPath(roundedRect: CGRect(x: width - 48, y: y + 25, width: 48, height: 10), cornerRadius: 5))
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        shapes.path = path.cgPath
+        shapes.fillColor = PortfolioTheme.textSecondary.withAlphaComponent(0.13).cgColor
+        sweep.frame = CGRect(x: -width, y: 0, width: width * 3, height: bounds.height)
+        sweepMask.path = path.cgPath
+        sweepMask.frame = CGRect(x: width, y: 0, width: width, height: bounds.height)
+        CATransaction.commit()
+        startSweep()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil { startSweep() }
+    }
+
+    private func startSweep() {
+        sweep.removeAnimation(forKey: "sweep")
+        sweepMask.removeAnimation(forKey: "sweep")
+        guard builtWidth > 0, window != nil, !UIAccessibility.isReduceMotionEnabled else { return }
+        // The band moves right while its mask stays on the rows.
+        let band = CABasicAnimation(keyPath: "transform.translation.x")
+        band.fromValue = -builtWidth
+        band.toValue = builtWidth
+        band.duration = 1.5
+        band.repeatCount = .infinity
+        band.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        let hold = band.copy() as! CABasicAnimation
+        hold.fromValue = builtWidth
+        hold.toValue = -builtWidth
+        sweep.add(band, forKey: "sweep")
+        sweepMask.add(hold, forKey: "sweep")
+    }
 }

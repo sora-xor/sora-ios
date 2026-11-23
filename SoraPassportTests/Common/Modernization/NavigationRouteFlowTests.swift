@@ -339,13 +339,12 @@ final class ExplorePageCoverageTests: XCTestCase {
     private func farms(_ snapshot: ExplorePageSnapshot) -> [ExploreFarmViewModel] {
         snapshot.itemIdentifiers.compactMap { if case .farm(let item) = $0 { return item.farmViewModel }; return nil }
     }
-    func testAssetPageStartsWithTwentyNumberedPlaceholdersAndAHeader() throws {
+    func testAssetPageStartsWithTwentyNumberedPlaceholdersWithoutAHeader() throws {
         let f = try make(); let model = f.assetPage(); model.setup()
-        XCTAssertFalse(model.isNeedHeaders); XCTAssertEqual(model.snapshot.numberOfSections, 2)
+        XCTAssertFalse(model.isNeedHeaders); XCTAssertEqual(model.snapshot.numberOfSections, 1)
         XCTAssertEqual(assets(model.snapshot).map(\.serialNumber), (1...20).map(String.init))
         XCTAssertTrue(assets(model.snapshot).allSatisfy { $0.assetId == nil })
-        guard case let .header(header) = model.snapshot.itemIdentifiers[0] else { return XCTFail("Missing asset header") }
-        XCTAssertFalse(header.titleText.isEmpty); XCTAssertFalse(header.subTitleText.isEmpty)
+        XCTAssertEqual(model.snapshot.numberOfItems, 20)
     }
     func testAssetPageReplacesPlaceholdersWithTheActualCatalog() async throws {
         let f = try make(); let model = f.assetPage(); var sizes: [Int] = []
@@ -353,13 +352,13 @@ final class ExplorePageCoverageTests: XCTestCase {
         await waitUntil { self.assets(model.snapshot).first?.assetId != nil }
         XCTAssertEqual(Set(assets(model.snapshot).compactMap(\.assetId)), Set(f.route.assets.assets.map(\.assetId)))
         XCTAssertEqual(assets(model.snapshot).map(\.serialNumber), ["1", "2", "3", "4"])
-        XCTAssertTrue(sizes.contains(21)); XCTAssertEqual(sizes.last, 5); withExtendedLifetime(token) {}
+        XCTAssertTrue(sizes.contains(20)); XCTAssertEqual(sizes.last, 4); withExtendedLifetime(token) {}
     }
-    func testAssetPageWithoutCatalogKeepsLoadingRowsInsteadOfInventingTokens() async throws {
+    func testAssetPageWithoutCatalogEndsLoadingWithoutInventingTokens() async throws {
         let f = try make(); let service = ExploreAssetViewModelService(marketCapService: f.route.market, fiatService: f.route.fiat, itemFactory: f.factory, assetInfos: [], priceInfoService: f.prices)
         let model = ExploreAssetsPageViewModel(wireframe: f.wireframe, assetViewModelsService: service); model.setup()
-        await waitUntil { service.viewModels.isEmpty }
-        XCTAssertEqual(assets(model.snapshot).count, 20); XCTAssertTrue(assets(model.snapshot).allSatisfy { $0.assetId == nil })
+        await waitUntil { model.snapshot.numberOfItems == 0 }
+        XCTAssertTrue(model.snapshot.itemIdentifiers.isEmpty)
     }
     func testAssetPagePriceNotificationReloadsOnceAfterRepeatedSetup() async throws {
         let f = try make(); let model = f.assetPage(); model.setup(); await waitUntil { f.prices.calls == 1 }; model.setup(); await waitUntil { f.prices.calls == 2 }
@@ -369,7 +368,7 @@ final class ExplorePageCoverageTests: XCTestCase {
     }
     func testReleasedAssetPageUnsubscribesFromPriceRefreshes() async throws {
         let f = try make(); var model: ExploreAssetsPageViewModel? = f.assetPage(); weak var reference = model
-        model?.setup(); await waitUntil { model?.snapshot.numberOfItems == 5 }; model = nil
+        model?.setup(); await waitUntil { model?.snapshot.numberOfItems == 4 }; model = nil
         XCTAssertNil(reference); let before = f.prices.calls
         NotificationCenter.default.post(name: PICatalogs.pricesDidChange, object: nil); try? await Task.sleep(nanoseconds: 20_000_000)
         XCTAssertEqual(f.prices.calls, before)
@@ -390,14 +389,14 @@ final class ExplorePageCoverageTests: XCTestCase {
         XCTAssertEqual(pools(model.snapshot).count, 20); XCTAssertFalse(model.isNeedHeaders)
         await waitUntil { self.pools(model.snapshot).first?.apy != nil }
         let row = try XCTUnwrap(pools(model.snapshot).first); XCTAssertEqual(row.poolId, "catalog-pool"); XCTAssertEqual(row.baseAssetId, WalletAssetId.xor.rawValue); XCTAssertEqual(row.targetAssetId, WalletAssetId.val.rawValue)
-        XCTAssertEqual(model.snapshot.numberOfSections, 2); XCTAssertEqual(pools(model.snapshot).count, 1)
+        XCTAssertEqual(model.snapshot.numberOfSections, 1); XCTAssertEqual(pools(model.snapshot).count, 1)
     }
-    func testPoolPageRefreshPreservesItsHeaderAndReplacesRows() async throws {
+    func testPoolPageRefreshReplacesRowsWithoutAHeader() async throws {
         let f = try make(); let model = f.poolPage(); model.setup(); await waitUntil { self.pools(model.snapshot).first?.apy != nil }
         f.poolModels.viewModels = [ExplorePoolViewModel(poolId: "replacement", serialNumber: "1")]
         await waitUntil { self.pools(model.snapshot).first?.poolId == "replacement" }
-        XCTAssertEqual(model.snapshot.numberOfItems, 2)
-        f.poolModels.viewModels = []; await waitUntil { self.pools(model.snapshot).count == 20 }
+        XCTAssertEqual(model.snapshot.numberOfItems, 1)
+        f.poolModels.viewModels = []; await waitUntil { model.snapshot.numberOfItems == 0 }
     }
     func testPoolSelectionUsesAccountPositionWhenAvailable() throws {
         let f = try make(); f.route.pools.pool = f.route.pool; let model = f.poolPage()
@@ -424,13 +423,13 @@ final class ExplorePageCoverageTests: XCTestCase {
         XCTAssertFalse(model.isNeedHeaders); XCTAssertEqual(farms(model.snapshot).count, 20)
         await waitUntil { self.farms(model.snapshot).first?.farmId != nil }
         XCTAssertEqual(farms(model.snapshot).map(\.farmId), ["public-farm"]); XCTAssertEqual(farms(model.snapshot).first?.serialNumber, "1")
-        XCTAssertEqual(model.snapshot.numberOfSections, 2)
+        XCTAssertEqual(model.snapshot.numberOfSections, 1)
     }
-    func testFarmCatalogRefreshReplacesRowsAndRestoresLoadingIfEmpty() async throws {
+    func testFarmCatalogRefreshReplacesRowsAndEndsLoadingIfEmpty() async throws {
         let f = try make(); let model = f.farmPage(); model.setup(); await waitUntil { self.farms(model.snapshot).first?.farmId != nil }
         f.farmModels.viewModels = [ExploreFarmViewModel(farmId: "new", serialNumber: "1")]
         await waitUntil { self.farms(model.snapshot).first?.farmId == "new" }
-        f.farmModels.viewModels = []; await waitUntil { self.farms(model.snapshot).count == 20 }
+        f.farmModels.viewModels = []; await waitUntil { model.snapshot.numberOfItems == 0 }
     }
     func testFarmSelectionResolvesTheCurrentFarmAndController() throws {
         let f = try make(); let model = f.farmPage(); let host = ExplorePageHost(); model.view = host; model.didSelect(with: f.farmItem)

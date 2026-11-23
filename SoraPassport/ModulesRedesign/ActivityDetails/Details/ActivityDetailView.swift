@@ -33,7 +33,7 @@ final class ActivityDetailView: SoramitsuControl {
     
     let valueLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.sora.font = FontType.textXS
+        label.sora.font = FontType.textM
         label.sora.textColor = .fgPrimary
         label.sora.backgroundColor = .custom(uiColor: .clear)
         label.sora.numberOfLines = 0

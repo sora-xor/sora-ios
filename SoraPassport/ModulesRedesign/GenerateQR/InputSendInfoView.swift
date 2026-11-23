@@ -30,6 +30,7 @@ final class InputSendInfoView: SoramitsuView {
         didSet {
             cancellables.removeAll()
             guard let viewModel = viewModel else { return }
+            updateButton()
             let output = viewModel.transform(input: input.eraseToAnyPublisher())
             output
                 .receive(on: DispatchQueue.main)
@@ -49,6 +50,7 @@ final class InputSendInfoView: SoramitsuView {
                 .sink { [weak self] _ in
                     guard let self = self else { return }
                     self.assetView.sora.assetSymbol = viewModel.assetSymbol
+                    self.updateButton()
                 }
                 .store(in: &cancellables)
             
@@ -80,6 +82,7 @@ final class InputSendInfoView: SoramitsuView {
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] _ in
                     guard let self = self else { return }
+                    self.updateButton()
                     self.recipientView.contactView.accountTitle.sora.text = viewModel.address
                     self.recipientView.contactView.accountImageView.image = try? self.generator.generateFromAddress(viewModel.address ?? "")
                         .imageWithFillColor(UIColor.white,
@@ -113,24 +116,27 @@ final class InputSendInfoView: SoramitsuView {
     public lazy var recipientView: RecipientAddressView = {
         let view = RecipientAddressView()
         view.contactView.button.isHidden = true
-        view.contactView.arrowImageView.alpha = 0
+        view.contactView.arrowImageView.isHidden = true
+        view.titleLabel.sora.text = R.string.localizable.receiveOn(preferredLanguages: .currentLocale)
         return view
     }()
     
     public lazy var assetView: InputAssetField = {
         let field = InputAssetField()
         field.sora.assetArrow = R.image.wallet.arrow()
-        field.sora.assetImage = R.image.wallet.emptyToken()
+        field.sora.assetImage = PortfolioGlyphs.emptyTokenImage()
         field.textField.sora.placeholder = "0"
-        field.sora.inputedFiatAmountText = "$0"
+        field.sora.inputedFiatAmountText = ""
         field.textField.sora.textColor = .fgPrimary
         field.inputedFiatAmountLabel.sora.textColor = .fgSecondary
         field.translatesAutoresizingMaskIntoConstraints = false
         field.sora.state = .default
         field.textField.keyboardType = .decimalPad
-        field.textField.sora.addHandler(for: .editingChanged) { [weak self] in
-            let currentAmount = field.textField.text?.replacingOccurrences(of: ",", with: ".") ?? ""
-            self?.viewModel?.inputedAmount = AmountDecimal(string: currentAmount)?.decimalValue ?? 0
+        field.textField.sora.addHandler(for: .editingChanged) { [weak self, weak field] in
+            let text = field?.textField.text ?? ""
+            let normalized = text.replacingOccurrences(of: ",", with: ".")
+            self?.viewModel?.inputedAmount = AmountDecimal(string: normalized)?.decimalValue ?? 0
+            self?.updateButton()
         }
         field.sora.assetChoiceHandler = { [weak self] in
             self?.input.send(.choiseAsset)
@@ -138,7 +144,7 @@ final class InputSendInfoView: SoramitsuView {
         return field
     }()
     
-    private lazy var reviewLiquidity: SoramitsuButton = {
+    private lazy var createRequestButton: SoramitsuButton = {
         let button = SoramitsuButton()
         button.sora.horizontalOffset = 0
         button.sora.title = R.string.localizable.commonCreateQrRequest(preferredLanguages: .currentLocale)
@@ -156,19 +162,25 @@ final class InputSendInfoView: SoramitsuView {
         setupConstrains()
     }
     
+    private func updateButton() {
+        createRequestButton.sora.isEnabled = viewModel?.canCreateRequest == true
+    }
+
     private func setupSubviews() {
         translatesAutoresizingMaskIntoConstraints = false
         sora.backgroundColor = .custom(uiColor: .clear)
         addSubview(mainStackView)
-        mainStackView.addArrangedSubviews(recipientView, assetView, reviewLiquidity)
+        mainStackView.addArrangedSubviews(recipientView, assetView, createRequestButton)
     }
     
     private func setupConstrains() {
+        let bottom = mainStackView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        bottom.priority = UILayoutPriority(999)
         NSLayoutConstraint.activate([
             mainStackView.leadingAnchor.constraint(equalTo: leadingAnchor),
             mainStackView.centerXAnchor.constraint(equalTo: centerXAnchor),
             mainStackView.topAnchor.constraint(equalTo: topAnchor),
-            mainStackView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            bottom,
         ])
     }
 }

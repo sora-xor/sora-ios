@@ -258,8 +258,8 @@ private final class UsernameRouteSpy: UsernameSetupWireframeProtocol {
         presenter.view = host; presenter.interactor = input; presenter.wireframe = route
         return (presenter, host, input, route)
     }
-    private func action(_ route: OnboardingActionRoute, _ index: Int) throws -> AlertPresentableAction {
-        try XCTUnwrap(route.sheets.last?.actions[index])
+    private func select(_ method: OnboardingImportMethod, on route: OnboardingActionRoute) throws {
+        try XCTUnwrap(route.sheets.last)(method)
     }
     func testSignupStartsTheLocalCreationFlowFromTheCurrentScreen() {
         let (p, host, input, route) = make(); p.activateSignup()
@@ -271,25 +271,29 @@ private final class UsernameRouteSpy: UsernameSetupWireframeProtocol {
     }
     func testRestoreSheetOffersCloudMnemonicAndSeedWithoutStartingAnImport() throws {
         let (p, host, input, route) = make(); p.activateAccountRestore()
-        let sheet = try XCTUnwrap(route.sheets.last)
-        XCTAssertEqual(route.styles, [.actionSheet]); XCTAssertTrue(route.source === host)
-        XCTAssertEqual(sheet.title, R.string.localizable.recoveryTitleV2(preferredLanguages: .currentLocale))
-        XCTAssertEqual(sheet.message, R.string.localizable.importAccountMessage(preferredLanguages: .currentLocale))
-        XCTAssertEqual(sheet.closeAction, R.string.localizable.commonCancel(preferredLanguages: .currentLocale))
-        XCTAssertEqual(sheet.actions.map(\.title), ["Google", R.string.localizable.recoveryPassphrase(preferredLanguages: .currentLocale), R.string.localizable.commonRawSeed(preferredLanguages: .currentLocale)])
+        let sheet = OnboardingImportSheet(select: try XCTUnwrap(route.sheets.last))
+        sheet.loadViewIfNeeded()
+        func buttons(in view: UIView) -> [UIButton] {
+            view.subviews.flatMap { child in (child as? UIButton).map { [$0] } ?? buttons(in: child) }
+        }
+        let labels = buttons(in: sheet.view).compactMap { $0.configuration?.title }
+        XCTAssertEqual(labels, [R.string.localizable.recoveryPassphrase(preferredLanguages: .currentLocale),
+                                R.string.localizable.commonRawSeed(preferredLanguages: .currentLocale), "Google",
+                                R.string.localizable.commonCancel(preferredLanguages: .currentLocale)])
+        XCTAssertTrue(route.source === host)
         XCTAssertEqual(input.reads, 0); XCTAssertTrue(route.restore.isEmpty); XCTAssertTrue(route.signups.isEmpty)
     }
     func testMnemonicChoicePreservesItsSourceAndDoesNotOpenSeedImport() throws {
-        let (p, host, _, route) = make(); p.activateAccountRestore(); try action(route, 1).handler?()
+        let (p, host, _, route) = make(); p.activateAccountRestore(); try select(.passphrase, on: route)
         XCTAssertEqual(route.restore, [.mnemonic]); XCTAssertTrue(route.source === host)
     }
     func testRawSeedChoicePreservesItsSourceAndDoesNotOpenMnemonicImport() throws {
-        let (p, host, _, route) = make(); p.activateAccountRestore(); try action(route, 2).handler?()
+        let (p, host, _, route) = make(); p.activateAccountRestore(); try select(.rawSeed, on: route)
         XCTAssertEqual(route.restore, [.seed]); XCTAssertTrue(route.source === host)
     }
     func testCloudChoiceRunsOneRequestAndUsesCloudSignupForAnEmptyAccountList() async throws {
         let (p, host, input, route) = make(); let finished = expectation(description: "cloud route")
-        route.didFinish = { finished.fulfill() }; p.activateAccountRestore(); try action(route, 0).handler?()
+        route.didFinish = { finished.fulfill() }; p.activateAccountRestore(); try select(.google, on: route)
         await fulfillment(of: [finished], timeout: 2)
         XCTAssertEqual(input.reads, 1); XCTAssertEqual(host.loading, [true, false]); XCTAssertEqual(route.signups, [true])
     }
@@ -297,13 +301,13 @@ private final class UsernameRouteSpy: UsernameSetupWireframeProtocol {
         var p: OnboardingMainPresenter? = OnboardingMainPresenter(locale: Locale(identifier: "en"))
         let host = OnboardingActionHost(), input = OnboardingActionInput(), route = OnboardingActionRoute()
         p?.view = host; p?.interactor = input; p?.wireframe = route; p?.activateAccountRestore()
-        let actions = try XCTUnwrap(route.sheets.last).actions; weak var released = p; p = nil
-        XCTAssertNil(released); actions.forEach { $0.handler?() }
+        let select = try XCTUnwrap(route.sheets.last); weak var released = p; p = nil
+        XCTAssertNil(released); OnboardingImportMethod.allCases.forEach(select)
         XCTAssertTrue(route.restore.isEmpty); XCTAssertTrue(route.signups.isEmpty); XCTAssertEqual(input.reads, 0)
     }
     func testRetainedMnemonicActionUsesTheCurrentViewAfterRebinding() throws {
-        let (p, first, _, route) = make(); p.activateAccountRestore(); let action = try action(route, 1)
-        let replacement = OnboardingActionHost(); p.view = replacement; action.handler?()
+        let (p, first, _, route) = make(); p.activateAccountRestore(); let select = try XCTUnwrap(route.sheets.last)
+        let replacement = OnboardingActionHost(); p.view = replacement; select(.passphrase)
         XCTAssertTrue(route.source === replacement); XCTAssertFalse(route.source === first)
     }
     func testRepeatedRestoreSheetsDoNotStartCloudAuthorization() {
@@ -320,10 +324,10 @@ private final class UsernameRouteSpy: UsernameSetupWireframeProtocol {
     func testCloudFailureFromTheRestoreSheetStopsLoadingAndCanBeSelectedAgain() async throws {
         let (p, host, input, route) = make(); input.failure = CloudStorageServiceError.notFound
         let first = expectation(description: "first cloud failure"); route.didFinish = { first.fulfill() }
-        p.activateAccountRestore(); let cloud = try action(route, 0); cloud.handler?(); await fulfillment(of: [first], timeout: 2)
+        p.activateAccountRestore(); let select = try XCTUnwrap(route.sheets.last); select(.google); await fulfillment(of: [first], timeout: 2)
         XCTAssertEqual(route.messages.count, 1); XCTAssertEqual(host.loading, [true, false]); XCTAssertTrue(route.signups.isEmpty)
         let second = expectation(description: "retry cloud failure"); route.didFinish = { second.fulfill() }
-        cloud.handler?(); await fulfillment(of: [second], timeout: 2)
+        select(.google); await fulfillment(of: [second], timeout: 2)
         XCTAssertEqual(input.reads, 2); XCTAssertEqual(route.messages.count, 2)
     }
 }
@@ -340,12 +344,15 @@ private final class OnboardingActionInput: OnboardingMainInteractorInputProtocol
 }
 private final class OnboardingActionRoute: OnboardingMainWireframeProtocol {
     var activityIndicatorWindow: UIWindow?
-    var source: ControllerBackedProtocol?, sheets = [AlertPresentableViewModel](), styles = [UIAlertController.Style](), restore = [AccountImportSource](), signups = [Bool](), messages = [String?](), keystoreCount = 0
+    var source: ControllerBackedProtocol?, sheets = [(OnboardingImportMethod) -> Void](), restore = [AccountImportSource](), signups = [Bool](), messages = [String?](), keystoreCount = 0
     var didFinish: (() -> Void)?
     func showSignup(from view: OnboardingMainViewProtocol?, isGoogleBackupSelected: Bool) { source = view; signups.append(isGoogleBackupSelected); didFinish?() }
     func showAccountRestoreRedesign(from view: OnboardingMainViewProtocol?, sourceType: AccountImportSource) { source = view; restore.append(sourceType) }
     func showKeystoreImport(from view: OnboardingMainViewProtocol?) { source = view; keystoreCount += 1 }
     func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount]) { XCTFail("No cloud account expected") }
-    func present(viewModel: AlertPresentableViewModel, style: UIAlertController.Style, from view: ControllerBackedProtocol?) { source = view; sheets.append(viewModel); styles.append(style) }
+    func showImportMethods(from view: OnboardingMainViewProtocol?, select: @escaping (OnboardingImportMethod) -> Void) {
+        source = view
+        sheets.append(select)
+    }
     func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) { source = view; messages.append(message); didFinish?() }
 }

@@ -117,7 +117,8 @@ final class NexusScreenBehaviorTests: XCTestCase {
         XCTAssertEqual(controller.balanceItem?.showsSend, false)
         XCTAssertEqual(reader.balanceReads, 0)
         XCTAssertTrue(reader.historyCursors.isEmpty)
-        XCTAssertTrue(controller.balanceItem?.notes.contains { $0.contains("production address is ready") } == true)
+        let notice = WalletUX.text("Your production address is ready to copy or share. Balances, activity, and transfers will be available when the SORA Nexus production network launches.")
+        XCTAssertTrue(controller.balanceItem?.notes.contains(notice) == true)
         XCTAssertNil(controller.activityItem, "An offline network has no activity card")
         XCTAssertNil(controller.balanceItem?.faucet)
         XCTAssertEqual(controller.addressItem?.assetId, reader.account)
@@ -129,7 +130,7 @@ final class NexusScreenBehaviorTests: XCTestCase {
         controller.balanceItem?.actionHandler?(.receive)
         let receive = try XCTUnwrap(presentedReceive(controller))
         XCTAssertEqual(receive.address, reader.account)
-        XCTAssertTrue(receive.notice?.contains("production address is ready") == true)
+        XCTAssertEqual(receive.notice, notice)
     }
 
     func testTairaReadOnlyScreenShowsExactBalanceHistoryAndJournalRecovery() async throws {

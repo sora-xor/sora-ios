@@ -26,6 +26,13 @@ final class MoreMenuLifecycleTests: XCTestCase {
         cell.set(item: item("New", subtitle: "Disconnected"), context: nil)
         XCTAssertEqual(cell.categoryItem.titleLabel.text, "New"); XCTAssertEqual(cell.categoryItem.subtitleLabel.text, "Disconnected"); XCTAssertTrue(cell.categoryItem.circle.isHidden)
     }
+    func testTitleOnlyMenuRowCollapsesSubtitleAfterShowingANode() {
+        let cell = MoreMenuCell(style: .default, reuseIdentifier: nil)
+        cell.set(item: item("Nodes", subtitle: "Fixture node"), context: nil)
+        XCTAssertFalse(cell.categoryItem.subtitleView.isHidden)
+        cell.set(item: item("Accounts", subtitle: ""), context: nil)
+        XCTAssertTrue(cell.categoryItem.subtitleView.isHidden)
+    }
     func testMenuCellPublishesCurrentSubtitleStreamAndNil() async {
         let (updates, continuation): (AsyncStream<String?>, AsyncStream<String?>.Continuation) = stream(); defer { continuation.finish() }
         let cell = MoreMenuCell(style: .default, reuseIdentifier: nil); let row = item(subtitleStream: updates); cell.set(item: row, context: nil)

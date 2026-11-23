@@ -166,26 +166,14 @@ extension FarmDetailsCell: SoramitsuTableViewCellProtocol {
         headerView.titleLabel.sora.text = item.title
         headerView.subtitleLabel.sora.text = item.subtitle
 
-        if let typeImage = item.typeImage.image {
-            headerView.typeImageView.sora.picture = .logo(image: typeImage)
-        }
-
-        headerView.titleLabel.sora.loadingPlaceholder.type = item.title.isEmpty ? .shimmer : .none
- 
-        if let image = item.firstAssetImage {
-            headerView.firstCurrencyImageView.sora.picture = .logo(image: image)
-        }
-        headerView.firstCurrencyImageView.sora.loadingPlaceholder.type = item.firstAssetImage == nil ? .shimmer : .none
-        
-        if let image = item.secondAssetImage {
-            headerView.secondCurrencyImageView.sora.picture = .logo(image: image)
-        }
-        headerView.secondCurrencyImageView.sora.loadingPlaceholder.type = item.secondAssetImage == nil ? .shimmer : .none
-        
-        if let image = item.rewardAssetImage {
-            headerView.rewardImageView.sora.picture = .logo(image: image)
-        }
-        headerView.rewardImageView.sora.loadingPlaceholder.type = item.rewardAssetImage == nil ? .shimmer : .none
+        headerView.typeImageView.sora.picture = item.typeImage.image.map { .logo(image: $0) }
+        headerView.titleLabel.sora.loadingPlaceholder.type = .none
+        headerView.firstCurrencyImageView.sora.picture = item.firstAssetImage.map { .logo(image: $0) }
+        headerView.firstCurrencyImageView.sora.loadingPlaceholder.type = .none
+        headerView.secondCurrencyImageView.sora.picture = item.secondAssetImage.map { .logo(image: $0) }
+        headerView.secondCurrencyImageView.sora.loadingPlaceholder.type = .none
+        headerView.rewardImageView.sora.picture = item.rewardAssetImage.map { .logo(image: $0) }
+        headerView.rewardImageView.sora.loadingPlaceholder.type = .none
 
         stackView.arrangedSubviews.forEach { subview in
             stackView.removeArrangedSubview(subview)
@@ -197,15 +185,15 @@ extension FarmDetailsCell: SoramitsuTableViewCellProtocol {
 
             view.assetImageView.sora.isHidden = detailModel.rewardAssetImage == nil
             
-            if let image = item.rewardAssetImage {
+            if let image = detailModel.rewardAssetImage {
                 view.assetImageView.sora.picture = .logo(image: image)
             }
 
             view.titleLabel.sora.text = detailModel.title
-            view.titleLabel.sora.loadingPlaceholder.type = detailModel.title.isEmpty ? .shimmer : .none
+            view.titleLabel.sora.loadingPlaceholder.type = .none
             
             view.valueLabel.sora.attributedText = detailModel.assetAmountText
-            view.valueLabel.sora.loadingPlaceholder.type = detailModel.assetAmountText.text.isEmpty ? .shimmer : .none
+            view.valueLabel.sora.loadingPlaceholder.type = .none
             
             view.fiatValueLabel.sora.attributedText = detailModel.fiatAmountText
             view.fiatValueLabel.sora.isHidden = detailModel.fiatAmountText == nil
@@ -223,15 +211,11 @@ extension FarmDetailsCell: SoramitsuTableViewCellProtocol {
                 view.progressView.isHidden = false
                 view.progressView.set(progressPercentage: float)
             }
-            view.isShimmerHidden = detailModel.infoHandler == nil
+            view.isShimmerHidden = true
             
             return view
         }
 
-        if let detailsView = detailsViews.first {
-            stackView.setCustomSpacing(14, after: detailsView)
-        }
-        
         detailsViews.enumerated().forEach { index, view in
             stackView.addArrangedSubview(view)
             

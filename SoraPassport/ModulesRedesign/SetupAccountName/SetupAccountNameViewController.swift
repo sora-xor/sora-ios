@@ -35,17 +35,6 @@ final class SetupAccountNameViewController: SoramitsuViewController {
         return view
     }()
     
-    let subtitleLabel: SoramitsuLabel = {
-        let label = SoramitsuLabel()
-        label.sora.numberOfLines = 0
-        label.sora.font = FontType.paragraphM
-        label.sora.dynamicTextStyle = .body
-        label.sora.textColor = .fgPrimary
-        label.sora.text = R.string.localizable.onboardingCreateAccountDescription(preferredLanguages: .currentLocale)
-        label.sora.alignment = .left
-        return label
-    }()
-    
     private lazy var usernameField: InputField = {
         let view = InputField()
         view.textField.sora.dynamicTextStyle = .body
@@ -101,7 +90,7 @@ final class SetupAccountNameViewController: SoramitsuViewController {
         view.addSubview(scrollView)
         scrollView.addSubview(containerView)
         createAccountButton.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubviews(subtitleLabel, usernameField, createAccountButton)
+        containerView.addSubviews(usernameField, createAccountButton)
         for child in usernameField.subviews {
             for constraint in child.constraints where constraint.firstAttribute == .height && constraint.secondItem == nil && constraint.constant == 56 {
                 constraint.isActive = false
@@ -119,11 +108,7 @@ final class SetupAccountNameViewController: SoramitsuViewController {
             containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 8),
             containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
             
-            subtitleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
-            subtitleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            subtitleLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            
-            usernameField.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 24),
+            usernameField.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
             usernameField.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             usernameField.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             
@@ -172,10 +157,10 @@ extension SetupAccountNameViewController: UITextFieldDelegate {
 extension SetupAccountNameViewController: UsernameSetupViewProtocol {
     func set(viewModel: InputViewModelProtocol) {
         self.viewModel = viewModel
-        usernameField.textField.text = viewModel.inputHandler.value
+        usernameField.sora.text = viewModel.inputHandler.value
     }
     
     func resetFocus() {
-        usernameField.becomeFirstResponder()
+        usernameField.textField.becomeFirstResponder()
     }
 }

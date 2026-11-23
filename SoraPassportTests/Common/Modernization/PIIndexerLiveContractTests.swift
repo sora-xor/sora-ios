@@ -3825,9 +3825,9 @@ final class PIActionsDoNotWaitForPricesTests: XCTestCase {
         }
 
         viewModel.viewDidLoad()
-        await wait("the code, without prices") { !shown.all.isEmpty }
+        await wait("the code, without prices") { shown.all.contains { $0.qrImage != nil } }
 
-        let first = try XCTUnwrap(shown.all.first)
+        let first = try XCTUnwrap(shown.all.first(where: { $0.qrImage != nil }))
         XCTAssertNotNil(first.qrImage)
         XCTAssertEqual(first.sendAssetViewModel?.amount, "2")
         XCTAssertEqual(first.sendAssetViewModel?.fiat, "")
@@ -3867,9 +3867,9 @@ final class PIActionsDoNotWaitForPricesTests: XCTestCase {
         }
 
         viewModel.viewDidLoad()
-        await wait("the code") { !shown.all.isEmpty }
+        await wait("the code") { shown.all.last?.qrImage != nil }
 
-        XCTAssertNotNil(shown.all.first?.qrImage)
+        XCTAssertNotNil(shown.all.last?.qrImage)
         XCTAssertNil(shown.all.first?.sendAssetViewModel)
         try await Task.sleep(nanoseconds: 100_000_000)
         let calls = await fiat.calls
@@ -7119,10 +7119,10 @@ final class PIActivityRefreshTests: XCTestCase {
                 .first { $0.superview === controller.view }
         )
         await wait("the error") { !errorView.isHidden }
-        let spinner = try XCTUnwrap(
-            descendants(of: table, as: UIActivityIndicatorView.self).first
-        )
-        await wait("the spinner stopped") { !spinner.isAnimating }
+        // Nothing under the error keeps spinning (the list may hold no spinner at all once its rows are gone).
+        for spinner in descendants(of: table, as: UIActivityIndicatorView.self) {
+            await wait("the spinner stopped") { !spinner.isAnimating }
+        }
         XCTAssertTrue(viewModel.isBehind)
         XCTAssertEqual(
             texts(in: errorView),

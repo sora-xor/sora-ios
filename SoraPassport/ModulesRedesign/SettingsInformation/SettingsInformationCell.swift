@@ -56,6 +56,10 @@ extension SettingsInformationCell: SoramitsuTableViewCellProtocol {
             return
         }
 
+        informationItem.arrow.removeFromSuperview()
+        informationItem.link.removeFromSuperview()
+        informationItem.subtitleLabel.removeFromSuperview()
+        informationItem.separator.isHidden = item.position == .last
         informationItem.titleLabel.sora.text = item.title
         
         if let subtitle = item.subtitle {

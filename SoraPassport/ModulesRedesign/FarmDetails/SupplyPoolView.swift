@@ -75,35 +75,19 @@ final class SupplyPoolView: SoramitsuView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     
     func set(item: SupplyPoolItem?) {
-        guard let item else { return }
         supplyItem = item
-
+        guard let model = item?.poolViewModel else { return }
         poolView.serialNumber.sora.isHidden = true
-        
-        if let baseAssetIcon = item.poolViewModel.baseAssetIcon {
-            poolView.firstCurrencyImageView.sora.picture = .logo(image: baseAssetIcon)
-            poolView.firstCurrencyImageView.sora.loadingPlaceholder.type = .none
-        }
-
-        if let targetAssetIcon = item.poolViewModel.targetAssetIcon {
-            poolView.secondCurrencyImageView.sora.picture = .logo(image: targetAssetIcon)
-            poolView.secondCurrencyImageView.sora.loadingPlaceholder.type = .none
-        }
-        
-        if let title = item.poolViewModel.title {
-            poolView.titleLabel.sora.text = title
-            poolView.titleLabel.sora.loadingPlaceholder.type = .none
-        }
-
-        if let subtitle = item.poolViewModel.tvl {
-            poolView.subtitleLabel.sora.text = subtitle
-            poolView.subtitleLabel.sora.loadingPlaceholder.type = .none
-        }
-
-        if let price = item.poolViewModel.apy {
-            poolView.amountUpLabel.sora.text = price
-            poolView.amountUpLabel.sora.loadingPlaceholder.type = .none
-        }
+        poolView.firstCurrencyImageView.sora.picture = model.baseAssetIcon.map { .logo(image: $0) }
+        poolView.secondCurrencyImageView.sora.picture = model.targetAssetIcon.map { .logo(image: $0) }
+        poolView.titleLabel.sora.text = model.title
+        poolView.subtitleLabel.sora.text = model.tvl
+        poolView.amountUpLabel.sora.text = model.apy
+        poolView.firstCurrencyImageView.sora.loadingPlaceholder.type = .none
+        poolView.secondCurrencyImageView.sora.loadingPlaceholder.type = .none
+        poolView.titleLabel.sora.loadingPlaceholder.type = .none
+        poolView.subtitleLabel.sora.loadingPlaceholder.type = .none
+        poolView.amountUpLabel.sora.loadingPlaceholder.type = .none
     }
 
     private func setupView() {

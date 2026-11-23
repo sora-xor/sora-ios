@@ -24,7 +24,7 @@ final class InputAssetsView: SoramitsuView {
     public var firstAsset: InputAssetField = {
         let field = InputAssetField()
         field.sora.assetArrow = R.image.wallet.arrow()
-        field.sora.assetImage = R.image.wallet.emptyToken()
+        field.sora.assetImage = PortfolioGlyphs.emptyTokenImage()
         field.textField.sora.placeholder = "0"
         field.sora.inputedFiatAmountText = "$0"
         field.translatesAutoresizingMaskIntoConstraints = false
@@ -33,17 +33,25 @@ final class InputAssetsView: SoramitsuView {
         return field
     }()
     
+    /// A raised white pad between the two cards; 44 points so a thumb finds it.
     public let middleButton: ImageButton = {
-        let view = ImageButton(size: CGSize(width: 24, height: 24))
-        view.sora.backgroundColor = .custom(uiColor: Colors.white100)
+        let view = ImageButton(size: CGSize(width: 44, height: 44))
+        view.sora.backgroundColor = .custom(uiColor: .clear)
         view.sora.cornerRadius = .circle
         return view
+    }()
+
+    private let middlePad: LitPlateLayer = {
+        let pad = LitPlateLayer()
+        pad.cornerRadiusValue = 22
+        pad.elevation = 8
+        return pad
     }()
     
     public var secondAsset: InputAssetField = {
         let field = InputAssetField()
         field.sora.assetArrow = R.image.wallet.arrow()
-        field.sora.assetImage = R.image.wallet.emptyToken()
+        field.sora.assetImage = PortfolioGlyphs.emptyTokenImage()
         field.textField.sora.placeholder = "0"
         field.sora.inputedFiatAmountText = "$0"
         field.translatesAutoresizingMaskIntoConstraints = false
@@ -70,6 +78,15 @@ final class InputAssetsView: SoramitsuView {
         sora.clipsToBounds = false
         translatesAutoresizingMaskIntoConstraints = false
         addSubviews(firstAsset, secondAsset, middleButton)
+        middleButton.layer.insertSublayer(middlePad, at: 0)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        middlePad.frame = middleButton.bounds
+        CATransaction.commit()
     }
 
     private func setupLayout() {

@@ -36,7 +36,7 @@ final class SendAssetCell: SoramitsuTableViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         bindingID = UUID()
-        sendAssetView.assetImageView.image = nil
+        sendAssetView.setImage(nil)
     }
 
     private func setupView() {
@@ -62,16 +62,13 @@ extension SendAssetCell: SoramitsuTableViewCellProtocol {
         
         let bindingID = UUID()
         self.bindingID = bindingID
-        sendAssetView.assetImageView.image = nil
+        sendAssetView.setImage(nil)
         item.imageViewModel?.loadImage { [weak self] (icon, _) in
             guard let self, self.bindingID == bindingID else { return }
-            self.sendAssetView.assetImageView.image = icon
+            self.sendAssetView.setImage(icon)
         }
 
-        sendAssetView.symbolLabel.sora.text = item.symbol
-        sendAssetView.balanceLabel.sora.text = item.balance
-        sendAssetView.amountLabel.sora.text = item.amount
-        sendAssetView.fiatLabel.sora.text = item.fiat
+        sendAssetView.setValues(symbol: item.symbol, amount: item.amount, balance: item.balance, fiat: item.fiat)
     }
 }
 

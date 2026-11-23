@@ -24,16 +24,17 @@ final class AccountImportedCell: SoramitsuTableViewCell {
     private var item: AccountImportedItem?
     private let generator = PolkadotIconGenerator()
 
-    private let contentTitleLabel: SoramitsuLabel = {
-        let label = SoramitsuLabel()
-        label.sora.font = FontType.headline2
-        label.sora.textColor = .fgPrimary
-        label.sora.numberOfLines = 0
-        label.sora.alignment = .center
-        label.sora.text = R.string.localizable.succesfullyImportedAccountTitle(preferredLanguages: .currentLocale)
-        return label
+    private let checkmark: UIImageView = {
+        let view = UIImageView(image: UIImage(systemName: "checkmark.circle.fill",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 42, weight: .medium)))
+        view.contentMode = .center
+        view.tintColor = Lit.lacquerText
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.isAccessibilityElement = false
+        return view
     }()
-    
+    private var showedSuccess = false
+
     private let accountView: AccountView = {
         let view = AccountView()
         view.sora.backgroundColor = .bgPage
@@ -100,9 +101,17 @@ final class AccountImportedCell: SoramitsuTableViewCell {
     private func setupView() {
         contentView.addSubview(containerView)
         stackView.addArrangedSubviews([continueButton, importAccountButton])
-        containerView.addSubviews([contentTitleLabel, accountView, stackView])
+        containerView.addSubviews([checkmark, accountView, stackView])
     }
     
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil, !showedSuccess {
+            showedSuccess = true
+            LitMotion.rise(checkmark, by: 8)
+        }
+    }
+
     func setupConstraints() {
         NSLayoutConstraint.activate([
             containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
@@ -110,13 +119,12 @@ final class AccountImportedCell: SoramitsuTableViewCell {
             containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
             containerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
 
-            contentTitleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            contentTitleLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            contentTitleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
-            
+            checkmark.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            checkmark.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 20),
+
             accountView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             accountView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            accountView.topAnchor.constraint(equalTo: contentTitleLabel.bottomAnchor, constant: 32),
+            accountView.topAnchor.constraint(equalTo: checkmark.bottomAnchor, constant: 12),
             
             stackView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             stackView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),

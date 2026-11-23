@@ -71,7 +71,7 @@ final class WalletNetworkTagView: UIView {
         case .main:
             color = WalletUX.accent
         case .testnet:
-            color = .systemOrange
+            color = PortfolioTheme.warning
         case .comingSoon:
             color = WalletUX.secondary
         }
@@ -120,10 +120,10 @@ struct WalletNetworkChoiceRow: Equatable {
     init(_ choice: WalletNetworkChoice) {
         self.choice = choice
         title = choice.network.name
-        let amount = choice.network.isLive
-            ? choice.balance.map { "\($0) XOR" }
-            : WalletUX.text("Address ready")
-        subtitle = [amount, WalletNetworkAccounts.shortAddress(choice.account.address), choice.unavailableReason]
+        let amount = choice.network.isLive ? choice.balance.map { "\($0) XOR" } : nil
+        // A network that is not live says so with its "Coming soon" tag; lines repeating it were noise.
+        let reason = choice.network.isLive ? choice.unavailableReason : nil
+        subtitle = [amount, WalletNetworkAccounts.shortAddress(choice.account.address), reason]
             .compactMap { $0 }
             .joined(separator: "\n")
         tag = choice.tag
@@ -175,6 +175,7 @@ final class WalletNetworkChoicesCell: SoramitsuTableViewCell {
         label.sora.font = FontType.paragraphXS
         label.sora.textColor = .fgSecondary
         label.sora.numberOfLines = 0
+        label.lineBreakMode = .byWordWrapping
         return label
     }()
 
@@ -223,7 +224,7 @@ extension WalletNetworkChoicesCell: SoramitsuTableViewCellProtocol {
             view.subtitleLabel.sora.loadingPlaceholder.type = .none
             view.amountUpLabel.sora.text = row.tag?.title ?? ""
             switch row.tag {
-            case .testnet: view.amountUpLabel.sora.textColor = .custom(uiColor: .systemOrange)
+            case .testnet: view.amountUpLabel.sora.textColor = .statusWarning
             case .comingSoon: view.amountUpLabel.sora.textColor = .fgSecondary
             case .main: view.amountUpLabel.sora.textColor = .accentPrimary
             case nil: break

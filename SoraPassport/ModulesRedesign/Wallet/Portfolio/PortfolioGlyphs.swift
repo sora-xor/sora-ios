@@ -1,6 +1,7 @@
 // This file is part of the SORA network and Polkaswap app.
 // SPDX-License-Identifier: Apache-2.0
 
+import SoraUIKit
 import UIKit
 
 /// Vector glyphs of the portfolio surfaces.
@@ -157,6 +158,28 @@ enum PortfolioGlyphs {
     /// The Polkaswap flower from the asset catalogue in the app's red, drawn as it is (never as a template).
     static var polkaswapMark: UIImage? {
         R.image.wallet.polkaswap()?.tinted(with: PortfolioTheme.flowerPink)?.withRenderingMode(.alwaysOriginal)
+    }
+
+    /// An empty token slot: a dashed ring with a red plus, where a token is still to be chosen.
+    static func emptyTokenImage(size: CGFloat = 40) -> UIImage {
+        let rect = CGRect(x: 0, y: 0, width: size, height: size)
+        return UIGraphicsImageRenderer(size: rect.size).image { _ in
+            let ring = UIBezierPath(ovalIn: rect.insetBy(dx: 1.5, dy: 1.5))
+            ring.lineWidth = 1.5
+            ring.setLineDash([3.5, 3], count: 2, phase: 0)
+            Lit.outline.withAlphaComponent(0.7).setStroke()
+            ring.stroke()
+            let arm = size * 0.18
+            let plus = UIBezierPath()
+            plus.move(to: CGPoint(x: rect.midX - arm, y: rect.midY))
+            plus.addLine(to: CGPoint(x: rect.midX + arm, y: rect.midY))
+            plus.move(to: CGPoint(x: rect.midX, y: rect.midY - arm))
+            plus.addLine(to: CGPoint(x: rect.midX, y: rect.midY + arm))
+            plus.lineWidth = 2.2
+            plus.lineCapStyle = .round
+            Lit.lacquerText.setStroke()
+            plus.stroke()
+        }
     }
 
     /// The flower as an image, for buttons, chips and nodes.

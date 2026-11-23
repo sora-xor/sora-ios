@@ -110,6 +110,20 @@ public final class SoramitsuButton: UIControl, Molecule {
         var isPlate = false
         if case .bleached = type { isPlate = true }
         if case .bgSurface? = sora.explicitBackgroundColor { isPlate = true }
+        var glassColor = palette.color(sora.explicitBackgroundColor ?? type.enabledBackgroundColor)
+        if isFilled, !isPlate {
+            let onLightPage = Self.luminance(of: palette.color(.bgPage)) > 0.5
+            switch Self.material(of: glassColor) {
+            // A clear filled button is a bare label with a glyph (a token chooser, a link): glass over
+            // nothing renders as smoked glass, so it gets no material at all.
+            case .bare: isFilled = false
+            // A white or page-coloured one is a pad, not white glass.
+            case .pad where onLightPage: isFilled = false; isPlate = true
+            // Ink-dark glass on a white page is a black control; the screen's action is red glass.
+            case .ink where onLightPage: glassColor = palette.color(.accentPrimary)
+            default: break
+            }
+        }
         let requested = sora.style.radii.radius(sora.cornerRadius, size: bounds.size)
         // Cut glass is a slab with small corners, whatever was asked for; a pad keeps the shape it was given
         // (a PIN key is round).
@@ -120,8 +134,7 @@ public final class SoramitsuButton: UIControl, Molecule {
         }
         if isFilled, !isPlate, isEnabled {
             if glass.layer.superlayer == nil { layer.insertSublayer(glass.layer, at: 0) }
-            let base = palette.color(sora.explicitBackgroundColor ?? type.enabledBackgroundColor)
-            glass.layout(in: self, radius: radius, color: base, pressed: isHighlighted)
+            glass.layout(in: self, radius: radius, color: glassColor, pressed: isHighlighted)
             // The glass is the face; the flat fill under it would show round its cut edge.
             backgroundColor = .clear
             layer.masksToBounds = false
@@ -147,6 +160,26 @@ public final class SoramitsuButton: UIControl, Molecule {
             plate?.removeFromSuperlayer()
             plate = nil
         }
+    }
+
+    enum Material: Equatable { case bare, pad, ink, glass }
+
+    /// What a filled button of this colour is made of.
+    static func material(of color: UIColor) -> Material {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard color.getRed(&r, green: &g, blue: &b, alpha: &a) else { return .glass }
+        if a < 0.2 { return .bare }
+        let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        let chroma = max(r, g, b) - min(r, g, b)
+        if chroma < 0.12, luminance > 0.82 { return .pad }
+        if chroma < 0.12, luminance < 0.3 { return .ink }
+        return .glass
+    }
+
+    static func luminance(of color: UIColor) -> CGFloat {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard color.getRed(&r, green: &g, blue: &b, alpha: &a) else { return 1 }
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
     }
 
     public override var isEnabled: Bool {

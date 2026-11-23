@@ -39,6 +39,7 @@ final class EnabledView: SoramitsuView {
     
     public lazy var titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
+        label.sora.numberOfLines = 0
         label.sora.font = FontType.textM
         label.sora.textColor = .fgPrimary
         label.sora.isUserInteractionEnabled = false
@@ -82,7 +83,7 @@ private extension EnabledView {
         
         stackView.snp.makeConstraints { make in
             make.edges.equalTo(self)
-            make.height.equalTo(56)
+            make.height.greaterThanOrEqualTo(56)
         }
         
         titleLabel.snp.makeConstraints { make in

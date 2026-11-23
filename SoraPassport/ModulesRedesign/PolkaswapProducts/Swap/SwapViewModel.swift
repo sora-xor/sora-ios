@@ -54,8 +54,9 @@ final class SwapViewModel {
     var firstFieldEmptyStateFullFiatText: String? { R.string.localizable.swapWantFrom(preferredLanguages: .currentLocale) }
     var secondFieldEmptyStateFullFiatText: String? { R.string.localizable.swapWantTo(preferredLanguages: .currentLocale) }
     
+    /// The Polkaswap flower on a raised pad; it turns as the pair turns over. Swap controls show the flower only.
     var actionButtonImage: UIImage? {
-        return R.image.wallet.swapButton()
+        PortfolioGlyphs.flowerImage(size: 22).withRenderingMode(.alwaysOriginal)
     }
     
     var middleButtonActionHandler: (() -> Void)?

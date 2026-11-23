@@ -158,6 +158,19 @@ final class ReusablePresentationFlowTests: XCTestCase {
     XCTAssertEqual(cell.recipientView.contactView.accountTitle.sora.text, "second")
     XCTAssertTrue(cell.recipientView.contactView.arrowImageView.isHidden)
   }
+  func testNarrowRecipientRowGrowsToFitTheCompleteAddress() {
+    let cell = RecipientAddressCell(style: .default, reuseIdentifier: nil)
+    let row = cell.recipientView.contactView
+    let width: CGFloat = 180
+    func height(_ value: String) -> CGFloat {
+      cell.set(item: RecipientAddressItem(address: value), context: nil)
+      return row.systemLayoutSizeFitting(CGSize(width: width, height: 0),
+        withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel).height
+    }
+    let short = height("abc")
+    XCTAssertGreaterThan(height(String(repeating: "123456789A", count: 8)), short + 20)
+    XCTAssertTrue(row.button.isHidden)
+  }
   func testInvalidRecipientClearsAnyPreviouslyRenderedIcon() {
     let cell = RecipientAddressCell(style: .default, reuseIdentifier: nil)
     cell.recipientView.contactView.accountImageView.image = UIImage(systemName: "star")

@@ -332,7 +332,7 @@ final class PortfolioPresenterTests: XCTestCase {
                                                    snapshot: PortfolioFixtures.snapshot(), scope: .allWallets,
                                                    walletSlots: [:])
         XCTAssertEqual(taira?.panel?.route.style, .test)
-        XCTAssertEqual(taira?.panel?.route.text, "Testnet assets have no monetary value.")
+        XCTAssertEqual(taira?.panel?.route.text, PortfolioStrings.testnetNoValue)
     }
 
     func testNoRouteCopyNeverInventsARoute() {

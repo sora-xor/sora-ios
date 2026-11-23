@@ -32,12 +32,14 @@ final class ImportAccountViewController: SoramitsuViewController {
     private let optionsStack = UIStackView()
     private let advancedStack = UIStackView()
     private let cryptoButton = UIButton(type: .system)
+    private let uploadWarning = WalletUX.label(style: .subheadline)
     private let pathField = UITextField()
     private let passwordField = UITextField()
     private let passwordLabel = WalletUX.label(WalletUX.text("Backup file password"), style: .subheadline)
     private lazy var advancedButton: UIButton = WalletUX.button(WalletUX.text("Advanced options")) { [weak self] in
         guard let self else { return }
         self.advancedStack.isHidden.toggle()
+        if !self.advancedStack.isHidden { LitMotion.rise(self.advancedStack, by: 6) }
         self.advancedButton.accessibilityValue = self.advancedStack.isHidden
             ? WalletUX.text("Collapsed") : WalletUX.text("Expanded")
     }
@@ -58,7 +60,6 @@ final class ImportAccountViewController: SoramitsuViewController {
         label.sora.font = FontType.paragraphM
         label.sora.dynamicTextStyle = .body
         label.sora.textColor = .fgPrimary
-        label.sora.text = R.string.localizable.onboardingCreateAccountDescription(preferredLanguages: .currentLocale)
         label.sora.alignment = .left
         return label
     }()
@@ -118,6 +119,9 @@ final class ImportAccountViewController: SoramitsuViewController {
         advancedStack.axis = .vertical
         advancedStack.spacing = 10
         advancedStack.isHidden = true
+        uploadWarning.textColor = Lit.lacquerText
+        uploadWarning.isHidden = true
+        optionsStack.addArrangedSubview(uploadWarning)
         optionsStack.addArrangedSubview(passwordLabel)
         optionsStack.addArrangedSubview(passwordField)
         optionsStack.addArrangedSubview(advancedButton)
@@ -125,6 +129,8 @@ final class ImportAccountViewController: SoramitsuViewController {
         advancedButton.accessibilityIdentifier = "wallet-import-advanced"
         advancedStack.addArrangedSubview(WalletUX.label(WalletUX.text("Key type"), style: .subheadline))
         advancedStack.addArrangedSubview(cryptoButton)
+        cryptoButton.tintColor = Lit.lacquerText
+        cryptoButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
         cryptoButton.contentHorizontalAlignment = .leading
         cryptoButton.titleLabel?.font = .preferredFont(forTextStyle: .body)
         cryptoButton.showsMenuAsPrimaryAction = true
@@ -257,10 +263,14 @@ extension ImportAccountViewController: AccountImportViewProtocol {
     
     func setSource(type: AccountImportSource) {
         title = type.navigationTitle
+        usernameField.textView.accessibilityLabel = type.navigationTitle
+        uploadWarning.text = nil
+        uploadWarning.isHidden = true
         subtitleLabel.sora.text = type.containerTitle
         let isJSON = type == .keystore
         advancedButton.isHidden = isJSON
         advancedStack.isHidden = true
+        advancedButton.accessibilityValue = WalletUX.text("Collapsed")
         passwordField.isHidden = !isJSON
         passwordLabel.isHidden = !isJSON
     }
@@ -293,7 +303,10 @@ extension ImportAccountViewController: AccountImportViewProtocol {
         })
     }
 
-    func setUploadWarning(message: String) {}
+    func setUploadWarning(message: String) {
+        uploadWarning.text = message
+        uploadWarning.isHidden = message.isEmpty
+    }
     
     func dismissPresentedController() {
         dismiss(animated: true)

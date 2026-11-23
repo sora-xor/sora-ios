@@ -26,7 +26,7 @@ final class ErrorView: SoramitsuView {
         let emptyLabel = SoramitsuLabel()
         emptyLabel.sora.font = FontType.paragraphM
         emptyLabel.sora.textColor = .fgSecondary
-        emptyLabel.sora.text = R.string.localizable.activityEmptyContentTitle(preferredLanguages: .currentLocale)
+        emptyLabel.sora.text = R.string.localizable.activityErrorTitle(preferredLanguages: .currentLocale)
         emptyLabel.sora.alignment = .center
         emptyLabel.sora.numberOfLines = 0
         return emptyLabel
@@ -37,7 +37,7 @@ final class ErrorView: SoramitsuView {
         button.sora.shadow = .small
         button.sora.cornerRadius = .circle
         button.sora.horizontalOffset = 32
-        button.sora.backgroundColor = .bgSurface
+        button.sora.backgroundColor = .custom(uiColor: Lit.lacquerRed)
         return button
     }()
 
@@ -65,7 +65,7 @@ private extension ErrorView {
             button.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
             button.bottomAnchor.constraint(equalTo: bottomAnchor),
             button.centerXAnchor.constraint(equalTo: centerXAnchor),
-            button.heightAnchor.constraint(equalToConstant: 32),
+            button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
         ])
     }
 }

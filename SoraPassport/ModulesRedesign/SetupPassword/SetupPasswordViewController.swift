@@ -84,7 +84,7 @@ final class SetupPasswordViewController: SoramitsuViewController & SetupPassword
             tableView.topAnchor.constraint(equalTo: soramitsuView.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: soramitsuView.leadingAnchor),
             tableView.centerXAnchor.constraint(equalTo: soramitsuView.centerXAnchor),
-            tableView.centerYAnchor.constraint(equalTo: soramitsuView.centerYAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             
             loadingView.widthAnchor.constraint(equalTo: view.widthAnchor),
             loadingView.heightAnchor.constraint(equalTo: view.heightAnchor),

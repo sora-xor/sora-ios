@@ -65,8 +65,8 @@ final class MoreMenuCell: SoramitsuTableViewCell {
     func setupConstraints() {
         categoryItem.leadingAnchor == contentView.leadingAnchor + 16
         categoryItem.trailingAnchor == contentView.trailingAnchor - 16
-        categoryItem.topAnchor == contentView.topAnchor + 8
-        categoryItem.bottomAnchor == contentView.bottomAnchor - 8
+        categoryItem.topAnchor == contentView.topAnchor + 3
+        categoryItem.bottomAnchor == contentView.bottomAnchor - 3
     }
     
     func updateLayout() {
@@ -92,6 +92,7 @@ extension MoreMenuCell: SoramitsuTableViewCellProtocol {
         circleTask = nil
         categoryItem.titleLabel.sora.text = item.title
         categoryItem.subtitleLabel.sora.text = item.subtitle
+        categoryItem.subtitleView.isHidden = item.subtitle.isEmpty && item.subtitleStream == nil && item.circleColor == nil && item.circleColorStream == nil
         categoryItem.rightImageView.sora.picture = item.picture
 
         if let circleColor = item.circleColor {

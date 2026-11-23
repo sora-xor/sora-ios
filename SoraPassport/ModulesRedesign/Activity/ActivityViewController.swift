@@ -36,6 +36,17 @@ final class ActivityViewController: SoramitsuViewController {
         return emptyLabel
     }()
     
+    private let emptyIcon: UIImageView = {
+        let icon = UIImageView(image: UIImage(systemName: "clock.arrow.circlepath", withConfiguration: UIImage.SymbolConfiguration(pointSize: 36, weight: .light)))
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        icon.tintColor = Lit.lacquerText
+        icon.isHidden = true
+        icon.isAccessibilityElement = false
+        return icon
+    }()
+
+    private var loadingDeadline: DispatchWorkItem?
+
     private lazy var errorView: ErrorView = {
         let view = ErrorView()
         view.button.sora.associate(states: .pressed) { [weak self] _ in
@@ -142,10 +153,10 @@ final class ActivityViewController: SoramitsuViewController {
         setupConstraints()
         applyLocalization()
 
-        viewModel.viewDidLoad()
-
         viewModel.setupEmptyLabel = { [weak self] in
             DispatchQueue.main.async {
+                self?.emptyLabel.sora.text = R.string.localizable.activityEmptyContentTitle(preferredLanguages: .currentLocale)
+                self?.emptyIcon.isHidden = false
                 self?.emptyLabel.sora.isHidden = false
                 self?.errorView.sora.isHidden = true
             }
@@ -154,6 +165,7 @@ final class ActivityViewController: SoramitsuViewController {
         viewModel.setupErrorContent = { [weak self] in
             DispatchQueue.main.async {
                 self?.errorView.sora.isHidden = false
+                self?.emptyIcon.isHidden = true
                 self?.emptyLabel.sora.isHidden = true
             }
         }
@@ -161,11 +173,33 @@ final class ActivityViewController: SoramitsuViewController {
         viewModel.hideErrorContent = { [weak self] in
             DispatchQueue.main.async {
                 self?.errorView.sora.isHidden = true
+                self?.emptyIcon.isHidden = true
                 self?.emptyLabel.sora.isHidden = true
             }
         }
+        if !LitMotion.allowed {
+            emptyLabel.sora.text = R.string.localizable.loading(preferredLanguages: .currentLocale)
+            emptyLabel.sora.isHidden = false
+            tableView.isHidden = true
+        }
+        scheduleLoadingDeadline()
+        viewModel.viewDidLoad()
     }
-    
+
+    private func scheduleLoadingDeadline() {
+        loadingDeadline?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.tableView.isHidden = true
+            self.activityIndicator.stopAnimating()
+            self.emptyIcon.isHidden = true
+            self.emptyLabel.isHidden = true
+            self.errorView.sora.isHidden = false
+        }
+        loadingDeadline = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12, execute: work)
+    }
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationItem.title = viewModel.title
@@ -183,11 +217,12 @@ final class ActivityViewController: SoramitsuViewController {
                                      target: self,
                                      action: #selector(close))
 
+        closeButton.accessibilityLabel = R.string.localizable.commonClose(preferredLanguages: .currentLocale)
         navigationItem.rightBarButtonItem = viewModel.isNeedCloseButton ? closeButton : nil
 
         soramitsuView.sora.backgroundColor = backgroundColor
-        view.addSubviews(tableView, emptyLabel, errorView)
-        tableView.addSubview(activityIndicator)
+        view.addSubviews(tableView, emptyIcon, emptyLabel, errorView)
+        view.addSubview(activityIndicator)
     }
 
     private func setupConstraints() {
@@ -200,6 +235,8 @@ final class ActivityViewController: SoramitsuViewController {
             tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
+            emptyIcon.centerXAnchor.constraint(equalTo: emptyLabel.centerXAnchor),
+            emptyIcon.bottomAnchor.constraint(equalTo: emptyLabel.topAnchor, constant: -12),
             emptyLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
             emptyLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             emptyLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
@@ -251,11 +288,17 @@ final class ActivityViewController: SoramitsuViewController {
 extension ActivityViewController: ActivityViewProtocol {
     func stopAnimating() {
         DispatchQueue.main.async {
+            self.loadingDeadline?.cancel()
+            self.tableView.isHidden = false
             self.activityIndicator.stopAnimating()
         }
     }
 
     func resetPagination() {
+        scheduleLoadingDeadline()
+        errorView.sora.isHidden = true
+        emptyIcon.isHidden = true
+        emptyLabel.isHidden = true
         activityIndicator.startAnimating()
         viewModel.resetPagination()
     }
@@ -285,7 +328,7 @@ extension ActivityViewController: Localizable {
         errorView.titleLabel.sora.text = R.string.localizable.activityErrorTitle(preferredLanguages: languages)
         errorView.button.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonRefresh(preferredLanguages: languages),
                                                                  fontData: FontType.textBoldS,
-                                                                 textColor: .fgSecondary,
+                                                                 textColor: .fgInverted,
                                                                  alignment: .center)
     }
 }

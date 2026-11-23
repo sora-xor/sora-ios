@@ -245,8 +245,17 @@ final class PortfolioCoordinator {
             }
             showWalletPicker(for: action, wallets: wallets)
         case .move:
-            pickHolding(viewModel.movableHoldings, title: PortfolioStrings.move) { [weak self] id in self?.showMove(holdingId: id) }
+            pickHolding(viewModel.movableHoldings, title: PortfolioStrings.move,
+                        emptyNote: PortfolioStrings.text("Move needs a second wallet.")) { [weak self] id in
+                self?.showMove(holdingId: id)
+            }
         case .swap:
+            // Nothing here to swap from (a new wallet, or only test tokens): open Polkaswap itself, as its tab
+            // does, rather than a sheet saying nothing can be done.
+            if viewModel.swappableHoldings.isEmpty, let presenter {
+                router.showSwap(from: presenter, fromAssetId: WalletAssetId.xor.rawValue, toAssetId: "")
+                return
+            }
             pickHolding(viewModel.swappableHoldings, title: PortfolioStrings.swap) { [weak self] id in self?.showSwap(holdingId: id) }
         }
     }
@@ -270,7 +279,9 @@ final class PortfolioCoordinator {
         sheet.present(from: presenter)
     }
 
-    private func pickHolding(_ holdings: [PortfolioHolding], title: String, open: @escaping (String) -> Void) {
+    private func pickHolding(_ holdings: [PortfolioHolding], title: String,
+                             emptyNote: String = PortfolioStrings.text("Nothing here can do that right now."),
+                             open: @escaping (String) -> Void) {
         guard let presenter else { return }
         if holdings.count == 1, let holding = holdings.first {
             open(holding.id)
@@ -279,7 +290,7 @@ final class PortfolioCoordinator {
         let snapshot = viewModel.snapshot
         let sheet = PortfolioPickerSheet(title: title)
         if holdings.isEmpty {
-            sheet.note = PortfolioStrings.text("Nothing here can do that right now.")
+            sheet.note = emptyNote
         }
         sheet.options = holdings.map { holding in
             let wallet = snapshot.wallet(holding.walletId)?.name ?? ""

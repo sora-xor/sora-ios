@@ -53,7 +53,6 @@ final class GenerateQRViewModel {
     private var address: String
     private var username: String
     private let qrEncoder: WalletQREncoderProtocol
-    private var appEventService = AppEventService()
     private var networkFacade: WalletNetworkOperationFactoryProtocol?
     private let providerFactory: BalanceProviderFactory
     private let feeProvider: FeeProviderProtocol
@@ -191,33 +190,32 @@ private extension GenerateQRViewModel {
         generationOperation?.cancel()
         let size = UIScreen.main.bounds.width - 112
         let qrSize = CGSize(width: size, height: size)
-        generationOperation = try? qrService.generate(from: receiveInfo, qrSize: qrSize, runIn: .main) { [weak self] operationResult in
-            // Install the cancellable before accepting synchronous completion, and
-            // publish UIKit-facing models only on the main queue.
-            DispatchQueue.main.async { [weak self] in
-                guard let self, generationID == requestID,
-                      case .success(let image) = operationResult else { return }
-                generationOperation = nil
-                currentImage = image
-                processOperation()
+        currentImage = nil
+        publishReceive(isGenerating: true)
+        do {
+            generationOperation = try qrService.generate(from: receiveInfo, qrSize: qrSize, runIn: .main) { [weak self] result in
+                // A service may complete synchronously, or after a newer request.
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, generationID == requestID else { return }
+                    generationOperation = nil
+                    currentImage = try? result?.get()
+                    publishReceive(isGenerating: false)
+                }
             }
+        } catch {
+            publishReceive(isGenerating: false)
         }
     }
 
-    func processOperation() {
-        // The QR, label, copy action and share action describe the same captured
-        // account even if the wallet selection changes during generation.
-        var viewModel = ReceiveQRViewModel(name: username, address: address, qrImage: currentImage)
-        viewModel.shareHandler = { [weak self] in self?.share() }
-        viewModel.scanQRHandler = { [weak self] in self?.scanQRCodeButtonTapped() }
-        viewModel.accountTapHandler = { [weak self, address] in
-            let title = NSAttributedString(string: R.string.localizable.commonCopied(preferredLanguages: .currentLocale))
-            let eventModel = AppEventViewController.ViewModel(title: title)
-            let controller = AppEventViewController(style: .custom(eventModel))
-            self?.appEventService.showToasterIfNeeded(viewController: controller)
+    func publishReceive(isGenerating: Bool) {
+        var model = ReceiveQRViewModel(name: username, address: address, qrImage: currentImage, isGenerating: isGenerating)
+        if currentImage != nil { model.shareHandler = { [weak self] in self?.share() } }
+        model.scanQRHandler = { [weak self] in self?.scanQRCodeButtonTapped() }
+        model.accountTapHandler = { [weak self, address] in
             UIPasteboard.general.string = address
+            self?.view?.didCopyAddress(address)
         }
-        setupReceiveView?(viewModel)
+        setupReceiveView?(model)
     }
 
     func createGenerateQRInfo() -> ReceiveInfo? {

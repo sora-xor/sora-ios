@@ -54,7 +54,7 @@ final class AppSettingsPresenter: AppSettingsPresenterProtocol {
         var items: [SoramitsuTableViewItemProtocol] = []
         let languages = AppSettingsItem(title: R.string.localizable.changeLanguage(preferredLanguages: languages),
                                         picture: .icon(image: R.image.profile.language()!,
-                                                       color: .fgSecondary),
+                                                       color: .custom(uiColor: Lit.lacquerText)),
                                         rightItem: .arrow,
                                         onTap: { self.showLanguages() }
         )
@@ -65,7 +65,7 @@ final class AppSettingsPresenter: AppSettingsPresenterProtocol {
     private func networksSection() -> SoramitsuTableViewSection {
         let settings = SettingsManager.shared
         let taira = AppSettingsItem(
-            title: "Taira testnet",
+            title: "Taira",
             rightItem: .switcher(state: settings.isTairaEnabled ? .on : .off),
             onSwitch: { [weak self] enabled in
                 // The setter records an explicit choice, so a future remote
@@ -75,7 +75,7 @@ final class AppSettingsPresenter: AppSettingsPresenterProtocol {
             }
         )
         let card = AppSettingsCardItem(
-            title: "TEST NETWORKS",
+            title: R.string.localizable.testnet(preferredLanguages: languages),
             menuItems: [taira]
         )
         return SoramitsuTableViewSection(rows: [card])

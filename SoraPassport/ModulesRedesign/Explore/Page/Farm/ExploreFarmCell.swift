@@ -47,35 +47,19 @@ final class ExploreFarmCell: SoramitsuTableViewCell {
     }
     
     private func updateContent(with viewModel: ExploreFarmViewModel) {
-        if let baseAssetIcon = viewModel.baseAssetIcon {
-            farmView.firstCurrencyImageView.sora.picture = .logo(image: baseAssetIcon)
-            farmView.firstCurrencyImageView.sora.loadingPlaceholder.type = .none
-        }
-
-        if let targetAssetIcon = viewModel.targetAssetIcon {
-            farmView.secondCurrencyImageView.sora.picture = .logo(image: targetAssetIcon)
-            farmView.secondCurrencyImageView.sora.loadingPlaceholder.type = .none
-        }
-        
-        if let targetAssetIcon = viewModel.rewardAssetIcon {
-            farmView.rewardImageView.sora.picture = .logo(image: targetAssetIcon)
-            farmView.rewardImageView.sora.loadingPlaceholder.type = .none
-        }
-        
-        if let title = viewModel.title {
-            farmView.titleLabel.sora.text = title
-            farmView.titleLabel.sora.loadingPlaceholder.type = .none
-        }
-
-        if let subtitle = viewModel.tvl {
-            farmView.subtitleLabel.sora.text = subtitle
-            farmView.subtitleLabel.sora.loadingPlaceholder.type = .none
-        }
-
-        if let apr = viewModel.apr {
-            farmView.amountUpLabel.sora.text = apr
-            farmView.amountUpLabel.sora.loadingPlaceholder.type = .none
-        }
+        let placeholder: SoramitsuLoadingPlaceholderType = viewModel.farmId == nil && LitMotion.allowed ? .shimmer : .none
+        farmView.firstCurrencyImageView.sora.picture = viewModel.baseAssetIcon.map { .logo(image: $0) }
+        farmView.firstCurrencyImageView.sora.loadingPlaceholder.type = placeholder
+        farmView.secondCurrencyImageView.sora.picture = viewModel.targetAssetIcon.map { .logo(image: $0) }
+        farmView.secondCurrencyImageView.sora.loadingPlaceholder.type = placeholder
+        farmView.rewardImageView.sora.picture = viewModel.rewardAssetIcon.map { .logo(image: $0) }
+        farmView.rewardImageView.sora.loadingPlaceholder.type = placeholder
+        farmView.titleLabel.sora.text = viewModel.title
+        farmView.titleLabel.sora.loadingPlaceholder.type = placeholder
+        farmView.subtitleLabel.sora.text = viewModel.tvl
+        farmView.subtitleLabel.sora.loadingPlaceholder.type = placeholder
+        farmView.amountUpLabel.sora.text = viewModel.apr
+        farmView.amountUpLabel.sora.loadingPlaceholder.type = placeholder
     }
 }
 

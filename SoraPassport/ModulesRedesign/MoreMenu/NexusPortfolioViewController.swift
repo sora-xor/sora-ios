@@ -513,7 +513,7 @@ final class NexusPortfolioViewController: WalletTableViewController {
         cell.contentConfiguration = configuration
         cell.accessoryType = .disclosureIndicator
         if row.account.networkId == .taira {
-            cell.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.08)
+            cell.backgroundColor = PortfolioTheme.warning.withAlphaComponent(0.08)
         }
         return cell
     }

@@ -572,7 +572,9 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         let directory = WalletNetworkDirectory.current
         let main = directory.mainNetwork(walletNetworks: Set(networkAccounts.map(\.networkId)))
         let xor = assetManager.assetInfo(for: WalletAssetId.xor.rawValue)
-        let icon = xor.flatMap { RemoteSerializer.shared.image(with: $0.icon ?? "") }
+        // XOR's picture comes with the asset list; until that has loaded the row shows the SORA mark it
+        // stands for, never an empty white disc.
+        let icon = xor.flatMap { RemoteSerializer.shared.image(with: $0.icon ?? "") } ?? R.image.soraLogoBig()
         let name = xor?.name ?? "XOR"
         let rows: [NetworkAssetRow] = directory.ordered(networkAccounts.map(\.networkId), main: main)
             .filter { $0 != .sora2 }
@@ -583,7 +585,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                 let network = directory.info(networkId)
                 let amount: String
                 if !network.isLive {
-                    amount = WalletUX.text("Address ready")
+                    // The "Coming soon" tag says it; a second line repeating it was noise.
+                    amount = ""
                 } else {
                     switch networkBalances[account.id] {
                     case let .loaded(quantity):

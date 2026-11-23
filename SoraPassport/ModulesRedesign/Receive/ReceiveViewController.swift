@@ -19,7 +19,13 @@ import Foundation
 import UIKit
 import SoraUIKit
 
-protocol ReceiveViewProtocol: ControllerBackedProtocol {}
+protocol ReceiveViewProtocol: ControllerBackedProtocol {
+    func didCopyAddress(_ address: String)
+}
+
+extension ReceiveViewProtocol {
+    func didCopyAddress(_ address: String) {}
+}
 
 final class ReceiveViewController: SoramitsuViewController {
 
@@ -82,6 +88,24 @@ final class ReceiveViewController: SoramitsuViewController {
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
     }
+
+    override func present(_ controller: UIViewController, animated: Bool, completion: (() -> Void)? = nil) {
+        // Both SORA and Nexus present their native share sheet through this screen.
+        if let activity = controller as? UIActivityViewController, let popover = activity.popoverPresentationController {
+            let anchor = visibleCard?.shareButton ?? view
+            popover.sourceView = anchor
+            popover.sourceRect = anchor?.bounds ?? .zero
+        }
+        super.present(controller, animated: animated, completion: completion)
+    }
 }
 
-extension ReceiveViewController: ReceiveViewProtocol {}
+extension ReceiveViewController: ReceiveViewProtocol {
+    private var visibleCard: ReceiveQRView? {
+        (tableView.visibleCells.first as? ReceiveCell)?.card
+    }
+
+    func didCopyAddress(_ address: String) {
+        visibleCard?.addressCopied(address)
+    }
+}

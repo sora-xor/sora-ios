@@ -43,35 +43,23 @@ final class WordNumberCell: SoramitsuTableViewCell {
     private let numberLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.text = ""
-        label.font = UIFont.boldSystemFont(ofSize: 128)
-        label.textColor = SoramitsuUI.shared.theme.palette.color(.fgPrimary)
+        label.font = UIFontMetrics(forTextStyle: .largeTitle)
+            .scaledFont(for: .monospacedDigitSystemFont(ofSize: 56, weight: .semibold), maximumPointSize: 84)
+        label.adjustsFontForContentSizeCategory = true
+        label.textColor = Lit.lacquerText
         label.textAlignment = .center
         return label
     }()
     
-    private let descriptionLabel: SoramitsuLabel = {
-        let label = SoramitsuLabel()
-        label.sora.text = R.string.localizable.mnemonicConfirmationSelectWord2(preferredLanguages: .currentLocale)
-        label.sora.font = FontType.paragraphM
-        label.sora.dynamicTextStyle = .body
-        label.numberOfLines = 0
-        label.sora.textColor = .fgPrimary
-        label.sora.alignment = .center
-        return label
-    }()
-    
-    private let circlesStackView: SoramitsuStackView = {
-        var view = SoramitsuStackView()
-        view.sora.backgroundColor = .custom(uiColor: .clear)
-        view.sora.axis = .horizontal
-        view.sora.distribution = .equalCentering
-        view.sora.alignment = .center
-        view.spacing = 8
-        view.sora.clipsToBounds = false
-        view.heightAnchor.constraint(equalToConstant: 24).isActive = true
+    private let progress: UIProgressView = {
+        let view = UIProgressView(progressViewStyle: .default)
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.progressTintColor = Lit.lacquerRed
+        view.trackTintColor = Lit.wellFloor
+        view.accessibilityLabel = R.string.localizable.accountConfirmationTitleV2(preferredLanguages: .currentLocale)
         return view
     }()
-    
+
     private let buttonsStackView: SoramitsuStackView = {
         var view = SoramitsuStackView()
         view.sora.backgroundColor = .custom(uiColor: .clear)
@@ -94,7 +82,7 @@ final class WordNumberCell: SoramitsuTableViewCell {
     private func setupView() {
         contentView.addSubviews(containerView)
         contentView.addSubviews(buttonsStackView)
-        containerView.addSubviews(titleLabel, numberLabel, descriptionLabel, circlesStackView)
+        containerView.addSubviews(titleLabel, numberLabel, progress)
     }
 
     private func setupConstraints() {
@@ -111,15 +99,11 @@ final class WordNumberCell: SoramitsuTableViewCell {
             numberLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             numberLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
 
-            descriptionLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            descriptionLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            descriptionLabel.topAnchor.constraint(equalTo: numberLabel.bottomAnchor, constant: 16),
-            
-            circlesStackView.leadingAnchor.constraint(greaterThanOrEqualTo: containerView.leadingAnchor, constant: 24),
-            circlesStackView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            circlesStackView.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 16),
-            circlesStackView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -32),
-            
+            progress.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            progress.widthAnchor.constraint(equalToConstant: 88),
+            progress.topAnchor.constraint(equalTo: numberLabel.bottomAnchor, constant: 12),
+            progress.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -20),
+
             buttonsStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             buttonsStackView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             buttonsStackView.topAnchor.constraint(equalTo: containerView.bottomAnchor, constant: 24),
@@ -136,26 +120,20 @@ extension WordNumberCell: SoramitsuTableViewCellProtocol {
         }
         wordNumberItem = item
         
-        circlesStackView.removeArrangedSubviews()
-        for i in 0..<3 {
-            let view = SoramitsuView()
-            view.sora.backgroundColor = i < item.currentStage ? .accentPrimary : .bgSurfaceVariant
-            view.sora.cornerRadius = .circle
-            view.widthAnchor.constraint(equalToConstant: 24).isActive = true
-            view.heightAnchor.constraint(equalToConstant: 24).isActive = true
-            circlesStackView.addArrangedSubview(view)
-        }
-        
+        progress.setProgress(Float(item.currentStage) / 3, animated: window != nil && LitMotion.allowed)
         buttonsStackView.removeArrangedSubviews()
         for variant in item.variants {
-            let view = WalletUX.button(variant) { [weak self] in
+            let button = WalletSafeMode.button(.secondary, title: variant)
+            button.addAction(UIAction { [weak self] _ in
                 self?.wordNumberItem?.tryHandler?(variant)
-            }
-            buttonsStackView.addArrangedSubview(view)
+            }, for: .touchUpInside)
+            buttonsStackView.addArrangedSubview(button)
         }
 
-        numberLabel.text = "\(item.index)"
-        accessibilityElements = [titleLabel, numberLabel, descriptionLabel] + buttonsStackView.arrangedSubviews
+        let position = "\(item.index)"
+        if numberLabel.text != position, window != nil { LitMotion.rise(numberLabel, by: 5) }
+        numberLabel.text = position
+        accessibilityElements = [titleLabel, numberLabel, progress] + buttonsStackView.arrangedSubviews
 
     }
 }

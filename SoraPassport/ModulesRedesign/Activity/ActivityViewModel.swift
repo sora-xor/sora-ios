@@ -149,7 +149,8 @@ extension ActivityViewModel: ActivityViewModelProtocol {
     func viewDidLoad() {
         guard sections.isEmpty else { return }
 
-        sections = viewModelFactory.createActivityShimmerModels()
+        let loadingItems = viewModelFactory.createActivityShimmerModels().flatMap(\.items).filter(\.isActivity)
+        sections = contentSection(with: Array(loadingItems.prefix(3)))
         snapshot = createSnapshot()
         Task { [weak self] in
             await self?.loadContent()

@@ -49,6 +49,7 @@ final class ExplorePageView: SoramitsuView {
         }
     }
     
+    private var loadingDeadline: DispatchWorkItem?
     private var cancellables: Set<AnyCancellable> = []
     
     private lazy var dataSource: ExplorePageDataSource = {
@@ -102,6 +103,15 @@ final class ExplorePageView: SoramitsuView {
         return tableView
     }()
     
+    private let emptyIcon: UIImageView = {
+        let icon = UIImageView(image: UIImage(systemName: "magnifyingglass", withConfiguration: UIImage.SymbolConfiguration(pointSize: 30, weight: .light)))
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        icon.tintColor = Lit.lacquerText
+        icon.isHidden = true
+        icon.isAccessibilityElement = false
+        return icon
+    }()
+
     let emptyListLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.numberOfLines = 0
@@ -120,6 +130,7 @@ final class ExplorePageView: SoramitsuView {
 
     private func setupSubviews() {
         addSubview(tableView)
+        addSubview(emptyIcon)
         addSubview(emptyListLabel)
         
         NSLayoutConstraint.activate([
@@ -129,6 +140,8 @@ final class ExplorePageView: SoramitsuView {
             tableView.centerXAnchor.constraint(equalTo: centerXAnchor),
             tableView.heightAnchor.constraint(equalTo: heightAnchor),
             
+            emptyIcon.centerXAnchor.constraint(equalTo: emptyListLabel.centerXAnchor),
+            emptyIcon.bottomAnchor.constraint(equalTo: emptyListLabel.topAnchor, constant: -12),
             emptyListLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             emptyListLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             emptyListLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -140,10 +153,37 @@ final class ExplorePageView: SoramitsuView {
         viewModel?.snapshotPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] snapshot in
-                UIView.performWithoutAnimation {
-                    self?.emptyListLabel.isHidden = snapshot.numberOfSections != 0
-                    self?.dataSource.apply(snapshot, animatingDifferences: false)
+                guard let self else { return }
+                self.loadingDeadline?.cancel()
+                self.emptyListLabel.sora.text = R.string.localizable.commonNothingFound(preferredLanguages: .currentLocale)
+                self.emptyListLabel.isHidden = snapshot.numberOfItems != 0
+                self.emptyIcon.isHidden = self.emptyListLabel.isHidden
+                let pending = snapshot.numberOfItems > 0 && snapshot.itemIdentifiers.allSatisfy { item in
+                    switch item {
+                    case .asset(let row): return row.assetViewModel.assetId == nil
+                    case .pool(let row): return row.poolViewModel.poolId == nil
+                    case .farm(let row): return row.farmViewModel.farmId == nil
+                    case .header: return false
+                    }
                 }
+                var visible = snapshot
+                if pending {
+                    visible.deleteItems(Array(snapshot.itemIdentifiers.dropFirst(3)))
+                    if !LitMotion.allowed {
+                        visible = ExplorePageSnapshot()
+                        self.emptyListLabel.sora.text = R.string.localizable.loading(preferredLanguages: .currentLocale)
+                        self.emptyListLabel.isHidden = false
+                    }
+                }
+                self.dataSource.apply(visible, animatingDifferences: false)
+                guard pending else { return }
+                let deadline = DispatchWorkItem { [weak self] in
+                    self?.dataSource.apply(ExplorePageSnapshot(), animatingDifferences: false)
+                    self?.emptyListLabel.sora.text = R.string.localizable.commonErrorNotFoundTitle(preferredLanguages: .currentLocale)
+                    self?.emptyListLabel.isHidden = false
+                }
+                self.loadingDeadline = deadline
+                DispatchQueue.main.asyncAfter(deadline: .now() + 12, execute: deadline)
             }
             .store(in: &cancellables)
     }

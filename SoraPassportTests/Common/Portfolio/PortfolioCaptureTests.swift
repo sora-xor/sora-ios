@@ -675,7 +675,8 @@ final class PortfolioScreenBehaviorTests: XCTestCase {
 
     func testWalletSheetManageAssetsAndWalletsDispatchCorrectRoutes() async throws {
         let host = await show()
-        for (title, expected) in [("Manage wallets", "manage"), ("Manage selected wallet's assets", "manage-assets")] {
+        for (title, expected) in [(PortfolioStrings.text("Manage wallets"), "manage"),
+                                  (PortfolioStrings.text("Manage selected wallet's assets"), "manage-assets")] {
             host.coordinator.showWallets()
             await settle()
             let sheet = try presented(PortfolioWalletsSheet.self, from: host)

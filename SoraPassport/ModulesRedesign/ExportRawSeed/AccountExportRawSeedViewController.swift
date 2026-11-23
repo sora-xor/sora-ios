@@ -156,7 +156,7 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
         pathLabel.textColor = .label
         pathLabel.font = .preferredFont(forTextStyle: .body)
         pathLabel.adjustsFontForContentSizeCategory = true
-        copyPathButton.tintColor = WalletUX.tokens.cyan
+        copyPathButton.tintColor = Lit.lacquerText
         pathLabel.isHidden = true
         copyPathButton.setTitle(WalletUX.text("Copy derivation path"), for: .normal)
         copyPathButton.addTarget(self, action: #selector(copyPath), for: .touchUpInside)
@@ -197,6 +197,7 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
     private func copyTapped(){
         guard hasSeed else { presenter.exportJSON(); return }
         guard revealed else { return }
+        LitMotion.rise(copyButton, by: 3)
         copyButton.sora.title = R.string.localizable.commonCopied(preferredLanguages: .currentLocale)
         presenter.copyRawSeed()
     }

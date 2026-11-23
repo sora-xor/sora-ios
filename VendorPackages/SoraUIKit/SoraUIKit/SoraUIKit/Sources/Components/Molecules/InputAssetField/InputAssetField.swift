@@ -35,6 +35,19 @@ public final class InputAssetField: UIControl, Molecule {
         return button
     }()
     
+    /// A small wallet before the balance: the number is what you hold. Shown once tapping it does something.
+    let balanceGlyph: UIImageView = {
+        let view = UIImageView(image: UIImage(systemName: "wallet.bifold.fill")
+            ?? UIImage(systemName: "creditcard.fill"))
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.contentMode = .scaleAspectFit
+        view.tintColor = SoramitsuUI.shared.theme.palette.color(.fgSecondary)
+        view.isHidden = true
+        return view
+    }()
+
+    var balanceGlyphWidth: NSLayoutConstraint?
+
     let fullFiatAmountLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -95,9 +108,14 @@ private extension InputAssetField {
         addSubview(containerView)
         containerView.addSubview(assetImageView)
         containerView.addSubview(choiceButton)
+        containerView.addSubview(balanceGlyph)
         containerView.addSubview(fullFiatAmountLabel)
         containerView.addSubview(textField)
         containerView.addSubview(inputedFiatAmountLabel)
+
+        let glyphWidth = balanceGlyph.widthAnchor.constraint(equalToConstant: 0)
+        balanceGlyphWidth = glyphWidth
+        glyphWidth.isActive = true
 
         NSLayoutConstraint.activate([
             containerView.topAnchor.constraint(equalTo: topAnchor),
@@ -115,7 +133,11 @@ private extension InputAssetField {
             choiceButton.topAnchor.constraint(equalTo: assetImageView.topAnchor),
             choiceButton.heightAnchor.constraint(equalToConstant: 24),
             
-            fullFiatAmountLabel.leadingAnchor.constraint(equalTo: assetImageView.trailingAnchor, constant: 8),
+            balanceGlyph.leadingAnchor.constraint(equalTo: assetImageView.trailingAnchor, constant: 8),
+            balanceGlyph.centerYAnchor.constraint(equalTo: fullFiatAmountLabel.centerYAnchor),
+            balanceGlyph.heightAnchor.constraint(equalToConstant: 12),
+
+            fullFiatAmountLabel.leadingAnchor.constraint(equalTo: balanceGlyph.trailingAnchor),
             fullFiatAmountLabel.bottomAnchor.constraint(equalTo: assetImageView.bottomAnchor),
             
             textField.leadingAnchor.constraint(equalTo: choiceButton.trailingAnchor, constant: 8),

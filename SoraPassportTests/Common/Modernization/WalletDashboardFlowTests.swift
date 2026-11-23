@@ -418,7 +418,8 @@ extension WalletDashboardFlowTests {
         load(fixture)
         let row = try XCTUnwrap(networkRows(fixture).first)
         XCTAssertEqual(row.account, account)
-        XCTAssertEqual(row.amount, WalletUX.text("Address ready"))
+        // The row's "Coming soon" tag says it; no second line.
+        XCTAssertEqual(row.amount, "")
         XCTAssertEqual(reader.definitions, 0)
     }
     func testSora2NeverDuplicatesThePrimaryXorHoldingInOtherNetworkRows() throws {

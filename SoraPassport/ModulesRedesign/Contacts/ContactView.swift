@@ -16,8 +16,7 @@
 // limitations under the License.
 
 import SoraUIKit
-import Anchorage
-import SnapKit
+import UIKit
 
 final class ContactView: SoramitsuView {
     
@@ -36,7 +35,10 @@ final class ContactView: SoramitsuView {
         var label = SoramitsuLabel()
         label.sora.textColor = .fgPrimary
         label.sora.font = FontType.textS
-        label.sora.numberOfLines = 2
+        label.sora.dynamicTextStyle = .body
+        label.sora.numberOfLines = 0
+        label.sora.lineBreakMode = .byCharWrapping
+        label.semanticContentAttribute = .forceLeftToRight
         label.sora.text = R.string.localizable.selectRecipient(preferredLanguages: .currentLocale)
         return label
     }()
@@ -56,8 +58,12 @@ final class ContactView: SoramitsuView {
         return imageView
     }()
     
-    public lazy var button: SoramitsuButton = {
-        let view = SoramitsuButton()
+    public lazy var button: SoramitsuControl = {
+        let view = SoramitsuControl()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.isAccessibilityElement = true
+        view.accessibilityTraits = .button
+        view.accessibilityLabel = R.string.localizable.selectRecipient(preferredLanguages: .currentLocale)
         view.sora.backgroundColor = .custom(uiColor: .clear)
         view.sora.isHidden = true
         view.sora.addHandler(for: .touchUpInside) { [weak self] in
@@ -69,7 +75,7 @@ final class ContactView: SoramitsuView {
     private let contactStackView: SoramitsuStackView = {
         let stackView = SoramitsuStackView()
         stackView.sora.axis = .vertical
-        stackView.sora.distribution = .equalSpacing
+        stackView.sora.distribution = .fill
         stackView.spacing = 4
         return stackView
     }()
@@ -77,44 +83,31 @@ final class ContactView: SoramitsuView {
     override init(frame: CGRect = .zero) {
         super.init(frame: frame)
         setupSubviews()
-        setupConstrains()
     }
 
     private func setupSubviews() {
         sora.backgroundColor = .bgSurface
         translatesAutoresizingMaskIntoConstraints = false
-        addSubview(accountImageView)
-        addSubview(arrowImageView)
-        addSubview(contactStackView)
+        let row = UIStackView(arrangedSubviews: [accountImageView, contactStackView, arrowImageView])
+        row.alignment = .center
+        row.spacing = 10
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
         addSubview(button)
-        
         contactStackView.addArrangedSubviews([usernameTitle, accountTitle])
-    }
-
-    private func setupConstrains() {
-        accountImageView.snp.makeConstraints { make in
-            make.height.equalTo(40)
-            make.width.equalTo(40)
-            make.top.equalTo(self).offset(8)
-            make.leading.equalTo(self).offset(24)
-            make.centerY.equalTo(self)
-        }
-        
-        arrowImageView.snp.makeConstraints { make in
-            make.height.equalTo(24)
-            make.width.equalTo(24)
-            make.trailing.equalTo(self).offset(-16)
-            make.centerY.equalTo(accountImageView)
-        }
-        
-        contactStackView.snp.makeConstraints { make in
-            make.leading.equalTo(accountImageView.snp.trailing).offset(8)
-            make.trailing.equalTo(arrowImageView.snp.leading).offset(-8)
-            make.centerY.equalTo(accountImageView)
-        }
-        
-        button.snp.makeConstraints { make in
-            make.edges.equalTo(self)
-        }
+        let arrowWidth = arrowImageView.widthAnchor.constraint(equalToConstant: 20)
+        arrowWidth.priority = UILayoutPriority(999)
+        NSLayoutConstraint.activate([
+            arrowWidth,
+            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            row.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+            accountImageView.widthAnchor.constraint(equalToConstant: 40),
+            accountImageView.heightAnchor.constraint(equalTo: accountImageView.widthAnchor),
+            arrowImageView.heightAnchor.constraint(equalTo: arrowImageView.widthAnchor),
+            button.topAnchor.constraint(equalTo: topAnchor), button.bottomAnchor.constraint(equalTo: bottomAnchor),
+            button.leadingAnchor.constraint(equalTo: leadingAnchor), button.trailingAnchor.constraint(equalTo: trailingAnchor)
+        ])
     }
 }

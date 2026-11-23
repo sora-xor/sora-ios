@@ -136,7 +136,7 @@ final class TairaFaucetScreenTests: XCTestCase {
   func testInitialScreenUsesPublicReceiveAccountForPendingLookup() async throws {
     let screen = try await open()
     XCTAssertEqual(faucet.pendingAccounts, [reader.account])
-    XCTAssertEqual(try status(screen).text, "Free XOR for testing on Taira.")
+    XCTAssertEqual(try status(screen).text, WalletUX.text("Free XOR for testing on Taira."))
     XCTAssertEqual(try button(screen).title, "Get test XOR")
   }
   func testSavedPendingRequestOffersStatusCheck() async throws {

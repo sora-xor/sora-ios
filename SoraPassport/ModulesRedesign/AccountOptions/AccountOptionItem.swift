@@ -26,7 +26,8 @@ class AccountOptionItem: SoramitsuView {
         view.sora.backgroundColor = .bgSurface
         view.sora.axis = .horizontal
         view.sora.cornerRadius = .max
-        view.sora.distribution = .fillProportionally
+        view.sora.distribution = .fill
+        view.sora.alignment = .center
         view.layoutMargins = UIEdgeInsets(top: 16, left: 24, bottom: 16, right: 24)
         view.isLayoutMarginsRelativeArrangement = true
         view.spacing = 8
@@ -35,7 +36,7 @@ class AccountOptionItem: SoramitsuView {
 
     let titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.numberOfLines = 1
+        label.numberOfLines = 0
         label.textAlignment = .left
         label.backgroundColor = .clear
         label.sora.font = FontType.textM
@@ -79,7 +80,7 @@ class AccountOptionItem: SoramitsuView {
     private func setupConstrains() {
         leftImageView.widthAnchor == 24
         arrow.widthAnchor == 24
-        titleLabel.heightAnchor == 24
+        titleLabel.heightAnchor >= 24
         horizontalStack.edgeAnchors == edgeAnchors
     }
 

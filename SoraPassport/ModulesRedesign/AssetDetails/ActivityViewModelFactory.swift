@@ -314,7 +314,7 @@ private extension ActivityViewModelFactory {
                                             fontData: FontType.textM,
                                             textColor: .fgPrimary,
                                             alignment: isRTL ? .left : .right)
-        let title = setReferrer.isMyReferrer ? R.string.localizable.referrerSet(preferredLanguages: .currentLocale) : "Referral joined"
+        let title = setReferrer.isMyReferrer ? R.string.localizable.referrerSet(preferredLanguages: .currentLocale) : WalletUX.text("Referral joined")
         let subtitle = setReferrer.isMyReferrer ? SelectedWalletSettings.shared.currentAccount?.address ?? "" : setReferrer.who 
         return ActivityContentViewModel(txHash: setReferrer.base.txHash,
                                         title: title,

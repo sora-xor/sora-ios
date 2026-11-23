@@ -23,6 +23,7 @@ final class ReceiveItem: NSObject {
     let name: String
     let address: String
     let qrImage: UIImage?
+    let isGenerating: Bool
     let sendAssetViewModel: SendAssetViewModel?
     /// Shown instead of the address's identicon, for addresses of networks
     /// that have none.
@@ -33,9 +34,10 @@ final class ReceiveItem: NSObject {
     var accountTapHandler: (() -> Void)?
     
     init(name: String, address: String, qrImage: UIImage?, sendAssetViewModel: SendAssetViewModel? = nil,
-         avatar: UIImage? = nil, notice: String? = nil) {
+         avatar: UIImage? = nil, notice: String? = nil, isGenerating: Bool = false) {
         self.address = address
         self.qrImage = qrImage
+        self.isGenerating = isGenerating
         self.name = name
         self.sendAssetViewModel = sendAssetViewModel
         self.avatar = avatar

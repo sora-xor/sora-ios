@@ -74,7 +74,11 @@ final class ExportAndNetworkPickerScreenTests: XCTestCase {
         let rows = try XCTUnwrap(view.item?.rows); XCTAssertEqual(rows.count, 3)
         for (row, expected) in zip(rows, choices) {
             XCTAssertEqual(row.title, expected.network.name); XCTAssertTrue(row.subtitle.contains("0123456789…OPQRSTUV"))
-            XCTAssertTrue(row.subtitle.contains(expected.network.isLive ? "12 XOR" : WalletUX.text("Address ready")))
+            if expected.network.isLive {
+                XCTAssertTrue(row.subtitle.contains("12 XOR"))
+            } else {
+                XCTAssertFalse(row.subtitle.contains(WalletUX.text("Address ready")), "The Coming soon tag says it")
+            }
             XCTAssertEqual(row.tag?.title, expected.tag?.title); XCTAssertEqual(row.identifier, "wallet.network-choice.\(expected.network.id.rawValue)")
         }
     }

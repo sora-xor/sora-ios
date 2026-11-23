@@ -26,204 +26,197 @@ struct ReceiveQRViewModel {
     var shareHandler: (() -> Void)?
     var scanQRHandler: (() -> Void)?
     var accountTapHandler: (() -> Void)?
+    var avatar: UIImage?
+    var notice: String?
+    var amount: SendAssetViewModel?
+    var isGenerating = false
 }
 
+/// The QR always has a square, opaque white quiet zone, including in short windows.
 final class ReceiveQRView: SoramitsuView {
-    
     private let generator = PolkadotIconGenerator()
-    
+    private let stack = UIStackView()
+    private let codeCard = SoramitsuView()
+    private let code = UIImageView()
+    private let status = SoramitsuLabel()
+    private let account = SoramitsuControl()
+    private let avatar = UIImageView()
+    private let name = SoramitsuLabel()
+    private let address = SoramitsuLabel()
+    private let copyIcon = UIImageView(image: UIImage(systemName: "doc.on.doc"))
+    private let notice = SoramitsuLabel()
+    private let amount = SendAssetView()
+    let shareButton = SoramitsuButton()
+    private let scanButton = SoramitsuButton()
+    private var resetCopy: DispatchWorkItem?
+    private lazy var square = codeCard.heightAnchor.constraint(equalTo: codeCard.widthAnchor)
+    private lazy var sizing = WalletCodeSide(card: codeCard, square: square)
+
     var viewModel: ReceiveQRViewModel? {
         didSet {
-            guard let viewModel = viewModel else { return }
-            accountAddress.sora.text = viewModel.address
-            accountContainerView.accessibilityLabel = [viewModel.name, viewModel.address].filter { !$0.isEmpty }.joined(separator: ", ")
-            accountImageView.image = try? generator.generateFromAddress(viewModel.address)
-                .imageWithFillColor(UIColor.white,
-                                    size: CGSize(width: 40.0, height: 40.0),
-                                    contentScale: UIScreen.main.scale)
-            
-            qrImageView.image = viewModel.qrImage
-            accountTitle.sora.text = viewModel.name
-            accountTitle.sora.isHidden = viewModel.name.isEmpty
-            isHidden = false
+            guard let model = viewModel else { return }
+            if oldValue?.address != model.address {
+                resetCopy?.cancel()
+                copyIcon.image = UIImage(systemName: "doc.on.doc")
+            }
+            name.sora.text = model.name
+            name.isHidden = model.name.isEmpty
+            address.sora.text = model.address
+            account.accessibilityLabel = [model.name, model.address].filter { !$0.isEmpty }.joined(separator: ", ")
+            account.accessibilityHint = model.accountTapHandler == nil ? nil : R.string.localizable.commonCopyAddress(preferredLanguages: .currentLocale)
+            account.accessibilityTraits = model.accountTapHandler == nil ? .staticText : .button
+            copyIcon.isHidden = model.accountTapHandler == nil
+            avatar.image = model.avatar ?? (try? generator.generateFromAddress(model.address)
+                .imageWithFillColor(.white, size: CGSize(width: 40, height: 40), contentScale: UIScreen.main.scale))
+            let newImage = model.qrImage != nil && code.image !== model.qrImage
+            code.image = model.qrImage
+            codeCard.isHidden = model.qrImage == nil
+            status.sora.text = WalletUX.text("QR unavailable")
+            status.isHidden = model.qrImage != nil || model.isGenerating
+            if newImage { LitMotion.rise(codeCard, by: 8) }
+            notice.sora.text = model.notice
+            notice.isHidden = model.notice?.isEmpty ?? true
+            amount.isHidden = model.amount == nil
+            amount.setupView(with: model.amount)
+            // Kit buttons have a required height. Remove absent actions from the
+            // stack so UIKit never tries to collapse a fixed-height control.
+            if model.shareHandler == nil {
+                shareButton.removeFromSuperview()
+            } else if shareButton.superview == nil {
+                let index = stack.arrangedSubviews.firstIndex(of: scanButton) ?? stack.arrangedSubviews.count
+                stack.insertArrangedSubview(shareButton, at: index)
+            }
+            if model.scanQRHandler == nil {
+                scanButton.removeFromSuperview()
+            } else if scanButton.superview == nil {
+                stack.addArrangedSubview(scanButton)
+            }
         }
     }
 
-    private let qrContainerView: SoramitsuView = {
-        var view = SoramitsuView()
-        view.sora.backgroundColor = .custom(uiColor: .white)
-        view.sora.material = .solid
-        view.sora.cornerRadius = .max
-        view.sora.shadow = .small
-        view.semanticContentAttribute = .forceLeftToRight
-        return view
-    }()
-    
-    private let qrImageView: SoramitsuImageView = {
-        let imageView = SoramitsuImageView()
-        imageView.layer.magnificationFilter = .nearest
-        imageView.layer.minificationFilter = .nearest
-        imageView.isAccessibilityElement = false
-        return imageView
-    }()
-    
-    private lazy var accountContainerView: SoramitsuControl = {
-        var view = SoramitsuControl()
-        view.sora.backgroundColor = .bgSurface
-        view.sora.cornerRadius = .max
-        view.sora.shadow = .small
-        view.isAccessibilityElement = true
-        view.accessibilityTraits = .button
-        view.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.viewModel?.accountTapHandler?()
-        }
-        return view
-    }()
-    
-    private let accountImageView: SoramitsuImageView = {
-        let imageView = SoramitsuImageView()
-        imageView.isUserInteractionEnabled = false
-        return imageView
-    }()
-    
-    private let mainStackView: SoramitsuStackView = {
-        var mainStackView = SoramitsuStackView()
-        mainStackView.sora.backgroundColor = .custom(uiColor: .clear)
-        mainStackView.sora.axis = .vertical
-        mainStackView.sora.distribution = .equalSpacing
-        mainStackView.sora.alignment = .fill
-        mainStackView.sora.clipsToBounds = false
-        mainStackView.spacing = 0
-        mainStackView.isUserInteractionEnabled = false
-        return mainStackView
-    }()
-    
-    private let accountTitle: SoramitsuLabel = {
-        var label = SoramitsuLabel()
-        label.sora.textColor = .fgSecondary
-        label.sora.font = FontType.textBoldXS
-        label.sora.isHidden = true
-        label.setContentHuggingPriority(.required, for: .horizontal)
-        label.isUserInteractionEnabled = false
-        return label
-    }()
-    
-    private let accountAddress: SoramitsuLabel = {
-        var label = SoramitsuLabel()
-        label.sora.textColor = .fgPrimary
-        label.sora.font = FontType.mono
-        label.sora.numberOfLines = 0
-        label.sora.lineBreakMode = .byCharWrapping
-        label.semanticContentAttribute = .forceLeftToRight
-        label.isUserInteractionEnabled = false
-        label.setContentCompressionResistancePriority(.required, for: .vertical)
-        return label
-    }()
-    
-    private lazy var shareButton: SoramitsuButton = {
-        let button = SoramitsuButton()
-        button.sora.tintColor = .fgInverted
-        button.sora.leftImage = R.image.wallet.send()
-        button.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonShare(preferredLanguages: .currentLocale),
-                                                       fontData: FontType.buttonM,
-                                                       textColor: .bgSurface,
-                                                       alignment: .center)
-        button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .accentSecondary
-        button.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.viewModel?.shareHandler?()
-        }
-        return button
-    }()
-    
-    private lazy var scanQrButton: SoramitsuButton = {
-        let text = SoramitsuTextItem(
-            text: R.string.localizable.commomScanQr(preferredLanguages: .currentLocale),
-            fontData: FontType.buttonM,
-            textColor: .accentSecondary,
-            alignment: .center
-        )
-        
-        let button = SoramitsuButton()
-        button.sora.attributedText = text
-        button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .bgSurface
-        button.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.viewModel?.scanQRHandler?()
-        }
-        return button
-    }()
-
-    
     override init(frame: CGRect = .zero) {
         super.init(frame: frame)
-        setupSubviews()
-        setupConstrains()
-    }
-
-    private func setupSubviews() {
         sora.backgroundColor = .custom(uiColor: .clear)
-        
-        qrContainerView.addSubview(qrImageView)
-        
-        mainStackView.addArrangedSubviews(accountTitle, accountAddress)
-        
-        accountContainerView.addSubview(accountImageView)
-        accountContainerView.addSubviews(mainStackView)
-        
-        addSubview(qrContainerView)
-        addSubview(accountContainerView)
-        addSubview(shareButton)
-        addSubview(scanQrButton)
-    }
-
-    private lazy var qrSquare = qrContainerView.heightAnchor.constraint(equalTo: qrContainerView.widthAnchor)
-    private lazy var codeSide = WalletCodeSide(card: qrContainerView, square: qrSquare)
-
-    /// The code's card is as tall as it is wide on a phone, and no taller than leaves the address and
-    /// Share in view in a window that is short for its width.
-    override func layoutSubviews() {
-        codeSide.update(columnWidth: bounds.width - 48, canvas: WalletDisplay.canvas(for: self))
-        super.layoutSubviews()
-    }
-
-    private func setupConstrains() {
+        stack.axis = .vertical
+        stack.spacing = 12
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        [codeCard, status, account, notice, amount].forEach(stack.addArrangedSubview)
+        let bottom = stack.bottomAnchor.constraint(equalTo: bottomAnchor)
+        bottom.priority = UILayoutPriority(999)
         NSLayoutConstraint.activate([
-            qrContainerView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
-            qrContainerView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            qrSquare,
-            qrContainerView.topAnchor.constraint(equalTo: topAnchor),
-            
-            qrImageView.leadingAnchor.constraint(equalTo: qrContainerView.leadingAnchor, constant: 24),
-            qrImageView.centerXAnchor.constraint(equalTo: qrContainerView.centerXAnchor),
-            qrImageView.centerYAnchor.constraint(equalTo: qrContainerView.centerYAnchor),
-            qrImageView.topAnchor.constraint(equalTo: qrContainerView.topAnchor, constant: 24),
-            
-            accountContainerView.topAnchor.constraint(equalTo: qrContainerView.bottomAnchor, constant: 16),
-            accountContainerView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
-            accountContainerView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            accountContainerView.heightAnchor.constraint(greaterThanOrEqualToConstant: 88),
-            
-            accountImageView.heightAnchor.constraint(equalToConstant: 40),
-            accountImageView.widthAnchor.constraint(equalToConstant: 40),
-            accountImageView.centerYAnchor.constraint(equalTo: accountContainerView.centerYAnchor),
-            accountImageView.leadingAnchor.constraint(equalTo: accountContainerView.leadingAnchor, constant: 16),
-            
-            mainStackView.leadingAnchor.constraint(equalTo: accountImageView.trailingAnchor, constant: 8),
-            mainStackView.trailingAnchor.constraint(equalTo: accountContainerView.trailingAnchor, constant: -16),
-            mainStackView.topAnchor.constraint(equalTo: accountContainerView.topAnchor, constant: 16),
-            mainStackView.centerYAnchor.constraint(equalTo: accountContainerView.centerYAnchor),
-            
-            shareButton.topAnchor.constraint(equalTo: accountContainerView.bottomAnchor, constant: 15),
-            shareButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
-            shareButton.centerXAnchor.constraint(equalTo: centerXAnchor),
-            shareButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 56),
-            
-            scanQrButton.topAnchor.constraint(equalTo: shareButton.bottomAnchor, constant: 15),
-            scanQrButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
-            scanQrButton.centerXAnchor.constraint(equalTo: centerXAnchor),
-            scanQrButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 56),
-            scanQrButton.bottomAnchor.constraint(equalTo: bottomAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor), bottom,
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor), stack.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
+
+        codeCard.sora.backgroundColor = .custom(uiColor: .white)
+        codeCard.sora.material = .solid
+        codeCard.sora.cornerRadius = .max
+        codeCard.sora.shadow = .small
+        code.translatesAutoresizingMaskIntoConstraints = false
+        code.contentMode = .scaleAspectFit
+        code.layer.magnificationFilter = .nearest
+        code.layer.minificationFilter = .nearest
+        code.isAccessibilityElement = false
+        codeCard.addSubview(code)
+        square.priority = UILayoutPriority(999)
+        let insetHeight = code.heightAnchor.constraint(equalTo: codeCard.heightAnchor, constant: -48)
+        insetHeight.priority = UILayoutPriority(998)
+        NSLayoutConstraint.activate([
+            square,
+            code.centerXAnchor.constraint(equalTo: codeCard.centerXAnchor),
+            code.centerYAnchor.constraint(equalTo: codeCard.centerYAnchor),
+            insetHeight,
+            code.widthAnchor.constraint(equalTo: code.heightAnchor)
+        ])
+
+        setupAccount()
+        for label in [status, notice] {
+            label.sora.font = FontType.textS
+            label.sora.textColor = .fgSecondary
+            label.sora.numberOfLines = 0
+            label.sora.alignment = .center
+        }
+        notice.accessibilityIdentifier = "receive.notice"
+        configure(shareButton, title: R.string.localizable.commonShare(preferredLanguages: .currentLocale),
+                  symbol: "square.and.arrow.up", primary: true)
+        shareButton.sora.addHandler(for: .touchUpInside) { [weak self] in self?.viewModel?.shareHandler?() }
+        configure(scanButton, title: R.string.localizable.commomScanQr(preferredLanguages: .currentLocale),
+                  symbol: "qrcode.viewfinder", primary: false)
+        scanButton.sora.addHandler(for: .touchUpInside) { [weak self] in self?.viewModel?.scanQRHandler?() }
+    }
+
+    private func setupAccount() {
+        account.sora.backgroundColor = .bgSurface
+        account.sora.cornerRadius = .max
+        account.isAccessibilityElement = true
+        account.sora.addHandler(for: .touchUpInside) { [weak self] in self?.viewModel?.accountTapHandler?() }
+
+        name.sora.textColor = .fgSecondary
+        name.sora.font = FontType.textBoldS
+        name.sora.dynamicTextStyle = .headline
+        name.sora.numberOfLines = 0
+        address.sora.textColor = .fgPrimary
+        address.sora.font = FontType.mono
+        address.sora.dynamicTextStyle = .body
+        address.sora.numberOfLines = 0
+        address.sora.lineBreakMode = .byCharWrapping
+        address.semanticContentAttribute = .forceLeftToRight
+        let labels = UIStackView(arrangedSubviews: [name, address])
+        labels.axis = .vertical
+        labels.spacing = 3
+        copyIcon.tintColor = WalletUX.accent
+        copyIcon.contentMode = .scaleAspectFit
+        avatar.contentMode = .scaleAspectFit
+        let row = UIStackView(arrangedSubviews: [avatar, labels, copyIcon])
+        row.axis = .horizontal
+        row.spacing = 10
+        row.alignment = .center
+        row.isUserInteractionEnabled = false
+        row.translatesAutoresizingMaskIntoConstraints = false
+        account.addSubview(row)
+        let copyWidth = copyIcon.widthAnchor.constraint(equalToConstant: 20)
+        copyWidth.priority = UILayoutPriority(999)
+        NSLayoutConstraint.activate([
+            row.leadingAnchor.constraint(equalTo: account.leadingAnchor, constant: 16),
+            row.trailingAnchor.constraint(equalTo: account.trailingAnchor, constant: -16),
+            row.topAnchor.constraint(equalTo: account.topAnchor, constant: 12),
+            row.bottomAnchor.constraint(equalTo: account.bottomAnchor, constant: -12),
+            avatar.widthAnchor.constraint(equalToConstant: 36), avatar.heightAnchor.constraint(equalTo: avatar.widthAnchor),
+            copyWidth, copyIcon.heightAnchor.constraint(equalTo: copyIcon.widthAnchor)
+        ])
+    }
+
+    private func configure(_ button: SoramitsuButton, title: String, symbol: String, primary: Bool) {
+        let color: SoramitsuColor = primary ? .fgInverted : .accentPrimary
+        button.sora.tintColor = color
+        button.sora.leftImage = UIImage(systemName: symbol)
+        button.sora.attributedText = SoramitsuTextItem(text: title, fontData: FontType.buttonM, textColor: color, alignment: .center)
+        button.sora.cornerRadius = .circle
+        button.sora.backgroundColor = primary ? .accentPrimary : .bgSurface
+        button.accessibilityLabel = title
+        let height = button.heightAnchor.constraint(greaterThanOrEqualToConstant: primary ? 56 : 48)
+        height.priority = UILayoutPriority(999)
+        height.isActive = true
+    }
+
+    func addressCopied(_ value: String) {
+        guard viewModel?.address == value else { return }
+        resetCopy?.cancel()
+        copyIcon.image = UIImage(systemName: "checkmark.circle.fill")
+        LitMotion.rise(copyIcon, by: 4)
+        UIAccessibility.post(notification: .announcement, argument: R.string.localizable.commonCopied(preferredLanguages: .currentLocale))
+        let reset = DispatchWorkItem { [weak self] in self?.copyIcon.image = UIImage(systemName: "doc.on.doc") }
+        resetCopy = reset
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: reset)
+    }
+
+    func sizeCode(width: CGFloat) {
+        sizing.update(columnWidth: codeCard.isHidden ? 0 : width, canvas: WalletDisplay.canvas(for: self))
+    }
+
+    override func layoutSubviews() {
+        sizeCode(width: bounds.width)
+        super.layoutSubviews()
     }
 }

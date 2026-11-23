@@ -49,6 +49,21 @@ public final class InputAssetFieldConfiguration<Type: InputAssetField>: Soramits
         }
     }
     
+    /// Tapping the balance (to use all of it). Setting it shows the wallet glyph before the balance.
+    public var balanceTapHandler: (() -> Void)? {
+        didSet {
+            guard let owner else { return }
+            let on = balanceTapHandler != nil
+            owner.balanceGlyph.isHidden = !on
+            owner.balanceGlyphWidth?.constant = on ? 16 : 0
+            owner.fullFiatAmountLabel.isUserInteractionEnabled = on
+            owner.fullFiatAmountLabel.accessibilityTraits = on ? .button : .staticText
+            if on, owner.fullFiatAmountLabel.gestureRecognizers?.isEmpty ?? true {
+                owner.fullFiatAmountLabel.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(balanceTapped)))
+            }
+        }
+    }
+
     public var assetChoiceHandler: (() -> Void)? {
         didSet {
             owner?.choiceButton.sora.addHandler(for: .touchUpInside, handler: assetChoiceHandler)
@@ -72,6 +87,16 @@ public final class InputAssetFieldConfiguration<Type: InputAssetField>: Soramits
         }
     }
     
+    @objc private func balanceTapped() {
+        guard let label = owner?.fullFiatAmountLabel else { return }
+        UIView.animate(withDuration: 0.12, animations: { label.transform = CGAffineTransform(scaleX: 1.08, y: 1.08) }) { _ in
+            UIView.animate(withDuration: 0.25, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0) {
+                label.transform = .identity
+            }
+        }
+        balanceTapHandler?()
+    }
+
     @objc private func choice() {
         assetChoiceHandler?()
     }

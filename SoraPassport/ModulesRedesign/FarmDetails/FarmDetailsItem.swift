@@ -52,8 +52,6 @@ enum FarmDetailsBottomButtonState {
             return .additionalPolkaswapContainer
         case .startStacking:
             return .additionalPolkaswap
-        case .startStacking:
-            return .additionalPolkaswap
         case .stackingUnavailable:
             return .bgSurfaceVariant
         }

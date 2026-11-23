@@ -178,6 +178,7 @@ final class ScanQRViewModel: NSObject {
         }
 
         scanState = .initializing(accessRequested: true)
+        view?.showCameraUnavailable()
 
         switch error {
         case .deviceAccessRestricted: break
@@ -196,6 +197,7 @@ final class ScanQRViewModel: NSObject {
     }
 
     private func handleImageGallery(error: ImageGalleryError) {
+        view?.showPhotoAccess(false)
         switch error {
         case .accessRestricted: break
         case .accessDeniedPreviously:
@@ -377,6 +379,7 @@ final class ScanQRViewModel: NSObject {
     }
     
     private func presentGallery(from view: ControllerBackedProtocol?) {
+        self.view?.showPhotoAccess(true)
         let imagePicker = UIImagePickerController()
         imagePicker.sourceType = .photoLibrary
         imagePicker.delegate = self

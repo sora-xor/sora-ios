@@ -10,16 +10,6 @@ open class BlurViewController: UIViewController {
     public var backgroundColor: SoramitsuColor = .custom(uiColor: .clear)
     public var completionHandler: (() -> Void)?
     
-    lazy var blurredView: UIView = {
-        let containerView = UIView()
-        let blurEffect = UIBlurEffect(style: .light)
-        let customBlurEffectView = CustomVisualEffectView(effect: blurEffect, intensity: 0.5)
-        customBlurEffectView.frame = self.view.bounds
-
-        containerView.addSubview(customBlurEffectView)
-        return containerView
-    }()
-
     var panGestureRecognizer: UIPanGestureRecognizer?
     var originalPosition: CGPoint?
     var currentPositionTouched: CGPoint?
@@ -40,8 +30,13 @@ open class BlurViewController: UIViewController {
     
     func setupView() {
         view.backgroundColor = SoramitsuUI.shared.theme.palette.color(backgroundColor)
-        view.addSubview(blurredView)
-        view.sendSubviewToBack(blurredView)
+        // A screen presented here stands on its own page. Half a blur of the screen under it showed
+        // that screen's red as smears behind the controls.
+        let page = AuroraView(style: .standard)
+        page.frame = view.bounds
+        page.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(page)
+        view.sendSubviewToBack(page)
 
         panGestureRecognizer = UIPanGestureRecognizer(target: self, action: #selector(panGestureAction(_:)))
         panGestureRecognizer?.delegate = self

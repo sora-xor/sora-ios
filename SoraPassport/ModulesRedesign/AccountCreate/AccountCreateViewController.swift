@@ -44,6 +44,7 @@ final class AccountCreateViewController: SoramitsuViewController {
     private var phraseWords: [String] = []
     private var phraseRevealed = false
     private var hideTimer: Timer?
+    private var copyReset: DispatchWorkItem?
     private lazy var revealButton: WalletNeonButton = {
         let button = WalletSafeMode.button(.secondary, title: WalletUX.text("Show my recovery phrase"))
         button.accessibilityIdentifier = "wallet-backup-reveal"
@@ -283,6 +284,10 @@ final class AccountCreateViewController: SoramitsuViewController {
         backupPathLabel.text = phraseRevealed ? WalletUX.text("Also save this derivation path:") + "\n" + backupPath : nil
         backupPathLabel.isHidden = !phraseRevealed || backupPath.isEmpty
         copyBackupPathButton.isHidden = !phraseRevealed || backupPath.isEmpty
+        if !phraseRevealed {
+            copyReset?.cancel()
+            shareButton.sora.title = R.string.localizable.commonCopy(preferredLanguages: .currentLocale)
+        }
         shareButton.isEnabled = phraseRevealed
         revealButton.setTitle(phraseRevealed ? R.string.localizable.commonHide(preferredLanguages: .currentLocale) : WalletUX.text("Show my recovery phrase"), for: .normal)
     }
@@ -311,6 +316,14 @@ final class AccountCreateViewController: SoramitsuViewController {
         guard phraseRevealed else { return }
         shareButton.sora.title = R.string.localizable.commonCopied(preferredLanguages: .currentLocale)
         presenter.share()
+        if LitMotion.allowed { LitMotion.rise(shareButton, by: 3) }
+        UIAccessibility.post(notification: .announcement, argument: shareButton.sora.title)
+        copyReset?.cancel()
+        let reset = DispatchWorkItem { [weak self] in
+            self?.shareButton.sora.title = R.string.localizable.commonCopy(preferredLanguages: .currentLocale)
+        }
+        copyReset = reset
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: reset)
     }
     
     @objc private func actionOpenInfo() {

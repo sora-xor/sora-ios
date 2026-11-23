@@ -122,7 +122,18 @@ extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
     func didReceiveAccountImport(error: Error) {
         isImporting = false
         restoredShortPhrase = false
-        errorText = error.localizedDescription
+        switch error as? CloudStorageServiceError {
+        case .incorectPassword:
+            errorText = R.string.localizable.enterPasswordIncorectTitle(preferredLanguages: languages)
+        case .notAuthorized:
+            errorText = WalletUX.text("Sign in to the Google account used for this wallet’s backup. SORA will read its encrypted backup.")
+        case .notFound:
+            errorText = WalletUX.text("Backup not found")
+        case .incorectJson:
+            errorText = WalletUX.text("The backup file is incomplete or unsupported. No wallet keys were changed.")
+        case nil:
+            errorText = WalletUX.text("Could not import this backup. Check your original backup and try again.")
+        }
         view?.hideLoading()
         reload()
     }

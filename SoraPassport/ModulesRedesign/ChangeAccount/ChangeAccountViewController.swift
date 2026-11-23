@@ -111,6 +111,13 @@ final class ChangeAccountViewController: SoramitsuViewController {
         presenter?.reload()
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let available = view.safeAreaLayoutGuide.layoutFrame.height - 3 * Constants.inset - actionButton.sora.size.height
+        let height = min(CGFloat(viewModel.count) * AccountMenuItem.itemHeight, max(0, available))
+        if tableConstraint?.constant != height { tableConstraint?.constant = height }
+    }
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
@@ -239,11 +246,7 @@ extension ChangeAccountViewController: ChangeAccountViewProtocol {
         
         tableView.sora.sections = [SoramitsuTableViewSection(rows: viewModel)]
         
-        let height = CGFloat(accountViewModels.count) * AccountMenuItem.itemHeight
-        let maxHeight = view.safeAreaLayoutGuide.layoutFrame.height - 3 * Constants.inset - actionButton.sora.size.height
-        
-        tableConstraint?.constant = height < maxHeight ? height : maxHeight
-        view.layoutSubviews()
+        view.setNeedsLayout()
     }
 }
 
