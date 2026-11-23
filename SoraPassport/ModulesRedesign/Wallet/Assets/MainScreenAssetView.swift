@@ -132,7 +132,10 @@ public final class MainScreenAssetView: SoramitsuControl {
                                             verticalFittingPriority: verticalFittingPriority)
     }
 
-    private func updateColumns(for width: CGFloat) {
+    /// Sets the row out for `width`: names and amounts side by side, or the amounts under the names when
+    /// there is no room for both. A row laid out this way after its card was measured the other way has
+    /// the wrong height, so whoever measures a card of rows calls this first with the rows' width.
+    func updateColumns(for width: CGFloat) {
         guard width > 52 else { return }
         let available = width - 52
         let loadingAmount = amountUpLabel.sora.loadingPlaceholder.type == .shimmer
@@ -140,8 +143,10 @@ public final class MainScreenAssetView: SoramitsuControl {
         let naturalAmountWidth = ceil(max(loadingAmount ? 64 : 0,
                                           max(amountUpLabel.attributedText?.size().width ?? 0,
                                               amountDownLabel.attributedText?.size().width ?? 0)))
+        // Under 280 points, not 300: a row of the network picker is 295 wide on a 375-point phone (iPhone SE,
+        // 13 mini), where a short tag fits beside the name as it does on every wider phone.
         let stacked = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
-            || width < 300 || naturalAmountWidth > available * 0.45
+            || width < 280 || naturalAmountWidth > available * 0.45
         let axis: NSLayoutConstraint.Axis = stacked ? .vertical : .horizontal
         if stacked { amountWidth.isActive = false }
         if columns.axis != axis { columns.axis = axis }

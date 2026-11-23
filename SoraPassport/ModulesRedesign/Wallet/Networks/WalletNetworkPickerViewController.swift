@@ -197,6 +197,21 @@ final class WalletNetworkChoicesCell: SoramitsuTableViewCell {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// The rows are set out for the width they will have before the card is measured. A row decides in
+    /// its own layout whether its tag stands beside its name or under it; measured before that, the card
+    /// came out too short for rows that then stacked, and their names and addresses were squeezed away
+    /// (every row on an iPhone SE).
+    override func systemLayoutSizeFitting(_ targetSize: CGSize,
+                                          withHorizontalFittingPriority horizontalFittingPriority: UILayoutPriority,
+                                          verticalFittingPriority: UILayoutPriority) -> CGSize {
+        let rowWidth = min(targetSize.width, LayoutCanvas.readableWidth) - 2 * (16 + 24)
+        for case let row as MainScreenAssetView in stackView.arrangedSubviews {
+            row.updateColumns(for: rowWidth)
+        }
+        return super.systemLayoutSizeFitting(targetSize, withHorizontalFittingPriority: horizontalFittingPriority,
+                                             verticalFittingPriority: verticalFittingPriority)
+    }
 }
 
 extension WalletNetworkChoicesCell: SoramitsuTableViewCellProtocol {

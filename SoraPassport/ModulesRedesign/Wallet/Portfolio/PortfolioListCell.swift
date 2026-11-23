@@ -407,6 +407,9 @@ final class PortfolioRowView: UIControl {
         subtitle.setContentCompressionResistancePriority(.defaultHigh + 1, for: .horizontal)
         subtitle.adjustsFontSizeToFitWidth = true
         subtitle.minimumScaleFactor = 0.85
+        // A long token name beside a long value takes a second line on a narrow phone instead of being
+        // cut ("SORA Validator To…" on an iPhone SE and on 393-point phones).
+        subtitle.numberOfLines = 2
         detail.setContentCompressionResistancePriority(.defaultHigh - 1, for: .horizontal)
         detail.adjustsFontSizeToFitWidth = true
         detail.minimumScaleFactor = 0.75
