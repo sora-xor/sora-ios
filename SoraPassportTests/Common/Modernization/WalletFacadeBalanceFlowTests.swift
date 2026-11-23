@@ -96,6 +96,75 @@ final class WalletFacadeBalanceFlowTests: XCTestCase {
     XCTAssertTrue((try XCTUnwrap(rows.first)).isUnavailable)
     XCTAssertTrue((try XCTUnwrap(rows.first)).balanceWasNotRead)
   }
+  func testEveryTokenIsReadWithOneRequest() async throws {
+    let f = try FacadeBalanceFixture()
+    let rows = try await read(f, [f.xor, f.val, f.pswap])
+    equal(rows.map(\.identifier), [f.xor, f.val, f.pswap])
+    // XOR is the account record: exactly one token request, with the two tokens' keys once each.
+    equal(f.engine.tokenRequests, [[try f.key(f.val), try f.key(f.pswap)].sorted()])
+    // No token is read with a request of its own any more.
+    let tokenKeys = Set([try f.key(f.xor), try f.key(f.val), try f.key(f.pswap)])
+    XCTAssertTrue(f.engine.storageReads.allSatisfy { !tokenKeys.contains($0) })
+  }
+  func testThePlaceholderOfAVisibleListIsNotReadFromTheChainAndKeepsItsPlace() async throws {
+    let f = try FacadeBalanceFixture()
+    // What the real asset manager does for a visible fee asset.
+    f.assets.appendsPlaceholder = true
+    let rows = try await read(f, [f.xor])
+    equal(rows.map(\.identifier), [f.xor, WalletAsset.dummyAsset.identifier])
+    equal(rows.last?.balance.decimalValue, 0)
+    XCTAssertFalse(try XCTUnwrap(rows.last).isUnavailable)
+    XCTAssertTrue(f.engine.tokenRequests.isEmpty)
+    // It keeps its place when the tokens beside it cannot be read, too.
+    f.engine.tokenFailure = true
+    equal(try await read(f, [f.xor, f.val]).map(\.identifier), [f.xor, WalletAsset.dummyAsset.identifier])
+  }
+  func testOneValueOfTheWrongKindIsThatTokensProblemOnly() async throws {
+    let f = try FacadeBalanceFixture()
+    let val = try f.key(f.val), pswap = try f.key(f.pswap)
+    f.engine.tokenAnswer = { _ in
+      [["block": "0x" + String(repeating: "ab", count: 32),
+        "changes": [[val, 5], [pswap, FacadeBalanceFixture.token(100, 20, 30)]]]]
+    }
+    let rows = try await read(f, [f.val, f.pswap], mark: true)
+    equal(rows.map(\.identifier), [f.val, f.pswap])
+    XCTAssertTrue(rows[0].isUnavailable)
+    XCTAssertFalse(rows[0].balanceWasNotRead)
+    XCTAssertFalse(rows[1].isUnavailable)
+    equal(rows[1].balance.decimalValue, Decimal(string: "0.8")!)
+  }
+  func testXorAloneSendsNoTokenRequest() async throws {
+    let f = try FacadeBalanceFixture()
+    _ = try await read(f, [f.xor])
+    XCTAssertTrue(f.engine.tokenRequests.isEmpty)
+  }
+  func testNoAnswerToTheTokenRequestMarksEveryTokenNotRead() async throws {
+    let f = try FacadeBalanceFixture()
+    f.engine.tokenFailure = true
+    let rows = try await read(f, [f.val, f.pswap], mark: true)
+    equal(rows.map(\.identifier), [f.val, f.pswap])
+    XCTAssertTrue(rows.allSatisfy { $0.isUnavailable && $0.balanceWasNotRead })
+    equal(try await read(f, [f.val, f.pswap]).count, 0)
+  }
+  func testATokenAnswerThatIsNotTheReadAskedForIsUnavailableAndNeverZero() async throws {
+    let block = "0x" + String(repeating: "ab", count: 32)
+    let answers: [([String]) -> Any] = [
+      // A key that was not asked for.
+      { keys in [["block": block, "changes": keys.map { [$0, NSNull()] } + [["0x00", NSNull()]]]] },
+      // A key twice.
+      { keys in [["block": block, "changes": (keys + keys).map { [$0, NSNull()] }]] },
+      // Two change sets, or none.
+      { keys in [["block": block, "changes": keys.map { [$0, NSNull()] }], ["block": block, "changes": []]] },
+      { _ in [] },
+    ]
+    for answer in answers {
+      let f = try FacadeBalanceFixture()
+      f.engine.tokenAnswer = answer
+      let rows = try await read(f, [f.val, f.pswap], mark: true)
+      equal(rows.map(\.identifier), [f.val, f.pswap])
+      XCTAssertTrue(rows.allSatisfy { $0.isUnavailable && !$0.balanceWasNotRead })
+    }
+  }
   func testOneFailedTokenDoesNotEraseAnotherSuccessfulToken() async throws {
     let f = try FacadeBalanceFixture()
     f.engine.failedKeys.insert(try f.key(f.val))
@@ -291,6 +360,7 @@ private final class FacadeBalanceFixture {
       "0x" + String(repeating: "00", count: 16) + Self.u128(100) + Self.u128(30) + Self.u128(50)
       + Self.u128(0)
     engine.ledgerKey = try StorageKeyFactory().stakingInfoForControllerId(keyData).toHex()
+    engine.nativeKey = try StorageKeyFactory().accountInfoKeyForId(keyData).toHex(includePrefix: true)
   }
   func key(_ id: String) throws -> String {
     try StorageKeyFactory().accountsKey(account: keyData, asset: Data.sora(hex: id)).toHex(
@@ -322,13 +392,28 @@ private final class FacadeBalanceEngine: JSONRPCEngine {
   var pendingEngineRequests: [JSONRPCRequest] { [] }
   var values = [String: String](), native: String?, failedKeys = Set<String>(),
     nativeFailure = false, omitNativeChange = false, emptyNativeUpdate = false, delayLedger = false,
-    ledgerKey = ""
+    ledgerKey = "", nativeKey = ""
+  /// The one request that reads every token: no answer at all, or an answer that is not that read.
+  var tokenFailure = false, tokenAnswer: (([String]) -> Any)?
   private let lock = NSLock()
-  private var records = [String](), ledgerCompletion: (() -> Void)?
+  private var records = [String](), tokenReads = [[String]](), singleReads = [String](),
+    ledgerCompletion: (() -> Void)?
+  /// The key of each `state_getStorage` request.
+  var storageReads: [String] {
+    lock.lock()
+    defer { lock.unlock() }
+    return singleReads
+  }
   var requests: [String] {
     lock.lock()
     defer { lock.unlock() }
     return records
+  }
+  /// The keys of each token storage request.
+  var tokenRequests: [[String]] {
+    lock.lock()
+    defer { lock.unlock() }
+    return tokenReads
   }
   var ledgerPending: Bool {
     lock.lock()
@@ -353,7 +438,22 @@ private final class FacadeBalanceEngine: JSONRPCEngine {
     lock.unlock()
     let result = Result<T, Error> {
       let body: Any
-      if method == SoraPassport.RPCMethod.queryStorageAt {
+      if method == SoraPassport.RPCMethod.queryStorageAt,
+        let keys = params.first as? [String], !keys.contains(nativeKey)
+      {
+        // Every token of the account in one request. A key in `failedKeys` is left out of the
+        // answer, as a node that did not read it would.
+        lock.lock()
+        tokenReads.append(keys)
+        lock.unlock()
+        if tokenFailure { throw FacadeBalanceFailure.offline }
+        let changes: [[Any]] = keys.filter { !failedKeys.contains($0) }.map {
+          [$0, values[$0] as Any? ?? NSNull()]
+        }
+        body =
+          tokenAnswer?(keys)
+          ?? [["block": "0x" + String(repeating: "ab", count: 32), "changes": changes]]
+      } else if method == SoraPassport.RPCMethod.queryStorageAt {
         if nativeFailure { throw FacadeBalanceFailure.offline }
         let keys = try XCTUnwrap(params.first as? [String])
         let changes: [[Any]] =
@@ -364,6 +464,9 @@ private final class FacadeBalanceEngine: JSONRPCEngine {
       } else {
         XCTAssertEqual(method, SoraPassport.RPCMethod.getStorage)
         let key = try XCTUnwrap(params.first as? String)
+        lock.lock()
+        singleReads.append(key)
+        lock.unlock()
         if failedKeys.contains(key) { throw FacadeBalanceFailure.offline }
         body = values[key] as Any? ?? NSNull()
       }
@@ -416,7 +519,7 @@ private final class FacadeBalanceContacts: WalletContactOperationFactoryProtocol
   }
 }
 private final class FacadeBalanceAssets: AssetManagerProtocol {
-  var reverse = false, visibilityArguments = [Bool]()
+  var reverse = false, appendsPlaceholder = false, visibilityArguments = [Bool]()
   static var networkAssets = [AssetInfo]()
   var items = [(WalletAssetId.xor, "XOR"), (.val, "VAL")].map {
     AssetInfo(
@@ -431,7 +534,8 @@ private final class FacadeBalanceAssets: AssetManagerProtocol {
   func saveAssetList(_ list: [AssetInfo]) { items = list }
   func sortedAssets(_ list: [WalletAsset], onlyVisible: Bool) -> [WalletAsset] {
     visibilityArguments.append(onlyVisible)
-    return reverse ? list.reversed() : list
+    let sorted = reverse ? Array(list.reversed()) : list
+    return appendsPlaceholder ? sorted + [WalletAsset.dummyAsset] : sorted
   }
   func visibleCount() -> UInt { UInt(items.count) }
   func setup(for accountSettings: SelectedWalletSettings) {}

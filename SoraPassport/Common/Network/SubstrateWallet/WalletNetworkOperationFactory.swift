@@ -78,27 +78,94 @@ final class WalletNetworkOperationFactory {
                                                  parameters: [accountId, assetId])
     }
 
-    func createUsableBalanceOperation(accountId: String, assetId: String) -> JSONRPCListOperation<OrmlAccountStorage> {
-        do {
-            let address: AccountAddress = accountId
-            guard let publicKey = address.accountId else {
-                throw WalletNetworkOperationFactoryError.invalidContext
+    /// The `Tokens.Accounts` storage value of every asset in `assetIds` for one account, by asset
+    /// id, read with one request.
+    ///
+    /// Until 2026-11-22 every asset had a request of its own: about 270 at once each time the
+    /// wallet opened, each holding a thread until the node answered it, and everything else the
+    /// app read at that moment (the wallet list, the home's own balances) waited for a free one.
+    ///
+    /// Each asset still has its own outcome, as it had with its own request:
+    /// - no answer from the node (a timeout, a dropped connection): a failure for every asset,
+    ///   which `WalletBalanceReading` reports as not read;
+    /// - an answer that is not the storage read that was asked for (not one change set of one
+    ///   block, a key that was not asked for, a key twice): a `DecodingError` for every asset,
+    ///   reported as not understood;
+    /// - a value that is neither text nor null: a `DecodingError` for that asset only;
+    /// - a key the node left out of an otherwise sound answer: a failure for that asset only;
+    /// - an account, or an asset id that is not exactly 32 bytes of plain hex, whose key cannot
+    ///   be built: a failure for that asset, and no request at all when no key can be built.
+    func createTokenStorageOperation(
+        accountId: String,
+        assetIds: [String]
+    ) -> CompoundOperationWrapper<[String: Result<OrmlAccountStorage, Error>]> {
+        var outcomes: [String: Result<OrmlAccountStorage, Error>] = [:]
+        // Two spellings of one id (upper and lower case) are one key and get the same outcome.
+        var assetsByKey: [String: [String]] = [:]
+        let address: AccountAddress = accountId
+        for assetId in assetIds {
+            do {
+                guard let publicKey = address.accountId else {
+                    throw WalletNetworkOperationFactoryError.invalidContext
+                }
+                guard let asset = TokenStorageChanges.hash(assetId, prefixRequired: false) else {
+                    throw WalletNetworkOperationFactoryError.invalidAsset
+                }
+                let key = try StorageKeyFactory().accountsKey(account: publicKey, asset: asset)
+                    .toHex(includePrefix: true)
+                assetsByKey[key, default: []].append(assetId)
+            } catch {
+                outcomes[assetId] = .failure(error)
             }
-            return JSONRPCListOperation<OrmlAccountStorage>(
-                engine: engine,
-                method: RPCMethod.getStorage,
-                parameters: [
-                    try StorageKeyFactory().accountsKey(
-                        account: publicKey,
-                        asset: Data.sora(hex: assetId)
-                    ).toHex(includePrefix: true)
-                ]
-            )
-        } catch {
-            let failed = JSONRPCListOperation<OrmlAccountStorage>(engine: engine, method: RPCMethod.getStorage)
-            failed.result = .failure(error)
-            return failed
         }
+        guard !assetsByKey.isEmpty else {
+            return CompoundOperationWrapper.createWithResult(outcomes)
+        }
+        let request = JSONRPCOperation<[[String]], [TokenStorageChanges]>(
+            engine: engine,
+            method: RPCMethod.queryStorageAt,
+            parameters: [assetsByKey.keys.sorted()]
+        )
+        let mapping = ClosureOperation<[String: Result<OrmlAccountStorage, Error>]> {
+            var outcomes = outcomes
+            func all(_ outcome: Result<OrmlAccountStorage, Error>) -> [String: Result<OrmlAccountStorage, Error>] {
+                assetsByKey.values.joined().forEach { outcomes[$0] = outcome }
+                return outcomes
+            }
+            let answer: [TokenStorageChanges]
+            do {
+                answer = try request.extractNoCancellableResultData()
+            } catch {
+                return all(.failure(error))
+            }
+            let notUnderstood = DecodingError.dataCorrupted(
+                .init(codingPath: [], debugDescription: "not the storage read that was asked for")
+            )
+            // One change set of one block, and in it only keys that were asked for, each once.
+            guard answer.count == 1, let set = answer.first, let changes = set.changes,
+                  let block = set.block, TokenStorageChanges.hash(block, prefixRequired: true) != nil else {
+                return all(.failure(notUnderstood))
+            }
+            var stored: [String: Result<OrmlAccountStorage, Error>] = [:]
+            for change in changes {
+                guard change.count == 2, case let .text(key) = change[0],
+                      assetsByKey[key.lowercased()] != nil, stored[key.lowercased()] == nil else {
+                    return all(.failure(notUnderstood))
+                }
+                switch change[1] {
+                case let .text(hex): stored[key.lowercased()] = .success(OrmlAccountStorage(hex: hex))
+                case .null: stored[key.lowercased()] = .success(OrmlAccountStorage(hex: nil))
+                case .other: stored[key.lowercased()] = .failure(notUnderstood)
+                }
+            }
+            for (key, assets) in assetsByKey {
+                let outcome = stored[key] ?? .failure(WalletNetworkOperationFactoryError.storageNotAnswered)
+                assets.forEach { outcomes[$0] = outcome }
+            }
+            return outcomes
+        }
+        mapping.addDependency(request)
+        return CompoundOperationWrapper(targetOperation: mapping, dependencies: [request])
     }
     
     func createActiveEraOperation() -> CompoundOperationWrapper<UInt32?> {
@@ -234,5 +301,43 @@ final class WalletNetworkOperationFactory {
         let baseOperation: BaseOperation<T> = BaseOperation()
         baseOperation.result = result
         return baseOperation
+    }
+}
+
+/// One change set of a `state_queryStorageAt` answer, decoded value by value, so that one value
+/// of an unexpected kind is that key's problem and not the whole answer's.
+struct TokenStorageChanges: Decodable {
+    enum Item: Decodable {
+        case text(String)
+        case null
+        /// Neither text nor null.
+        case other
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if container.decodeNil() {
+                self = .null
+            } else if let text = try? container.decode(String.self) {
+                self = .text(text)
+            } else {
+                self = .other
+            }
+        }
+    }
+
+    let block: String?
+    let changes: [[Item]]?
+
+    /// The 32 bytes `text` spells as exactly 64 plain hex digits, with the `0x` prefix (optional
+    /// unless `prefixRequired`): what a block hash and an asset id are. Nothing else is one, so
+    /// a short id or one in other digits never becomes a storage key of its own.
+    static func hash(_ text: String, prefixRequired: Bool) -> Data? {
+        let hasPrefix = text.hasPrefix("0x")
+        guard hasPrefix || !prefixRequired else { return nil }
+        let digits = hasPrefix ? text.dropFirst(2) : Substring(text)
+        guard digits.utf8.count == 64, digits.utf8.allSatisfy({ byte in
+            (48...57).contains(byte) || (65...70).contains(byte) || (97...102).contains(byte)
+        }) else { return nil }
+        return try? Data.sora(hex: text)
     }
 }

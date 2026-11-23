@@ -954,18 +954,69 @@ extension WalletNetworkOperationFactoryCoverageTests {
         do { _ = try await run(CompoundOperationWrapper(targetOperation: operation)); XCTFail("Malformed receiver cannot produce a fee") }
         catch { XCTAssertTrue(service.builders.isEmpty); XCTAssertEqual(service.submitCount, 0) }
     }
-    func testUsableBalanceRejectsInvalidAccountTextWithoutCrashingOrSendingRPC() async throws {
+    func testTokenStorageRejectsInvalidAccountTextWithoutCrashingOrSendingRPC() async throws {
         let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
         for address in ["", "not an ss58 address", "0x03"] {
-            do { _ = try await run(CompoundOperationWrapper(targetOperation: factory.createUsableBalanceOperation(accountId: address, assetId: xor))); XCTFail("Invalid account accepted") }
-            catch { XCTAssertTrue(engine.methods.isEmpty) }
+            let outcomes = try await run(factory.createTokenStorageOperation(accountId: address, assetIds: [xor, val]))
+            XCTAssertEqual(Set(outcomes.keys), [xor, val])
+            for id in [xor, val] {
+                guard case .failure? = outcomes[id] else { return XCTFail("Invalid account accepted") }
+            }
+            XCTAssertTrue(engine.methods.isEmpty)
         }
     }
-    func testUsableBalanceRejectsMalformedAssetWithoutAnEmptyMethodRPC() async throws {
+    func testTokenStorageReadsTheValidAssetsOfARequestThatAlsoNamesMalformedOnes() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        let account = Data(repeating: 3, count: 32)
+        let address = try SS58AddressFactory().address(fromAccountId: account, type: 69)
+        let key = try StorageKeyFactory().accountsKey(account: account, asset: Data.sora(hex: token6)).toHex(includePrefix: true)
+        let block = "0x" + String(repeating: "ab", count: 32)
+        engine.response = "[{\"block\":\"\(block)\",\"changes\":[[\"\(key)\",null]]}]"
+        // The same id in upper case is the same key: one request key, the same outcome for both.
+        let upper = "0x" + token6.dropFirst(2).uppercased()
+        XCTAssertNotEqual(upper, token6)
+        // 64 digits that are not plain hex digits (fullwidth zeroes) are not an asset id either.
+        let fullwidth = "0x" + String(repeating: "\u{FF10}", count: 64)
+        let malformed = ["0xzz", "0x01", fullwidth]
+        let outcomes = try await run(factory.createTokenStorageOperation(accountId: address, assetIds: [token6] + malformed + [upper]))
+        XCTAssertEqual(engine.methods, [SoraPassport.RPCMethod.queryStorageAt])
+        XCTAssertEqual(engine.nested, [[[key]]], "exactly the one valid key reaches the node, once")
+        XCTAssertEqual(Set(outcomes.keys), Set([token6, upper] + malformed))
+        for id in [token6, upper] {
+            guard case let .success(storage)? = outcomes[id] else { return XCTFail("The valid asset was not read: \(id)") }
+            XCTAssertNil(storage.hex)
+        }
+        for id in malformed {
+            guard case .failure? = outcomes[id] else { return XCTFail("Invalid asset accepted: \(id)") }
+        }
+    }
+    func testANullTokenValueIsOnlyZeroInAnAnswerThatNamesItsBlock() async throws {
+        let account = Data(repeating: 3, count: 32)
+        let address = try SS58AddressFactory().address(fromAccountId: account, type: 69)
+        let key = try StorageKeyFactory().accountsKey(account: account, asset: Data.sora(hex: token6)).toHex(includePrefix: true)
+        let changes = "\"changes\":[[\"\(key)\",null]]"
+        let answers = ["[{\(changes)}]", "[{\"block\":null,\(changes)}]", "[{\"block\":\"0x00\",\(changes)}]",
+                       "[{\"block\":\"\(String(repeating: "ab", count: 32))\",\(changes)}]"]
+        for answer in answers {
+            let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+            engine.response = answer
+            let outcomes = try await run(factory.createTokenStorageOperation(accountId: address, assetIds: [token6]))
+            guard case let .failure(error)? = outcomes[token6] else { return XCTFail("An answer without a block hash was read: \(answer)") }
+            XCTAssertTrue(error is DecodingError, "the node answered, and not with the read that was asked for")
+        }
+    }
+    func testTokenStorageRejectsMalformedAssetsWithoutAnEmptyMethodRPC() async throws {
         let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
         let address = try SS58AddressFactory().address(fromAccountId: Data(repeating: 3, count: 32), type: 69)
-        do { _ = try await run(CompoundOperationWrapper(targetOperation: factory.createUsableBalanceOperation(accountId: address, assetId: "0xzz"))); XCTFail("Invalid asset accepted") }
-        catch { XCTAssertTrue(engine.methods.isEmpty) }
+        // Not hex, and hex of the wrong length (a short id would otherwise be a key of its own, and
+        // the node's "no such storage" a balance of zero for it).
+        let malformed = ["0xzz", "0x01", String(val.dropLast(2))]
+        let outcomes = try await run(factory.createTokenStorageOperation(accountId: address, assetIds: malformed))
+        XCTAssertEqual(Set(outcomes.keys), Set(malformed))
+        for id in malformed {
+            guard case .failure? = outcomes[id] else { return XCTFail("Invalid asset accepted: \(id)") }
+        }
+        XCTAssertTrue(engine.methods.isEmpty)
     }
 }
 
@@ -973,9 +1024,10 @@ private final class FactoryReadEngine: JSONRPCEngine {
     var url: URL? = URL(string: "wss://factory-read.test")
     var pendingEngineRequests: [JSONRPCRequest] { [] }
     var response = "null", failure: Error?
-    private(set) var methods: [String] = [], parameters: [[String]] = []
+    private(set) var methods: [String] = [], parameters: [[String]] = [], nested: [[[String]]] = []
     func callMethod<P: Codable, T: Decodable>(_ method: String, params: P?, options: JSONRPCOptions, completion closure: ((Result<T, Error>) -> Void)?) throws -> UInt16 {
         methods.append(method); parameters.append(params as? [String] ?? [])
+        if let keys = params as? [[String]] { nested.append(keys) }
         let result = Result<T, Error> { if let failure { throw failure }; return try JSONDecoder.scaleCompatible(snakeCase: false).decode(T.self, from: Data(response.utf8)) }
         closure?(result)
         return UInt16(methods.count)

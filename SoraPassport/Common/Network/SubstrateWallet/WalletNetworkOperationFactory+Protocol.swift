@@ -32,6 +32,8 @@ enum WalletNetworkOperationFactoryError: Error {
     case invalidContext
     case invalidFee
     case insufficientBalance
+    /// The node's answer to a storage read left this key out: nothing is known about it.
+    case storageNotAnswered
 }
 
 extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
