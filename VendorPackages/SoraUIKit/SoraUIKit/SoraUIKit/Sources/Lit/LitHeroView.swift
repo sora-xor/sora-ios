@@ -169,7 +169,9 @@ public final class LitHeroView: UIView {
     private static var restSeconds: CFTimeInterval = 30
     private var lateTicks = 0
     private var motionStarted: CFTimeInterval?
-    private var framesInFlight = 0
+    /// Frames handed to the GPU and not yet finished. Counted where the GPU says so, under a lock: handing
+    /// each one back through the main queue woke the main thread thirty more times a second.
+    private let inFlight = LitFrameCount()
     private var cometShouldRun: Bool { isCometRunning && CACurrentMediaTime() >= Self.restUntil }
     private var isOnScreen = false
     private var isInBackground = false
@@ -431,7 +433,7 @@ public final class LitHeroView: UIView {
 
     private func drawFrame() {
         // Frames still on the GPU: a later tick draws instead of holding up the main thread for a drawable.
-        guard framesInFlight < 2 else {
+        guard inFlight.value < 2 else {
             needsFrame = true
             notePace(behind: true)
             return
@@ -452,10 +454,8 @@ public final class LitHeroView: UIView {
         encoder.setFragmentSamplerState(renderer.sampler, index: 0)
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         encoder.endEncoding()
-        framesInFlight += 1
-        buffer.addCompletedHandler { [weak self] _ in
-            DispatchQueue.main.async { self?.framesInFlight -= 1 }
-        }
+        inFlight.add(1)
+        buffer.addCompletedHandler { [inFlight] _ in inFlight.add(-1) }
         buffer.present(drawable)
         buffer.commit()
     }
@@ -500,6 +500,24 @@ public final class LitHeroView: UIView {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
         return SIMD4(pow(Float(r), 2.2), pow(Float(g), 2.2), pow(Float(b), 2.2), 0)
+    }
+}
+
+/// A count shared with the GPU's completion thread.
+private final class LitFrameCount: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    func add(_ change: Int) {
+        lock.lock()
+        count += change
+        lock.unlock()
     }
 }
 

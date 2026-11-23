@@ -332,6 +332,36 @@ final class LitMaterialsTests: XCTestCase {
         XCTAssertEqual(nowhere.1?.frame.origin, shown.1?.frame.origin)
     }
 
+    /// A hand holding the phone trembles by a fraction of a degree. That moved the old light on most
+    /// frames, and every step redrew every surface on screen; it does not move the light now.
+    func testAHandsTremorDoesNotMoveTheLight() {
+        let sensor = StillPhone()
+        let rig = LitLightRig(source: sensor)
+        let surface = LightSteps()
+        rig.add(surface)
+        var time: TimeInterval = 10
+        var before = 0
+        var old = 0.0
+        // Ten seconds at thirty samples a second: a third of a degree to and fro, nine times a second.
+        for frame in 0..<300 {
+            time += 1 / LitLightRig.movingRate
+            let wobble = 0.006 * sin(2 * Double.pi * 9 * Double(frame) / LitLightRig.movingRate)
+            rig.sensed(x: 0.10 + wobble, y: -0.70 + wobble * 0.7, time: time)
+            if rig.isAnimating { rig.step() }
+            // The light as it was eased before: every step of more than 0.003 was drawn.
+            let next = old + (wobble * 3.4 - old) * 0.22
+            if abs(next - old) > 0.003 {
+                old = next
+                before += 1
+            }
+        }
+        print("LIGHT-TREMOR frames 300, redrawn before \(before), now \(surface.steps)")
+        XCTAssertEqual(surface.steps, 0, "a tremor redraws nothing")
+        XCTAssertFalse(rig.isAnimating, "and the frame loop has stopped")
+        XCTAssertGreaterThan(before, 30, "the same trace kept the old light moving")
+        rig.remove(surface)
+    }
+
     /// A phone lying still runs no frame loop for the light; a tilt starts it again.
     func testTheLightRestsWhenThePhoneIsStillAndWakesOnATilt() async throws {
         let sensor = StillPhone()
@@ -445,6 +475,12 @@ final class LitMaterialsTests: XCTestCase {
     private func descendants(_ view: UIView) -> [UIView] {
         view.subviews + view.subviews.flatMap(descendants)
     }
+}
+
+/// Counts the steps of the light it is told about.
+private final class LightSteps: LitLightListener {
+    var steps = 0
+    func lightDidMove(x: CGFloat, y: CGFloat) { steps += 1 }
 }
 
 /// A tilt sensor fed by hand.

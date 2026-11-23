@@ -791,14 +791,18 @@ public final class LitLightRig: NSObject {
     /// Samples a second while the light moves, and while it rests and only a tilt is waited for.
     static let movingRate: Double = 30
     static let restingRate: Double = 10
-    /// A step that would move the light less than this is not taken: a phone lying still draws no frames.
-    static let settleStep: CGFloat = 0.003
-    /// The light has arrived when it is this near its target; after `restAfter` frames of that the frame
-    /// loop stops. A light still creeping after a slowly moving target has not arrived.
+    /// The light sets off when its target is this far from it: about two thirds of a degree of tilt. The
+    /// tremor of a hand holding the phone is smaller than that and moves nothing; without this every surface
+    /// on screen was redrawn thirty times a second for as long as the phone was held.
+    static let startDistance: CGFloat = 0.04
+    /// The surfaces are told when the light has moved this far since they were last told: half a point of
+    /// a sheet's sheen. A slow drift is drawn on every second or third frame instead of on each one; every
+    /// step costs the render server a pass over every layer on screen.
+    static let settleStep: CGFloat = 0.006
+    /// The light has arrived when it is this near its target; after `restAfter` frames at rest the frame
+    /// loop stops.
     static let restDistance: CGFloat = 0.004
     static let restAfter = 20
-    /// A resting light is woken when its target is this far from where it rests.
-    static let wakeDistance: Double = 0.02
     /// Seconds for the posture the phone is held in to count as straight.
     static let postureSeconds: Double = 2.8
 
@@ -810,6 +814,10 @@ public final class LitLightRig: NSObject {
     private var demoStart: CFTimeInterval?
     private var stillFrames = 0
     private var refreshQueued = false
+    /// Where the light is on its way to its target, before the surfaces are told in steps.
+    private var easedX: CGFloat = 0
+    private var easedY: CGFloat = 0
+    private var gliding = false
 
     // Shared with the sensor's queue.
     private let lock = NSLock()
@@ -850,6 +858,8 @@ public final class LitLightRig: NSObject {
 
     /// Places the light. Both axes run -1...1. The rig calls this itself from the phone's tilt.
     public func set(x newX: CGFloat, y newY: CGFloat) {
+        easedX = newX
+        easedY = newY
         guard newX != x || newY != y else { return }
         x = newX
         y = newY
@@ -935,7 +945,8 @@ public final class LitLightRig: NSObject {
         base.time = time
         posture = base
         target = (max(-1, min(1, (gravityX - base.x) * 3.4)), max(-1, min(1, (base.y - gravityY) * 3.4)))
-        let wake = resting && (abs(target.x - restingAt.x) > Self.wakeDistance || abs(target.y - restingAt.y) > Self.wakeDistance)
+        let far = Double(Self.startDistance)
+        let wake = resting && (abs(target.x - restingAt.x) > far || abs(target.y - restingAt.y) > far)
         if wake { resting = false }
         lock.unlock()
         if wake { DispatchQueue.main.async { [weak self] in self?.wake() } }
@@ -944,6 +955,7 @@ public final class LitLightRig: NSObject {
     private func wake() {
         guard sensing, link == nil else { return }
         stillFrames = 0
+        gliding = true
         source.setInterval(1 / Self.movingRate)
         startLink()
     }
@@ -953,7 +965,7 @@ public final class LitLightRig: NSObject {
         stopLink()
         lock.lock()
         resting = true
-        restingAt = (Double(x), Double(y))
+        restingAt = (Double(easedX), Double(easedY))
         lock.unlock()
         source.setInterval(1 / Self.restingRate)
     }
@@ -992,15 +1004,22 @@ public final class LitLightRig: NSObject {
             (targetX, targetY) = target
             lock.unlock()
         }
-        let nextX = x + (CGFloat(targetX) - x) * 0.22
-        let nextY = y + (CGFloat(targetY) - y) * 0.22
-        // A phone lying still draws no frames,
-        if abs(nextX - x) > Self.settleStep || abs(nextY - y) > Self.settleStep {
-            set(x: nextX, y: nextY)
+        let offX = CGFloat(targetX) - easedX, offY = CGFloat(targetY) - easedY
+        let distance = max(abs(offX), abs(offY))
+        // A turn of the phone sets the light off; a hand's tremor does not.
+        if !gliding, distance > Self.startDistance || demoStart != nil { gliding = true }
+        if gliding {
+            let nextX = easedX + offX * 0.22, nextY = easedY + offY * 0.22
+            if abs(nextX - x) > Self.settleStep || abs(nextY - y) > Self.settleStep {
+                set(x: nextX, y: nextY)
+            } else {
+                easedX = nextX
+                easedY = nextY
+            }
+            if max(abs(CGFloat(targetX) - easedX), abs(CGFloat(targetY) - easedY)) < Self.restDistance { gliding = false }
         }
-        // and once the light has arrived where the phone points it, runs no frame loop either.
-        let arrived = abs(CGFloat(targetX) - x) < Self.restDistance && abs(CGFloat(targetY) - y) < Self.restDistance
-        guard arrived, demoStart == nil else {
+        // Once the light has arrived where the phone points it, no frame loop runs either.
+        guard !gliding, demoStart == nil else {
             stillFrames = 0
             return
         }
