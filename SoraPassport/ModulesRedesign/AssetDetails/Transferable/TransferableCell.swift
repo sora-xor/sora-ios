@@ -113,7 +113,7 @@ final class TransferableCell: SoramitsuTableViewCell {
         label.sora.font = FontType.headline2
         label.sora.textColor = .fgPrimary
         // A value of a million dollars or more does not fit beside the heading on a 375-point phone: it
-        // gets smaller (the heading never gives way), and stays clear of the heading by the stack's gap.
+        // gets smaller (the heading never gives way) and keeps 8 points from it.
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor = 0.6
         label.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
@@ -298,8 +298,7 @@ final class TransferableCell: SoramitsuTableViewCell {
 
             separatorView.heightAnchor.constraint(equalToConstant: 1),
 
-            // At least the pads and their captions; taller if a caption ever takes two lines.
-            actionsStackView.heightAnchor.constraint(greaterThanOrEqualToConstant: 76)
+            actionsStackView.heightAnchor.constraint(equalToConstant: 76)
         ])
     }
     
