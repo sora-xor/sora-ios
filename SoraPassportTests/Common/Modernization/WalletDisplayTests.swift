@@ -657,3 +657,338 @@ final class WalletDisplayTests: XCTestCase {
         return image === other || image.pngData() == other.pngData()
     }
 }
+
+@MainActor
+private final class DuoAmountModel: InputAssetAmountViewModelProtocol {
+    var inputedFirstAmount: Decimal = 0
+    func viewDidLoad() {}
+    func choiceBaseAssetButtonTapped() {}
+    func reviewButtonTapped() {}
+    func selectAddress() {}
+    func didSelect(variant: Decimal) {}
+}
+
+private struct DuoLoading: Loadable {
+    var activityIndicatorWindow: UIWindow?
+}
+
+/// The wallet in the app's own window on a simulator with a hinge (iPhone Duo).
+///
+/// These three tests replace the app's window, add a disposable PIN when the simulator has none, and
+/// read the real hinge, so they run only when the test runner's environment asks for them:
+///
+/// - `SORA_DUO_TESTS=1` runs `testDuoControlsInCurrentWindow`, which needs no hinge move.
+/// - `SORA_DUO_HINGE_MOVES=1` as well runs the two live tests. Someone, or a script, has to move the
+///   hinge while they wait: each stage is announced on the console (`DUO waiting-<stage>`) and as
+///   `duo-waiting-<stage>.txt` in the app's Documents directory.
+///
+/// With xcodebuild the variables are passed as `TEST_RUNNER_SORA_DUO_TESTS=1` and
+/// `TEST_RUNNER_SORA_DUO_HINGE_MOVES=1`. Without them, or on a simulator that reports no hinge, the
+/// tests are skipped; they name no particular simulator.
+extension WalletDisplayTests {
+    /// The windows as a Duo test found them: both delegates' references, whether each window was
+    /// shown, and the key window (which may be a PIN or loading window, not the app's own).
+    @MainActor
+    private struct DuoWindows {
+        let app: AppDelegate, owner: SceneDelegate
+        let appWindow: UIWindow?, ownerWindow: UIWindow?, keyWindow: UIWindow?
+        let appWindowHidden: Bool?, ownerWindowHidden: Bool?
+
+        init(app: AppDelegate, owner: SceneDelegate, scene: UIWindowScene) {
+            self.app = app; self.owner = owner
+            appWindow = app.window; ownerWindow = owner.window
+            keyWindow = scene.windows.first(where: \.isKeyWindow)
+            appWindowHidden = app.window?.isHidden; ownerWindowHidden = owner.window?.isHidden
+        }
+
+        func restore(hiding testWindow: UIWindow) {
+            testWindow.isHidden = true
+            app.window = appWindow
+            owner.window = ownerWindow
+            if let appWindowHidden { appWindow?.isHidden = appWindowHidden }
+            if let ownerWindowHidden { ownerWindow?.isHidden = ownerWindowHidden }
+            keyWindow?.makeKey()
+        }
+    }
+
+    /// The hinge status of the device, or nil when it reports none within ten seconds.
+    @available(iOS 27.1, *)
+    @MainActor
+    private func hingeStatus(_ pose: () -> UIHinge.Status) async throws -> UIHinge.Status? {
+        for _ in 0..<100 where pose() == .unknown { try await Task.sleep(nanoseconds: 100_000_000) }
+        return pose() == .unknown ? nil : pose()
+    }
+
+    private static func requireDuoRun(hingeMoves: Bool) throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["SORA_DUO_TESTS"] == "1" else {
+            throw XCTSkip("Duo tests run only with SORA_DUO_TESTS=1 on a simulator with a hinge")
+        }
+        guard !hingeMoves || environment["SORA_DUO_HINGE_MOVES"] == "1" else {
+            throw XCTSkip("This Duo test waits for hinge moves; it runs only with SORA_DUO_HINGE_MOVES=1")
+        }
+    }
+
+    @MainActor
+    func testLiveDuoWindows() async throws { try await runDuoWindowFlow(changePose: true) }
+
+    @MainActor
+    func testDuoControlsInCurrentWindow() async throws { try await runDuoWindowFlow(changePose: false) }
+
+    @MainActor
+    private func runDuoWindowFlow(changePose: Bool) async throws {
+        guard #available(iOS 27.1, *) else { throw XCTSkip("The hinge is reported from iOS 27.1") }
+        try Self.requireDuoRun(hingeMoves: changePose)
+        let app = try XCTUnwrap(UIApplication.shared.delegate as? AppDelegate)
+        let scene = try XCTUnwrap(UIApplication.shared.soraWindowScene)
+        let owner = try XCTUnwrap(scene.delegate as? SceneDelegate)
+        let found = DuoWindows(app: app, owner: owner, scene: scene)
+        let window = SoraWindow(windowScene: scene)
+        app.window = window
+        owner.window = window
+        // The windows come back as they were however the test ends, a skip included.
+        defer { found.restore(hiding: window) }
+        let model = DuoAmountModel()
+        let send = InputAssetAmountViewController(viewModel: model)
+        let navigation = UINavigationController(rootViewController: UIViewController())
+        window.rootViewController = navigation
+        navigation.pushViewController(send, animated: false)
+        window.makeKeyAndVisible()
+        WalletDisplay.sceneGeometryDidChange(scene)
+        WalletDisplay.observeHinge(on: window)
+        var pose: UIHinge.Status = .unknown
+        window.addInteraction(UIHingeInteraction { _, update in
+            if let hinge = update.hinge { pose = hinge.status }
+        })
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        func record(_ stage: String) throws {
+            let bounds = window.bounds
+            let safe = window.safeAreaInsets
+            let report = "\(stage) hinge=\(pose.rawValue) bounds=\(bounds) safeInsets=\(safe) orientation=\(scene.interfaceOrientation.rawValue)\n"
+            print("DUO " + report)
+            try report.write(to: directory.appendingPathComponent("duo-" + stage + ".txt"), atomically: true, encoding: .utf8)
+        }
+        func waitFor(_ state: UIHinge.Status, _ stage: String) async throws {
+            try record("waiting-" + stage)
+            for _ in 0..<1800 {
+                if pose == state {
+                    try await Task.sleep(nanoseconds: 1_000_000_000)
+                    window.layoutIfNeeded()
+                    try record(stage)
+                    return
+                }
+                try await Task.sleep(nanoseconds: 500_000_000)
+            }
+            XCTFail("Did not observe the requested hinge status for " + stage)
+            throw NSError(domain: "DuoPose", code: 1)
+        }
+        func centerReachable(_ control: UIView, in host: UIWindow) -> Bool {
+            let center = control.convert(CGPoint(x: control.bounds.midX, y: control.bounds.midY), to: host)
+            guard host.bounds.inset(by: host.safeAreaInsets).contains(center),
+                  let hit = host.hitTest(center, with: nil) else { return false }
+            return hit === control || hit.isDescendant(of: control)
+        }
+        // A simulator without a hinge is skipped before anything waits for a hinge move.
+        guard try await hingeStatus({ pose }) != nil else { throw XCTSkip("This simulator reports no hinge") }
+        if changePose {
+            try await waitFor(.closed, "closed-draft")
+        } else {
+            try record("stationary-draft")
+        }
+        let field = try XCTUnwrap(descendants(of: send.view).compactMap { $0 as? UITextField }.first)
+        XCTAssertTrue(centerReachable(field, in: window), "Amount field is reachable")
+        field.becomeFirstResponder()
+        field.insertText("17")
+        field.sendActions(for: .editingChanged)
+        field.resignFirstResponder()
+        let draft = field.text
+        XCTAssertEqual(model.inputedFirstAmount, 17)
+        var loading = DuoLoading()
+        loading.showActivityIndicator()
+        defer { loading.hideActivityIndicator() }
+        let spinner = try XCTUnwrap(loading.activityIndicatorWindow)
+        let keychain = Keychain()
+        let pinTag = KeystoreTag.pincode.rawValue
+        let addedTestPIN = try !keychain.checkKey(for: pinTag)
+        if addedTestPIN {
+            let disposablePIN = String(Int.random(in: 100_000...999_999))
+            try keychain.addKey(Data(disposablePIN.utf8), with: pinTag)
+        }
+        defer { if addedTestPIN { try? keychain.deleteKey(for: pinTag) } }
+        let lock = SecurityLayerWireframe(windowProvider: { window })
+        lock.showAuthorization()
+        defer { if lock.authorizationWindow != nil { lock.showAuthorizationCompletion(with: true) } }
+        let pinWindow = try XCTUnwrap(lock.authorizationWindow)
+        let inputPin = try XCTUnwrap(pinWindow.rootViewController?.children.first as? PincodeViewController)
+        pinWindow.layoutIfNeeded()
+        // PIN entry starts accepting input after its asynchronous Keychain lookup.
+        let buttons = inputPin.numpadView.buttons
+        for _ in 0..<300 {
+            buttons[0].sendActions(for: .touchUpInside)
+            if descendants(of: inputPin.view).contains(where: { ($0 as? PincodeDotView)?.isFilled == true }) { break }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        buttons[1].sendActions(for: .touchUpInside)
+        func checkOverlays() throws {
+            XCTAssertTrue(pinWindow.isKeyWindow)
+            XCTAssertFalse(spinner.isHidden)
+            XCTAssertTrue(pinWindow.windowScene === window.windowScene && spinner.windowScene === window.windowScene)
+            XCTAssertEqual(spinner.frame, window.frame)
+            XCTAssertEqual(pinWindow.frame, window.frame)
+            let pin = try XCTUnwrap(pinWindow.rootViewController?.children.first as? PincodeViewController)
+            pinWindow.layoutIfNeeded()
+            let keys = pin.numpadView.buttons
+            XCTAssertEqual(keys.count, 10)
+            let filled = descendants(of: pin.view).compactMap { $0 as? PincodeDotView }.filter(\.isFilled)
+            XCTAssertEqual(filled.count, 2, "The incomplete PIN survives the hinge transition")
+            XCTAssertTrue(keys.allSatisfy { centerReachable($0, in: pinWindow) }, "Every digit is reachable")
+        }
+        try checkOverlays()
+        if changePose {
+            try await waitFor(.partiallyOpen, "half-open-pin-loading")
+            try checkOverlays()
+            try await waitFor(.fullyOpen, "open-pin-loading")
+            try checkOverlays()
+        } else {
+            try record("stationary-pin-loading")
+        }
+        lock.showAuthorizationCompletion(with: true)
+        loading.hideActivityIndicator()
+        XCTAssertTrue(navigation.topViewController === send)
+        XCTAssertEqual(field.text, draft)
+        XCTAssertEqual(model.inputedFirstAmount, 17)
+        XCTAssertTrue(centerReachable(field, in: window))
+        let secret = AccountExportRawSeedViewController()
+        secret.presenter = ClassicRawSeedPresenter()
+        navigation.pushViewController(secret, animated: false)
+        secret.set(rawSeed: "SYNTHETIC-PREVIEW", derivationPath: "")
+        let reveal = try XCTUnwrap(descendants(of: secret.view).first { $0.accessibilityIdentifier == "wallet-raw-seed-reveal" } as? UIButton)
+        let value = try XCTUnwrap(descendants(of: secret.view).first { $0.accessibilityIdentifier == "wallet-raw-seed-value" } as? UILabel)
+        window.layoutIfNeeded()
+        XCTAssertTrue(centerReachable(reveal, in: window))
+        reveal.sendActions(for: .touchUpInside)
+        XCTAssertTrue(value.text == "SYNTHETIC-PREVIEW")
+        if changePose {
+            var revealedAt = ProcessInfo.processInfo.systemUptime
+            var lastVisible = revealedAt
+            let initialSize = window.bounds.size
+            try record("open-revealed")
+            try record("waiting-closed-again")
+            for _ in 0..<9000 {
+                if pose == .closed { break }
+                let now = ProcessInfo.processInfo.systemUptime
+                if value.text == "SYNTHETIC-PREVIEW" {
+                    lastVisible = now
+                    if pose == .fullyOpen && window.bounds.size == initialSize && now - revealedAt >= 20 {
+                        reveal.sendActions(for: .touchUpInside)
+                        reveal.sendActions(for: .touchUpInside)
+                        XCTAssertTrue(value.text == "SYNTHETIC-PREVIEW")
+                        revealedAt = now
+                    }
+                }
+                try await Task.sleep(nanoseconds: 100_000_000)
+            }
+            XCTAssertEqual(pose, .closed)
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            try record("closed-again")
+            print("DUO privacy secondsSinceShow=\(ProcessInfo.processInfo.systemUptime - revealedAt) secondsSinceLastVisible=\(ProcessInfo.processInfo.systemUptime - lastVisible)")
+            XCTAssertLessThan(ProcessInfo.processInfo.systemUptime - revealedAt, 60, "The hinge move must precede the ordinary secret timeout")
+        } else {
+            reveal.sendActions(for: .touchUpInside)
+            try record("stationary-hide-by-button")
+        }
+        XCTAssertTrue(value.text?.isEmpty != false)
+        XCTAssertTrue(navigation.topViewController === secret)
+        navigation.popViewController(animated: false)
+        XCTAssertTrue(navigation.topViewController === send)
+        XCTAssertEqual(field.text, draft)
+        XCTAssertEqual(model.inputedFirstAmount, 17)
+        let returnedAt = ProcessInfo.processInfo.systemUptime
+        for _ in 0..<20 {
+            window.layoutIfNeeded()
+            if centerReachable(field, in: window) { break }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        let target = field.convert(CGPoint(x: field.bounds.midX, y: field.bounds.midY), to: window)
+        let hit = window.hitTest(target, with: nil)
+        print("DUO return-to-send seconds=\(ProcessInfo.processInfo.systemUptime - returnedAt) field=\(field.convert(field.bounds, to: window)) attached=\(field.window === window) hit=\(String(describing: hit.map { type(of: $0) }))")
+        XCTAssertTrue(centerReachable(field, in: window), "The returned amount field must receive a hit")
+        try record("complete")
+    }
+}
+
+extension WalletDisplayTests {
+    @MainActor
+    func testLiveDuoSecretOnDisplayChange() async throws {
+        guard #available(iOS 27.1, *) else { throw XCTSkip("The hinge is reported from iOS 27.1") }
+        try Self.requireDuoRun(hingeMoves: true)
+        let scene = try XCTUnwrap(UIApplication.shared.soraWindowScene)
+        let app = try XCTUnwrap(UIApplication.shared.delegate as? AppDelegate)
+        let owner = try XCTUnwrap(scene.delegate as? SceneDelegate)
+        let found = DuoWindows(app: app, owner: owner, scene: scene)
+        let window = SoraWindow(windowScene: scene)
+        app.window = window
+        owner.window = window
+        defer { found.restore(hiding: window) }
+        let secret = AccountExportRawSeedViewController()
+        secret.presenter = ClassicRawSeedPresenter()
+        let navigation = UINavigationController(rootViewController: secret)
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        WalletDisplay.sceneGeometryDidChange(scene)
+        WalletDisplay.observeHinge(on: window)
+        var pose: UIHinge.Status = .unknown
+        window.addInteraction(UIHingeInteraction { _, update in
+            if let hinge = update.hinge { pose = hinge.status }
+        })
+        guard try await hingeStatus({ pose }) != nil else { throw XCTSkip("This simulator reports no hinge") }
+        for _ in 0..<600 {
+            if pose == .fullyOpen || pose == .closed { break }
+            try await Task.sleep(nanoseconds: 200_000_000)
+        }
+        let initial = pose
+        XCTAssertTrue(initial == .fullyOpen || initial == .closed, "Start with the hinge fully open or closed")
+        guard initial == .fullyOpen || initial == .closed else { return }
+        secret.set(rawSeed: "SYNTHETIC-PREVIEW", derivationPath: "")
+        let reveal = try XCTUnwrap(descendants(of: secret.view).first { $0.accessibilityIdentifier == "wallet-raw-seed-reveal" } as? UIButton)
+        let value = try XCTUnwrap(descendants(of: secret.view).first { $0.accessibilityIdentifier == "wallet-raw-seed-value" } as? UILabel)
+        window.layoutIfNeeded()
+        func now() -> TimeInterval { ProcessInfo.processInfo.systemUptime }
+        var revealedAt = now()
+        reveal.sendActions(for: .touchUpInside)
+        XCTAssertTrue(value.text == "SYNTHETIC-PREVIEW")
+        let originalSize = window.bounds.size
+        print("DUO-PRIVACY ready, hinge=\(initial.rawValue), size=\(originalSize)")
+        let initialClosed = initial == .closed
+        let deadline = now() + 900
+        var lastVisible = now()
+        var concealTime: TimeInterval?
+        while now() < deadline {
+            let visible = value.text == "SYNTHETIC-PREVIEW"
+            if visible { lastVisible = now() }
+            if !visible && concealTime == nil { concealTime = now() }
+            if pose != .unknown && (pose == .closed) != initialClosed { break }
+            if pose == initial && window.bounds.size == originalSize && visible && now() - revealedAt >= 20 {
+                // Renew via the real Show button while the original display is
+                // still active. This keeps a slow operator inside the 60 s timer.
+                reveal.sendActions(for: .touchUpInside)
+                reveal.sendActions(for: .touchUpInside)
+                XCTAssertTrue(value.text == "SYNTHETIC-PREVIEW")
+                revealedAt = now()
+            }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        let crossedAt = now()
+        XCTAssertNotEqual(pose, .unknown)
+        XCTAssertNotEqual(pose == .closed, initialClosed)
+        for _ in 0..<10 {
+            if value.text?.isEmpty != false { break }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        XCTAssertLessThan(crossedAt - revealedAt, 60)
+        XCTAssertLessThan(crossedAt - lastVisible, 5, "Preview must still have been visible just before the display changed")
+        XCTAssertTrue(value.text?.isEmpty != false && value.isHidden)
+        XCTAssertTrue(navigation.topViewController === secret)
+        print("DUO-PRIVACY end hinge=\(pose.rawValue) covered=\(value.isHidden) secondsSinceShow=\(crossedAt - revealedAt) secondsSinceLastVisible=\(crossedAt - lastVisible) concealObserved=\(concealTime != nil)")
+    }
+}

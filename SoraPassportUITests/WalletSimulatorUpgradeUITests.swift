@@ -232,6 +232,15 @@ final class WalletSimulatorUpgradeUITests: XCTestCase {
                 evidence("wallet-after-activity")
             }
             if env["SORA_SIMULATOR_REVEAL_PHRASE"] == "1" {
+                // Showing the recovery phrase is a timed disclosure. XCTest otherwise waits up to 60 s
+                // after a tap for the app's repeating animations to stop, and the phrase is covered
+                // again before it is read. The wait is turned off only here, once a run has reached the
+                // steps that show the phrase, and only where this Xcode has the setting. Everything
+                // before this point, every case that never gets here, and an Xcode without the setting
+                // run exactly as before.
+                if app.responds(to: NSSelectorFromString("setIdleAnimationWaitEnabled:")) {
+                    app.setValue(false, forKey: "idleAnimationWaitEnabled")
+                }
                 wallet.tap()
                 // The portfolio's wallet name opens the Wallets sheet, which leads to the account list.
                 let manage = app.buttons["portfolio.manage-wallets"].firstMatch
@@ -265,9 +274,22 @@ final class WalletSimulatorUpgradeUITests: XCTestCase {
                 XCTAssertTrue((12...24).contains(count))
                 let reveal = app.buttons["wallet-backup-reveal"]
                 XCTAssertTrue(reveal.waitForExistence(timeout: 10))
-                reveal.tap()
                 let words = (1...count).map { app.staticTexts["wallet-backup-word-\($0)"].firstMatch }
-                XCTAssertTrue(words.last?.waitForExistence(timeout: 10) == true)
+                let last = try XCTUnwrap(words.last)
+                // The screen may still be settling after the PIN controller disappears.
+                // Wait for a real, hittable Show button before a user's reveal attempt.
+                for attempt in 1...3 {
+                    if last.exists { break }
+                    let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                        reveal.exists && reveal.isEnabled && reveal.isHittable && app.state == .runningForeground
+                    }, object: nil)
+                    XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed)
+                    if reveal.label != "Hide" { reveal.tap() }
+                    let reached = last.waitForExistence(timeout: 3)
+                    print("Historical export attempt \(attempt) first=\(words.first?.exists == true) last=\(reached) hidden=\(reveal.label != "Hide")")
+                    if reached { break }
+                }
+                XCTAssertTrue(last.exists)
                 let displayed = words.map(\.label).joined(separator: " ")
                 let actual = SHA256.hash(data: Data(displayed.utf8)).map { String(format: "%02x", $0) }.joined()
                 XCTAssertTrue(actual == digest, "Displayed recovery words differ from the public fixture")
