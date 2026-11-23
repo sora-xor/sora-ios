@@ -3677,3 +3677,476 @@ private final class FaucetPersistenceFixture: @unchecked Sendable {
         }, clock: { [clock] in clock.now() }, requestID: { "6ddfcc7d143e4c88a6232812ab8de1d45038167b3baf4aedae245d6f534824f4" })
     }
 }
+
+// MARK: - Every screen fits its window
+
+/// Counts the constraints Auto Layout had to break. UIKit gets out of a conflict by dropping one
+/// constraint and logging it; which one it drops is its own choice, and every recovery costs layout time.
+enum BrokenConstraints {
+    private static var installed = false
+    private(set) static var log: [String] = []
+
+    static func install() {
+        guard !installed else { return }
+        installed = true
+        let selector = NSSelectorFromString("engine:willBreakConstraint:dueToMutuallyExclusiveConstraints:")
+        guard let method = class_getInstanceMethod(UIView.self, selector) else { return }
+        typealias Original = @convention(c) (AnyObject, Selector, AnyObject, AnyObject, AnyObject) -> Void
+        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
+        let block: @convention(block) (AnyObject, AnyObject, AnyObject, AnyObject) -> Void = { view, engine, constraint, others in
+            BrokenConstraints.log.append(String(describing: constraint))
+            original(view, selector, engine, constraint, others)
+        }
+        method_setImplementation(method, imp_implementationWithBlock(block))
+    }
+
+    static func reset() { log = [] }
+}
+
+/// What "fits" means for a screen laid out in a window: nothing a person reads or taps hangs over the
+/// window's sides, no label is cut short, a text field keeps room to type in, a button holds its own title,
+/// the screen's main button is as wide as its column, and in a wide window nothing to tap or type in is
+/// wider than the readable column.
+enum ScreenFit {
+    static func problems(in window: UIWindow) -> [String] {
+        var found: [String] = []
+        let width = window.bounds.width
+        let column = min(width, LayoutCanvas.readableWidth)
+
+        func text(in view: UIView) -> String? {
+            if let label = view as? UILabel, let text = label.text, !text.isEmpty { return text }
+            for child in view.subviews where !child.isHidden {
+                if let found = text(in: child) { return found }
+            }
+            return nil
+        }
+        func name(_ view: UIView) -> String {
+            var parts = [String(describing: type(of: view))]
+            if let id = view.accessibilityIdentifier, !id.isEmpty { parts.append("#" + id) }
+            if let text = text(in: view) { parts.append("\"" + String(text.prefix(26)) + "\"") }
+            return parts.joined(separator: " ")
+        }
+        func place(_ frame: CGRect) -> String {
+            String(format: "x %.0f…%.0f, %.0f wide", frame.minX, frame.maxX, frame.width)
+        }
+        func note(_ rule: String, _ view: UIView, _ frame: CGRect, _ more: String = "") {
+            found.append(rule + ": " + name(view) + " (" + place(frame) + ")" + (more.isEmpty ? "" : " " + more))
+        }
+        func walk(_ view: UIView, sideways: Bool, control: UIControl?) {
+            guard !view.isHidden, view.alpha > 0.01 else { return }
+            let kind = String(describing: type(of: view))
+            // What UIKit builds for its own bars, keyboards and effects is its business.
+            if view is UINavigationBar || view is UITabBar || view is UISearchBar || view is UIVisualEffectView
+                || kind.hasPrefix("_UI") || kind.hasPrefix("UIKeyboard") || kind.hasPrefix("UIInput")
+                || kind.hasPrefix("UIRemote") || kind.hasPrefix("UITextSelection") { return }
+            let frame = view.convert(view.bounds, to: window)
+            let inWindow = frame.maxX > 0.5 && frame.minX < width - 0.5
+            let readsOrTaps = view is UIControl || view is UITextView
+                || ((view as? UILabel)?.text?.isEmpty == false)
+            if readsOrTaps, inWindow, !sideways, frame.width > 0, frame.minX < -0.5 || frame.maxX > width + 0.5 {
+                note("over the side", view, frame)
+            }
+            if let label = view as? UILabel, let string = label.text, !string.isEmpty, frame.width > 0, inWindow,
+               !(view.superview is UITextField) {
+                let free = CGRect(x: 0, y: 0, width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+                let oneLine = label.textRect(forBounds: free, limitedToNumberOfLines: 1).width
+                let middle = label.lineBreakMode == .byTruncatingMiddle || label.lineBreakMode == .byTruncatingHead
+                if label.numberOfLines == 1 {
+                    let shrinks = label.adjustsFontSizeToFitWidth ? max(label.minimumScaleFactor, 0.5) : 1
+                    if oneLine * shrinks > label.bounds.width + 1, !middle {
+                        note("cut short", view, frame, String(format: "needs %.0f", oneLine))
+                    }
+                } else {
+                    let column = CGRect(x: 0, y: 0, width: label.bounds.width, height: CGFloat.greatestFiniteMagnitude)
+                    let all = label.textRect(forBounds: column, limitedToNumberOfLines: 0).height
+                    let allowed = label.textRect(forBounds: column, limitedToNumberOfLines: label.numberOfLines).height
+                    if all > allowed + 1 || allowed > label.bounds.height + 1.5 {
+                        note("cut short", view, frame, String(format: "needs %.0f high, has %.0f", all, label.bounds.height))
+                    }
+                }
+                if let control, !sideways {
+                    let home = control.convert(control.bounds, to: window)
+                    if frame.minX < home.minX - 1 || frame.maxX > home.maxX + 1 {
+                        note("title outside its button", control, home, String(format: "title %.0f wide", frame.width))
+                    }
+                }
+            }
+            if let field = view as? UITextField, inWindow, frame.width < 44 {
+                note("no room to type", field, frame)
+            }
+            if let button = view as? SoramitsuButton, inWindow, frame.height >= 48, button.sora.horizontalOffset == 0,
+               text(in: button) != nil, frame.width < column * 0.6 {
+                note("main button narrower than its column", button, frame)
+            }
+            if width > LayoutCanvas.readableWidth, !sideways, frame.height < 300,
+               view is UIControl || view is UITextView, frame.width > LayoutCanvas.readableWidth + 1 {
+                note("wider than the readable column", view, frame)
+            }
+            var scrollsSideways = sideways
+            if let scroll = view as? UIScrollView, scroll.contentSize.width > scroll.bounds.width + 1 { scrollsSideways = true }
+            let inner = (view as? UIControl) ?? control
+            if view is UITextField || view is UITextView || view is UISwitch || view is UISegmentedControl
+                || view is UIDatePicker || view is UIPickerView { return }
+            for child in view.subviews { walk(child, sideways: scrollsSideways, control: inner) }
+        }
+        walk(window, sideways: false, control: nil)
+        // The same view can be reached twice through reused cells: say each thing once.
+        var seen = Set<String>()
+        return found.filter { seen.insert($0).inserted }
+    }
+}
+
+/// The screens with something to tap or type in, laid out with invented data at every size the wallet
+/// ships for (iPhone SE, a 393-point iPhone, iPhone 16 Pro Max, iPad) in English and Japanese.
+@MainActor
+final class ScreenFitTests: XCTestCase {
+    struct Device {
+        let name: String
+        let size: CGSize
+        let insets: UIEdgeInsets
+    }
+
+    static let devices = [
+        Device(name: "375x667", size: CGSize(width: 375, height: 667), insets: UIEdgeInsets(top: 20, left: 0, bottom: 0, right: 0)),
+        Device(name: "393x852", size: CGSize(width: 393, height: 852), insets: UIEdgeInsets(top: 59, left: 0, bottom: 34, right: 0)),
+        Device(name: "440x956", size: CGSize(width: 440, height: 956), insets: UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0)),
+        Device(name: "820x1180", size: CGSize(width: 820, height: 1180), insets: UIEdgeInsets(top: 24, left: 0, bottom: 20, right: 0))
+    ]
+
+    struct Screen {
+        let name: String
+        let make: () throws -> UIViewController
+    }
+
+    private var windows: [UIWindow] = []
+    private var language: String?
+    private var theme: SoramitsuThemeMode?
+    private var previousWindow: UIWindow?
+
+    override func setUp() async throws {
+        try await super.setUp()
+        language = LocalizationManager.shared.selectedLocalization
+        theme = SoramitsuUI.shared.themeMode
+        previousWindow = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows).first { $0.isKeyWindow }
+        SoramitsuUI.shared.themeMode = .manual(.light)
+        BrokenConstraints.install()
+    }
+
+    override func tearDown() async throws {
+        windows.forEach { $0.isHidden = true; $0.rootViewController = nil }
+        windows = []
+        WalletDisplay.canvasOverride = nil
+        if let language { LocalizationManager.shared.selectedLocalization = language }
+        if let theme { SoramitsuUI.shared.themeMode = theme }
+        previousWindow?.makeKeyAndVisible()
+        try await super.tearDown()
+    }
+
+    // MARK: The screens
+
+    private static let address = "cnVkoGs3rEMqLqY27c2nfVXJRGdzNJk2ns78DcqtppaSRe8qm"
+
+    /// A screen the app presents over the wallet: on a page of its own, in a navigation bar.
+    private static func presented(_ screen: UIViewController) -> UIViewController {
+        let container = BlurViewController()
+        let navigation = UINavigationController(rootViewController: screen)
+        navigation.navigationBar.backgroundColor = .clear
+        container.add(navigation)
+        return container
+    }
+
+    private static func detail(_ title: String, _ value: String) -> DetailViewModel {
+        DetailViewModel(title: title,
+                        assetAmountText: SoramitsuTextItem(text: value, fontData: FontType.textS, textColor: .fgPrimary, alignment: .right),
+                        fiatAmountText: SoramitsuTextItem(text: "$1,234.56", fontData: FontType.textBoldXS, textColor: .fgSecondary, alignment: .right))
+    }
+
+    private static func swap(filled: Bool) -> UIViewController {
+        let model = StoreSwapPresentation()
+        let swap = PolkaswapViewController(viewModel: model)
+        model.view = swap
+        swap.loadViewIfNeeded()
+        if filled {
+            let icon = R.image.wallet.emptyToken()
+            swap.updateFirstAsset(symbol: "XOR", image: icon)
+            swap.updateSecondAsset(symbol: "PSWAP", image: icon)
+            swap.updateFirstAsset(balance: "799,994.877 ($1,234,567.89)")
+            swap.updateSecondAsset(balance: "12,345,678.123456 ($98,765.43)")
+            swap.set(firstAmountText: "123456.123456789")
+            swap.set(secondAmountText: "98765432.123456789")
+            swap.updateFirstAsset(fiatText: "$1,234,567.89")
+            swap.updateSecondAsset(fiatText: "$1,234,560.12")
+            swap.update(selectedMarket: "SMART")
+            swap.update(details: [detail(R.string.localizable.polkaswapMinimumReceived(preferredLanguages: .currentLocale), "98,765,000.123456 PSWAP"),
+                                  detail(R.string.localizable.networkFee(preferredLanguages: .currentLocale), "0.0007 XOR"),
+                                  detail(R.string.localizable.polkaswapLiquidityTotalFee(preferredLanguages: .currentLocale), "370.368 XOR")])
+            swap.updateWarinignView(model: WarningViewModelFactory().insufficientBalanceViewModel(feeAssetSymbol: "XOR", feeAmount: 0.0007, isHidden: false))
+            swap.setupButton(isEnabled: true)
+        }
+        return presented(swap)
+    }
+
+    private static func sendAmount() -> UIViewController {
+        let screen = InputAssetAmountViewController(viewModel: StoreAmountPresentation())
+        screen.loadViewIfNeeded()
+        screen.updateFirstAsset(symbol: "XOR", image: R.image.wallet.emptyToken())
+        screen.updateFirstAsset(balance: "799,994.877 ($1,234,567.89)")
+        screen.updateFirstAsset(fiatText: "$1,234,567.89")
+        screen.updateRecipientView(with: address)
+        screen.set(firstAmountText: "123456.123456789")
+        screen.setupButton(isEnabled: true)
+        return presented(screen)
+    }
+
+    private static func choice(_ network: NetworkId, balance: String?) -> WalletNetworkChoice {
+        let account = NetworkAccount(walletId: "fixture", networkId: network, derivationVersion: 1,
+                                     publicKey: Data(repeating: 1, count: 32), address: address)
+        return WalletNetworkChoice(account: account, network: WalletNetworkDirectory.current.info(network),
+                                   tag: WalletNetworkDirectory.current.tag(for: network, main: .sora2),
+                                   balance: balance, unavailableReason: nil)
+    }
+
+    private static func receiveCode() throws -> UIViewController {
+        let publicKey = Data(repeating: 0x42, count: 32)
+        let address = try SS58AddressFactory().address(fromAccountId: publicKey, type: SNAddressType(chain: .sora))
+        let encoder = WalletQREncoder(networkType: SNAddressType(chain: .sora), publicKey: publicKey, username: "Public demo wallet")
+        let payload = try encoder.encode(receiverInfo: ReceiveInfo(accountId: publicKey.toHex(),
+            assetId: WalletAssetId.xor.rawValue, amount: nil, details: ""))
+        let operation = WalletQROperationFactory().createCreationOperation(for: payload, qrSize: CGSize(width: 300, height: 300))
+        operation.start()
+        let image = try XCTUnwrap(operation.result).get()
+        return presented(GenerateQRViewController(viewModel: StoreReceivePresentation(address: address, image: image)))
+    }
+
+    private static func confirm() -> UIViewController {
+        let model = FitConfirmModel()
+        return presented(ConfirmViewController(viewModel: model))
+    }
+
+    private static func phrase() -> UIViewController {
+        let backup = AccountCreateViewController()
+        backup.localizationManager = LocalizationManager.shared
+        backup.mode = .view
+        backup.presenter = NeonBackupVisualPresenter()
+        backup.loadViewIfNeeded()
+        backup.set(mnemonic: Array(repeating: "abandon", count: 11) + ["about"])
+        backup.set(backupDerivationPath: "//public-preview")
+        return UINavigationController(rootViewController: backup)
+    }
+
+    private static func rawSeed() -> UIViewController {
+        let seed = AccountExportRawSeedViewController()
+        seed.localizationManager = LocalizationManager.shared
+        seed.presenter = NeonRawSeedVisualPresenter()
+        seed.loadViewIfNeeded()
+        seed.set(rawSeed: "0x" + String(repeating: "0123456789abcdef", count: 4), derivationPath: "//public-preview")
+        return UINavigationController(rootViewController: seed)
+    }
+
+    private static func importPhrase() -> UIViewController {
+        let controller = ImportAccountViewController()
+        let presenter = AccountImportPresenter(sourceType: .mnemonic, config: ApplicationConfig.shared)
+        presenter.view = controller
+        presenter.didReceiveAccountImport(metadata: AccountImportMetadata(
+            availableSources: AccountImportSource.allCases, defaultSource: .mnemonic,
+            availableNetworks: [.sora], defaultNetwork: .sora,
+            availableCryptoTypes: CryptoType.allCases, defaultCryptoType: .sr25519))
+        controller.loadViewIfNeeded()
+        objc_setAssociatedObject(controller, &presenterKey, presenter, .OBJC_ASSOCIATION_RETAIN)
+        return UINavigationController(rootViewController: controller)
+    }
+
+    private static var presenterKey = 0
+
+    private static func accountName() -> UIViewController {
+        let controller = SetupAccountNameViewController()
+        controller.loadViewIfNeeded()
+        controller.set(viewModel: InputViewModel(inputHandler: InputHandler(value: "Audit imported phrase", required: false,
+            predicate: NSPredicate.notEmpty, processor: ByteLengthProcessor.username)))
+        return UINavigationController(rootViewController: controller)
+    }
+
+    private static func recovery() -> UIViewController {
+        let screen = WalletRecoveryViewController(reason: nil, onRetry: {}, onSetAside: {}, onRestore: { _ in })
+        screen.loadViewIfNeeded()
+        screen.apply(WalletRecoveryState.recovery(retryable: true, accountsMissingKeys: 1, accountsWithPhrase: 1,
+                                                  retainedPinUsable: true).options)
+        return screen
+    }
+
+    static var screens: [Screen] {
+        var all: [Screen] = [
+            Screen(name: "swap") { swap(filled: false) },
+            Screen(name: "swap-filled") { swap(filled: true) },
+            Screen(name: "send-amount") { sendAmount() },
+            Screen(name: "swap-slippage") {
+                let model = SlippageToleranceViewModel(value: .defaultValue)
+                let screen = SlippageToleranceViewController(viewModel: model)
+                model.view = screen
+                return presented(screen)
+            },
+            Screen(name: "swap-market") {
+                let model = ChoiceMarketViewModel(markets: [.smart, .xyk, .tbc], selectedMarket: .smart)
+                let screen = ChoiceMarketViewController(viewModel: model)
+                model.view = screen
+                return presented(screen)
+            },
+            Screen(name: "confirm") { confirm() },
+            Screen(name: "token-picker") { presented(ProductListViewController(viewModel: StoreAssetPresentation())) },
+            Screen(name: "recipient") { presented(ContactsViewController(viewModel: StoreContactsPresentation())) },
+            Screen(name: "network-picker") {
+                presented(WalletNetworkPickerViewController(action: .send,
+                    choices: [choice(.sora2, balance: "0"), choice(.minamoto, balance: nil), choice(.taira, balance: "799,994.877")],
+                    onPick: { _ in }))
+            },
+            Screen(name: "receive-code") { try receiveCode() },
+            Screen(name: "welcome") {
+                let onboarding = WelcomeViewController()
+                onboarding.presenter = RecoveryOnboardingVisualPresenter()
+                return onboarding
+            },
+            Screen(name: "import-phrase") { importPhrase() },
+            Screen(name: "account-name") { accountName() },
+            Screen(name: "pin") {
+                let pin = PincodeViewController()
+                pin.mode = .securedInput
+                pin.presenter = NeonPINVisualPresenter(view: pin, count: 6)
+                return pin
+            },
+            Screen(name: "phrase") { phrase() },
+            Screen(name: "raw-seed") { rawSeed() },
+            Screen(name: "recovery") { recovery() },
+            Screen(name: "settings") { UINavigationController(rootViewController: AppSettingsFactory.createAppSettings().controller) }
+        ]
+        #if DEBUG
+        all.append(Screen(name: "home") {
+            let defaults = UserDefaults(suiteName: "screen.fit")!
+            defaults.removePersistentDomain(forName: "screen.fit")
+            let host = PortfolioCaptureHost(variant: .full, defaults: defaults)
+            objc_setAssociatedObject(host.tabBar, &presenterKey, host, .OBJC_ASSOCIATION_RETAIN)
+            return host.tabBar
+        })
+        #endif
+        return all
+    }
+
+    // MARK: Laying out
+
+    private func show(_ controller: UIViewController, size: CGSize, insets: UIEdgeInsets?) -> UIWindow {
+        let window: UIWindow
+        if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
+            window = UIWindow(windowScene: scene)
+        } else {
+            window = UIWindow(frame: CGRect(origin: .zero, size: size))
+        }
+        window.frame = CGRect(origin: .zero, size: size)
+        if let insets { controller.additionalSafeAreaInsets = insets }
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        windows.append(window)
+        settle(window)
+        return window
+    }
+
+    private func settle(_ window: UIWindow, seconds: TimeInterval = 0.05) {
+        for _ in 0..<3 {
+            window.setNeedsLayout()
+            window.layoutIfNeeded()
+            RunLoop.current.run(until: Date().addingTimeInterval(seconds))
+        }
+        window.layoutIfNeeded()
+    }
+
+    private func close(_ window: UIWindow) {
+        window.isHidden = true
+        window.rootViewController = nil
+        windows.removeAll { $0 === window }
+    }
+
+    /// Every screen at every size in both languages: nothing hangs over, is cut short or collapses, and
+    /// Auto Layout breaks no constraint to get there.
+    func testEveryScreenFitsEverySize() throws {
+        var report: [String] = []
+        var checked = 0
+        for language in ["en", "ja"] {
+            LocalizationManager.shared.selectedLocalization = language
+            for device in Self.devices {
+                WalletDisplay.canvasOverride = LayoutCanvas(size: device.size)
+                for screen in Self.screens {
+                    BrokenConstraints.reset()
+                    let window = show(try screen.make(), size: device.size, insets: device.insets)
+                    let problems = ScreenFit.problems(in: window)
+                    let broken = BrokenConstraints.log.count
+                    checked += 1
+                    let key = "\(screen.name) \(device.name) \(language)"
+                    problems.forEach { report.append(key + " — " + $0) }
+                    if broken > 0 { report.append(key + " — \(broken) constraints broken to lay it out") }
+                    close(window)
+                }
+            }
+        }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("screen-fit-report.txt")
+        try? report.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+        print("SCREEN-FIT checked \(checked) layouts, \(report.count) problems, report \(url.path)")
+        report.forEach { print("SCREEN-FIT " + $0) }
+        XCTAssertTrue(report.isEmpty, "\(report.count) fit problems in \(checked) layouts:\n" + report.prefix(60).joined(separator: "\n"))
+    }
+
+    /// Opt-in (`SORA_FIT_GALLERY=1`): each screen in the simulator's own window, in both languages, with a
+    /// simulator screenshot of each through the capture driver's file handshake, and the fit report beside them.
+    func testCaptureFitGallery() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["SORA_FIT_GALLERY"] == "1" else { throw XCTSkip("Opt-in fit gallery") }
+        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("FitGallery", isDirectory: true)
+        try? FileManager.default.removeItem(at: output)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        let size = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.coordinateSpace.bounds.size
+            ?? UIScreen.main.bounds.size
+        var report: [String] = ["window \(Int(size.width))x\(Int(size.height))"]
+        for language in (environment["SORA_FIT_LANGUAGES"] ?? "en,ja").split(separator: ",").map(String.init) {
+            LocalizationManager.shared.selectedLocalization = language
+            for screen in Self.screens {
+                BrokenConstraints.reset()
+                let window = show(try screen.make(), size: size, insets: nil)
+                try await Task.sleep(nanoseconds: 900_000_000)
+                window.layoutIfNeeded()
+                let name = "\(screen.name)-\(language)"
+                let problems = ScreenFit.problems(in: window)
+                report.append("\(name): \(problems.count) problems, \(BrokenConstraints.log.count) broken constraints")
+                problems.forEach { report.append("  " + $0) }
+                Set(BrokenConstraints.log).sorted().prefix(6).forEach { report.append("  broke " + $0) }
+                try report.joined(separator: "\n").write(to: output.appendingPathComponent("fit-report.txt"), atomically: true, encoding: .utf8)
+                let acknowledgement = output.appendingPathComponent("capture-ack.txt")
+                try? FileManager.default.removeItem(at: acknowledgement)
+                try Data(name.utf8).write(to: output.appendingPathComponent("capture-request.txt"), options: .atomic)
+                for _ in 0..<300 {
+                    if (try? String(contentsOf: acknowledgement, encoding: .utf8)) == name { break }
+                    try await Task.sleep(nanoseconds: 100_000_000)
+                }
+                close(window)
+            }
+        }
+        try Data("done".utf8).write(to: output.appendingPathComponent("capture-request.txt"), options: .atomic)
+    }
+}
+
+/// A swap about to be signed: the two amounts, the route's settings and the button that signs.
+private final class FitConfirmModel: ConfirmViewModelProtocol {
+    var title: String? { R.string.localizable.review(preferredLanguages: .currentLocale) }
+    var imageName: String? { nil }
+    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
+    var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
+    func viewDidLoad() {
+        let assets = ConfirmAssetsItem(
+            firstAssetImageModel: ConfirmAssetViewModel(imageViewModel: nil, amountText: "123456.123456789", symbol: "XOR"),
+            secondAssetImageModel: ConfirmAssetViewModel(imageViewModel: nil, amountText: "98765432.123456789", symbol: "PSWAP"),
+            operationImageName: "")
+        let button = SoramitsuButtonItem(
+            title: SoramitsuTextItem(text: R.string.localizable.commonConfirm(preferredLanguages: .currentLocale),
+                                     fontData: FontType.buttonM, textColor: .custom(uiColor: .white), alignment: .center),
+            isEnable: true, handler: nil)
+        setupItems?([assets, ConfirmOptionsItem(toleranceText: "0.5%", market: .smart), button])
+    }
+}
