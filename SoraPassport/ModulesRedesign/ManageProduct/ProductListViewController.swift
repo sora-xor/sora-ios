@@ -155,10 +155,12 @@ final class ProductListViewController: SoramitsuViewController {
             // with its rows in the middle of it).
             tableView.leadingAnchor.constraint(equalTo: view.litColumnGuide.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.litColumnGuide.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            
+            // It ends at the keyboard while a search is typed: under the keyboard its last rows could not
+            // be scrolled into view. With no keyboard the guide's top is the safe area's bottom.
+            tableView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+
             emptyStateLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            emptyStateLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            emptyStateLabel.centerYAnchor.constraint(equalTo: tableView.centerYAnchor),
         ])
     }
 }

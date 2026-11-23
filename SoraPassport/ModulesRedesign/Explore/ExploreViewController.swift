@@ -113,7 +113,9 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
             
             searchView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             searchView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            searchView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            // The results are only shown while the search field has the keyboard up: they end above it,
+            // or the last of them could never be reached.
+            searchView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             searchView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
         ])
         
