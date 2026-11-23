@@ -47,8 +47,6 @@ public final class AssetActionView: SoramitsuControl {
         label.sora.font = FontType.textBoldXS
         label.sora.textColor = .fgSecondary
         label.sora.alignment = .center
-        // A caption too long for its action's share of the row takes a second line under the pad.
-        label.sora.numberOfLines = 2
         return label
     }()
 
@@ -73,8 +71,7 @@ private extension AssetActionView {
             stackView.topAnchor.constraint(equalTo: topAnchor),
             stackView.centerXAnchor.constraint(equalTo: centerXAnchor),
             stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            // At least the pad and one line of caption; more for a caption on two lines.
-            stackView.heightAnchor.constraint(greaterThanOrEqualToConstant: 76),
+            stackView.heightAnchor.constraint(equalToConstant: 76),
         ])
     }
 }

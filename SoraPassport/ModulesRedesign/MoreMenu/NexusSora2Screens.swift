@@ -197,8 +197,7 @@ final class NexusBalanceCell: SoramitsuTableViewCell {
         view.sora.backgroundColor = .custom(uiColor: .clear)
         view.sora.axis = .horizontal
         view.sora.distribution = .equalSpacing
-        // The pads stay level when one caption takes two lines.
-        view.sora.alignment = .top
+        view.sora.alignment = .center
         view.sora.shadow = .small
         view.spacing = 20
         view.clipsToBounds = false
@@ -280,8 +279,7 @@ final class NexusBalanceCell: SoramitsuTableViewCell {
             balanceLabel.topAnchor.constraint(equalTo: transferableLabel.bottomAnchor, constant: 4),
             balanceLabel.bottomAnchor.constraint(equalTo: transferableContainerView.bottomAnchor),
 
-            // As tall as its actions: a caption on two lines makes them taller.
-            actionsStackView.heightAnchor.constraint(greaterThanOrEqualToConstant: 76),
+            actionsStackView.heightAnchor.constraint(equalToConstant: 76),
 
             faucetStatusLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             faucetStatusLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
