@@ -59,6 +59,9 @@ final class PriceCell: SoramitsuTableViewCell {
         let label = SoramitsuLabel()
         label.sora.textColor = .fgPrimary
         label.sora.font = FontType.headline1
+        // A long name ("100x SORA TBC Dollar") takes a second line on a 375-point phone, centred.
+        label.sora.numberOfLines = 2
+        label.sora.alignment = .center
         return label
     }()
     

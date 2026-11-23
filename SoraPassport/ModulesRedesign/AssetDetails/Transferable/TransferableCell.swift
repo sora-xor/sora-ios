@@ -112,6 +112,11 @@ final class TransferableCell: SoramitsuTableViewCell {
         let label = SoramitsuLabel()
         label.sora.font = FontType.headline2
         label.sora.textColor = .fgPrimary
+        // A value of a million dollars or more does not fit beside the heading on a 375-point phone: it
+        // gets smaller (the heading never gives way), and stays clear of the heading by the stack's gap.
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.6
+        label.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         return label
     }()
     
@@ -262,6 +267,7 @@ final class TransferableCell: SoramitsuTableViewCell {
             transferableLabel.topAnchor.constraint(equalTo: transferableContainerView.topAnchor),
             
             fiatLabel.trailingAnchor.constraint(equalTo: transferableContainerView.trailingAnchor),
+            fiatLabel.leadingAnchor.constraint(greaterThanOrEqualTo: transferableLabel.trailingAnchor, constant: 8),
             fiatLabel.topAnchor.constraint(equalTo: transferableContainerView.topAnchor),
 
             balanceLabel.leadingAnchor.constraint(equalTo: transferableContainerView.leadingAnchor),

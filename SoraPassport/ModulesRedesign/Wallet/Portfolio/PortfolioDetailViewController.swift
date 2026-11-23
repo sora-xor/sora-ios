@@ -431,6 +431,9 @@ final class PortfolioDetailHoldingRow: UIControl {
         value.setContentCompressionResistancePriority(.required, for: .horizontal)
         title.setContentCompressionResistancePriority(.defaultHigh + 1, for: .horizontal)
         subtitle.setContentCompressionResistancePriority(.defaultHigh - 1, for: .horizontal)
+        // The wallet's name takes a second line rather than being cut ("Audit imported phra…" beside a
+        // Taira amount at 402 points): it is what tells two holdings on one network apart.
+        subtitle.numberOfLines = 2
         amount.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         let subtitleLine = UIStackView(arrangedSubviews: [dot, subtitle])
         subtitleLine.spacing = 6

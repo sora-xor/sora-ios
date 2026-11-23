@@ -279,7 +279,8 @@ final class NexusBalanceCell: SoramitsuTableViewCell {
             balanceLabel.topAnchor.constraint(equalTo: transferableLabel.bottomAnchor, constant: 4),
             balanceLabel.bottomAnchor.constraint(equalTo: transferableContainerView.bottomAnchor),
 
-            actionsStackView.heightAnchor.constraint(equalToConstant: 76),
+            // As tall as its actions: a caption on two lines makes them taller.
+            actionsStackView.heightAnchor.constraint(greaterThanOrEqualToConstant: 76),
 
             faucetStatusLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             faucetStatusLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
@@ -289,6 +290,13 @@ final class NexusBalanceCell: SoramitsuTableViewCell {
             faucetSpinner.centerXAnchor.constraint(equalTo: faucetButton.button.centerXAnchor),
             faucetSpinner.centerYAnchor.constraint(equalTo: faucetButton.button.centerYAnchor),
         ])
+        // Each action has at most a third of the card's row: "テスト用XORを受け取る" and "Check faucet request"
+        // were wider than that on a 375-point phone and pushed their pad off the row's rhythm or were cut;
+        // they wrap under the pad now.
+        for action in [sendButton, receiveButton, faucetButton] {
+            action.widthAnchor.constraint(lessThanOrEqualTo: separatorView.widthAnchor, multiplier: 1.0 / 3,
+                                          constant: -actionsStackView.spacing * 2 / 3).isActive = true
+        }
     }
 
     @available(*, unavailable)
