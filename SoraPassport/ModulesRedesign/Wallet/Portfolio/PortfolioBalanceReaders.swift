@@ -93,11 +93,20 @@ final class PortfolioSora2BalanceReader: PortfolioSora2BalanceReading {
          runtime: @escaping () -> RuntimeCodingServiceProtocol? = {
              ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())
          },
-         queue: OperationQueue = OperationManagerFacade.sharedDefaultQueue) {
+         queue: OperationQueue = PortfolioSora2BalanceReader.readQueue) {
         self.engine = engine
         self.runtime = runtime
         self.queue = queue
     }
+
+    /// Balance reads have a queue of their own. The app's shared queue is where everything else
+    /// waits its turn while the wallet opens, and a balance that the node has already answered
+    /// waited there with it.
+    static let readQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.qualityOfService = .userInitiated
+        return queue
+    }()
 
     func balances(address: String, assets: [(id: String, precision: Int16)]) async throws -> [String: PortfolioRawBalance] {
         try Task.checkCancellation()
