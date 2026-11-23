@@ -60,11 +60,12 @@ final class RetainedEvidenceReceiptTests: XCTestCase {
     private func receipt(_ kind: Harness.EvidenceCase, state: Harness.HarnessState? = nil,
                          comparison: Harness.KeychainComparison? = nil, behavior: Bool = true, recovery: Bool = false) throws -> [String: Any] {
         try Harness.makeReceipt(request: request(kind), requestSha256: digest,
-            state: try state ?? load(self.state(kind), kind), finishedAtEpochSeconds: now + 20,
-            stateSha256: String(repeating: "b", count: 64), route: recovery ? .recovery : .localAuthentication,
-            outcome: kind.kind == .keychain ? "passed" : "observed",
-            comparison: comparison ?? .init(identifierSetUnchanged: true, valuesByteForByteUnchanged: true, accessibilityUnchanged: true, credentialRewriteObserved: false),
-            behaviorPassed: behavior, recoveryEntered: recovery)
+            state: try state ?? load(self.state(kind), kind),
+            stateSha256: String(repeating: "b", count: 64),
+            terminal: .init(finishedAtEpochSeconds: now + 20, route: recovery ? .recovery : .localAuthentication,
+                outcome: kind.kind == .keychain ? "passed" : "observed",
+                comparison: comparison ?? .init(identifierSetUnchanged: true, valuesByteForByteUnchanged: true, accessibilityUnchanged: true, credentialRewriteObserved: false),
+                behaviorPassed: behavior, recoveryEntered: recovery))
     }
     private var unchanged: Harness.KeychainComparison { .init(identifierSetUnchanged: true, valuesByteForByteUnchanged: true, accessibilityUnchanged: true, credentialRewriteObserved: false) }
     private func observation(_ kind: Harness.EvidenceCase, state value: Harness.HarnessState, route: RetainedMigrationEvidenceApplicationRoute = .localAuthentication, comparison: Harness.KeychainComparison? = nil) throws -> (outcome: String, behaviorPassed: Bool, recoveryEntered: Bool) {

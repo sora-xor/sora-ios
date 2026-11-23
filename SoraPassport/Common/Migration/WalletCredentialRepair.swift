@@ -355,16 +355,7 @@ final class WalletCredentialRepair {
             Self.sameIdentity($0, intent.account)
         } == true
         if current.isEmpty && !authorizedMissing {
-            // Uninstall can erase rows while this Keychain intent survives.
-            // Its self-contained original AND intended bytes are archived before
-            // retiring only the active marker. No key, binding or ownership is
-            // adopted; subsequent recovery must supply its own proof as usual.
-            let archive = Self.receiptPrefix + "orphaned-" + intent.id.uuidString
-            if let recorded = try keystore.loadIfKeyExists(archive) {
-                guard recorded == bytes else { throw Failure.retainedMaterialChanged }
-            } else { try addVerified(bytes, tag: archive) }
-            try keystore.deleteKey(for: Self.pendingTag)
-            guard try !keystore.checkKey(for: Self.pendingTag) else { throw Failure.persistenceFailed }
+            try archiveOrphanedIntent(intent, bytes: bytes)
             return
         }
         guard authorizedMissing || (current.count == 1 && Self.sameIdentity(current[0], intent.account)) else {
@@ -394,6 +385,24 @@ final class WalletCredentialRepair {
             throw Failure.invalidJournal
         }
 
+        try applyPendingChanges(intent)
+        try completePendingIntent(intent, bytes: bytes)
+    }
+
+    /// Uninstall can erase rows while this Keychain intent survives.
+    /// Its self-contained original AND intended bytes are archived before
+    /// retiring only the active marker. No key, binding or ownership is
+    /// adopted; subsequent recovery must supply its own proof as usual.
+    private func archiveOrphanedIntent(_ intent: Intent, bytes: Data) throws {
+        let archive = Self.receiptPrefix + "orphaned-" + intent.id.uuidString
+        if let recorded = try keystore.loadIfKeyExists(archive) {
+            guard recorded == bytes else { throw Failure.retainedMaterialChanged }
+        } else { try addVerified(bytes, tag: archive) }
+        try keystore.deleteKey(for: Self.pendingTag)
+        guard try !keystore.checkKey(for: Self.pendingTag) else { throw Failure.persistenceFailed }
+    }
+
+    private func applyPendingChanges(_ intent: Intent) throws {
         // Validate the complete source/target set before the first mutation.
         // A legacy app or another writer changing a third value cannot be
         // silently overwritten by an old transaction.
@@ -422,6 +431,10 @@ final class WalletCredentialRepair {
             } else { try keystore.deleteKeyIfExists(for: tag) }
             guard try keystore.loadIfKeyExists(tag) == change.replacement else { throw Failure.persistenceFailed }
         }
+    }
+
+    /// Proves the repaired live key, records the receipt and retires the active marker.
+    private func completePendingIntent(_ intent: Intent, bytes: Data) throws {
         guard let live = try keystore.fetchSecretKeyForAddress(intent.account.address),
               try proves(live, account: intent.account) else { throw Failure.persistenceFailed }
         let receipt = Self.receiptPrefix + intent.id.uuidString

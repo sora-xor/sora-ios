@@ -325,12 +325,7 @@ enum LegacyWalletAccountCommitRecovery {
         let lease = lifecycleCoordinator.acquire()
         defer { lease.release() }
         var marker = WalletMigrationRecoveryMarker.capture(settings)
-        if let startupVerificationMarker {
-            try startupVerificationMarker.requireUnchangedForStartupVerification(settings)
-            guard marker == startupVerificationMarker else {
-                throw WalletNetworkMigrationError.walletRecoveryRequired
-            }
-        }
+        try requireStartupVerificationMarker(startupVerificationMarker, captured: marker, settings: settings)
         func requireMarkerUnchanged() throws {
             if let startupVerificationMarker {
                 try startupVerificationMarker.requireUnchangedForStartupVerification(settings)
@@ -353,11 +348,9 @@ enum LegacyWalletAccountCommitRecovery {
         let candidates = unresolved.isEmpty && marker.required
             ? journals.filter { $0.recoveryMarker == marker && $0.stage != .abandoned } : unresolved
         guard !candidates.isEmpty else { return false }
-        if !unresolved.isEmpty, !OrdinaryWalletAccountCommitRecovery.isLegacyFirstActivation(
-            journals: journals, candidates: candidates, keystore: keystore, settings: settings
-        ) {
-            // An ordinary create or import was interrupted. It is resolved
-            // from Core Data alone; no key material is written or deleted.
+        // An ordinary create or import was interrupted. It is resolved
+        // from Core Data alone; no key material is written or deleted.
+        func resolveOrdinaryCommit() throws {
             try requireMarkerUnchanged()
             guard !WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL) else {
                 throw UserStorageMigrationError.interruptedMigration
@@ -373,6 +366,11 @@ enum LegacyWalletAccountCommitRecovery {
                 try marker.clearAfterVerifiedLegacyAccountActivation(settings)
                 try recoveryGate.requireMutableWalletAccess()
             }
+        }
+        if !unresolved.isEmpty, !OrdinaryWalletAccountCommitRecovery.isLegacyFirstActivation(
+            journals: journals, candidates: candidates, keystore: keystore, settings: settings
+        ) {
+            try resolveOrdinaryCommit()
             return true
         }
         guard journals.count == 1, candidates.count == 1,
@@ -459,12 +457,9 @@ enum LegacyWalletAccountCommitRecovery {
             try journalStore.requireCurrentForLegacyRecovery(journal)
         }
 
-        try prove()
-        try checkpoint(.proofVerified)
-        try prove()
         // Publish a stable pending marker before resuming any durable stage. Startup's error
         // handling then preserves this generation even if this recovery itself is interrupted.
-        if !marker.required {
+        func publishPendingMarker() throws {
             try WalletMigrationRecoveryMarker.synchronized {
                 try requireMarkerUnchanged()
                 settings.setWalletMigrationRecovery(reason: WalletMigrationRecoveryMarker.accountCommitInterruptionReason)
@@ -478,66 +473,83 @@ enum LegacyWalletAccountCommitRecovery {
             journalStore = try WalletAccountCommitJournalStore(baseURL: baseURL, recoveryGate: gate)
             networkStore = try WalletNetworkStore(baseURL: baseURL, recoveryGate: gate)
         }
+
+        // Resumes the journal stages up to an activated network model.
+        func resumeStagesThroughNetworkModel(_ checkpoint: (Checkpoint) throws -> Void) throws {
+            if journal.stage == .prepared {
+                journal = try journalStore.advance(journal, to: .secretsPersisted)
+            }
+            if journal.stage == .secretsPersisted {
+                try prove()
+                if try readAccounts(storeURL: storeURL, model: model).isEmpty {
+                    try insertFirstAccount(expected, storeURL: storeURL, model: model)
+                }
+                try checkpoint(.coreDataCommitted)
+                try prove(requireAccount: true)
+                journal = try journalStore.advance(journal, to: .coreDataCommitted)
+            }
+            if journal.stage == .coreDataCommitted {
+                try prove(requireAccount: true)
+                let migrator = WalletNetworkModelMigrator(keystore: keystore, store: networkStore, settings: settings,
+                    lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate)
+                if let staged = try networkStore.loadForLegacyFirstActivationRecovery().staged {
+                    let verified = try migrator.verifiedFirstLegacySnapshot(
+                        accounts: [expected], selectedAddress: expected.address)
+                    try prove(requireAccount: true)
+                    try journalStore.withCurrentForLegacyRecovery(journal) {
+                        try WalletMigrationRecoveryMarker.synchronized {
+                            try requireMarkerUnchanged()
+                            guard journal.recoveryMarker == marker else {
+                                throw WalletNetworkMigrationError.walletRecoveryRequired
+                            }
+                            try networkStore.activateVerifiedLegacyFirstSnapshot(staged, expected: verified)
+                        }
+                    }
+                }
+                try migrator.migrate(accounts: [expected], selectedAddress: expected.address)
+                try checkpoint(.networkModelActivated)
+                try prove(requireAccount: true, requireSnapshot: true)
+                journal = try journalStore.advance(journal, to: .networkModelActivated)
+            }
+        }
+
+        // Resumes the journal stages from an activated network model to an activated journal.
+        func resumeStagesThroughActivation(_ checkpoint: (Checkpoint) throws -> Void) throws {
+            // A previous release may already have activated its SORA-only legacy
+            // snapshot. Verify that retained identity before finalizing its journal.
+            if journal.stage == .networkModelActivated || journal.stage == .activated {
+                try prove(requireAccount: true, requireSnapshot: true)
+                try WalletNetworkModelMigrator(keystore: keystore, store: networkStore, settings: settings,
+                    lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate)
+                    .migrate(accounts: [expected], selectedAddress: expected.address)
+                try prove(requireAccount: true, requireSnapshot: true)
+            }
+            if journal.stage == .networkModelActivated {
+                try prove(requireAccount: true, requireSnapshot: true)
+                if !settings.allKeys().contains(SettingsKey.selectedAccount.rawValue) {
+                    settings.set(value: expected, for: SettingsKey.selectedAccount.rawValue)
+                }
+                try checkpoint(.selectionCommitted)
+                try prove(requireAccount: true, requireSnapshot: true)
+                guard settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue) == expected else {
+                    throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+                }
+                journal = try journalStore.advance(journal, to: .activated)
+                try checkpoint(.activated)
+            }
+        }
+
+        try prove()
+        try checkpoint(.proofVerified)
+        try prove()
+        if !marker.required {
+            try publishPendingMarker()
+        }
         journal = try journalStore.bindLegacyRecoveryMarker(journal, marker: marker)
         try checkpoint(.journalBound)
         try prove()
-        if journal.stage == .prepared {
-            journal = try journalStore.advance(journal, to: .secretsPersisted)
-        }
-        if journal.stage == .secretsPersisted {
-            try prove()
-            if try readAccounts(storeURL: storeURL, model: model).isEmpty {
-                try insertFirstAccount(expected, storeURL: storeURL, model: model)
-            }
-            try checkpoint(.coreDataCommitted)
-            try prove(requireAccount: true)
-            journal = try journalStore.advance(journal, to: .coreDataCommitted)
-        }
-        if journal.stage == .coreDataCommitted {
-            try prove(requireAccount: true)
-            let migrator = WalletNetworkModelMigrator(keystore: keystore, store: networkStore, settings: settings,
-                lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate)
-            if let staged = try networkStore.loadForLegacyFirstActivationRecovery().staged {
-                let verified = try migrator.verifiedFirstLegacySnapshot(
-                    accounts: [expected], selectedAddress: expected.address)
-                try prove(requireAccount: true)
-                try journalStore.withCurrentForLegacyRecovery(journal) {
-                    try WalletMigrationRecoveryMarker.synchronized {
-                        try requireMarkerUnchanged()
-                        guard journal.recoveryMarker == marker else {
-                            throw WalletNetworkMigrationError.walletRecoveryRequired
-                        }
-                        try networkStore.activateVerifiedLegacyFirstSnapshot(staged, expected: verified)
-                    }
-                }
-            }
-            try migrator.migrate(accounts: [expected], selectedAddress: expected.address)
-            try checkpoint(.networkModelActivated)
-            try prove(requireAccount: true, requireSnapshot: true)
-            journal = try journalStore.advance(journal, to: .networkModelActivated)
-        }
-        // A previous release may already have activated its SORA-only legacy
-        // snapshot. Verify that retained identity before finalizing its journal.
-        if journal.stage == .networkModelActivated || journal.stage == .activated {
-            try prove(requireAccount: true, requireSnapshot: true)
-            try WalletNetworkModelMigrator(keystore: keystore, store: networkStore, settings: settings,
-                lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate)
-                .migrate(accounts: [expected], selectedAddress: expected.address)
-            try prove(requireAccount: true, requireSnapshot: true)
-        }
-        if journal.stage == .networkModelActivated {
-            try prove(requireAccount: true, requireSnapshot: true)
-            if !settings.allKeys().contains(SettingsKey.selectedAccount.rawValue) {
-                settings.set(value: expected, for: SettingsKey.selectedAccount.rawValue)
-            }
-            try checkpoint(.selectionCommitted)
-            try prove(requireAccount: true, requireSnapshot: true)
-            guard settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue) == expected else {
-                throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
-            }
-            journal = try journalStore.advance(journal, to: .activated)
-            try checkpoint(.activated)
-        }
+        try resumeStagesThroughNetworkModel(checkpoint)
+        try resumeStagesThroughActivation(checkpoint)
         try prove(requireAccount: true, requireSnapshot: true)
         try checkpoint(.beforeRecoveryClear)
         try prove(requireAccount: true, requireSnapshot: true)
@@ -550,6 +562,20 @@ enum LegacyWalletAccountCommitRecovery {
             try requireMarkerUnchanged()
         }
         return true
+    }
+
+    /// The marker a startup verifier passed in must be unchanged and still the one captured.
+    private static func requireStartupVerificationMarker(
+        _ startupVerificationMarker: WalletMigrationRecoveryMarker?,
+        captured marker: WalletMigrationRecoveryMarker,
+        settings: SettingsManagerProtocol
+    ) throws {
+        if let startupVerificationMarker {
+            try startupVerificationMarker.requireUnchangedForStartupVerification(settings)
+            guard marker == startupVerificationMarker else {
+                throw WalletNetworkMigrationError.walletRecoveryRequired
+            }
+        }
     }
 
     private static func verificationGate(settings: SettingsManagerProtocol,

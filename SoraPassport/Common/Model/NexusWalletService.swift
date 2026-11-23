@@ -5047,6 +5047,15 @@ actor NexusPendingTransactionStore {
             expectedDiscriminant: addressDiscriminant
         )
 
+        try validateHashAndHeight(transaction)
+        try validateStateInvariants(transaction)
+    }
+
+    /// A hash, when present, is canonical; without one the transaction never
+    /// left the device. A block height is never negative.
+    private static func validateHashAndHeight(
+        _ transaction: NexusPendingTransaction
+    ) throws {
         if let hash = transaction.hash {
             guard NexusTransactionHash.normalized(hash) != nil else {
                 throw NexusToriiError.invalidResponse
@@ -5064,6 +5073,13 @@ actor NexusPendingTransactionStore {
                 throw NexusToriiError.invalidResponse
             }
         }
+    }
+
+    /// What each state requires of the block height, asset and
+    /// reconciliation proof.
+    private static func validateStateInvariants(
+        _ transaction: NexusPendingTransaction
+    ) throws {
         switch transaction.state {
         case .signing, .failedBeforeSubmission:
             guard transaction.terminalBlockHeight == nil else {
@@ -5321,19 +5337,10 @@ actor NexusTransactionCoordinator {
         else {
             throw NexusToriiError.wrongWalletOrNetwork
         }
-        guard signer.isQualified(for: configuration) else {
-            throw NexusToriiError.nativeBridgeUnavailable
-        }
-        guard finalityReader.isQualified(for: configuration) else {
-            throw NexusToriiError.finalizedHeadUnavailable
-        }
-        try await pendingStore.requireCurrentChainMutationAdmission()
-        try await validateLiveFeatureFlags(for: request.networkId)
-        try configuration.validate(address: request.sender)
-        try configuration.validate(address: prepared.canonicalReceiver)
-        guard prepared.canonicalReceiver == request.receiver else {
-            throw NexusToriiError.wrongWalletOrNetwork
-        }
+        try await revalidateSendAdmission(
+            prepared,
+            configuration: configuration
+        )
 
         let freshDefinition = try await readClient.xorAssetDefinition(
             configuration: configuration
@@ -5423,23 +5430,10 @@ actor NexusTransactionCoordinator {
                 selectedAccount: selectedAccount
             )
         } catch {
-            do {
-                if var persisted = (try await pendingStore.all()).first(
-                    where: { $0.id == pending.id }
-                ) {
-                    persisted.state = .failedBeforeSubmission
-                    persisted.updatedAt = Date()
-                    persisted.errorClass = String(
-                        describing: type(of: error)
-                    )
-                    _ = try await pendingStore.put(persisted)
-                }
-            } catch {
-                // A journal that became unreadable after signing preparation
-                // is itself recovery-required evidence. Never manufacture a
-                // replacement row or continue toward transport.
-                throw NexusToriiError.invalidResponse
-            }
+            try await recordSigningFailure(
+                pendingId: pending.id,
+                error: error
+            )
             throw error
         }
         var signed = signingResult.signed
@@ -5561,13 +5555,67 @@ actor NexusTransactionCoordinator {
             if pending.state.isTerminal {
                 return pending
             }
-            if let classified = error as? NexusToriiError {
-                throw classified
-            }
-            throw NexusToriiError.ambiguousSubmission
+            throw Self.unconfirmedSubmissionError(error)
         }
 
         return await reconcileUntilTerminal(pending)
+    }
+
+    /// The checks a send repeats once the selected account and network are
+    /// confirmed: signer and finality qualification, the journal, live
+    /// feature flags, and both addresses.
+    private func revalidateSendAdmission(
+        _ prepared: NexusPreparedTransfer,
+        configuration: NexusNetworkConfiguration
+    ) async throws {
+        let request = prepared.request
+        guard signer.isQualified(for: configuration) else {
+            throw NexusToriiError.nativeBridgeUnavailable
+        }
+        guard finalityReader.isQualified(for: configuration) else {
+            throw NexusToriiError.finalizedHeadUnavailable
+        }
+        try await pendingStore.requireCurrentChainMutationAdmission()
+        try await validateLiveFeatureFlags(for: request.networkId)
+        try configuration.validate(address: request.sender)
+        try configuration.validate(address: prepared.canonicalReceiver)
+        guard prepared.canonicalReceiver == request.receiver else {
+            throw NexusToriiError.wrongWalletOrNetwork
+        }
+    }
+
+    /// Marks the journaled row of a send whose signing failed as failed
+    /// before submission.
+    private func recordSigningFailure(
+        pendingId: UUID,
+        error: Error
+    ) async throws {
+        do {
+            if var persisted = (try await pendingStore.all()).first(
+                where: { $0.id == pendingId }
+            ) {
+                persisted.state = .failedBeforeSubmission
+                persisted.updatedAt = Date()
+                persisted.errorClass = String(
+                    describing: type(of: error)
+                )
+                _ = try await pendingStore.put(persisted)
+            }
+        } catch {
+            // A journal that became unreadable after signing preparation
+            // is itself recovery-required evidence. Never manufacture a
+            // replacement row or continue toward transport.
+            throw NexusToriiError.invalidResponse
+        }
+    }
+
+    /// What a submission without a confirmed result reports: a classified
+    /// Torii error as it is, anything else as an ambiguous submission.
+    private static func unconfirmedSubmissionError(_ error: Error) -> Error {
+        if let classified = error as? NexusToriiError {
+            return classified
+        }
+        return NexusToriiError.ambiguousSubmission
     }
 
     /// Holds the same process-wide lifecycle lease as account import,

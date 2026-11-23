@@ -247,6 +247,37 @@ private struct UserStorageMigrationJournal: Codable {
     var recoveryMarker: WalletMigrationRecoveryMarker? = nil
 }
 
+/// The account a restore names and the backup sources it supplied, as
+/// `UserStorageMigrator.addMissingMaterial` checks and adds them.
+private struct MissingMaterialSources {
+    let address: String
+    let expectedAccount: AccountItem?
+    let entropy: Data?
+    let rawSeed: Data?
+    let secret: Data?
+    let derivationPath: String
+}
+
+/// One account of the live inventory and what `createManifest` read for it
+/// from the Keychain, as the signing-availability check needs them. Built
+/// only for the duration of that check; the read values stay owned (and are
+/// wiped) by `createManifest`.
+private struct LiveInventorySigningEvidence {
+    let address: String
+    let username: String
+    let publicKey: Data
+    let cryptoType: CryptoType
+    let networkType: SNAddressType
+    let isExplicitWatchOnly: Bool
+    let secret: Data?
+    let entropy: Data?
+    let seed: Data?
+    let derivation: String?
+    let entropyError: Error?
+    let seedError: Error?
+    let pathError: Error?
+}
+
 /// What an earlier installation left behind when the wallet store is missing
 /// or empty. See `UserStorageMigrator.retainedWalletEvidenceKind()`.
 enum RetainedWalletEvidence: Equatable {
@@ -588,9 +619,10 @@ final class UserStorageMigrator {
         let (marker, gate) = try missingKeyRecoveryGate(baseURL: baseURL)
         let accounts = try readMissingKeyRecoveryAccounts(gate: gate)
         try addMissingMaterial(
-            to: accounts, address: address, expectedAccount: expectedAccount,
-            entropy: entropy, rawSeed: rawSeed, secret: secret,
-            derivationPath: derivationPath, gate: gate,
+            to: accounts,
+            sources: MissingMaterialSources(address: address, expectedAccount: expectedAccount,
+                entropy: entropy, rawSeed: rawSeed, secret: secret, derivationPath: derivationPath),
+            gate: gate,
             requireAuthority: { try marker.requireUnchangedForStartupVerification(self.settings) },
             checkpoint: checkpoint
         )
@@ -613,9 +645,10 @@ final class UserStorageMigrator {
         try recoveryGate.requireMutableWalletAccess()
         let accounts = try readMissingKeyRecoveryAccounts(gate: recoveryGate)
         try addMissingMaterial(
-            to: accounts, address: address, expectedAccount: expectedAccount,
-            entropy: entropy, rawSeed: rawSeed, secret: secret,
-            derivationPath: derivationPath, gate: recoveryGate,
+            to: accounts,
+            sources: MissingMaterialSources(address: address, expectedAccount: expectedAccount,
+                entropy: entropy, rawSeed: rawSeed, secret: secret, derivationPath: derivationPath),
+            gate: recoveryGate,
             requireAuthority: { try self.recoveryGate.requireMutableWalletAccess() },
             checkpoint: {}
         )
@@ -662,18 +695,18 @@ final class UserStorageMigrator {
     }
 
     private func addMissingMaterial(
-        to accounts: [AccountItem], address: String, expectedAccount: AccountItem?,
-        entropy: Data?, rawSeed: Data?, secret: Data?, derivationPath: String,
+        to accounts: [AccountItem], sources: MissingMaterialSources,
         gate: WalletRecoveryCapabilityGate,
         requireAuthority: () throws -> Void,
         checkpoint: () throws -> Void
     ) throws {
+        let address = sources.address
         guard let account = accounts.first(where: { $0.address == address }),
               settings.bool(for: "wallet.watchOnly.\(address)") != true,
-              entropy != nil || rawSeed != nil || secret != nil else {
+              sources.entropy != nil || sources.rawSeed != nil || sources.secret != nil else {
             throw UserStorageMigrationError.accountInventoryMismatch
         }
-        if let expectedAccount {
+        if let expectedAccount = sources.expectedAccount {
             guard expectedAccount.address == account.address,
                   expectedAccount.publicKeyData == account.publicKeyData,
                   expectedAccount.cryptoType == account.cryptoType,
@@ -685,10 +718,10 @@ final class UserStorageMigrator {
         // different imports. Keep only those that prove this account; valid
         // JSON must still recover it when the phrase or parent seed is stale.
         var verifiedBackup = try WalletBackupMaterial.assess(for: account, recoveryGate: gate,
-            readEntropy: { entropy }, readSeed: { rawSeed }, readPath: { derivationPath })
+            readEntropy: { sources.entropy }, readSeed: { sources.rawSeed }, readPath: { sources.derivationPath })
         defer { verifiedBackup.wipe() }
         var matchingSecret: Data?
-        if let secret {
+        if let secret = sources.secret {
             do {
                 try LegacySoraIdentityValidator.validateSigningSecret(address: account.address,
                     publicKey: account.publicKeyData, cryptoType: account.cryptoType,
@@ -699,13 +732,13 @@ final class UserStorageMigrator {
         defer { if let count = matchingSecret?.count { matchingSecret?.resetBytes(in: 0..<count) } }
         // Short historical phrases cannot be expanded, but when their stored
         // seed proves the address, retain their original entropy as evidence.
-        let shortEntropy = entropy.flatMap {
+        let shortEntropy = sources.entropy.flatMap {
             [4, 8, 12].contains($0.count) && verifiedBackup.seed != nil ? $0 : nil
         }
         let entropy = verifiedBackup.entropy ?? shortEntropy
         let rawSeed = verifiedBackup.seed
         let secret = matchingSecret
-        let derivationPath = entropy != nil || rawSeed != nil ? derivationPath : ""
+        let derivationPath = entropy != nil || rawSeed != nil ? sources.derivationPath : ""
         guard entropy != nil || rawSeed != nil || secret != nil else {
             throw UserStorageMigrationError.accountInventoryMismatch
         }
@@ -1306,15 +1339,7 @@ final class UserStorageMigrator {
               let metadata = NSPersistentStoreCoordinator.metadata(at: storeURL),
               let sourceVersion = compatibleVersionForStoreMetadata(metadata)
         else { throw UserStorageMigrationError.interruptedMigration }
-        if let journal {
-            guard journal.migrationID == identifier,
-                  journal.sourceVersion == sourceVersion.rawValue,
-                  journal.destinationVersion == targetVersion.rawValue,
-                  journal.state == .inventoryVerified, journal.failureReason == nil,
-                  journal.updatedAt.timeIntervalSince1970.isFinite,
-                  journal.recoveryMarker == nil || journal.recoveryMarker == migrationRecoveryMarker
-            else { throw UserStorageMigrationError.interruptedMigration }
-        }
+        try requireIncompletePreflightJournal(journal, matches: identifier, sourceVersion: sourceVersion)
 
         let staging = attempt.appendingPathComponent("staging", isDirectory: true)
         let legacy = attempt.appendingPathComponent("legacy-store", isDirectory: true)
@@ -1325,13 +1350,7 @@ final class UserStorageMigrator {
                                      "settings-backup.plist", "journal.json"]
         let root = try incompletePreflightSnapshot(at: attempt, allowedNames: rootNames,
                                                    directories: ["staging", "legacy-store"])
-        if pathExistsNoFollow(staging) {
-            guard try DurableFileWriter.contentsIgnoringLeftovers(
-                of: staging, fileManager: fileManager, includingPropertiesForKeys: nil
-            ).isEmpty else {
-                throw UserStorageMigrationError.interruptedMigration
-            }
-        }
+        try requireEmptyIncompletePreflightStaging(staging)
         // The writer publishes manifest, settings, journal, then legacy copies in this order.
         guard (!pathExistsNoFollow(settingsURL) || pathExistsNoFollow(manifestURL)),
               (journal == nil || pathExistsNoFollow(settingsURL)),
@@ -1347,6 +1366,79 @@ final class UserStorageMigrator {
         let legacySnapshot = try pathExistsNoFollow(legacy)
             ? incompletePreflightSnapshot(at: legacy,
                 allowedNames: sourceNames.union(["backup-manifest.json"]), directories: []) : nil
+        let manifest = try incompletePreflightManifest(at: manifestURL, matching: liveManifest,
+                                                       sourceVersion: sourceVersion)
+        guard let bundle = Bundle.main.bundleIdentifier else {
+            throw UserStorageMigrationError.interruptedMigration
+        }
+        let preferences = UserDefaults.standard.persistentDomain(forName: bundle) ?? [:]
+        try requireIncompletePreflightRetainedCopies(settingsURL: settingsURL, preferences: preferences,
+                                                     backupManifestURL: backupManifestURL, sourceRecords: sourceRecords)
+        try requireIncompletePreflightLegacyPrefixes(in: legacy, sourceRecords: sourceRecords)
+        try ensureMigrationCapacity()
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        guard try incompletePreflightStoreRecords() == sourceRecords,
+              incompletePreflightSettingsEqual(preferences,
+                  UserDefaults.standard.persistentDomain(forName: bundle) ?? [:]),
+              try incompletePreflightSnapshot(at: attempt, allowedNames: rootNames,
+                    directories: ["staging", "legacy-store"]) == root,
+              try !pathExistsNoFollow(legacy) || incompletePreflightSnapshot(at: legacy,
+                    allowedNames: sourceNames.union(["backup-manifest.json"]), directories: []) == legacySnapshot
+        else { throw UserStorageMigrationError.interruptedMigration }
+
+        try publishMissingIncompletePreflightFiles(staging: staging, manifest: manifest,
+                                                   manifestURL: manifestURL, settingsURL: settingsURL)
+        var completed = journal ?? UserStorageMigrationJournal(
+            migrationID: identifier, sourceVersion: sourceVersion.rawValue,
+            destinationVersion: targetVersion.rawValue, state: .inventoryVerified,
+            updatedAt: Date(), failureReason: nil, safetyArtifacts: nil)
+        completed.recoveryMarker = migrationRecoveryMarker
+        try writeJSON(completed, to: journalURL, maximumBytes: Self.maximumJournalBytes)
+        try copyIncompletePreflightLegacyStore(sourceRecords, into: legacy)
+        try writeJSON(sourceRecords, to: backupManifestURL, maximumBytes: Self.maximumBackupManifestBytes)
+        try verifyCopiedLegacyStore(in: legacy, sourceModel: model,
+                                    sourceManifest: manifest, sourceVersion: sourceVersion)
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        guard try incompletePreflightStoreRecords() == sourceRecords,
+              incompletePreflightSettingsEqual(preferences,
+                  UserDefaults.standard.persistentDomain(forName: bundle) ?? [:])
+        else { throw UserStorageMigrationError.interruptedMigration }
+        completed.safetyArtifacts = try safetyArtifactRecords(manifestURL: manifestURL,
+            settingsURL: settingsURL, backupManifestURL: backupManifestURL)
+        completed.updatedAt = Date()
+        try writeJSON(completed, to: journalURL, maximumBytes: Self.maximumJournalBytes)
+        return true
+    }
+
+    /// A retained preflight journal must describe this attempt and the live source store exactly.
+    private func requireIncompletePreflightJournal(_ journal: UserStorageMigrationJournal?, matches identifier: UUID,
+                                                   sourceVersion: UserStorageVersion) throws {
+        if let journal {
+            guard journal.migrationID == identifier,
+                  journal.sourceVersion == sourceVersion.rawValue,
+                  journal.destinationVersion == targetVersion.rawValue,
+                  journal.state == .inventoryVerified, journal.failureReason == nil,
+                  journal.updatedAt.timeIntervalSince1970.isFinite,
+                  journal.recoveryMarker == nil || journal.recoveryMarker == migrationRecoveryMarker
+            else { throw UserStorageMigrationError.interruptedMigration }
+        }
+    }
+
+    /// A preflight never staged anything: an existing staging directory must be empty.
+    private func requireEmptyIncompletePreflightStaging(_ staging: URL) throws {
+        if pathExistsNoFollow(staging) {
+            guard try DurableFileWriter.contentsIgnoringLeftovers(
+                of: staging, fileManager: fileManager, includingPropertiesForKeys: nil
+            ).isEmpty else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+        }
+    }
+
+    /// The attempt's account manifest, which must equal the live inventory, or the live one when
+    /// the attempt has not written it yet.
+    private func incompletePreflightManifest(at manifestURL: URL, matching liveManifest: UserStorageMigrationManifest,
+                                             sourceVersion: UserStorageVersion) throws -> UserStorageMigrationManifest {
         let manifest: UserStorageMigrationManifest
         if pathExistsNoFollow(manifestURL) {
             manifest = try readBoundedJSON(UserStorageMigrationManifest.self, at: manifestURL,
@@ -1357,10 +1449,14 @@ final class UserStorageMigrator {
         } else {
             manifest = liveManifest
         }
-        guard let bundle = Bundle.main.bundleIdentifier else {
-            throw UserStorageMigrationError.interruptedMigration
-        }
-        let preferences = UserDefaults.standard.persistentDomain(forName: bundle) ?? [:]
+        return manifest
+    }
+
+    /// A retained settings copy must equal the current preferences, and a retained backup
+    /// manifest the current store records.
+    private func requireIncompletePreflightRetainedCopies(settingsURL: URL, preferences: [String: Any],
+                                                          backupManifestURL: URL,
+                                                          sourceRecords: [UserStorageBackupRecord]) throws {
         if pathExistsNoFollow(settingsURL) {
             let data = try readBoundedData(at: settingsURL, maximumBytes: Self.maximumSettingsBackupBytes)
             guard let retained = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
@@ -1373,6 +1469,11 @@ final class UserStorageMigrator {
                                              maximumBytes: Self.maximumBackupManifestBytes)
             guard records == sourceRecords else { throw UserStorageMigrationError.interruptedMigration }
         }
+    }
+
+    /// Every retained legacy copy must be a byte prefix of its live store file.
+    private func requireIncompletePreflightLegacyPrefixes(in legacy: URL,
+                                                          sourceRecords: [UserStorageBackupRecord]) throws {
         for record in sourceRecords {
             let retained = legacy.appendingPathComponent(record.fileName)
             if pathExistsNoFollow(retained) {
@@ -1380,17 +1481,11 @@ final class UserStorageMigrator {
                     of: storeURL.deletingLastPathComponent().appendingPathComponent(record.fileName))
             }
         }
-        try ensureMigrationCapacity()
-        try recoveryGate.requireAuthorizedLifecycleContinuation()
-        guard try incompletePreflightStoreRecords() == sourceRecords,
-              incompletePreflightSettingsEqual(preferences,
-                  UserDefaults.standard.persistentDomain(forName: bundle) ?? [:]),
-              try incompletePreflightSnapshot(at: attempt, allowedNames: rootNames,
-                    directories: ["staging", "legacy-store"]) == root,
-              try !pathExistsNoFollow(legacy) || incompletePreflightSnapshot(at: legacy,
-                    allowedNames: sourceNames.union(["backup-manifest.json"]), directories: []) == legacySnapshot
-        else { throw UserStorageMigrationError.interruptedMigration }
+    }
 
+    /// Creates the staging directory, the manifest and the settings copy where the attempt lacks them.
+    private func publishMissingIncompletePreflightFiles(staging: URL, manifest: UserStorageMigrationManifest,
+                                                        manifestURL: URL, settingsURL: URL) throws {
         if !pathExistsNoFollow(staging) {
             try fileManager.createDirectory(at: staging, withIntermediateDirectories: false)
         }
@@ -1398,12 +1493,12 @@ final class UserStorageMigrator {
             try writeJSON(manifest, to: manifestURL, maximumBytes: Self.maximumManifestBytes)
         }
         if !pathExistsNoFollow(settingsURL) { try backupSettings(to: settingsURL) }
-        var completed = journal ?? UserStorageMigrationJournal(
-            migrationID: identifier, sourceVersion: sourceVersion.rawValue,
-            destinationVersion: targetVersion.rawValue, state: .inventoryVerified,
-            updatedAt: Date(), failureReason: nil, safetyArtifacts: nil)
-        completed.recoveryMarker = migrationRecoveryMarker
-        try writeJSON(completed, to: journalURL, maximumBytes: Self.maximumJournalBytes)
+    }
+
+    /// Completes the legacy store copy: keeps finished copies, recopies proved partial ones and
+    /// copies missing ones, verifying each against its record.
+    private func copyIncompletePreflightLegacyStore(_ sourceRecords: [UserStorageBackupRecord],
+                                                    into legacy: URL) throws {
         if !pathExistsNoFollow(legacy) {
             try fileManager.createDirectory(at: legacy, withIntermediateDirectories: false)
         }
@@ -1427,19 +1522,6 @@ final class UserStorageMigrator {
                 throw UserStorageMigrationError.interruptedMigration
             }
         }
-        try writeJSON(sourceRecords, to: backupManifestURL, maximumBytes: Self.maximumBackupManifestBytes)
-        try verifyCopiedLegacyStore(in: legacy, sourceModel: model,
-                                    sourceManifest: manifest, sourceVersion: sourceVersion)
-        try recoveryGate.requireAuthorizedLifecycleContinuation()
-        guard try incompletePreflightStoreRecords() == sourceRecords,
-              incompletePreflightSettingsEqual(preferences,
-                  UserDefaults.standard.persistentDomain(forName: bundle) ?? [:])
-        else { throw UserStorageMigrationError.interruptedMigration }
-        completed.safetyArtifacts = try safetyArtifactRecords(manifestURL: manifestURL,
-            settingsURL: settingsURL, backupManifestURL: backupManifestURL)
-        completed.updatedAt = Date()
-        try writeJSON(completed, to: journalURL, maximumBytes: Self.maximumJournalBytes)
-        return true
     }
 
     private func incompletePreflightSettingsEqual(_ lhs: [String: Any], _ rhs: [String: Any]) -> Bool {
@@ -2775,75 +2857,23 @@ final class UserStorageMigrator {
                     else {
                         throw UserStorageMigrationError.accountInventoryMismatch
                     }
-                    let watchOnlyKey = "wallet.watchOnly.\(address)"
-                    guard
-                        !settings.allKeys().contains(watchOnlyKey) ||
-                            settings.anyValue(for: watchOnlyKey) is Bool
-                    else {
-                        throw UserStorageMigrationError.accountInventoryMismatch
-                    }
-                    let isExplicitWatchOnly =
-                        settings.bool(for: watchOnlyKey) == true
-                    guard
-                        !isExplicitWatchOnly ||
-                            (secret == nil && entropy == nil && seed == nil)
-                    else {
-                        // A durable watch-only declaration and signing material are
-                        // contradictory authority. Never silently promote the account to a
-                        // signer or discard either side of the evidence during migration.
-                        throw UserStorageMigrationError.accountInventoryMismatch
-                    }
+                    let isExplicitWatchOnly = try liveInventoryExplicitWatchOnly(
+                        address: address, holdsNoSigningMaterial: secret == nil && entropy == nil && seed == nil)
                     // One account without provable keys must not lock out the
                     // others. It is recorded as read-only and its Keychain
                     // items, if any, stay untouched. Keychain read errors were
                     // thrown above and are retried, never absorbed here.
-                    var signingUnavailable = false
-                    if isExplicitWatchOnly {
-                        if let error = entropyError ?? seedError ?? pathError { throw error }
-                        try LegacySoraIdentityValidator.validate(
-                            address: address, publicKey: publicKey, cryptoType: cryptoType,
-                            networkType: networkType, derivationPath: derivation,
-                            entropy: nil, rawSeed: nil, secret: nil, recoveryGate: recoveryGate
-                        )
-                    } else if secret == nil, entropy == nil, seed == nil {
-                        if let error = entropyError ?? seedError ?? pathError { throw error }
-                        signingUnavailable = true
-                    } else {
-                        do {
-                            if let secret {
-                                try LegacySoraIdentityValidator.validateSigningSecret(address: address,
-                                    publicKey: publicKey, cryptoType: cryptoType, networkType: networkType,
-                                    secret: secret, recoveryGate: recoveryGate)
-                            } else {
-                                let account = AccountItem(address: address, cryptoType: cryptoType,
-                                    networkType: networkType, username: username, publicKeyData: publicKey,
-                                    settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
-                                    order: 0, isSelected: false)
-                                var backup = try WalletBackupMaterial.assess(for: account, recoveryGate: recoveryGate,
-                                    readEntropy: { if let entropyError { throw entropyError }; return entropy },
-                                    readSeed: { if let seedError { throw seedError }; return seed },
-                                    readPath: { if let pathError { throw pathError }; return derivation })
-                                defer { backup.wipe() }
-                                guard backup.entropy != nil || backup.seed != nil else {
-                                    if let error = backup.firstReadError { throw error }
-                                    throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
-                                }
-                            }
-                        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
-                            signingUnavailable = true
-                        }
-                    }
+                    let signingUnavailable = try liveInventorySigningUnavailable(LiveInventorySigningEvidence(
+                        address: address, username: username, publicKey: publicKey,
+                        cryptoType: cryptoType, networkType: networkType, isExplicitWatchOnly: isExplicitWatchOnly,
+                        secret: secret, entropy: entropy, seed: seed, derivation: derivation,
+                        entropyError: entropyError, seedError: seedError, pathError: pathError))
                     if signingUnavailable {
                         Logger.shared.warning("Wallet account inventory: one account is read-only on this device")
                     }
 
-                    let selectedPropertyExists = object.entity.propertiesByName["isSelected"] != nil
-                    let isSelected: Bool
-                    if selectedPropertyExists {
-                        isSelected = (object.value(forKey: "isSelected") as? NSNumber)?.boolValue ?? false
-                    } else {
-                        isSelected = settingsSelectedAddress == address
-                    }
+                    let isSelected = Self.liveInventoryIsSelected(object, address: address,
+                                                                  settingsSelectedAddress: settingsSelectedAddress)
 
                     return UserStorageMigrationAccount(
                         address: address,
@@ -2874,6 +2904,20 @@ final class UserStorageMigrator {
             throw capturedError
         }
 
+        return try liveInventoryManifest(accounts: accounts, settingsSelectedAddress: settingsSelectedAddress,
+                                         sourceVersion: sourceVersion, destinationVersion: destinationVersion)
+    }
+
+    /// The manifest of a live inventory `createManifest` read: addresses must be unique, an empty
+    /// inventory must not stand beside durable wallet evidence, and the selection is resolved
+    /// before the manifest is validated.
+    private func liveInventoryManifest(
+        accounts: [UserStorageMigrationAccount],
+        settingsSelectedAddress: String?,
+        sourceVersion: UserStorageVersion,
+        destinationVersion: UserStorageVersion
+    ) throws -> UserStorageMigrationManifest {
+        var accounts = accounts
         let uniqueAddresses = Set(accounts.map(\.address))
         guard uniqueAddresses.count == accounts.count else {
             throw UserStorageMigrationError.accountInventoryMismatch
@@ -2921,6 +2965,95 @@ final class UserStorageMigrator {
             throw UserStorageMigrationError.accountInventoryMismatch
         }
         return manifest
+    }
+
+    /// Whether a stored account row is the selected one: its own `isSelected` attribute where
+    /// the schema has one, otherwise the selection version 1 kept in settings.
+    private static func liveInventoryIsSelected(_ object: NSManagedObject, address: String,
+                                                settingsSelectedAddress: String?) -> Bool {
+        let selectedPropertyExists = object.entity.propertiesByName["isSelected"] != nil
+        let isSelected: Bool
+        if selectedPropertyExists {
+            isSelected = (object.value(forKey: "isSelected") as? NSNumber)?.boolValue ?? false
+        } else {
+            isSelected = settingsSelectedAddress == address
+        }
+        return isSelected
+    }
+
+    /// Whether a live-inventory account carries a durable watch-only declaration. The
+    /// declaration must be a Bool, and a declared account must hold no signing material.
+    private func liveInventoryExplicitWatchOnly(address: String, holdsNoSigningMaterial: Bool) throws -> Bool {
+        let watchOnlyKey = "wallet.watchOnly.\(address)"
+        guard
+            !settings.allKeys().contains(watchOnlyKey) ||
+                settings.anyValue(for: watchOnlyKey) is Bool
+        else {
+            throw UserStorageMigrationError.accountInventoryMismatch
+        }
+        let isExplicitWatchOnly =
+            settings.bool(for: watchOnlyKey) == true
+        guard
+            !isExplicitWatchOnly ||
+                holdsNoSigningMaterial
+        else {
+            // A durable watch-only declaration and signing material are
+            // contradictory authority. Never silently promote the account to a
+            // signer or discard either side of the evidence during migration.
+            throw UserStorageMigrationError.accountInventoryMismatch
+        }
+        return isExplicitWatchOnly
+    }
+
+    /// Whether a live-inventory account is recorded as read-only on this device: it has no
+    /// signing material, or its material does not prove its identity. Keychain read errors
+    /// are thrown, never absorbed.
+    private func liveInventorySigningUnavailable(_ evidence: LiveInventorySigningEvidence) throws -> Bool {
+        var signingUnavailable = false
+        if evidence.isExplicitWatchOnly {
+            if let error = evidence.entropyError ?? evidence.seedError ?? evidence.pathError { throw error }
+            try LegacySoraIdentityValidator.validate(
+                address: evidence.address, publicKey: evidence.publicKey, cryptoType: evidence.cryptoType,
+                networkType: evidence.networkType, derivationPath: evidence.derivation,
+                entropy: nil, rawSeed: nil, secret: nil, recoveryGate: recoveryGate
+            )
+        } else if evidence.secret == nil, evidence.entropy == nil, evidence.seed == nil {
+            if let error = evidence.entropyError ?? evidence.seedError ?? evidence.pathError { throw error }
+            signingUnavailable = true
+        } else {
+            do {
+                try proveLiveInventorySigningMaterial(evidence)
+            } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+                signingUnavailable = true
+            }
+        }
+        return signingUnavailable
+    }
+
+    /// Proves a live-inventory account's signing material: its secret key when present,
+    /// otherwise its phrase or seed. Throws an identity failure when the material does not
+    /// prove the account.
+    private func proveLiveInventorySigningMaterial(_ evidence: LiveInventorySigningEvidence) throws {
+        let address = evidence.address
+        if let secret = evidence.secret {
+            try LegacySoraIdentityValidator.validateSigningSecret(address: address,
+                publicKey: evidence.publicKey, cryptoType: evidence.cryptoType, networkType: evidence.networkType,
+                secret: secret, recoveryGate: recoveryGate)
+        } else {
+            let account = AccountItem(address: address, cryptoType: evidence.cryptoType,
+                networkType: evidence.networkType, username: evidence.username, publicKeyData: evidence.publicKey,
+                settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+                order: 0, isSelected: false)
+            var backup = try WalletBackupMaterial.assess(for: account, recoveryGate: recoveryGate,
+                readEntropy: { if let entropyError = evidence.entropyError { throw entropyError }; return evidence.entropy },
+                readSeed: { if let seedError = evidence.seedError { throw seedError }; return evidence.seed },
+                readPath: { if let pathError = evidence.pathError { throw pathError }; return evidence.derivation })
+            defer { backup.wipe() }
+            guard backup.entropy != nil || backup.seed != nil else {
+                if let error = backup.firstReadError { throw error }
+                throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
+            }
+        }
     }
 
     private func validateKeychain(for manifest: UserStorageMigrationManifest) throws {

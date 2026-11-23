@@ -1896,112 +1896,34 @@ actor PolkamarktPendingStore {
                 ($0.extrinsicHash, $0)
             }
         )
-        var recoveredPreTransportState = false
-        var preTransportWitnessesToRemove: [Sora2PendingSubmission] = []
-        var confirmedWitnessesToAcknowledge:
-            [Sora2PendingSubmission] = []
-        for index in values.indices where values[index].account == account {
-            if values[index].state == .preparing &&
-                values[index].extrinsicHash == nil {
-                values[index].state = .failedBeforeSubmission
-                values[index].updatedAt = Date()
-                values[index].errorClass =
-                    "interrupted_before_signed_hash"
-                recoveredPreTransportState = true
-                continue
-            }
-            guard values[index].state == .signedBeforeTransport else {
-                continue
-            }
-            guard
-                let rawHash = values[index].extrinsicHash,
-                let normalizedHash =
-                    PolkamarktTransactionHash.normalized(rawHash)
-            else {
-                throw PolkamarktRuntimeError.invalidTransactionHash
-            }
-            let witness = sora2ByHash[normalizedHash]
-            switch try PolkamarktPreTransportRecoveryPolicy.decision(
-                for: values[index],
-                sora2Witness: witness
-            ) {
-            case let .failedBeforeSubmission(errorClass):
-                values[index].state = .failedBeforeSubmission
-                values[index].updatedAt = Date()
-                values[index].errorClass = errorClass
-            case let .submissionUnknown(errorClass):
-                values[index].state = .submissionUnknown
-                values[index].updatedAt = Date()
-                values[index].errorClass = errorClass
-            case .submitted:
-                values[index].state = .submitted
-                values[index].updatedAt = Date()
-                values[index].errorClass = nil
-            }
-            recoveredPreTransportState = true
-        }
+        let recoveredPreTransportState = try Self.recoverPreTransportStates(
+            in: &values,
+            account: account,
+            sora2ByHash: sora2ByHash
+        )
         // Finish a cross-journal transition that crashed after the feature
         // journal recorded transport success but before its retained SORA2
         // witness could be relaxed. Ambiguous witnesses require the separate
         // canonical-finality acknowledgement below.
-        for value in values where value.account == account {
-            guard
-                let rawHash = value.extrinsicHash,
-                let normalizedHash =
-                    PolkamarktTransactionHash.normalized(rawHash),
-                let witness = sora2ByHash[normalizedHash]
-            else {
-                continue
-            }
-            guard witness.account == value.account else {
-                throw PolkamarktRuntimeError.unavailable
-            }
-            if value.state == .failedBeforeSubmission &&
-                witness.state == .stagedBeforeTransport {
-                preTransportWitnessesToRemove.append(witness)
-            } else if value.state == .submitted &&
-                [
-                    Sora2PendingSubmissionState.submitting,
-                    .submittedRetained,
-                ].contains(witness.state) {
-                confirmedWitnessesToAcknowledge.append(witness)
-            }
-        }
+        let witnessTransitions = try Self.retainedWitnessTransitions(
+            in: values,
+            account: account,
+            sora2ByHash: sora2ByHash
+        )
         if recoveredPreTransportState {
             // Publish the feature-journal decision before relaxing any SORA2
             // witness. A crash between journals therefore leaves the more
             // conservative, non-prunable side intact.
             values = try persistValidated(values)
         }
-        do {
-            for witness in preTransportWitnessesToRemove {
-                try sora2SubmissionStore.removeBeforeSubmission(witness)
-            }
-            for witness in confirmedWitnessesToAcknowledge {
-                try sora2SubmissionStore.acknowledgeRetainedSubmission(
-                    account: witness.account,
-                    hash: witness.extrinsicHash
-                )
-            }
-        } catch {
-            throw PolkamarktRuntimeError.unavailable
-        }
+        try relaxRetainedWitnesses(witnessTransitions)
         try acknowledgeDurableCanonicalTerminalWitnesses(
             account: account
         )
-        var activeHashes = Set<String>()
-        for value in values where
-            value.account == account && !value.state.isTerminal
-        {
-            guard let hash = value.extrinsicHash else {
-                continue
-            }
-            guard let normalized = PolkamarktTransactionHash.normalized(hash)
-            else {
-                throw PolkamarktRuntimeError.invalidTransactionHash
-            }
-            activeHashes.insert(normalized)
-        }
+        let activeHashes = try Self.activeHashes(
+            in: values,
+            account: account
+        )
         guard
             !activeHashes.isEmpty,
             activeHashes.count <= 100
@@ -2097,21 +2019,11 @@ actor PolkamarktPendingStore {
             )
         }
 
-        var resolutions: [String: PolkamarktPendingResolution] = [:]
-        for (hash, inclusion) in indexed {
-            guard
-                checkpoint >= inclusion.height,
-                let canonical = canonicalByHeight[inclusion.height],
-                canonical.blockHash == inclusion.blockHash,
-                let succeeded = canonical.executionResults[hash]
-            else {
-                continue
-            }
-            resolutions[hash] = PolkamarktPendingResolution(
-                finalizedBlock: inclusion.height,
-                succeeded: succeeded
-            )
-        }
+        let resolutions = Self.resolutions(
+            of: indexed,
+            checkpoint: checkpoint,
+            canonicalByHeight: canonicalByHeight
+        )
 
         // Every await above permits actor re-entry. Reload the journal and
         // merge only the captured hashes so a newly appended mutation or an
@@ -2130,6 +2042,169 @@ actor PolkamarktPendingStore {
             account: account
         )
         return merged
+    }
+
+    /// SORA2 witnesses whose Polkamarkt row has already settled: staged
+    /// witnesses of rows that failed before submission, and retained
+    /// witnesses of rows that were submitted.
+    private struct RetainedWitnessTransitions {
+        let preTransportWitnessesToRemove: [Sora2PendingSubmission]
+        let confirmedWitnessesToAcknowledge: [Sora2PendingSubmission]
+    }
+
+    /// Settles the account's rows that were interrupted before transport:
+    /// a row still preparing without a signed hash failed before submission,
+    /// and a signed row is decided by its retained SORA2 witness. Returns
+    /// whether any row changed.
+    private static func recoverPreTransportStates(
+        in values: inout [PolkamarktPendingMutation],
+        account: String,
+        sora2ByHash: [String: Sora2PendingSubmission]
+    ) throws -> Bool {
+        var recoveredPreTransportState = false
+        for index in values.indices where values[index].account == account {
+            if values[index].state == .preparing &&
+                values[index].extrinsicHash == nil {
+                values[index].state = .failedBeforeSubmission
+                values[index].updatedAt = Date()
+                values[index].errorClass =
+                    "interrupted_before_signed_hash"
+                recoveredPreTransportState = true
+                continue
+            }
+            guard values[index].state == .signedBeforeTransport else {
+                continue
+            }
+            guard
+                let rawHash = values[index].extrinsicHash,
+                let normalizedHash =
+                    PolkamarktTransactionHash.normalized(rawHash)
+            else {
+                throw PolkamarktRuntimeError.invalidTransactionHash
+            }
+            let witness = sora2ByHash[normalizedHash]
+            switch try PolkamarktPreTransportRecoveryPolicy.decision(
+                for: values[index],
+                sora2Witness: witness
+            ) {
+            case let .failedBeforeSubmission(errorClass):
+                values[index].state = .failedBeforeSubmission
+                values[index].updatedAt = Date()
+                values[index].errorClass = errorClass
+            case let .submissionUnknown(errorClass):
+                values[index].state = .submissionUnknown
+                values[index].updatedAt = Date()
+                values[index].errorClass = errorClass
+            case .submitted:
+                values[index].state = .submitted
+                values[index].updatedAt = Date()
+                values[index].errorClass = nil
+            }
+            recoveredPreTransportState = true
+        }
+        return recoveredPreTransportState
+    }
+
+    private static func retainedWitnessTransitions(
+        in values: [PolkamarktPendingMutation],
+        account: String,
+        sora2ByHash: [String: Sora2PendingSubmission]
+    ) throws -> RetainedWitnessTransitions {
+        var preTransportWitnessesToRemove: [Sora2PendingSubmission] = []
+        var confirmedWitnessesToAcknowledge:
+            [Sora2PendingSubmission] = []
+        for value in values where value.account == account {
+            guard
+                let rawHash = value.extrinsicHash,
+                let normalizedHash =
+                    PolkamarktTransactionHash.normalized(rawHash),
+                let witness = sora2ByHash[normalizedHash]
+            else {
+                continue
+            }
+            guard witness.account == value.account else {
+                throw PolkamarktRuntimeError.unavailable
+            }
+            if value.state == .failedBeforeSubmission &&
+                witness.state == .stagedBeforeTransport {
+                preTransportWitnessesToRemove.append(witness)
+            } else if value.state == .submitted &&
+                [
+                    Sora2PendingSubmissionState.submitting,
+                    .submittedRetained,
+                ].contains(witness.state) {
+                confirmedWitnessesToAcknowledge.append(witness)
+            }
+        }
+        return RetainedWitnessTransitions(
+            preTransportWitnessesToRemove: preTransportWitnessesToRemove,
+            confirmedWitnessesToAcknowledge: confirmedWitnessesToAcknowledge
+        )
+    }
+
+    private func relaxRetainedWitnesses(
+        _ transitions: RetainedWitnessTransitions
+    ) throws {
+        do {
+            for witness in transitions.preTransportWitnessesToRemove {
+                try sora2SubmissionStore.removeBeforeSubmission(witness)
+            }
+            for witness in transitions.confirmedWitnessesToAcknowledge {
+                try sora2SubmissionStore.acknowledgeRetainedSubmission(
+                    account: witness.account,
+                    hash: witness.extrinsicHash
+                )
+            }
+        } catch {
+            throw PolkamarktRuntimeError.unavailable
+        }
+    }
+
+    /// The normalized hashes of the account's rows that are not terminal.
+    private static func activeHashes(
+        in values: [PolkamarktPendingMutation],
+        account: String
+    ) throws -> Set<String> {
+        var activeHashes = Set<String>()
+        for value in values where
+            value.account == account && !value.state.isTerminal
+        {
+            guard let hash = value.extrinsicHash else {
+                continue
+            }
+            guard let normalized = PolkamarktTransactionHash.normalized(hash)
+            else {
+                throw PolkamarktRuntimeError.invalidTransactionHash
+            }
+            activeHashes.insert(normalized)
+        }
+        return activeHashes
+    }
+
+    /// A resolution for every indexed hash whose inclusion block is at or
+    /// below the checkpoint, is the canonical block at its height, and has
+    /// an execution result for the hash.
+    private static func resolutions(
+        of indexed: [String: IndexedInclusion],
+        checkpoint: Int,
+        canonicalByHeight: [Int: (blockHash: String, executionResults: [String: Bool])]
+    ) -> [String: PolkamarktPendingResolution] {
+        var resolutions: [String: PolkamarktPendingResolution] = [:]
+        for (hash, inclusion) in indexed {
+            guard
+                checkpoint >= inclusion.height,
+                let canonical = canonicalByHeight[inclusion.height],
+                canonical.blockHash == inclusion.blockHash,
+                let succeeded = canonical.executionResults[hash]
+            else {
+                continue
+            }
+            resolutions[hash] = PolkamarktPendingResolution(
+                finalizedBlock: inclusion.height,
+                succeeded: succeeded
+            )
+        }
+        return resolutions
     }
 
     func acknowledgeDurableCanonicalTerminalWitnesses(

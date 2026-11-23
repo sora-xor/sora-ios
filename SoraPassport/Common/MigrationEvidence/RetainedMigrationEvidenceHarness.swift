@@ -1435,13 +1435,15 @@ private extension RetainedMigrationEvidenceHarness {
                 request: active.request,
                 requestSha256: active.requestSha256,
                 state: active.state,
-                finishedAtEpochSeconds: Int64(Date().timeIntervalSince1970.rounded(.down)),
                 stateSha256: stateSha,
-                route: route,
-                outcome: outcome,
-                comparison: comparison,
-                behaviorPassed: behaviorPassed,
-                recoveryEntered: recoveryEntered
+                terminal: TerminalObservation(
+                    finishedAtEpochSeconds: Int64(Date().timeIntervalSince1970.rounded(.down)),
+                    route: route,
+                    outcome: outcome,
+                    comparison: comparison,
+                    behaviorPassed: behaviorPassed,
+                    recoveryEntered: recoveryEntered
+                )
             )
             let receiptData = try StrictEvidenceJSON.canonicalData(
                 object: receipt,
@@ -1614,18 +1616,30 @@ extension RetainedMigrationEvidenceHarness {
         return (outcome, behaviorPassed, recoveryEntered)
     }
 
+    /// What the app observed when the run reached its terminal route, as
+    /// `makeReceipt` records it.
+    struct TerminalObservation {
+        let finishedAtEpochSeconds: Int64
+        let route: RetainedMigrationEvidenceApplicationRoute
+        let outcome: String
+        let comparison: KeychainComparison
+        let behaviorPassed: Bool
+        let recoveryEntered: Bool
+    }
+
     static func makeReceipt(
         request: AuthorizationRequest,
         requestSha256: String,
         state: HarnessState,
-        finishedAtEpochSeconds: Int64,
         stateSha256: String,
-        route: RetainedMigrationEvidenceApplicationRoute,
-        outcome: String,
-        comparison: KeychainComparison,
-        behaviorPassed: Bool,
-        recoveryEntered: Bool
+        terminal: TerminalObservation
     ) throws -> [String: Any] {
+        let finishedAtEpochSeconds = terminal.finishedAtEpochSeconds
+        let route = terminal.route
+        let outcome = terminal.outcome
+        let comparison = terminal.comparison
+        let behaviorPassed = terminal.behaviorPassed
+        let recoveryEntered = terminal.recoveryEntered
         let started = state.transitions.first?
             .occurredAtEpochSeconds ??
             finishedAtEpochSeconds
@@ -2538,36 +2552,47 @@ enum EvidenceTreeScanner {
             throw RetainedMigrationEvidenceHarness.HarnessError
                 .unsafeEvidenceNamespace
         }
-        var files: [EvidenceTreeFile] = []
-        var normalizedNodes = Set<String>()
-        var inodeIdentities: Set<String> = [
-            "\(rootMetadata.st_dev):\(rootMetadata.st_ino)",
-        ]
-        var totalBytes: Int64 = 0
+        var state = WalkState(
+            files: [],
+            normalizedNodes: Set<String>(),
+            inodeIdentities: [
+                "\(rootMetadata.st_dev):\(rootMetadata.st_ino)"
+            ],
+            totalBytes: 0
+        )
         _ = try walk(
             directory: directory,
             relativePrefix: "",
-            allowEmptyDirectories: allowEmptyDirectories,
-            strictASCIIComponents: strictASCIIComponents,
-            validatePath: validatePath,
-            files: &files,
-            normalizedNodes: &normalizedNodes,
-            inodeIdentities: &inodeIdentities,
-            totalBytes: &totalBytes
+            options: WalkOptions(
+                allowEmptyDirectories: allowEmptyDirectories,
+                strictASCIIComponents: strictASCIIComponents,
+                validatePath: validatePath
+            ),
+            state: &state
         )
-        return files.sorted { $0.relativePath < $1.relativePath }
+        return state.files.sorted { $0.relativePath < $1.relativePath }
+    }
+
+    /// The rules of one scan, the same at every depth.
+    private struct WalkOptions {
+        let allowEmptyDirectories: Bool
+        let strictASCIIComponents: Bool
+        let validatePath: ((String, Bool) throws -> Void)?
+    }
+
+    /// What one scan has collected so far, threaded through every depth.
+    private struct WalkState {
+        var files: [EvidenceTreeFile]
+        var normalizedNodes: Set<String>
+        var inodeIdentities: Set<String>
+        var totalBytes: Int64
     }
 
     private static func walk(
         directory: URL,
         relativePrefix: String,
-        allowEmptyDirectories: Bool,
-        strictASCIIComponents: Bool,
-        validatePath: ((String, Bool) throws -> Void)?,
-        files: inout [EvidenceTreeFile],
-        normalizedNodes: inout Set<String>,
-        inodeIdentities: inout Set<String>,
-        totalBytes: inout Int64
+        options: WalkOptions,
+        state: inout WalkState
     ) throws -> Int {
         var before = stat()
         guard
@@ -2588,7 +2613,7 @@ enum EvidenceTreeScanner {
             let name = child.lastPathComponent
             guard safeComponent(
                 name,
-                strictASCII: strictASCIIComponents
+                strictASCII: options.strictASCIIComponents
             ),
                   child.deletingLastPathComponent().standardizedFileURL ==
                     directory.standardizedFileURL else {
@@ -2605,8 +2630,8 @@ enum EvidenceTreeScanner {
             )
             guard
                 normalized == relative,
-                normalizedNodes.insert("n:\(normalized)").inserted,
-                normalizedNodes.insert("f:\(folded)").inserted
+                state.normalizedNodes.insert("n:\(normalized)").inserted,
+                state.normalizedNodes.insert("f:\(folded)").inserted
             else {
                 throw RetainedMigrationEvidenceHarness.HarnessError
                     .unsafeEvidenceNamespace
@@ -2619,25 +2644,20 @@ enum EvidenceTreeScanner {
             }
             let fileType = metadata.st_mode & mode_t(S_IFMT)
             if fileType == mode_t(S_IFDIR) {
-                guard inodeIdentities.insert(
+                guard state.inodeIdentities.insert(
                     "\(metadata.st_dev):\(metadata.st_ino)"
                 ).inserted else {
                     throw RetainedMigrationEvidenceHarness.HarnessError
                         .unsafeEvidenceNamespace
                 }
-                try validatePath?(relative, true)
+                try options.validatePath?(relative, true)
                 let count = try walk(
                     directory: child,
                     relativePrefix: relative,
-                    allowEmptyDirectories: allowEmptyDirectories,
-                    strictASCIIComponents: strictASCIIComponents,
-                    validatePath: validatePath,
-                    files: &files,
-                    normalizedNodes: &normalizedNodes,
-                    inodeIdentities: &inodeIdentities,
-                    totalBytes: &totalBytes
+                    options: options,
+                    state: &state
                 )
-                guard allowEmptyDirectories || count > 0 else {
+                guard options.allowEmptyDirectories || count > 0 else {
                     throw RetainedMigrationEvidenceHarness.HarnessError
                         .unsafeEvidenceNamespace
                 }
@@ -2649,14 +2669,14 @@ enum EvidenceTreeScanner {
                 metadata.st_nlink == 1,
                 metadata.st_size >= 0,
                 metadata.st_size <= maximumFileBytes,
-                inodeIdentities.insert(
+                state.inodeIdentities.insert(
                     "\(metadata.st_dev):\(metadata.st_ino)"
                 ).inserted
             else {
                 throw RetainedMigrationEvidenceHarness.HarnessError
                     .unsafeEvidenceNamespace
             }
-            try validatePath?(relative, false)
+            try options.validatePath?(relative, false)
             let hashed = try RetainedMigrationEvidenceHarness
                 .hashStableRegularFile(
                     child,
@@ -2664,14 +2684,14 @@ enum EvidenceTreeScanner {
                     allowEmpty: true
                 )
             guard
-                totalBytes <= maximumTotalBytes - hashed.byteCount,
-                files.count < maximumFiles
+                state.totalBytes <= maximumTotalBytes - hashed.byteCount,
+                state.files.count < maximumFiles
             else {
                 throw RetainedMigrationEvidenceHarness.HarnessError
                     .unsafeEvidenceNamespace
             }
-            totalBytes += hashed.byteCount
-            files.append(
+            state.totalBytes += hashed.byteCount
+            state.files.append(
                 EvidenceTreeFile(
                     relativePath: relative,
                     executable: hashed.executable,

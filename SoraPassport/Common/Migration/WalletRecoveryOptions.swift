@@ -727,19 +727,8 @@ enum WalletDatabaseSelfRepair {
             }
             // An interrupted import is resolved by the ordinary checks first.
             guard try !hasUnfinishedAccountCommit(environment) else { return false }
-            let here: [WalletStoreAccountScan.Row]
-            switch WalletStoreAccountScan.read(storeURL: environment.paths.storeURL, fileManager: fileManager) {
-            case .missing: here = []
-            case let .rows(rows): here = rows
-            // Nothing can be compared now. The repair below deals with this
-            // file, and a later launch decides.
-            case .inaccessible, .unreadable, .incomplete: return false
-            }
-            var planned: [AccountItem] = []
-            if settings.anyValue(for: planKey) != nil {
-                guard let plan = settings.value(of: [AccountItem].self, for: planKey) else { return false }
-                planned = plan
-            }
+            guard let here = accountRowsHereNow(environment) else { return false }
+            guard let planned = savedPlanAccounts(settings) else { return false }
 
             let folder = try newSetAsideFolder(environment)
             var beganPreservingOriginals = false
@@ -753,64 +742,16 @@ enum WalletDatabaseSelfRepair {
 
             // The oldest folder whose database is a readable wallet database
             // is the one the user had; the later ones hold rebuilt copies.
-            var found: (rows: [WalletStoreAccountScan.Row], settings: [String: Any])?
-            for candidate in candidates {
-                for suffix in ["", "-wal", "-shm", "-journal"] {
-                    try? fileManager.removeItem(at: URL(fileURLWithPath: staged.path + suffix))
-                }
-                guard let rows = try stageDatabase(from: candidate, at: staged, environment: environment),
-                      let data = try? Data(contentsOf: candidate.appendingPathComponent("wallet-settings.plist")),
-                      let values = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
-                else { continue }
-                found = (rows, values)
-                break
+            guard let found = try stageOldestReadableDatabase(of: candidates, at: staged, environment: environment) else {
+                settings.set(value: true, for: unreadDatabaseCheckedKey)
+                return false
             }
-            guard let found else {
+            guard try setAsideDatabaseMayReturn(found, here: here, planned: planned, environment: environment) else {
                 settings.set(value: true, for: unreadDatabaseCheckedKey)
                 return false
             }
 
-            func isRow(_ row: WalletStoreAccountScan.Row, of rows: [WalletStoreAccountScan.Row]) -> Bool {
-                rows.contains {
-                    $0.address == row.address && $0.publicKey == row.publicKey &&
-                        $0.cryptoType == row.cryptoType && $0.networkType == row.networkType
-                }
-            }
-            let plannedRows = planned.map {
-                WalletStoreAccountScan.Row(address: $0.address, publicKey: $0.publicKeyData,
-                                           cryptoType: Int($0.cryptoType.rawValue), networkType: Int($0.networkType),
-                                           username: nil, order: nil, isSelected: false)
-            }
-            guard (here + plannedRows).allSatisfy({ isRow($0, of: found.rows) }) else {
-                // Another wallet is here now. It stays, and so does the folder.
-                settings.set(value: true, for: unreadDatabaseCheckedKey)
-                return false
-            }
-            let arriving = found.rows.filter { row in !here.contains { $0.address == row.address } }
-            if !arriving.isEmpty {
-                let owner = WalletOwnerPIN(keystore: environment.keystore, settings: settings,
-                                           recoveryGate: environment.proofGate)
-                var mayArrive = try environment.keystore.checkKey(for: KeystoreTag.pincode.rawValue)
-                for row in arriving where mayArrive {
-                    let isWatchOnly = found.settings["wallet.watchOnly.\(row.address)"] as? Bool == true
-                    mayArrive = try owner.currentPINMayOwn(address: row.address) &&
-                        (isWatchOnly || proof(for: row.address, environment: environment) != nil)
-                }
-                guard mayArrive else {
-                    settings.set(value: true, for: unreadDatabaseCheckedKey)
-                    return false
-                }
-            }
-
-            var preserved: [String: Any] = [:]
-            for key in WalletLocalStateSetAside.walletSettingKeys(in: settings) {
-                if let value = settings.anyValue(for: key),
-                   PropertyListSerialization.propertyList(value, isValidFor: .binary) {
-                    preserved[key] = value
-                }
-            }
-            let plist = try PropertyListSerialization.data(fromPropertyList: preserved, format: .binary, options: 0)
-            try plist.write(to: folder.appendingPathComponent("wallet-settings.plist"), options: [.atomic])
+            try writePreservedWalletSettings(of: settings, into: folder)
 
             beganPreservingOriginals = true
             try setAside(environment, includingDatabase: true, derivedState: true, into: folder)
@@ -823,25 +764,7 @@ enum WalletDatabaseSelfRepair {
             // (this runs again) or the whole returned one.
             try fileManager.moveItem(at: staged, to: environment.paths.storeURL)
 
-            let returnedKeys: Set<String> = [
-                SettingsKey.selectedAccount.rawValue, SettingsKey.decentralizedId.rawValue,
-                SettingsKey.publicKeyId.rawValue, SettingsKey.hasMigrated.rawValue,
-                SettingsKey.migratedAccountsV1.rawValue, KeystoreTag.legacyUsername.rawValue,
-            ]
-            for (key, value) in found.settings where returnedKeys.contains(key) || key.hasPrefix("wallet.watchOnly.") {
-                settings.set(anyValue: value, for: key)
-            }
-            for key in settings.allKeys() where key.hasPrefix("wallet.watchOnly.") && found.settings[key] == nil {
-                settings.removeValue(for: key)
-            }
-            // Rebuilt from the returned rows at this launch's network bootstrap.
-            settings.removeValue(for: SettingsKey.walletNetworkStoreVersion.rawValue)
-            settings.removeValue(for: SettingsKey.walletStartupDiagnostic.rawValue)
-            clearMarker(settings)
-            settings.removeValue(for: planKey)
-            // That choice was made on a screen that should never have appeared.
-            settings.removeValue(for: setUpAgainChosenKey)
-            settings.set(value: true, for: unreadDatabaseCheckedKey)
+            adoptReturnedSettings(of: found, into: settings)
             Logger.shared.info("Wallet storage: the database an earlier version set aside unread is back in place")
             return true
         } catch {
@@ -850,6 +773,131 @@ enum WalletDatabaseSelfRepair {
             )
             return false
         }
+    }
+
+    /// A set-aside database staged for return, with the wallet settings saved beside it.
+    private typealias SetAsideDatabase = (rows: [WalletStoreAccountScan.Row], settings: [String: Any])
+
+    /// The account rows of the database here now: none without a database, nil when they
+    /// cannot be compared now.
+    private static func accountRowsHereNow(_ environment: Environment) -> [WalletStoreAccountScan.Row]? {
+        let here: [WalletStoreAccountScan.Row]
+        switch WalletStoreAccountScan.read(storeURL: environment.paths.storeURL, fileManager: environment.fileManager) {
+        case .missing: here = []
+        case let .rows(rows): here = rows
+        // Nothing can be compared now. The repair below deals with this
+        // file, and a later launch decides.
+        case .inaccessible, .unreadable, .incomplete: return nil
+        }
+        return here
+    }
+
+    /// The accounts of a saved repair plan: none without a plan, nil when it cannot be read.
+    private static func savedPlanAccounts(_ settings: SettingsManagerProtocol) -> [AccountItem]? {
+        var planned: [AccountItem] = []
+        if settings.anyValue(for: planKey) != nil {
+            guard let plan = settings.value(of: [AccountItem].self, for: planKey) else { return nil }
+            planned = plan
+        }
+        return planned
+    }
+
+    /// Stages the database of the first candidate that is a readable wallet database with
+    /// readable saved settings, and returns its rows and settings. Nil when none is.
+    private static func stageOldestReadableDatabase(
+        of candidates: [URL], at staged: URL, environment: Environment
+    ) throws -> SetAsideDatabase? {
+        let fileManager = environment.fileManager
+        var found: SetAsideDatabase?
+        for candidate in candidates {
+            for suffix in ["", "-wal", "-shm", "-journal"] {
+                try? fileManager.removeItem(at: URL(fileURLWithPath: staged.path + suffix))
+            }
+            guard let rows = try stageDatabase(from: candidate, at: staged, environment: environment),
+                  let data = try? Data(contentsOf: candidate.appendingPathComponent("wallet-settings.plist")),
+                  let values = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+            else { continue }
+            found = (rows, values)
+            break
+        }
+        return found
+    }
+
+    /// Whether the found database may come back: every account row here now and every planned
+    /// row is a row of it, and every row of it that is not here has its own keys (or its
+    /// watch-only record) and an app PIN that no owner record objects to.
+    private static func setAsideDatabaseMayReturn(
+        _ found: SetAsideDatabase, here: [WalletStoreAccountScan.Row], planned: [AccountItem],
+        environment: Environment
+    ) throws -> Bool {
+        let settings = environment.settings
+        func isRow(_ row: WalletStoreAccountScan.Row, of rows: [WalletStoreAccountScan.Row]) -> Bool {
+            rows.contains {
+                $0.address == row.address && $0.publicKey == row.publicKey &&
+                    $0.cryptoType == row.cryptoType && $0.networkType == row.networkType
+            }
+        }
+        let plannedRows = planned.map {
+            WalletStoreAccountScan.Row(address: $0.address, publicKey: $0.publicKeyData,
+                                       cryptoType: Int($0.cryptoType.rawValue), networkType: Int($0.networkType),
+                                       username: nil, order: nil, isSelected: false)
+        }
+        guard (here + plannedRows).allSatisfy({ isRow($0, of: found.rows) }) else {
+            // Another wallet is here now. It stays, and so does the folder.
+            return false
+        }
+        let arriving = found.rows.filter { row in !here.contains { $0.address == row.address } }
+        if !arriving.isEmpty {
+            let owner = WalletOwnerPIN(keystore: environment.keystore, settings: settings,
+                                       recoveryGate: environment.proofGate)
+            var mayArrive = try environment.keystore.checkKey(for: KeystoreTag.pincode.rawValue)
+            for row in arriving where mayArrive {
+                let isWatchOnly = found.settings["wallet.watchOnly.\(row.address)"] as? Bool == true
+                mayArrive = try owner.currentPINMayOwn(address: row.address) &&
+                    (isWatchOnly || proof(for: row.address, environment: environment) != nil)
+            }
+            guard mayArrive else {
+                return false
+            }
+        }
+        return true
+    }
+
+    /// Saves every wallet setting here now that a property list can hold into `folder`.
+    private static func writePreservedWalletSettings(of settings: SettingsManagerProtocol, into folder: URL) throws {
+        var preserved: [String: Any] = [:]
+        for key in WalletLocalStateSetAside.walletSettingKeys(in: settings) {
+            if let value = settings.anyValue(for: key),
+               PropertyListSerialization.propertyList(value, isValidFor: .binary) {
+                preserved[key] = value
+            }
+        }
+        let plist = try PropertyListSerialization.data(fromPropertyList: preserved, format: .binary, options: 0)
+        try plist.write(to: folder.appendingPathComponent("wallet-settings.plist"), options: [.atomic])
+    }
+
+    /// Puts back the returned database's selection, identity and watch-only settings, clears
+    /// what this launch rebuilds from its rows, and records the return as checked.
+    private static func adoptReturnedSettings(of found: SetAsideDatabase, into settings: SettingsManagerProtocol) {
+        let returnedKeys: Set<String> = [
+            SettingsKey.selectedAccount.rawValue, SettingsKey.decentralizedId.rawValue,
+            SettingsKey.publicKeyId.rawValue, SettingsKey.hasMigrated.rawValue,
+            SettingsKey.migratedAccountsV1.rawValue, KeystoreTag.legacyUsername.rawValue,
+        ]
+        for (key, value) in found.settings where returnedKeys.contains(key) || key.hasPrefix("wallet.watchOnly.") {
+            settings.set(anyValue: value, for: key)
+        }
+        for key in settings.allKeys() where key.hasPrefix("wallet.watchOnly.") && found.settings[key] == nil {
+            settings.removeValue(for: key)
+        }
+        // Rebuilt from the returned rows at this launch's network bootstrap.
+        settings.removeValue(for: SettingsKey.walletNetworkStoreVersion.rawValue)
+        settings.removeValue(for: SettingsKey.walletStartupDiagnostic.rawValue)
+        clearMarker(settings)
+        settings.removeValue(for: planKey)
+        // That choice was made on a screen that should never have appeared.
+        settings.removeValue(for: setUpAgainChosenKey)
+        settings.set(value: true, for: unreadDatabaseCheckedKey)
     }
 
     /// The folders version 3.9.3 filled because it could not read the version
@@ -978,27 +1026,7 @@ enum WalletDatabaseSelfRepair {
 
         var result = Inventory()
         if settings.anyValue(for: planKey) != nil {
-            guard let plan = settings.value(of: [AccountItem].self, for: planKey),
-                  !plan.isEmpty, plan.count <= 4_096,
-                  Set(plan.map(\.address)).count == plan.count else {
-                throw Failure.invalidRepairPlan
-            }
-            let readableRows: [WalletStoreAccountScan.Row]
-            switch live {
-            case let .rows(rows), let .incomplete(rows): readableRows = rows
-            default: readableRows = []
-            }
-            if !readableRows.isEmpty {
-                // A stale plan cannot discard accounts from another live
-                // generation. Preserve both sources until they can reconcile.
-                guard Set(readableRows.map(\.address)).isSubset(of: Set(plan.map(\.address))) else {
-                    throw Failure.invalidRepairPlan
-                }
-            }
-            // The plan precedes moving any live files. It remains the complete
-            // expected inventory even after some or all of those moves finish.
-            result.plannedAccounts = plan
-            for account in plan { result.addNamed(account.address, Known(account, isSelected: account.isSelected)) }
+            try addRepairPlan(settings: settings, live: live, to: &result)
             return result
         }
         if case let .rows(rows) = live {
@@ -1018,14 +1046,57 @@ enum WalletDatabaseSelfRepair {
                 result.salvagedRows.insert(row.address)
             }
         }
+        addRetainedDatabaseCopyNames(environment, to: &result)
+        let selected = settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue)
+        if let selected { result.addNamed(selected.address, Known(selected, isSelected: true)) }
+        let snapshot = networkSnapshot(environment)
+        try addSnapshotNames(snapshot, live: live, environment: environment, to: &result)
+        try adoptSnapshotAsFullInventory(snapshot, live: live, environment: environment, to: &result)
+        try addRetainedInstallationNames(liveFileIsDamaged: liveFileIsDamaged, environment: environment, to: &result)
+        return result
+    }
+
+    /// The inventory of a saved repair plan. It must name distinct accounts, including every
+    /// account the live database can still list.
+    private static func addRepairPlan(settings: SettingsManagerProtocol, live: WalletStoreAccountScan.Result,
+                                      to result: inout Inventory) throws {
+        guard let plan = settings.value(of: [AccountItem].self, for: planKey),
+              !plan.isEmpty, plan.count <= 4_096,
+              Set(plan.map(\.address)).count == plan.count else {
+            throw Failure.invalidRepairPlan
+        }
+        let readableRows: [WalletStoreAccountScan.Row]
+        switch live {
+        case let .rows(rows), let .incomplete(rows): readableRows = rows
+        default: readableRows = []
+        }
+        if !readableRows.isEmpty {
+            // A stale plan cannot discard accounts from another live
+            // generation. Preserve both sources until they can reconcile.
+            guard Set(readableRows.map(\.address)).isSubset(of: Set(plan.map(\.address))) else {
+                throw Failure.invalidRepairPlan
+            }
+        }
+        // The plan precedes moving any live files. It remains the complete
+        // expected inventory even after some or all of those moves finish.
+        result.plannedAccounts = plan
+        for account in plan { result.addNamed(account.address, Known(account, isSelected: account.isSelected)) }
+    }
+
+    /// Names every account a database retained by an earlier startup lists.
+    private static func addRetainedDatabaseCopyNames(_ environment: Environment, to result: inout Inventory) {
+        let fileManager = environment.fileManager
         for copy in retainedDatabaseCopies(environment) {
             if case let .rows(rows) = WalletStoreAccountScan.read(storeURL: copy, fileManager: fileManager) {
                 for row in rows { result.addNamed(row.address, Known(row)) }
             }
         }
-        let selected = settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue)
-        if let selected { result.addNamed(selected.address, Known(selected, isSelected: true)) }
-        let snapshot = networkSnapshot(environment)
+    }
+
+    /// Names every wallet of the current network snapshot, and records the legacy removals
+    /// that a readable empty database reflects.
+    private static func addSnapshotNames(_ snapshot: WalletNetworkSnapshot?, live: WalletStoreAccountScan.Result,
+                                         environment: Environment, to result: inout Inventory) throws {
         if let snapshot {
             for (index, wallet) in snapshot.wallets.enumerated() {
                 if live == .rows([]), wallet.secretSource == .mnemonicEntropy,
@@ -1050,7 +1121,13 @@ enum WalletDatabaseSelfRepair {
                 }
             }
         }
+    }
 
+    /// A damaged or missing store: the current validated snapshot is the full inventory.
+    private static func adoptSnapshotAsFullInventory(
+        _ snapshot: WalletNetworkSnapshot?, live: WalletStoreAccountScan.Result, environment: Environment,
+        to result: inout Inventory
+    ) throws {
         let incompleteRows: [WalletStoreAccountScan.Row]?
         switch live {
         case let .incomplete(rows): incompleteRows = rows
@@ -1075,7 +1152,13 @@ enum WalletDatabaseSelfRepair {
             }
             result.requiredAddresses = expected
         }
+    }
 
+    /// With nothing else named: the wallets of the newest folder an earlier version set aside,
+    /// then, for a damaged live file, retained keys this installation's PIN may own.
+    private static func addRetainedInstallationNames(liveFileIsDamaged: Bool, environment: Environment,
+                                                     to result: inout Inventory) throws {
+        let settings = environment.settings
         let hasPIN = try environment.keystore.checkKey(for: KeystoreTag.pincode.rawValue)
         if result.named.isEmpty, hasPIN, settings.bool(for: setUpAgainChosenKey) != true {
             for (address, known) in setAsideNames(environment) { result.addNamed(address, known) }
@@ -1101,7 +1184,6 @@ enum WalletDatabaseSelfRepair {
                                                       networkType: wallet.networkType))
             }
         }
-        return result
     }
 
     /// The databases retained by earlier startups, newest first.
@@ -1483,35 +1565,11 @@ enum WalletLocalStateSetAside {
         // synchronised: a marker that could be lost while the moves survive
         // would split the earlier data across two folders.
         let incompleteMarkerURL = folder.appendingPathComponent(incompleteMarkerName)
-        if !exists(incompleteMarkerURL) {
-            do {
-                try Data("Some wallet files were moved here and others were not. Nothing was deleted.".utf8)
-                    .write(to: incompleteMarkerURL, options: [.atomic])
-                try DurableFileWriter.synchronizeRegularFileAndContainingDirectory(at: incompleteMarkerURL)
-            } catch {
-                if reused == nil {
-                    // Nothing has moved yet; leave no empty folder behind.
-                    try? fileManager.removeItem(at: folder)
-                }
-                throw error
-            }
-        }
+        try writeIncompleteMarker(at: incompleteMarkerURL, in: folder, reused: reused, fileManager: fileManager)
 
         // 1. A copy of the wallet settings, before anything changes.
         let keys = walletSettingKeys(in: settings)
-        var preserved: [String: Any] = [:]
-        for key in keys {
-            if let value = settings.anyValue(for: key),
-               PropertyListSerialization.propertyList(value, isValidFor: .binary) {
-                preserved[key] = value
-            }
-        }
-        let plist = try PropertyListSerialization.data(fromPropertyList: preserved, format: .binary, options: 0)
-        let settingsName = exists(folder.appendingPathComponent("wallet-settings.plist"))
-            ? "wallet-settings-\(UUID().uuidString).plist" : "wallet-settings.plist"
-        let settingsURL = folder.appendingPathComponent(settingsName)
-        try plist.write(to: settingsURL, options: [.atomic])
-        try DurableFileWriter.synchronizeRegularFileAndContainingDirectory(at: settingsURL)
+        try writeSettingsCopy(of: keys, from: settings, into: folder)
 
         // 2. Move (rename) the wallet files. Never delete. If one move
         // fails, the moves already done are undone, so the install is left as
@@ -1556,27 +1614,8 @@ enum WalletLocalStateSetAside {
             "later-\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString)", isDirectory: true)
         var databaseBase: URL?
         var done: [(URL, URL)] = []
-        do {
-            for (index, move) in moves.enumerated() where exists(move.0) {
-                let (source, components) = move
-                let isDatabaseCompanion = (1 ..< storeFileSuffixes.count).contains(index)
-                var base = (isDatabaseCompanion ? databaseBase : nil) ?? folder
-                if exists(place(components, in: base)) {
-                    base = laterItems
-                }
-                let destination = place(components, in: base)
-                if base == laterItems {
-                    try fileManager.createDirectory(
-                        at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-                }
-                try beforeMove(source)
-                try fileManager.moveItem(at: source, to: destination)
-                done.append((source, destination))
-                if index == 0 {
-                    databaseBase = base
-                }
-            }
-        } catch {
+        // Undoes the moves of this attempt after one failed.
+        func undoMoves() throws {
             var restored = true
             for (source, destination) in done.reversed() {
                 do {
@@ -1604,6 +1643,29 @@ enum WalletLocalStateSetAside {
                     }
                 }
             }
+        }
+        do {
+            for (index, move) in moves.enumerated() where exists(move.0) {
+                let (source, components) = move
+                let isDatabaseCompanion = (1 ..< storeFileSuffixes.count).contains(index)
+                var base = (isDatabaseCompanion ? databaseBase : nil) ?? folder
+                if exists(place(components, in: base)) {
+                    base = laterItems
+                }
+                let destination = place(components, in: base)
+                if base == laterItems {
+                    try fileManager.createDirectory(
+                        at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+                }
+                try beforeMove(source)
+                try fileManager.moveItem(at: source, to: destination)
+                done.append((source, destination))
+                if index == 0 {
+                    databaseBase = base
+                }
+            }
+        } catch {
+            try undoMoves()
             throw error
         }
         try afterMoves()
@@ -1630,6 +1692,53 @@ enum WalletLocalStateSetAside {
         try WalletPreservedGeneration.syncDirectory(folder)
 
         // 5. Clear the marker this screen was shown for.
+        try clearRecoveryMarker(marker, settings: settings)
+        Logger.shared.info("Wallet storage: earlier data set aside on request; Keychain unchanged")
+        return folder
+    }
+
+    /// Step 0 of `setAside`: journals the attempt in `folder` unless an earlier attempt did. A new
+    /// folder is removed again when the journal cannot be written.
+    private static func writeIncompleteMarker(at incompleteMarkerURL: URL, in folder: URL, reused: URL?,
+                                              fileManager: FileManager) throws {
+        if !exists(incompleteMarkerURL) {
+            do {
+                try Data("Some wallet files were moved here and others were not. Nothing was deleted.".utf8)
+                    .write(to: incompleteMarkerURL, options: [.atomic])
+                try DurableFileWriter.synchronizeRegularFileAndContainingDirectory(at: incompleteMarkerURL)
+            } catch {
+                if reused == nil {
+                    // Nothing has moved yet; leave no empty folder behind.
+                    try? fileManager.removeItem(at: folder)
+                }
+                throw error
+            }
+        }
+    }
+
+    /// Step 1 of `setAside`: a durable copy of the wallet settings `keys` name, beside any
+    /// copy an earlier attempt left in `folder`.
+    private static func writeSettingsCopy(of keys: [String], from settings: SettingsManagerProtocol,
+                                          into folder: URL) throws {
+        var preserved: [String: Any] = [:]
+        for key in keys {
+            if let value = settings.anyValue(for: key),
+               PropertyListSerialization.propertyList(value, isValidFor: .binary) {
+                preserved[key] = value
+            }
+        }
+        let plist = try PropertyListSerialization.data(fromPropertyList: preserved, format: .binary, options: 0)
+        let settingsName = exists(folder.appendingPathComponent("wallet-settings.plist"))
+            ? "wallet-settings-\(UUID().uuidString).plist" : "wallet-settings.plist"
+        let settingsURL = folder.appendingPathComponent(settingsName)
+        try plist.write(to: settingsURL, options: [.atomic])
+        try DurableFileWriter.synchronizeRegularFileAndContainingDirectory(at: settingsURL)
+    }
+
+    /// Step 5 of `setAside`: clears the recovery marker the screen was shown for, if it is
+    /// still the same one.
+    private static func clearRecoveryMarker(_ marker: WalletMigrationRecoveryMarker,
+                                            settings: SettingsManagerProtocol) throws {
         if marker.required {
             try WalletMigrationRecoveryMarker.synchronized {
                 guard WalletMigrationRecoveryMarker.capture(settings) == marker else {
@@ -1644,8 +1753,6 @@ enum WalletLocalStateSetAside {
                 }
             }
         }
-        Logger.shared.info("Wallet storage: earlier data set aside on request; Keychain unchanged")
-        return folder
     }
 
     private static func incompleteFolder(in root: URL, fileManager: FileManager) -> URL? {
