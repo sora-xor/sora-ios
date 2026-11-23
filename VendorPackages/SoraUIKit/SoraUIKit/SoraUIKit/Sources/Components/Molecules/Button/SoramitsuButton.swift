@@ -103,6 +103,11 @@ public final class SoramitsuButton: UIControl, Molecule {
     override public func layoutSubviews() {
         super.layoutSubviews()
         applyMaterial()
+        // Shrinking is for a title too wide for its button. UIKit also shrinks a title to the height of its
+        // label, and a short button (a 24-point token chooser) gives its title less than a line: that title
+        // keeps its size, as it always has.
+        let hasItsLine = titleLabel.bounds.height + 0.5 >= titleLabel.intrinsicContentSize.height
+        if titleLabel.adjustsFontSizeToFitWidth != hasItsLine { titleLabel.adjustsFontSizeToFitWidth = hasItsLine }
     }
 
     public override var isHighlighted: Bool {
