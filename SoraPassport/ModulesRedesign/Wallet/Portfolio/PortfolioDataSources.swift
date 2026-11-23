@@ -51,6 +51,13 @@ struct PortfolioWalletReadState: Equatable {
     var failedReads = 0
     /// When the last of them failed: the retry is counted from here, not from the attempt's start.
     var lastFailure: Date?
+    /// The tokens (id and precision) the last SORA2 read recorded for this wallet asked about, in
+    /// this process (not saved). A token listed since then has not been read for it.
+    var sora2Coverage: Set<String>?
+    /// The tokens the wallet's latest attempt asks about, from the moment it begins: a newly listed
+    /// token does not make the wallet due again while that attempt already asks about it (the
+    /// ordinary freshness rule applies then, as on master).
+    var attemptCoverage: Set<String>?
 
     /// The time the next retry interval is counted from.
     var retryCountedFrom: Date? { failedReads > 0 ? (lastFailure ?? lastAttempt) : lastAttempt }
@@ -243,6 +250,16 @@ final class PortfolioReadCache {
 final class LivePortfolioDataSource: PortfolioDataSource {
     /// Wallets read at the same time.
     private static let parallelReads = 4
+    /// The account list is read on a queue of its own. Until 2026-11-22 it took its turn on the
+    /// app's shared operation queue, behind the selected wallet's balance requests: a 7 ms fetch
+    /// that answered after 1 to 10 s on a busy phone, and nothing shows before it.
+    private static let listQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "portfolio.accounts"
+        queue.qualityOfService = .userInitiated
+        queue.maxConcurrentOperationCount = 2
+        return queue
+    }()
 
     var onChange: ((PortfolioSnapshot) -> Void)?
     private(set) var snapshot: PortfolioSnapshot = .empty
@@ -255,6 +272,8 @@ final class LivePortfolioDataSource: PortfolioDataSource {
     private let cache: PortfolioReadCache
     private let priceService: PriceInfoServiceProtocol
     private let readDeadline: TimeInterval
+    /// Every wallet's accounts on the other networks, as stored.
+    private let storedNetworkAccounts: () throws -> [NetworkAccount]
     private var wallets: [PortfolioWalletSource] = []
     /// Each wallet's accounts on networks other than SORA2 (public addresses only), for the reads.
     private var networkAccounts: [String: [PortfolioNetwork: NetworkAccount]] = [:]
@@ -272,6 +291,8 @@ final class LivePortfolioDataSource: PortfolioDataSource {
     /// Until every wallet has been tried once, the snapshot says it is loading, so the hero shows
     /// neither the empty state nor OFFLINE for a wallet not read yet. Saved balances show meanwhile.
     private var firstPassDone: Bool
+    /// Passes that have run to their end (tests wait for this instead of for time).
+    private(set) var finishedPasses = 0
     /// The Polkaswap token blacklist: a blacklisted holding is hidden like one the user turned
     /// off. A new list is applied at once, without reading any balance.
     var assetBlacklist: AssetBlacklistStoring = AssetBlacklistStore.shared
@@ -285,8 +306,10 @@ final class LivePortfolioDataSource: PortfolioDataSource {
                                                            mapper: AnyCoreDataMapper(AccountItemMapper()))),
          cache: PortfolioReadCache = .shared,
          priceService: PriceInfoServiceProtocol = PriceInfoService.shared,
-         readDeadline: TimeInterval = 15) {
+         readDeadline: TimeInterval = 15,
+         networkAccounts: @escaping () throws -> [NetworkAccount] = { try WalletNetworkStore().load()?.accounts ?? [] }) {
         self.assetManager = assetManager
+        self.storedNetworkAccounts = networkAccounts
         self.sora2Reader = sora2Reader
         self.nexusReader = nexusReader
         self.accountRepository = accountRepository
@@ -389,18 +412,24 @@ final class LivePortfolioDataSource: PortfolioDataSource {
                 let force = self.pendingForce
                 self.pendingForce = false
                 self.pendingRefresh = false
-                self.refresh(force: force)
+                // A tab that was left reads again when it appears; only an explicit refresh
+                // runs meanwhile.
+                if force || self.started { self.refresh(force: force) }
             }
         }
     }
 
+    /// A pass is under way (tests wait for this instead of for time).
+    var isReading: Bool { refreshTask != nil }
+
     private func performRefresh(force: Bool) async {
+        defer { finishedPasses += 1 }
         do {
             try await loadWallets()
         } catch {
             // A failed repository read says nothing about whether stored wallets were deleted.
-            // Keep the last snapshot until an authoritative account list is available.
-            firstPassDone = true
+            // Keep the last snapshot until an authoritative account list is available. A launch
+            // that knows no wallet yet stays loading: it has not found the wallet empty.
             publish()
             return
         }
@@ -413,11 +442,20 @@ final class LivePortfolioDataSource: PortfolioDataSource {
             return
         }
         let readable = assets.map { (id: $0.id, precision: $0.precision) }
+        let asked = Self.coverage(assets)
         let now = Date()
         let due = wallets.filter { wallet in
-            force || (wallet.isSelected && selectedDirty) ||
-                PortfolioFreshnessPolicy.isDue(lastAttempt: cache.reads[wallet.id]?.retryCountedFrom,
-                                               failedReads: cache.reads[wallet.id]?.failedReads ?? 0, now: now)
+            let state = cache.reads[wallet.id]
+            // A token listed since this wallet's last read (or one whose precision changed) has not
+            // been read for it: the wallet is due at once, without waiting out its minute, unless
+            // its latest attempt already asks about every token. After a failed read its retry
+            // intervals apply as to any other.
+            let unreadTokens = (state?.failedReads ?? 0) == 0 &&
+                (state?.sora2Coverage.map { !asked.isSubset(of: $0) } ?? false) &&
+                !asked.isSubset(of: state?.attemptCoverage ?? [])
+            return force || unreadTokens || (wallet.isSelected && selectedDirty) ||
+                PortfolioFreshnessPolicy.isDue(lastAttempt: state?.retryCountedFrom,
+                                               failedReads: state?.failedReads ?? 0, now: now)
         }
         // Prices are read beside the balances, for the tokens held when this pass began: a slow
         // price service never holds back a balance, nor the end of loading.
@@ -429,13 +467,19 @@ final class LivePortfolioDataSource: PortfolioDataSource {
             func addNext() {
                 guard !Task.isCancelled, let wallet = waiting.next() else { return }
                 group.addTask { @MainActor [weak self] in
-                    await self?.read(wallet, assets: readable)
+                    await self?.read(wallet, assets: readable, coverage: asked)
                 }
             }
             (0..<Self.parallelReads).forEach { _ in addNext() }
             while await group.next() != nil { addNext() }
         }
-        firstPassDone = true
+        if Self.coverage(self.assets).isSubset(of: asked) {
+            firstPassDone = true
+        } else if started {
+            // The token list grew while this pass was reading: the new tokens are unread, so the
+            // first pass is not over, and the next one starts at once (or at the next appearance).
+            pendingRefresh = true
+        }
         cache.save()
         publish()
         scheduleRetryAfterFailures()
@@ -444,6 +488,11 @@ final class LivePortfolioDataSource: PortfolioDataSource {
         if !Set(heldIds).isSubset(of: Set(pricedIds)) {
             readPrices(ids: heldIds)
         }
+    }
+
+    /// What a pass asks every wallet about: each token with its precision.
+    private static func coverage(_ assets: [PortfolioAssetSource]) -> Set<String> {
+        Set(assets.map { "\($0.id):\($0.precision)" })
     }
 
     /// One price read at a time; a request made meanwhile runs once it has finished.
@@ -467,7 +516,8 @@ final class LivePortfolioDataSource: PortfolioDataSource {
 
     /// Reads one wallet on every network at once. Each network's answer shows as soon as it
     /// arrives: SORA2 never waits for SORA Nexus or Taira, nor they for each other.
-    private func read(_ wallet: PortfolioWalletSource, assets: [(id: String, precision: Int16)]) async {
+    private func read(_ wallet: PortfolioWalletSource, assets: [(id: String, precision: Int16)],
+                      coverage: Set<String>) async {
         // A wallet removed while this read waited for its turn (here or in a newer tab, which
         // keeps the shared list) is not read, nor put back.
         guard cache.wallets.contains(where: { $0.id == wallet.id }) else { return }
@@ -478,6 +528,7 @@ final class LivePortfolioDataSource: PortfolioDataSource {
         var attempt = cache.reads[wallet.id] ?? PortfolioWalletReadState()
         let attemptStart = Date()
         attempt.lastAttempt = attemptStart
+        attempt.attemptCoverage = coverage
         // A network this attempt does not read (turned off since) is no longer reported as failing.
         attempt.failed = attempt.failed.filter { failed in
             failed == .sora2 || networks.contains { $0.0 == failed }
@@ -496,6 +547,7 @@ final class LivePortfolioDataSource: PortfolioDataSource {
                         return
                     }
                     state.sora2 = balances
+                    state.sora2Coverage = coverage
                     state.lastRead = Date()
                     state.failedReads = 0
                 }
@@ -563,10 +615,10 @@ final class LivePortfolioDataSource: PortfolioDataSource {
                     continuation.resume(throwing: error)
                 }
             }
-            OperationManagerFacade.sharedDefaultQueue.addOperation(operation)
+            Self.listQueue.addOperation(operation)
         }
         let selected = SelectedWalletSettings.shared.currentAccount?.address
-        let stored = (try? WalletNetworkStore().load())?.accounts ?? []
+        let stored = (try? storedNetworkAccounts()) ?? []
         let shown = shownNetworks
         var byWallet: [String: [PortfolioNetwork: NetworkAccount]] = [:]
         wallets = accounts.sorted { $0.order < $1.order }.enumerated().map { index, account in

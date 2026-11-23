@@ -128,6 +128,233 @@ final class LivePortfolioReadFlowTests: XCTestCase {
         XCTAssertTrue(f.reader.calls.isEmpty, "no balance is read for it")
     }
 
+    // MARK: An account list that cannot be read
+
+    func testAFailedAccountListReadWithNothingKnownStaysLoadingAndNeverLooksEmpty() async {
+        let f = make()
+        f.repository.failure = LiveReadError.offline
+        var lookedEmpty = false
+        f.subject.onChange = { snapshot in
+            if !snapshot.isLoading, snapshot.wallets.isEmpty { lookedEmpty = true }
+        }
+        f.subject.start()
+        await wait { f.subject.finishedPasses == 1 }
+        XCTAssertEqual(f.repository.thrown, 1)
+        XCTAssertTrue(f.subject.snapshot.isLoading, "no wallet list is not an empty wallet")
+        XCTAssertTrue(f.subject.snapshot.wallets.isEmpty)
+        // Account storage answers at the next read.
+        f.repository.failure = nil
+        f.subject.refreshAll()
+        await settled(f)
+        XCTAssertEqual(f.repository.thrown, 1)
+        XCTAssertFalse(lookedEmpty)
+        XCTAssertEqual(f.subject.snapshot.holdings.first?.amount, 10)
+    }
+
+    // MARK: A token list that grows
+
+    func testATokenListedAfterAPassIsReadAtTheNextPassNotAMinuteLater() async {
+        let f = make()
+        let full = f.assets.items
+        f.assets.items = full.filter { $0.assetId == f.xor }
+        f.subject.start()
+        await settled(f)
+        XCTAssertEqual(f.reader.calls.map { $0.assets.map(\.id) }, [[f.xor]])
+        // The same list: the next pass reads nothing, the wallet was read a moment ago.
+        f.subject.stop()
+        f.subject.start()
+        await wait { f.subject.finishedPasses == 2 }
+        XCTAssertEqual(f.reader.calls.count, 1)
+        // VAL is listed: no wallet has been asked about it.
+        f.assets.items = full
+        f.reader.value = .success([f.xor: PortfolioRawBalance(free: 10, reserved: 0, frozen: 0),
+                                   f.val: PortfolioRawBalance(free: 3, reserved: 0, frozen: 0)])
+        f.subject.stop()
+        f.subject.start()
+        await wait { f.reader.calls.count == 2 }
+        XCTAssertEqual(f.reader.calls.last?.assets.map(\.id), [f.xor, f.val])
+        await wait { f.subject.snapshot.holdings.first { $0.token.id == f.val }?.amount == 3 }
+        // A list that only lost a token leaves nothing unread.
+        f.assets.items = full.filter { $0.assetId == f.xor }
+        f.subject.stop()
+        f.subject.start()
+        await wait { f.subject.finishedPasses == 4 }
+        XCTAssertEqual(f.reader.calls.count, 2)
+    }
+
+    func testAnotherTabWaitsForAReadThatAlreadyAsksAboutTheNewToken() async {
+        let f = make()
+        let full = f.assets.items
+        f.assets.items = full.filter { $0.assetId == f.xor }
+        f.subject.start()
+        await settled(f)
+        // VAL is listed, and the wallet's read that asks about it is under way.
+        f.assets.items = full
+        f.reader.value = .success([f.xor: PortfolioRawBalance(free: 10, reserved: 0, frozen: 0),
+                                   f.val: PortfolioRawBalance(free: 3, reserved: 0, frozen: 0)])
+        f.reader.held = true
+        f.subject.stop()
+        f.subject.start()
+        await wait { f.reader.calls.count == 2 }
+        // A Wallet tab built meanwhile does not start the same read over it.
+        let reader = LiveReadBalances()
+        let newer = LivePortfolioDataSource(assetManager: LiveReadAssets(), sora2Reader: reader, nexusReader: f.nexus,
+                                            accountRepository: AnyDataProviderRepository(f.repository), cache: f.cache,
+                                            priceService: LiveReadPrices(), readDeadline: 15)
+        defer { newer.stop() }
+        newer.start()
+        await wait { newer.finishedPasses == 1 }
+        XCTAssertTrue(reader.calls.isEmpty)
+        f.reader.release()
+        await wait { f.cache.reads["wallet-a"]?.sora2?[f.val]?.free == 3 }
+    }
+
+    // MARK: Two Wallet tabs (a tab rebuilt while the first one reads)
+
+    /// Five wallets on a cold start; this tab reads four at once and queues the fifth, which a
+    /// newer tab begins reading meanwhile. Each tab still reads it when its turn comes (as on
+    /// master): a tab never ends its first pass on a read it does not wait for.
+    func testTheFirstPassDoesNotEndBeforeAQueuedWalletAnotherTabBeganIsRead() async {
+        let f = make()
+        f.repository.accounts = (0..<5).map { LiveReadFixture.account("w\($0)", order: Int16($0)) }
+        SelectedWalletSettings.shared.commitInternalValue(LiveReadFixture.account("w0"))
+        f.reader.holdAddresses(["w0", "w1", "w2", "w3"])
+        var endedWithAnUnreadWallet = false
+        f.subject.onChange = { snapshot in
+            if !snapshot.isLoading, snapshot.wallets.contains(where: { $0.freshness.updatedAt == nil }) {
+                endedWithAnUnreadWallet = true
+            }
+        }
+        f.subject.start()
+        await wait { f.reader.calls.count == 4 }
+        // The newer tab begins the fifth wallet's read, and its node is slow.
+        let reader = LiveReadBalances()
+        reader.value = .success([f.xor: PortfolioRawBalance(free: 10, reserved: 0, frozen: 0)])
+        reader.held = true
+        let newer = LivePortfolioDataSource(assetManager: LiveReadAssets(), sora2Reader: reader, nexusReader: f.nexus,
+                                            accountRepository: AnyDataProviderRepository(f.repository), cache: f.cache,
+                                            priceService: LiveReadPrices(), readDeadline: 15)
+        defer { newer.stop(); reader.release() }
+        newer.start()
+        await wait { reader.calls.map(\.address) == ["w4"] }
+        f.reader.release()
+        await wait { f.subject.finishedPasses == 1 && !f.subject.isReading }
+        XCTAssertTrue(f.reader.calls.contains { $0.address == "w4" }, "the queued wallet is read here too")
+        XCTAssertFalse(endedWithAnUnreadWallet, "loading never ends with a wallet whose read is still pending")
+        XCTAssertFalse(f.subject.snapshot.isLoading)
+    }
+
+    /// The queued wallet's Taira address is known to this tab only (the newer tab loaded the
+    /// account list before it was added): this tab still reads it.
+    func testAQueuedWalletIsReadOnEveryNetworkThisTabKnowsEvenWhenAnotherTabBeganItsRead() async {
+        SettingsManager.shared.nexusEnabled = true
+        SettingsManager.shared.isTairaEnabled = true
+        let f = make()
+        f.repository.accounts = (0..<5).map { LiveReadFixture.account("w\($0)", order: Int16($0)) }
+        SelectedWalletSettings.shared.commitInternalValue(LiveReadFixture.account("w0"))
+        let taira = NetworkAccount(walletId: "w4", networkId: .taira, derivationVersion: 1,
+                                   publicKey: Data(repeating: 3, count: 32), address: "taira-w4")
+        let nexus = LiveReadNexusRecorder()
+        f.reader.holdAddresses(["w0", "w1", "w2", "w3"])
+        let first = LivePortfolioDataSource(assetManager: f.assets, sora2Reader: f.reader, nexusReader: nexus,
+                                            accountRepository: AnyDataProviderRepository(f.repository), cache: f.cache,
+                                            priceService: LiveReadPrices(), readDeadline: 15,
+                                            networkAccounts: { [taira] })
+        defer { first.stop() }
+        first.start()
+        await wait { f.reader.calls.count == 4 }
+        let reader = LiveReadBalances()
+        reader.value = .success([f.xor: PortfolioRawBalance(free: 10, reserved: 0, frozen: 0)])
+        let newer = LivePortfolioDataSource(assetManager: LiveReadAssets(), sora2Reader: reader, nexusReader: nexus,
+                                            accountRepository: AnyDataProviderRepository(f.repository), cache: f.cache,
+                                            priceService: LiveReadPrices(), readDeadline: 15,
+                                            networkAccounts: { [] })
+        defer { newer.stop() }
+        newer.start()
+        await wait { newer.finishedPasses == 1 }
+        XCTAssertEqual(reader.calls.map(\.address), ["w4"])
+        XCTAssertTrue(nexus.addresses.isEmpty)
+        f.reader.release()
+        await wait { first.finishedPasses == 1 && !first.isReading }
+        XCTAssertEqual(nexus.addresses, ["taira-w4"])
+        XCTAssertEqual(f.cache.reads["w4"]?.nexus[.taira], 7)
+    }
+
+    func testATokenListThatGrowsWhileTheTabIsAwayIsReadAtItsNextAppearance() async {
+        let f = make()
+        let full = f.assets.items
+        f.assets.items = full.filter { $0.assetId == f.xor }
+        f.reader.held = true
+        f.subject.start()
+        await wait { f.reader.calls.count == 1 }
+        // The tab is left while the first read is under way, shown again for a moment (which
+        // queues a pass) and left again; VAL is listed meanwhile.
+        f.subject.stop()
+        f.subject.start()
+        f.subject.stop()
+        f.assets.items = full
+        f.reader.release()
+        await wait { f.subject.finishedPasses == 1 && !f.subject.isReading }
+        XCTAssertEqual(f.reader.calls.count, 1, "nothing is read while the tab is away")
+        XCTAssertEqual(f.subject.finishedPasses, 1)
+        XCTAssertTrue(f.subject.snapshot.isLoading, "VAL is unread: the first pass is not over")
+        f.subject.start()
+        await wait { f.reader.calls.count == 2 }
+        XCTAssertEqual(f.reader.calls.last?.assets.map(\.id), [f.xor, f.val])
+    }
+
+    func testAnAnswerDroppedForANewerReadLeavesTheNewerReadsTokens() async {
+        let f = make()
+        let full = f.assets.items
+        f.assets.items = full.filter { $0.assetId == f.xor }
+        f.reader.held = true
+        f.subject.start()
+        await wait { f.reader.calls.count == 1 }
+        // A newer Wallet tab reads the wallet with the full list while that read is under way.
+        let reader = LiveReadBalances()
+        reader.value = .success([f.xor: PortfolioRawBalance(free: 10, reserved: 0, frozen: 0),
+                                 f.val: PortfolioRawBalance(free: 3, reserved: 0, frozen: 0)])
+        let newer = LivePortfolioDataSource(assetManager: LiveReadAssets(), sora2Reader: reader, nexusReader: f.nexus,
+                                            accountRepository: AnyDataProviderRepository(f.repository), cache: f.cache,
+                                            priceService: LiveReadPrices(), readDeadline: 15)
+        defer { newer.stop() }
+        newer.refreshAll()
+        await wait { newer.finishedPasses == 1 }
+        // The first tab's answer arrives late, for a shorter list: it is dropped, and so is its list.
+        f.reader.release()
+        await wait { f.subject.finishedPasses == 1 }
+        XCTAssertEqual(f.cache.reads["wallet-a"]?.sora2?[f.val]?.free, 3)
+        XCTAssertEqual(f.cache.reads["wallet-a"]?.sora2Coverage?.count, 2)
+        // The newer tab finds the wallet read for every token a moment ago: nothing is read again.
+        newer.start()
+        await wait { newer.finishedPasses == 2 }
+        XCTAssertEqual(reader.calls.count, 1)
+    }
+
+    func testATokenListThatGrowsDuringTheFirstPassKeepsLoadingAndIsReadAtOnce() async {
+        let f = make()
+        let full = f.assets.items
+        f.assets.items = full.filter { $0.assetId == f.xor }
+        f.reader.held = true
+        f.subject.start()
+        await wait { f.reader.calls.count == 1 }
+        XCTAssertEqual(f.reader.calls.first?.assets.map(\.id), [f.xor])
+        // The full list arrives while the node is still answering the first read.
+        f.assets.items = full
+        var finishedWithoutVal = false
+        f.subject.onChange = { snapshot in
+            if !snapshot.isLoading, !snapshot.holdings.contains(where: { $0.token.id == f.val }) { finishedWithoutVal = true }
+        }
+        f.reader.value = .success([f.xor: PortfolioRawBalance(free: 10, reserved: 0, frozen: 0),
+                                   f.val: PortfolioRawBalance(free: 3, reserved: 0, frozen: 0)])
+        f.reader.release()
+        await wait { f.reader.calls.count == 2 }
+        XCTAssertEqual(f.reader.calls.last?.assets.map(\.id), [f.xor, f.val], "the list that grew is read at once, not a minute later")
+        await settled(f)
+        XCTAssertEqual(f.subject.snapshot.holdings.first { $0.token.id == f.val }?.amount, 3)
+        XCTAssertFalse(finishedWithoutVal, "the first pass is not over while a listed token is unread")
+    }
+
     func testAZeroRefreshReplacesSavedHoldingsAndSurvivesAnOfflineRefresh() async {
         let defaults = UserDefaults(suiteName: UUID().uuidString)!
         let f = make(cached: true, store: PortfolioReadStore(defaults: defaults))
@@ -155,7 +382,13 @@ private final class LiveReadFixture {
 private final class LiveReadRepository: DataProviderRepositoryProtocol {
     typealias Model = AccountItem
     var accounts = [AccountItem](), failure:Error?, writes = 0, fetches = 0
-    func fetchAllOperation(with options:RepositoryFetchOptions)->BaseOperation<[AccountItem]> { fetches += 1; return ClosureOperation { if let failure = self.failure {throw failure}; return self.accounts } }
+    private let lock = NSLock()
+    private var thrownCount = 0
+    /// How many account list reads have failed, counted when the operation throws.
+    var thrown:Int { lock.lock(); defer { lock.unlock() }; return thrownCount }
+    private func countThrown() { lock.lock(); thrownCount += 1; lock.unlock() }
+    // The answer is fixed when the read is asked for: a test that changes it afterwards changes the next read.
+    func fetchAllOperation(with options:RepositoryFetchOptions)->BaseOperation<[AccountItem]> { fetches += 1; let failure = self.failure, accounts = self.accounts; return ClosureOperation { [weak self] in if let failure { self?.countThrown(); throw failure }; return accounts } }
     func fetchOperation(by ids:@escaping()throws->[String],options:RepositoryFetchOptions)->BaseOperation<[AccountItem]>{ ClosureOperation{[]} }
     func fetchOperation(by id:@escaping()throws->String,options:RepositoryFetchOptions)->BaseOperation<AccountItem?>{ ClosureOperation{nil} }
     func fetchOperation(by request:RepositorySliceRequest,options:RepositoryFetchOptions)->BaseOperation<[AccountItem]>{ClosureOperation{[]}}
@@ -183,6 +416,13 @@ private final class LiveReadBalances: PortfolioSora2BalanceReading {
     func release(){ let waiting:[CheckedContinuation<Void,Never>] = locked { held = false; heldAddresses = []; defer { pending = [] }; return pending }; waiting.forEach { $0.resume() } }
 }
 private final class LiveReadNexus: PortfolioNexusBalanceReading { var calls = 0; func xorBalance(account:NetworkAccount) async throws->Decimal { calls += 1; XCTFail("No Nexus read expected"); throw LiveReadError.offline } }
+private final class LiveReadNexusRecorder: PortfolioNexusBalanceReading {
+    private let lock = NSLock()
+    private var recorded = [String]()
+    var addresses: [String] { lock.lock(); defer { lock.unlock() }; return recorded }
+    private func record(_ address: String) { lock.lock(); recorded.append(address); lock.unlock() }
+    func xorBalance(account: NetworkAccount) async throws -> Decimal { record(account.address); return 7 }
+}
 private final class LiveReadPrices: PriceInfoServiceProtocol {
     private let lock = NSLock()
     private var pending = [CheckedContinuation<Void,Never>]()
