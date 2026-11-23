@@ -46,9 +46,11 @@ final class PortfolioSnapshotBuilderTests: XCTestCase {
             "B": PortfolioWalletReadState(sora2: nil, lastRead: nil, lastAttempt: now, failed: [.sora2])
         ]
         let snapshot = PortfolioSnapshotBuilder.build(
-            wallets: [wallet("A", selected: true, taira: "taira-a"), wallet("B")], assets: assets, reads: reads,
-            prices: PortfolioPriceSource(usd: [xor: 2], change: [xor: 1]), networks: [.sora2, .taira],
-            liveNetworks: [.sora2, .taira], swapsAvailable: true, disclaimerAccepted: false, now: now)
+            .init(wallets: [wallet("A", selected: true, taira: "taira-a"), wallet("B")], assets: assets, reads: reads,
+                  prices: PortfolioPriceSource(usd: [xor: 2], change: [xor: 1])),
+            settings: .init(networks: [.sora2, .taira], liveNetworks: [.sora2, .taira], swapsAvailable: true,
+                            disclaimerAccepted: false),
+            now: now)
 
         let xorA = snapshot.holdings.first { $0.walletId == "A" && $0.network == .sora2 && $0.token.id == xor }
         XCTAssertEqual(xorA?.amount, 105, "Total is free plus reserved")
@@ -70,9 +72,11 @@ final class PortfolioSnapshotBuilderTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 10_000)
         func build(_ prices: PortfolioPriceSource) -> PortfolioSnapshot {
             let reads = ["A": PortfolioWalletReadState(sora2: [xor: PortfolioRawBalance(free: 1, reserved: 0, frozen: 0)], lastRead: now)]
-            return PortfolioSnapshotBuilder.build(wallets: [wallet("A", selected: true)], assets: assets, reads: reads,
-                                                  prices: prices, networks: [.sora2], liveNetworks: [.sora2],
-                                                  swapsAvailable: true, disclaimerAccepted: false, now: now)
+            return PortfolioSnapshotBuilder.build(
+                .init(wallets: [wallet("A", selected: true)], assets: assets, reads: reads, prices: prices),
+                settings: .init(networks: [.sora2], liveNetworks: [.sora2], swapsAvailable: true,
+                                disclaimerAccepted: false),
+                now: now)
         }
 
         let recent = build(PortfolioPriceSource(usd: [xor: 2], change: [xor: 1], readAt: now.addingTimeInterval(-60)))

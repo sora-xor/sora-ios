@@ -416,10 +416,11 @@ final class AssetBlacklistTests: XCTestCase {
                     tokenId: PortfolioRawBalance(free: 4, reserved: 0, frozen: 0)],
             lastRead: now)]
         let snapshot = PortfolioSnapshotBuilder.build(
-            wallets: [PortfolioWalletSource(id: "A", name: "A", order: 0, isSelected: true, visibleAssetIds: nil,
-                                            orderedAssetIds: nil, addresses: [:])],
-            assets: assets, reads: reads, prices: PortfolioPriceSource(usd: [xorId: 2, tokenId: 100]),
-            networks: [.sora2], liveNetworks: [.sora2], swapsAvailable: true, disclaimerAccepted: false, now: now)
+            .init(wallets: [PortfolioWalletSource(id: "A", name: "A", order: 0, isSelected: true, visibleAssetIds: nil,
+                                                  orderedAssetIds: nil, addresses: [:])],
+                  assets: assets, reads: reads, prices: PortfolioPriceSource(usd: [xorId: 2, tokenId: 100])),
+            settings: .init(networks: [.sora2], liveNetworks: [.sora2], swapsAvailable: true, disclaimerAccepted: false),
+            now: now)
 
         let token = snapshot.holdings.first { $0.token.id == tokenId }
         XCTAssertEqual(token?.amount, 4, "the balance is still read")

@@ -97,10 +97,25 @@ enum PortfolioSnapshotBuilder {
         return true
     }
 
-    static func build(wallets: [PortfolioWalletSource], assets: [PortfolioAssetSource],
-                      reads: [String: PortfolioWalletReadState], prices: PortfolioPriceSource,
-                      networks: [PortfolioNetwork], liveNetworks: Set<PortfolioNetwork>,
-                      swapsAvailable: Bool, disclaimerAccepted: Bool, now: Date) -> PortfolioSnapshot {
+    /// What was read: the wallets, the app's assets, each wallet's last balances and the prices.
+    struct Sources {
+        let wallets: [PortfolioWalletSource]
+        let assets: [PortfolioAssetSource]
+        let reads: [String: PortfolioWalletReadState]
+        let prices: PortfolioPriceSource
+    }
+
+    /// What the snapshot offers: the networks shown and live, and whether swaps can be used.
+    struct Settings {
+        let networks: [PortfolioNetwork]
+        let liveNetworks: Set<PortfolioNetwork>
+        let swapsAvailable: Bool
+        let disclaimerAccepted: Bool
+    }
+
+    static func build(_ sources: Sources, settings: Settings, now: Date) -> PortfolioSnapshot {
+        let wallets = sources.wallets, assets = sources.assets, reads = sources.reads, prices = sources.prices
+        let networks = settings.networks
         let byId = Dictionary(assets.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let oldPricesDate = pricesAsOf(prices, now: now)
         func token(_ asset: PortfolioAssetSource) -> PortfolioToken {
@@ -140,8 +155,9 @@ enum PortfolioSnapshotBuilder {
             ))
         }
         return PortfolioSnapshot(wallets: portfolioWallets, holdings: holdings, networks: networks,
-                                 swapsAvailable: swapsAvailable, swapDisclaimerAccepted: disclaimerAccepted,
-                                 liveNetworks: liveNetworks, pricesAsOf: oldPricesDate)
+                                 swapsAvailable: settings.swapsAvailable,
+                                 swapDisclaimerAccepted: settings.disclaimerAccepted,
+                                 liveNetworks: settings.liveNetworks, pricesAsOf: oldPricesDate)
     }
 }
 
@@ -675,11 +691,12 @@ final class LivePortfolioDataSource: PortfolioDataSource {
     }
 
     private func publish() {
-        var next = PortfolioSnapshotBuilder.build(wallets: wallets, assets: assets, reads: cache.reads,
-                                                  prices: cache.prices, networks: shownNetworks,
-                                                  liveNetworks: liveNetworks, swapsAvailable: true,
-                                                  disclaimerAccepted: ApplicationConfig.shared.isDisclamerShown,
-                                                  now: Date())
+        var next = PortfolioSnapshotBuilder.build(
+            PortfolioSnapshotBuilder.Sources(wallets: wallets, assets: assets, reads: cache.reads, prices: cache.prices),
+            settings: PortfolioSnapshotBuilder.Settings(networks: shownNetworks, liveNetworks: liveNetworks,
+                                                        swapsAvailable: true,
+                                                        disclaimerAccepted: ApplicationConfig.shared.isDisclamerShown),
+            now: Date())
         next.isLoading = !firstPassDone
         guard next != snapshot else { return }
         snapshot = next

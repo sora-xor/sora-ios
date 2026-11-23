@@ -472,15 +472,15 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
                     }
                     return
                 }
-                self?.wireframe.proceed(from: self?.view,
-                                        sourceType: selectedSourceType,
-                                        cryptoType: self?.selectedCryptoType ?? selectedCryptoType,
-                                        networkType: selectedNetworkType,
-                                        sourceViewModel: sourceViewModel,
-                                        usernameViewModel: usernameViewModel,
-                                        passwordViewModel: self?.passwordViewModel,
-                                        derivationPathViewModel: self?.derivationPathViewModel,
-                                        expectedAddress: self?.expectedAddress)
+                self?.wireframe.proceed(from: self?.view, submission: AccountImportSubmission(
+                    sourceType: selectedSourceType,
+                    cryptoType: self?.selectedCryptoType ?? selectedCryptoType,
+                    networkType: selectedNetworkType,
+                    sourceViewModel: sourceViewModel,
+                    usernameViewModel: usernameViewModel,
+                    passwordViewModel: self?.passwordViewModel,
+                    derivationPathViewModel: self?.derivationPathViewModel,
+                    expectedAddress: self?.expectedAddress))
             case .failure(let error):
                 self?.didReceiveAccountImport(error: error)
             case .none:

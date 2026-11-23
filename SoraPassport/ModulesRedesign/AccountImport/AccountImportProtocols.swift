@@ -72,17 +72,21 @@ extension AccountImportInteractorOutputProtocol {
     func didCancelAccountImport() {}
 }
 
+/// What the import screen hands on to the account name step.
+struct AccountImportSubmission {
+    let sourceType: AccountImportSource
+    let cryptoType: CryptoType
+    let networkType: Chain
+    let sourceViewModel: InputViewModelProtocol
+    let usernameViewModel: InputViewModelProtocol
+    let passwordViewModel: InputViewModelProtocol?
+    let derivationPathViewModel: InputViewModelProtocol?
+    let expectedAddress: String?
+}
+
 protocol AccountImportWireframeProtocol: AlertPresentable, ErrorPresentable, WebPresentable {
     func requestKnownAddress(from view: AccountImportViewProtocol?, completion: @escaping (String?) -> Void)
-    func proceed(from view: AccountImportViewProtocol?,
-                 sourceType: AccountImportSource,
-                 cryptoType: CryptoType,
-                 networkType: Chain,
-                 sourceViewModel: InputViewModelProtocol,
-                 usernameViewModel: InputViewModelProtocol,
-                 passwordViewModel: InputViewModelProtocol?,
-                 derivationPathViewModel: InputViewModelProtocol?,
-                 expectedAddress: String?)
+    func proceed(from view: AccountImportViewProtocol?, submission: AccountImportSubmission)
 }
 
 extension AccountImportInteractorInputProtocol {

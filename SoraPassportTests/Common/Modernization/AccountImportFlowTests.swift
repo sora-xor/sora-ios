@@ -195,11 +195,11 @@ private final class ImportFlowRoutes: AccountImportWireframeProtocol {
     var handlesErrors = true
     var errorCompletions = [() -> Void]()
     func requestKnownAddress(from view: AccountImportViewProtocol?, completion: @escaping (String?) -> Void) { prompts += 1; completion(knownAddress) }
-    func proceed(from view: AccountImportViewProtocol?, sourceType: AccountImportSource, cryptoType: CryptoType, networkType: Chain,
-                 sourceViewModel: InputViewModelProtocol, usernameViewModel: InputViewModelProtocol, passwordViewModel: InputViewModelProtocol?,
-                 derivationPathViewModel: InputViewModelProtocol?, expectedAddress: String?) {
-        routes.append(.init(type: sourceType, source: sourceViewModel.inputHandler.value, name: usernameViewModel.inputHandler.value,
-                            path: derivationPathViewModel?.inputHandler.value ?? "", expectedAddress: expectedAddress))
+    func proceed(from view: AccountImportViewProtocol?, submission: AccountImportSubmission) {
+        routes.append(.init(type: submission.sourceType, source: submission.sourceViewModel.inputHandler.value,
+                            name: submission.usernameViewModel.inputHandler.value,
+                            path: submission.derivationPathViewModel?.inputHandler.value ?? "",
+                            expectedAddress: submission.expectedAddress))
     }
     func present(error: Error, from view: ControllerBackedProtocol?, locale: Locale?) -> Bool { errors.append(error); return true }
     func present(error: Error, from view: ControllerBackedProtocol?, locale: Locale?, completion: @escaping () -> Void) -> Bool { errors.append(error); errorCompletions.append(completion); return handlesErrors }

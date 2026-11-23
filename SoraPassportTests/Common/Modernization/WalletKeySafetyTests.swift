@@ -3752,11 +3752,8 @@ private final class AccountImportWireframeSpy: AccountImportWireframeProtocol {
         completion(knownAddressResponse)
     }
     var errors: [Error] = []
-    func proceed(from view: AccountImportViewProtocol?, sourceType: AccountImportSource, cryptoType: CryptoType,
-                 networkType: Chain, sourceViewModel: InputViewModelProtocol, usernameViewModel: InputViewModelProtocol,
-                 passwordViewModel: InputViewModelProtocol?, derivationPathViewModel: InputViewModelProtocol?,
-                 expectedAddress: String?) {
-        proceededAddress = expectedAddress
+    func proceed(from view: AccountImportViewProtocol?, submission: AccountImportSubmission) {
+        proceededAddress = submission.expectedAddress
         proceeded += 1
     }
     func present(error: Error, from view: ControllerBackedProtocol?, locale: Locale?) -> Bool {
