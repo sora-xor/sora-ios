@@ -146,8 +146,9 @@ private extension CustomNodeViewController {
         containerView.do {
             $0.topAnchor == view.soraSafeTopAnchor + 8
             $0.bottomAnchor <= view.soraSafeBottomAnchor
-            $0.trailingAnchor == view.trailingAnchor - 16
-            $0.leadingAnchor == view.leadingAnchor + 16
+            // The form stands in the content column: 16 from the sides on a phone, readable on an iPad.
+            $0.trailingAnchor == view.litColumnGuide.trailingAnchor
+            $0.leadingAnchor == view.litColumnGuide.leadingAnchor
         }
     }
 

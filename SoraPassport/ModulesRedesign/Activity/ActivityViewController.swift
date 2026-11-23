@@ -231,17 +231,18 @@ final class ActivityViewController: SoramitsuViewController {
             activityIndicator.centerYAnchor.constraint(equalTo: errorView.centerYAnchor),
 
             tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            // The list is a card in the content column; the empty and failed states keep to it too.
+            tableView.leadingAnchor.constraint(equalTo: view.litColumnGuide.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.litColumnGuide.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
             emptyIcon.centerXAnchor.constraint(equalTo: emptyLabel.centerXAnchor),
             emptyIcon.bottomAnchor.constraint(equalTo: emptyLabel.topAnchor, constant: -12),
-            emptyLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
+            emptyLabel.leadingAnchor.constraint(equalTo: view.litColumnGuide.leadingAnchor, constant: 16),
             emptyLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             emptyLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
 
-            errorView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
+            errorView.leadingAnchor.constraint(equalTo: view.litColumnGuide.leadingAnchor, constant: 16),
             errorView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             errorView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])

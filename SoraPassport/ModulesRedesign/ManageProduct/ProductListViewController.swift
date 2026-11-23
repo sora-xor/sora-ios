@@ -151,8 +151,10 @@ final class ProductListViewController: SoramitsuViewController {
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            // The list is a card: it stands in the content column (on an iPad it ran from edge to edge
+            // with its rows in the middle of it).
+            tableView.leadingAnchor.constraint(equalTo: view.litColumnGuide.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.litColumnGuide.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             
             emptyStateLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),

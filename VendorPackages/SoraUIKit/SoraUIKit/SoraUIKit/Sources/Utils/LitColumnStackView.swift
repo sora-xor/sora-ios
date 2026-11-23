@@ -100,7 +100,7 @@ private final class LitColumnKeeper {
     let guide = UILayoutGuide()
     private let leading: NSLayoutConstraint
     private let trailing: NSLayoutConstraint
-    private var observation: NSKeyValueObservation?
+    private var observations: [NSKeyValueObservation] = []
     private var width: CGFloat = -1
 
     init(view: UIView) {
@@ -114,9 +114,11 @@ private final class LitColumnKeeper {
             guide.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         place(in: view)
-        observation = view.observe(\.bounds, options: .new) { [weak self] view, _ in
-            self?.place(in: view)
-        }
+        // A view gets its size as a frame (from a container) or as bounds (from Auto Layout): both are watched.
+        observations = [
+            view.observe(\.bounds, options: .new) { [weak self] view, _ in self?.place(in: view) },
+            view.observe(\.frame, options: .new) { [weak self] view, _ in self?.place(in: view) }
+        ]
     }
 
     private func place(in view: UIView) {

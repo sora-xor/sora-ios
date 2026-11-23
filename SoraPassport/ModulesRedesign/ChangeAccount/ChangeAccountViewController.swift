@@ -168,14 +168,17 @@ final class ChangeAccountViewController: SoramitsuViewController {
     }
     
     private func setupConstraints() {
-        tableBg.horizontalAnchors == view.horizontalAnchors + Constants.inset
+        // The list and the button under it stand in the content column.
+        tableBg.leadingAnchor == view.litColumnGuide.leadingAnchor
+        tableBg.trailingAnchor == view.litColumnGuide.trailingAnchor
         tableBg.topAnchor == view.soraSafeTopAnchor
         tableConstraint = tableBg.heightAnchor.constraint(equalToConstant: 0)
         tableConstraint?.isActive = true
         
         tableView.edgeAnchors == tableBg.edgeAnchors
 
-        actionButton.horizontalAnchors == view.horizontalAnchors + Constants.inset
+        actionButton.leadingAnchor == view.litColumnGuide.leadingAnchor
+        actionButton.trailingAnchor == view.litColumnGuide.trailingAnchor
         actionButton.topAnchor == tableBg.bottomAnchor + Constants.inset
     }
 
