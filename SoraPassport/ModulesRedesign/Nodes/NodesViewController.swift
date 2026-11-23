@@ -159,11 +159,7 @@ extension NodesViewController: NodesViewProtocol {
 
     @objc
     func editTapped() {
-        guard let buttonDelegate = presenter as? ButtonCellDelegate else {
-            assertionFailure("The nodes presenter handles the add-node button")
-            return
-        }
-        buttonDelegate.buttonTapped()
+        presenter.buttonTapped()
     }
 }
 

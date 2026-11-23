@@ -3120,6 +3120,7 @@ final class SoraNeonDesignTests: XCTestCase {
 
 private final class NeonNodesPresenterStub: NodesPresenterProtocol {
     func setup() {}
+    func buttonTapped() {}
 }
 
 private final class NeonStyleSpy: NSObject, SoramitsuObserver {
