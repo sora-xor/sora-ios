@@ -4257,12 +4257,17 @@ final class ScreenFitTests: XCTestCase {
     /// The token picker's list and Explore's search results end at the keyboard, not under it: their bottom is
     /// tied to the keyboard layout guide (the safe area's bottom when no keyboard is up).
     func testSearchListsEndAtTheKeyboard() throws {
-        func endsAtTheKeyboard(_ list: UIView, in view: UIView) -> Bool {
-            var owner: UIView? = list
+        /// A required equality, with no offset, between `item`'s bottom and `other`'s `attribute`, either way round.
+        func tied(_ item: UIView, to other: AnyObject, _ attribute: NSLayoutConstraint.Attribute) -> Bool {
+            var owner: UIView? = item
             while let current = owner {
                 if current.constraints.contains(where: { constraint in
-                    constraint.isActive && constraint.firstItem === list && constraint.firstAttribute == .bottom
-                        && constraint.secondItem === view.keyboardLayoutGuide && constraint.secondAttribute == .top
+                    guard constraint.isActive, constraint.relation == .equal, constraint.constant == 0,
+                          constraint.priority == .required, constraint.multiplier == 1 else { return false }
+                    return (constraint.firstItem === item && constraint.firstAttribute == .bottom
+                                && constraint.secondItem === other && constraint.secondAttribute == attribute)
+                        || (constraint.secondItem === item && constraint.secondAttribute == .bottom
+                                && constraint.firstItem === other && constraint.firstAttribute == attribute)
                 }) { return true }
                 owner = current.superview
             }
@@ -4271,39 +4276,42 @@ final class ScreenFitTests: XCTestCase {
         let picker = ProductListViewController(viewModel: StoreAssetPresentation(many: true))
         picker.loadViewIfNeeded()
         let table = try XCTUnwrap(Self.visibleTables(in: picker.view).first)
-        XCTAssertTrue(endsAtTheKeyboard(table, in: picker.view), "the token picker's list")
+        XCTAssertTrue(tied(table, to: picker.view.keyboardLayoutGuide, .top), "the token picker's list")
         let navigation = try XCTUnwrap(Self.explore() as? UINavigationController)
         let explore = try XCTUnwrap(navigation.viewControllers.first)
         explore.loadViewIfNeeded()
-        let results = try XCTUnwrap(explore.view.subviews.first { $0 is ExplorePageView && $0.isHidden })
-        XCTAssertTrue(endsAtTheKeyboard(results, in: explore.view), "Explore's search results")
+        let results = try XCTUnwrap(explore.view.subviews.first { $0 is ExplorePageView && $0.isHidden } as? ExplorePageView)
+        XCTAssertTrue(tied(results, to: explore.view.keyboardLayoutGuide, .top), "Explore's search results")
+        XCTAssertTrue(tied(results.tableView, to: results, .bottom), "the results' list ends where the results do")
     }
 
     /// Explore's lists and its segments keep to the content column: 16 points from the sides on a phone, the
     /// readable width centred on an iPad, after the first layout and after the window changes width.
     func testExploreStandsInTheColumn() throws {
-        for device in [Self.devices[0], Self.devices[4], Self.devices[0]] {
-            WalletDisplay.canvasOverride = LayoutCanvas(size: device.size)
-            let window = show(Self.explore(), size: device.size, insets: device.insets)
-            let column = LayoutCanvas.columnWidth(forWidth: device.size.width)
-            let explore = try XCTUnwrap((window.rootViewController as? UINavigationController)?.viewControllers.first)
-            let lists = Self.visibleTables(in: explore.view).filter { $0.window != nil && $0.bounds.width > 0 }
-            XCTAssertFalse(lists.isEmpty)
-            for list in lists {
-                XCTAssertEqual(list.bounds.width, column, accuracy: 0.5, "a list at \(device.name)")
-            }
-            let segments = try XCTUnwrap(Self.descendants(UICollectionView.self, of: explore.view).first)
-            XCTAssertEqual(segments.bounds.width, column, accuracy: 0.5, "the segments at \(device.name)")
-            // The same screen when its window changes width (an iPad split, a turned phone).
-            let wider = CGSize(width: device.size.width + 200, height: device.size.height)
-            window.frame = CGRect(origin: .zero, size: wider)
+        // One window, made wide and narrow again: the column follows the screen's width both ways.
+        let phone = Self.devices[0], wide = Self.devices[4]
+        WalletDisplay.canvasOverride = LayoutCanvas(size: phone.size)
+        let window = show(Self.explore(), size: phone.size, insets: phone.insets)
+        let explore = try XCTUnwrap((window.rootViewController as? UINavigationController)?.viewControllers.first)
+        let pages = Self.descendants(ExplorePageView.self, of: explore.view).filter { !$0.isHidden }
+        XCTAssertEqual(pages.count, 3, "the three pages")
+        let segments = try XCTUnwrap(Self.descendants(UICollectionView.self, of: explore.view).first)
+        for size in [phone.size, wide.size, phone.size] {
+            WalletDisplay.canvasOverride = LayoutCanvas(size: size)
+            window.frame = CGRect(origin: .zero, size: size)
             settle(window)
-            for list in lists {
-                XCTAssertEqual(list.bounds.width, LayoutCanvas.columnWidth(forWidth: wider.width), accuracy: 0.5,
-                               "a list once \(device.name) is \(Int(wider.width)) wide")
+            let column = LayoutCanvas.columnWidth(forWidth: size.width)
+            for page in pages {
+                let list = page.tableView.convert(page.tableView.bounds, to: page)
+                XCTAssertEqual(page.bounds.width, size.width, accuracy: 0.5, "a page at \(Int(size.width))")
+                XCTAssertEqual(list.width, column, accuracy: 0.5, "a list at \(Int(size.width))")
+                XCTAssertEqual(list.midX, page.bounds.midX, accuracy: 0.5, "a list's middle at \(Int(size.width))")
             }
-            close(window)
+            let strip = segments.convert(segments.bounds, to: window)
+            XCTAssertEqual(strip.width, column, accuracy: 0.5, "the segments at \(Int(size.width))")
+            XCTAssertEqual(strip.midX, window.bounds.midX, accuracy: 0.5, "the segments' middle at \(Int(size.width))")
         }
+        close(window)
     }
 
     private static func descendants<T: UIView>(_ type: T.Type, of view: UIView) -> [T] {
@@ -4375,6 +4383,15 @@ final class ScreenFitTests: XCTestCase {
     func testCaptureFitGallery() async throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["SORA_FIT_GALLERY"] == "1" else { throw XCTSkip("Opt-in fit gallery") }
+        // SORA_FIT_SCREENS=a,b: only those screens (a picture of each changed screen without the whole catalogue).
+        // Checked before anything is cleared: a filter that names no screen fails and leaves the last gallery.
+        let filter = environment["SORA_FIT_SCREENS"] ?? ""
+        let wanted = Set(filter.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+        let unknown = wanted.subtracting(Self.screens.map(\.name))
+        guard unknown.isEmpty else { return XCTFail("SORA_FIT_SCREENS names no screen: \(unknown.sorted())") }
+        guard !wanted.isEmpty || filter.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return XCTFail("SORA_FIT_SCREENS names no screen: \"\(filter)\"")
+        }
         let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("FitGallery", isDirectory: true)
         try? FileManager.default.removeItem(at: output)
@@ -4382,11 +4399,6 @@ final class ScreenFitTests: XCTestCase {
         let size = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.coordinateSpace.bounds.size
             ?? UIScreen.main.bounds.size
         var report: [String] = ["window \(Int(size.width))x\(Int(size.height))"]
-        // SORA_FIT_SCREENS=a,b: only those screens (a picture of each changed screen without the whole catalogue).
-        let wanted = Set((environment["SORA_FIT_SCREENS"] ?? "").split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
-        let unknown = wanted.subtracting(Self.screens.map(\.name))
-        guard unknown.isEmpty else { return XCTFail("SORA_FIT_SCREENS names no screen: \(unknown.sorted())") }
         for language in (environment["SORA_FIT_LANGUAGES"] ?? "en,ja").split(separator: ",").map(String.init) {
             LocalizationManager.shared.selectedLocalization = language
             for screen in Self.screens where wanted.isEmpty || wanted.contains(screen.name) {
