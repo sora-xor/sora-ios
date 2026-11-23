@@ -119,7 +119,11 @@ final class PortfolioSegmentedControl: UIView {
 
     func configure(titles: [String], selected: Int, animated: Bool) {
         if buttons.map({ $0.title(for: .normal) ?? "" }) != titles {
-            buttons.forEach { $0.removeFromSuperview() }
+            // A replaced choice is disconnected as well as removed, so it can never act for the new list.
+            buttons.forEach {
+                $0.removeTarget(self, action: nil, for: .allEvents)
+                $0.removeFromSuperview()
+            }
             buttons = titles.enumerated().map { index, title in
                 let button = UIButton(type: .custom)
                 button.setTitle(title, for: .normal)
@@ -128,6 +132,7 @@ final class PortfolioSegmentedControl: UIView {
                 button.titleLabel?.adjustsFontSizeToFitWidth = true
                 button.titleLabel?.minimumScaleFactor = 0.7
                 button.tag = index
+                button.accessibilityLabel = title
                 button.accessibilityTraits = .button
                 button.addTarget(self, action: #selector(tapped(_:)), for: .touchUpInside)
                 stack.addArrangedSubview(button)

@@ -8,8 +8,15 @@ import XCTest
 
 @MainActor
 final class WalletSelectionControlTests: XCTestCase {
-  private func buttons(_ view: UIView) -> [SoramitsuButton] {
-    view.subviews.flatMap { ($0 as? SoramitsuButton).map { [$0] } ?? buttons($0) }
+  /// The switcher is a segmented control: one plain button per choice inside `PortfolioSegmentedControl`.
+  private func buttons(_ view: UIView) -> [UIButton] {
+    func segments(_ view: UIView) -> [PortfolioSegmentedControl] {
+      view.subviews.flatMap { ($0 as? PortfolioSegmentedControl).map { [$0] } ?? segments($0) }
+    }
+    func plainButtons(_ view: UIView) -> [UIButton] {
+      view.subviews.flatMap { ($0 as? UIButton).map { [$0] } ?? plainButtons($0) }
+    }
+    return segments(view).flatMap(plainButtons)
   }
   func testSwitcherInvokesOnlyTheTappedChoice() {
     let v = SwitcherView()
@@ -24,23 +31,27 @@ final class WalletSelectionControlTests: XCTestCase {
     XCTAssertEqual(controls.count, 2)
     controls[1].sendActions(for: .touchUpInside)
     XCTAssertEqual(calls, ["address"])
+    // The choice already shown is not chosen again: the presenter re-renders with the new selection.
     controls[0].sendActions(for: .touchUpInside)
-    XCTAssertEqual(calls, ["address", "wallet"])
+    XCTAssertEqual(calls, ["address"])
   }
   func testReplacingSwitcherChoicesRemovesOldButtonsAndHandlers() {
     let v = SwitcherView()
     var oldCalls = 0
     var newCalls = 0
     v.viewModel = SwitcherViewModel(buttonViewModels: [
-      SwitcherButtonViewModel(title: "Old", isSelected: true, actionBlock: { oldCalls += 1 })
+      SwitcherButtonViewModel(title: "Old", isSelected: true, actionBlock: { oldCalls += 1 }),
+      SwitcherButtonViewModel(title: "Old other", isSelected: false, actionBlock: { oldCalls += 1 }),
     ])
-    let old = buttons(v).first
+    let old = buttons(v)
     v.viewModel = SwitcherViewModel(buttonViewModels: [
-      SwitcherButtonViewModel(title: "New", isSelected: false, actionBlock: { newCalls += 1 })
+      SwitcherButtonViewModel(title: "New", isSelected: true, actionBlock: { newCalls += 1 }),
+      SwitcherButtonViewModel(title: "New other", isSelected: false, actionBlock: { newCalls += 1 }),
     ])
-    XCTAssertNil(old?.superview)
-    XCTAssertEqual(buttons(v).count, 1)
-    buttons(v)[0].sendActions(for: .touchUpInside)
+    XCTAssertTrue(old.allSatisfy { $0.superview == nil })
+    XCTAssertEqual(buttons(v).count, 2)
+    old[1].sendActions(for: .touchUpInside)
+    buttons(v)[1].sendActions(for: .touchUpInside)
     XCTAssertEqual(oldCalls, 0)
     XCTAssertEqual(newCalls, 1)
   }
@@ -60,10 +71,11 @@ final class WalletSelectionControlTests: XCTestCase {
   func testSwitcherAllowsAChoiceWithoutACallback() {
     let v = SwitcherView()
     v.viewModel = SwitcherViewModel(buttonViewModels: [
-      SwitcherButtonViewModel(title: "Read only", isSelected: false)
+      SwitcherButtonViewModel(title: "Wallet", isSelected: true),
+      SwitcherButtonViewModel(title: "Read only", isSelected: false),
     ])
-    XCTAssertEqual(buttons(v).count, 1)
-    buttons(v)[0].sendActions(for: .touchUpInside)
+    XCTAssertEqual(buttons(v).count, 2)
+    buttons(v)[1].sendActions(for: .touchUpInside)
   }
   func testSwitcherExposesSelectedChoiceToAccessibility() {
     let v = SwitcherView()
@@ -72,6 +84,7 @@ final class WalletSelectionControlTests: XCTestCase {
       SwitcherButtonViewModel(title: "Address", isSelected: false),
     ])
     let controls = buttons(v)
+    XCTAssertEqual(controls.count, 2)
     XCTAssertTrue(controls[0].accessibilityTraits.contains(.selected))
     XCTAssertFalse(controls[1].accessibilityTraits.contains(.selected))
     XCTAssertEqual(controls[0].accessibilityLabel, "Wallet")
