@@ -205,9 +205,6 @@ final class NexusBalanceCell: SoramitsuTableViewCell {
         return view
     }()
 
-    /// Each shown action's share of the row, set from how many are shown (Send and the faucet come and go).
-    private var actionShares: [NSLayoutConstraint] = []
-
     private(set) lazy var sendButton: AssetActionView = action(
         title: R.string.localizable.commonSend(preferredLanguages: .currentLocale),
         image: R.image.wallet.send(), identifier: "nexus.send", action: .send)
@@ -294,21 +291,12 @@ final class NexusBalanceCell: SoramitsuTableViewCell {
             faucetSpinner.centerXAnchor.constraint(equalTo: faucetButton.button.centerXAnchor),
             faucetSpinner.centerYAnchor.constraint(equalTo: faucetButton.button.centerYAnchor),
         ])
-        shareTheRow()
-    }
-
-    /// Each shown action has at most its share of the card's row: "テスト用XORを受け取る" and "Check faucet
-    /// request" were wider than a third of it on a 375-point phone, pushed their pad off the row's rhythm or
-    /// were cut; they wrap under the pad now. One or two actions share the row between them.
-    private func shareTheRow() {
-        let shown = [sendButton, receiveButton, faucetButton].filter { !$0.isHidden }
-        let count = CGFloat(max(1, shown.count))
-        NSLayoutConstraint.deactivate(actionShares)
-        actionShares = shown.map {
-            $0.widthAnchor.constraint(lessThanOrEqualTo: separatorView.widthAnchor, multiplier: 1 / count,
-                                      constant: -actionsStackView.spacing * (count - 1) / count)
-        }
-        NSLayoutConstraint.activate(actionShares)
+        // The actions never run past the card's row: where their captions do not fit on one line beside each
+        // other ("テスト用XORを受け取る" or "Check faucet request" on a 375-point phone), the longest caption takes a
+        // second line under its pad instead of being cut. Where they fit, nothing changes: one line each.
+        actionsStackView.widthAnchor.constraint(lessThanOrEqualTo: separatorView.widthAnchor).isActive = true
+        // The faucet's caption is the long one: it is the one that wraps, never "送る" or "Send".
+        faucetButton.titleLabel.setContentCompressionResistancePriority(.defaultHigh - 1, for: .horizontal)
     }
 
     @available(*, unavailable)
@@ -361,7 +349,6 @@ extension NexusBalanceCell: SoramitsuTableViewCellProtocol {
             faucetSpinner.stopAnimating()
             faucetStatusLabel.sora.isHidden = true
         }
-        shareTheRow()
         let notes = item.notes.joined(separator: "\n\n")
         notesLabel.sora.text = notes
         notesLabel.sora.isHidden = notes.isEmpty
