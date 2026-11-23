@@ -69,6 +69,10 @@ public final class ExploreAssetView: SoramitsuView {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textM
         label.sora.textColor = .fgPrimary
+        // A long name beside a price on a 375-point phone ("SORA Validator Token") gets a little smaller before
+        // it is cut; the row is too short for a second line.
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.8
         label.sora.isUserInteractionEnabled = false
         label.sora.loadingPlaceholder.type = .shimmer
         label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
