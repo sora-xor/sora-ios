@@ -670,9 +670,12 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
     }
 
     private func swapOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
+        // Each signed amount is scaled by the decimals of its own asset.
+        // Predefined assets use the runtime's fixed value, never one a node
+        // reported.
         guard info.asset != info.destination,
             let asset = accountSettings.assets.first(where: { $0.identifier == info.asset }),
-            accountSettings.assets.first(where: { $0.identifier == info.destination }) != nil
+            let precisions = SwapAssetPrecisions(info: info, assets: accountSettings.assets)
         else {
             let error = WalletNetworkOperationFactoryError.invalidAsset
             return createCompoundOperation(result: .failure(error))
@@ -683,7 +686,10 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
             return createCompoundOperation(result: .failure(error))
         }
 
-        guard let amountCall = info.amountCall else {
+        guard let amountCall = info.amountCall(
+            sourcePrecision: precisions.source,
+            destinationPrecision: precisions.destination
+        ) else {
             let error = WalletNetworkOperationFactoryError.invalidContext
             return createCompoundOperation(result: .failure(error))
         }

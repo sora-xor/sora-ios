@@ -94,6 +94,26 @@ final class WalletFacadeFlowTests: XCTestCase {
         let f = try FacadeFixture(); f.prices.values = [.init(price: "-1", usdDayChange: 0)]
         await expectFailure { try await run(f.facade.fetchPriceOperation(.xor, tokenId: "sora")) }
     }
+    /// The saved swap holds each amount in the units of its own asset, as the
+    /// node factory signs it: 2 decimals for the source, 4 for the destination.
+    func testSwapHistoryIsSavedWithTheDecimalsOfEachOfItsAssets() async throws {
+        let source = "0x" + String(repeating: "0a", count: 32), destination = "0x" + String(repeating: "0b", count: 32)
+        func asset(_ id: String, _ precision: Int16) -> WalletAsset { WalletAsset(identifier: id, name: LocalizableResource { _ in id }, symbol: id, precision: precision) }
+        let f = try FacadeFixture(walletAssets: [asset(WalletAssetId.xor.rawValue, 18), asset(source, 2), asset(destination, 4)])
+        f.node.transferClosure = { _ in .init(targetOperation: ClosureOperation { Data(repeating: 9, count: 32) }) }
+        let info = TransferInfo(source: "", destination: destination, amount: AmountDecimal(string: "10.01")!, asset: source, details: "", fees: [], context: [
+            TransactionContextKeys.transactionType: TransactionType.swap.rawValue, TransactionContextKeys.estimatedAmount: "2.5",
+            TransactionContextKeys.marketType: LiquiditySourceType.smart.rawValue, TransactionContextKeys.slippage: "0.5",
+            TransactionContextKeys.desire: SwapVariant.desiredOutput.rawValue, TransactionContextKeys.minMaxValue: "10.07",
+            TransactionContextKeys.sourcePrecision: "2", TransactionContextKeys.destinationPrecision: "4",
+            TransactionContextKeys.dex: "0"])
+        equal(try await run(f.facade.transferOperation(info)), Data(repeating: 9, count: 32))
+        var saved = [TransactionHistoryItem]()
+        for _ in 0..<150 where saved.isEmpty { saved = try await rows(f); if saved.isEmpty { try await Task.sleep(nanoseconds: 20_000_000) } }
+        let call = try JSONDecoder.scaleCompatible(snakeCase: true).decode(RuntimeCall<SwapCall>.self, from: XCTUnwrap(saved.first?.call)).args
+        equal(call.inputAssetId.value, source); equal(call.outputAssetId.value, destination)
+        equal(call.amount[.desiredOutput]?.desired, 25000); equal(call.amount[.desiredOutput]?.slip, 1007)
+    }
     func testLegacyOrdinaryTransferDoesNotReachNodeOrWriteHistory() async throws {
         let f = try FacadeFixture(); var called = false
         f.node.transferClosure = { _ in called = true; return .init(targetOperation: ClosureOperation { Data() }) }
@@ -379,9 +399,9 @@ private final class FacadeFixture {
     let assets = FacadeAssets(), farms = FacadeFarms(), engine = FacadeEngine()
     let address: String
     var facade: WalletNetworkFacade!
-    init() throws {
+    init(walletAssets: [WalletAsset]? = nil) throws {
         address = try SS58AddressFactory().addressFromAccountId(data: publicKey, type: SoraPassport.Chain.sora.addressType())
-        facade = WalletNetworkFacade(accountSettings: WalletAccountSettings(accountId: publicKey.toHex(), assets: [WalletAsset(identifier: WalletAssetId.xor.rawValue, name: LocalizableResource { _ in "XOR" }, symbol: "XOR", precision: 18)]),
+        facade = WalletNetworkFacade(accountSettings: WalletAccountSettings(accountId: publicKey.toHex(), assets: walletAssets ?? [WalletAsset(identifier: WalletAssetId.xor.rawValue, name: LocalizableResource { _ in "XOR" }, symbol: "XOR", precision: 18)]),
           nodeOperationFactory: node, coingeckoOperationFactory: prices,
           polkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactory(engine: engine),
           chainStorage: AnyDataProviderRepository(chain), localStorageIdFactory: try ChainStorageIdFactory(chain: .sora),

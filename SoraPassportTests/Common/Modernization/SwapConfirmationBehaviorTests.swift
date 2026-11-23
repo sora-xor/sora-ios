@@ -27,7 +27,7 @@ final class SwapConfirmationBehaviorTests: XCTestCase {
             model = ConfirmSwapViewModel(wireframe: routes, firstAssetId: from, secondAssetId: to, assetManager: manager,
                 eventCenter: events, firstAssetAmount: direction == .desiredInput ? 5 : 10,
                 secondAssetAmount: direction == .desiredInput ? 10 : 5, slippageTolerance: tolerance, details: [], market: .xyk,
-                amounts: SwapQuoteAmounts(fromAmount: 5, toAmount: 10), walletService: wallet, fee: fee, swapVariant: direction,
+                amounts: SwapQuoteAmounts(fromAmount: 5, toAmount: 10, sourcePrecision: 18, destinationPrecision: 18), walletService: wallet, fee: fee, swapVariant: direction,
                 minMaxValue: direction == .desiredInput ? tolerance.minimumAmount(for: 10) : tolerance.maximumAmount(for: 10), dexId: 0,
                 interactor: interactor, quoteParams: params, assetsProvider: provider, fiatData: [])
             model.view = host
@@ -133,6 +133,21 @@ final class SwapConfirmationBehaviorTests: XCTestCase {
         f.model.setupContent()
         XCTAssertEqual(f.assets?.firstAssetImageModel.amountText, "0.000000001")
         XCTAssertEqual(f.assets?.secondAssetImageModel.amountText, "0.000000002")
+    }
+    /// The formatter writes fifteen significant digits at most and rounds to the nearest there. The amount sold is
+    /// never written as less than it is and the amount received never as more.
+    func testReviewNeverWritesAnAmountBetterThanTheSignedOne() {
+        let f = fixture(values: [xor: 6, val: 0])
+        // Written in the phone's locale; these values have fifteen significant digits, which the formatter keeps.
+        func written(_ value: String) -> String? {
+            NumberFormatter.inputedAmoutFormatter(with: 18).string(from: Decimal(string: value)! as NSNumber)
+        }
+        f.model.firstAssetAmount = Decimal(string: "1.000000000000000001")!
+        f.model.secondAssetAmount = Decimal(string: "1.23456789012345678")!
+        f.model.setupContent()
+        XCTAssertEqual(f.assets?.firstAssetImageModel.amountText, written("1.00000000000001"))
+        XCTAssertEqual(f.assets?.secondAssetImageModel.amountText, written("1.23456789012345"))
+        XCTAssertNotEqual(written("1.00000000000001"), written("1"))
     }
     func testUnrelatedQuoteFailureDoesNotInvalidateTheReviewedPair() {
         let f = fixture(values: [xor: 6, val: 0])
@@ -317,6 +332,43 @@ extension SwapConfirmationBehaviorTests {
         XCTAssertEqual(transaction.base.status, .failed); XCTAssertEqual(transaction.base.txHash, "")
         XCTAssertEqual(f.routes.hidden, 1); XCTAssertEqual(f.events.transactions.count, 1)
         XCTAssertEqual(f.events.transactions.first?.base.status, .failed)
+    }
+    /// A newer quote changes the model before the screen is redrawn. The Confirm button still on screen was drawn
+    /// with the earlier quote and submits nothing; the button drawn with the newer quote submits it.
+    func testConfirmButtonOfAnEarlierQuoteDoesNotSubmitANewerOne() throws {
+        let f = fixture(values: [xor: 6, val: 0])
+        let earlier = try XCTUnwrap(f.button?.handler)
+        f.model.didLoadQuote(SwapValues(amount: "20000000000000000000", route: [xor, val]), dexId: 0, params: f.params)
+        XCTAssertEqual(f.model.secondAssetAmount, 20)
+        earlier()
+        XCTAssertTrue(f.wallet.transfers.isEmpty, "The price on the button's screen was 10, not 20"); XCTAssertEqual(f.routes.shown, 0)
+        try XCTUnwrap(f.button?.handler)()
+        XCTAssertEqual(f.wallet.transfers.count, 1)
+        XCTAssertEqual(f.wallet.transfers.first?.context?[TransactionContextKeys.estimatedAmount], "20")
+        XCTAssertEqual(f.wallet.transfers.first?.context?[TransactionContextKeys.minMaxValue], "19.9")
+    }
+    /// A quote that was not decoded with known decimals cannot be signed, so its review cannot be confirmed.
+    func testReviewOfAmountsWithoutTheirDecimalsCannotBeSubmitted() {
+        let wallet = SwapReviewNetwork(), tolerance = PolkaswapSlippage.defaultValue
+        let params = PolkaswapMainInteractorQuoteParams(fromAssetId: xor, toAssetId: val, amount: "5000000000000000000", swapVariant: .desiredInput, liquiditySources: [], filterMode: .disabled)
+        let model = ConfirmSwapViewModel(wireframe: SwapReviewRoutes(), firstAssetId: xor, secondAssetId: val, assetManager: SwapReviewAssets(),
+            eventCenter: SwapReviewEvents(), firstAssetAmount: 5, secondAssetAmount: 10, slippageTolerance: tolerance, details: [], market: .xyk,
+            amounts: SwapQuoteAmounts(fromAmount: 5, toAmount: 10), walletService: wallet, fee: 1, swapVariant: .desiredInput,
+            minMaxValue: tolerance.minimumAmount(for: 10), dexId: 0, interactor: SwapReviewInteractor(), quoteParams: params,
+            assetsProvider: SwapReviewBalances(values: [xor: 6, val: 0]), fiatData: [])
+        model.viewDidLoad(); model.submit()
+        XCTAssertTrue(wallet.transfers.isEmpty)
+    }
+    /// A newer quote arrives while the swap is being sent. The activity record states the amounts that were submitted.
+    func testPendingSwapStatesTheSubmittedAmountsWhenANewerQuoteArrivesMeanwhile() throws {
+        let f = fixture(direction: .desiredOutput, values: [xor: 30, val: 0]); f.model.submit()
+        let submitted = try XCTUnwrap(f.wallet.transfers.first)
+        XCTAssertEqual(submitted.amount.decimalValue, 10); XCTAssertEqual(submitted.context?[TransactionContextKeys.estimatedAmount], "5")
+        f.model.didLoadQuote(SwapValues(amount: "11000000000000000000", route: [xor, val]), dexId: 0, params: f.params)
+        XCTAssertEqual(f.model.firstAssetAmount, 11)
+        try XCTUnwrap(f.wallet.transferCompletions.first)(.success(Data([0xab, 0xcd])))
+        let transaction = try XCTUnwrap(f.routes.transactions.first as? Swap)
+        XCTAssertEqual(transaction.fromAmount.decimalValue, 10); XCTAssertEqual(transaction.toAmount.decimalValue, 5)
     }
     func testCancelledTransferCompletionOnlyStopsProgress() throws {
         let f = fixture(values: [xor: 6, val: 0]); f.model.submit(); try XCTUnwrap(f.wallet.transferCompletions.first)(nil)

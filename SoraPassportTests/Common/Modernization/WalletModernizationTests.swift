@@ -14701,7 +14701,9 @@ final class WalletModernizationTests: XCTestCase {
             ]
         )
 
-        let amount = try XCTUnwrap(info.amountCall?[.desiredOutput])
+        let amount = try XCTUnwrap(
+            info.amountCall(sourcePrecision: 18, destinationPrecision: 18)?[.desiredOutput]
+        )
         XCTAssertEqual(
             amount.desired,
             try XCTUnwrap(BigUInt("2000000000000000000"))
@@ -14722,7 +14724,7 @@ final class WalletModernizationTests: XCTestCase {
             fees: info.fees,
             context: malformedContext
         )
-        XCTAssertNil(malformed.amountCall)
+        XCTAssertNil(malformed.amountCall(sourcePrecision: 18, destinationPrecision: 18))
 
         var weakenedContext = try XCTUnwrap(info.context)
         weakenedContext[TransactionContextKeys.minMaxValue] = quotedInput
@@ -14735,7 +14737,7 @@ final class WalletModernizationTests: XCTestCase {
             fees: info.fees,
             context: weakenedContext
         )
-        XCTAssertNil(weakened.amountCall)
+        XCTAssertNil(weakened.amountCall(sourcePrecision: 18, destinationPrecision: 18))
     }
 
     func testPolkaswapDesiredInputSignsExactMinimumOutput() throws {
@@ -14757,7 +14759,9 @@ final class WalletModernizationTests: XCTestCase {
             ]
         )
 
-        let amount = try XCTUnwrap(info.amountCall?[.desiredInput])
+        let amount = try XCTUnwrap(
+            info.amountCall(sourcePrecision: 18, destinationPrecision: 18)?[.desiredInput]
+        )
         XCTAssertEqual(
             amount.desired,
             try XCTUnwrap(BigUInt("1000000000000000000"))

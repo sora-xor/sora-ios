@@ -319,13 +319,24 @@ extension SwapViewModel: EventVisitorProtocol {
 }
 
 extension SwapViewModel: LiquidityViewModelProtocol {
+    /// A share of a balance, cut down to whole units of its asset: half of
+    /// 20.03 of an asset with two decimals is 10.01, the amount that can be
+    /// quoted and signed, not 10.015.
+    private static func wholeUnits(_ amount: Decimal, of asset: AssetInfo?) -> Decimal {
+        guard let asset else { return amount }
+        var input = amount
+        var output = Decimal()
+        NSDecimalRound(&output, &input, Int(asset.precision), .down)
+        return output
+    }
+
     func didSelect(variant: Decimal) {
         if focusedField == .one {
             guard firstAssetBalance.balance.decimalValue > 0 else { return }
             let isFeeAsset = assetManager?.assetInfo(for: firstAssetId)?.isFeeAsset ?? false
             let value = firstAssetBalance.balance.decimalValue * variant
             let afterFee = isFeeAsset ? value - fee : value
-            inputedFirstAmount = max(0, afterFee)
+            inputedFirstAmount = Self.wholeUnits(max(0, afterFee), of: assetManager?.assetInfo(for: firstAssetId))
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
             view?.set(firstAmountText: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
         }
@@ -335,7 +346,7 @@ extension SwapViewModel: LiquidityViewModelProtocol {
             let isFeeAsset = assetManager?.assetInfo(for: secondAssetId)?.isFeeAsset ?? false
             let value = secondAssetBalance.balance.decimalValue * variant
             let afterFee = isFeeAsset ? value - fee : value
-            inputedSecondAmount = max(0, afterFee)
+            inputedSecondAmount = Self.wholeUnits(max(0, afterFee), of: assetManager?.assetInfo(for: secondAssetId))
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: secondAssetId)?.precision ?? 0)
             view?.set(secondAmountText: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
         }
@@ -354,11 +365,12 @@ extension SwapViewModel: LiquidityViewModelProtocol {
             self.firstAssetId = self.secondAssetId
             self.secondAssetId = tmpAssetId
             
+            // The pair has turned over: each amount now sits in the other
+            // field and is written with the decimals of the asset it is in.
             let firstFormatter = NumberFormatter.inputedAmoutFormatter(with: self.assetManager?.assetInfo(for: self.firstAssetId)?.precision ?? 0)
-            self.view?.set(secondAmountText: firstFormatter.stringFromDecimal(self.inputedFirstAmount) ?? "")
-            
             let secondFormatter = NumberFormatter.inputedAmoutFormatter(with: self.assetManager?.assetInfo(for: self.secondAssetId)?.precision ?? 0)
-            self.view?.set(firstAmountText: secondFormatter.stringFromDecimal(self.inputedSecondAmount) ?? "")
+            self.view?.set(secondAmountText: secondFormatter.stringFromDecimal(self.inputedFirstAmount) ?? "")
+            self.view?.set(firstAmountText: firstFormatter.stringFromDecimal(self.inputedSecondAmount) ?? "")
             
             if self.focusedField == .one {
                 self.inputedSecondAmount = self.inputedFirstAmount
@@ -436,7 +448,8 @@ extension SwapViewModel: LiquidityViewModelProtocol {
     
     func reviewButtonTapped() {
         updateAssetsBalance()
-        guard updateButtonState(), checkBalances(),
+        // A limit of less than one unit of its asset cannot be signed.
+        guard updateButtonState(), checkBalances(), slippageLimit > 0,
               let assetManager, let amounts, let quoteParams,
               matchesCurrentRequest(quoteParams) else { return }
         wireframe?.showSwapConfirmation(on: view?.controller.navigationController,
@@ -444,8 +457,12 @@ extension SwapViewModel: LiquidityViewModelProtocol {
                                         targetAssetId: secondAssetId,
                                         assetManager: assetManager,
                                         eventCenter: eventCenter,
-                                        firstAssetAmount: inputedFirstAmount,
-                                        secondAssetAmount: inputedSecondAmount,
+                                        // The review states the amounts of the quote itself: what it
+                                        // was asked for and what it answered, in whole units of each
+                                        // asset. An amount entered with more decimals than its asset
+                                        // has is reviewed as the amount that is quoted and signed.
+                                        firstAssetAmount: swapVariant == .desiredInput ? amounts.fromAmount : amounts.toAmount,
+                                        secondAssetAmount: swapVariant == .desiredInput ? amounts.toAmount : amounts.fromAmount,
                                         slippageTolerance: slippageTolerance,
                                         market: selectedMarket,
                                         details: details,
@@ -513,7 +530,7 @@ extension SwapViewModel: PolkaswapMainInteractorOutputProtocol {
         }
         
         updateDetails(params: params, quote: quote, dexId: dexId) { [weak self] in
-            guard let self = self, self.checkBalances() else {
+            guard let self = self, self.slippageLimit > 0, self.checkBalances() else {
                 self?.view?.update(isNeedLoadingState: false)
                 return
             }
@@ -615,9 +632,12 @@ extension SwapViewModel {
                                                                         quote: quote) else { return }
             self.amounts = amounts
             
-            self.slippageLimit = self.swapVariant == .desiredInput
-                ? self.slippageTolerance.minimumAmount(for: amounts.toAmount)
-                : self.slippageTolerance.maximumAmount(for: amounts.toAmount)
+            // The limit as it is signed: whole units of the asset it is in
+            // (least received in the destination, most sold in the source).
+            self.slippageLimit = amounts.slippageLimit(self.slippageTolerance,
+                                                       direction: self.swapVariant,
+                                                       fromAsset: fromAsset,
+                                                       toAsset: toAsset)
             self.updateWarningModel()
             self.details = self.makeDetails(fromAsset: fromAsset, toAsset: toAsset, amounts: amounts)
             self.view?.update(isNeedLoadingState: false)

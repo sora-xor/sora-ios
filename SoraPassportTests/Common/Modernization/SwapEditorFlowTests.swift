@@ -617,3 +617,52 @@ extension SwapEditorFlowTests {
         XCTAssertNotNil(f.model.amounts); XCTAssertFalse(f.view.enabled)
     }
 }
+
+/// The editor's fixture gives VAL 6 decimals and XOR 18, so an amount scaled by the other asset's decimals shows.
+extension SwapEditorFlowTests {
+    private func awaitAmounts(_ f: SwapEditorFixture) async {
+        let deadline = Date().addingTimeInterval(3)
+        while f.model.amounts == nil && Date() < deadline { try? await Task.sleep(nanoseconds: 10_000_000) }
+    }
+    /// The amount to receive is fixed at 2 VAL; the node answers with the XOR it costs.
+    func testFixedOutputQuoteFillsTheSourceFieldInSourceUnitsAndReviewsBothAmounts() async {
+        let f = make(); f.model.focusedField = .two; f.model.inputedSecondAmount = 2
+        let params = PolkaswapMainInteractorQuoteParams(fromAssetId: f.xor, toAssetId: f.val, amount: "2000000",
+            swapVariant: .desiredOutput, liquiditySources: [], filterMode: .disabled)
+        f.model.didLoadQuote(SwapValues(amount: "1500000000000000000", route: [f.xor, f.val]), dexId: 4, params: params)
+        await awaitAmounts(f)
+        XCTAssertEqual(f.model.amounts?.fromAmount, 2); XCTAssertEqual(f.model.amounts?.toAmount, Decimal(string: "1.5"))
+        XCTAssertEqual(f.model.amounts?.sourcePrecision, 18); XCTAssertEqual(f.model.amounts?.destinationPrecision, 6)
+        XCTAssertEqual(f.model.inputedFirstAmount, Decimal(string: "1.5")); XCTAssertEqual(f.view.firstText, "1.5")
+        f.model.reviewButtonTapped()
+        let review = f.routes.reviews.last
+        XCTAssertEqual(review?.2, Decimal(string: "1.5")); XCTAssertEqual(review?.3, 2)
+    }
+    /// 1.0000005 VAL was entered, but VAL has 6 decimals: 1 VAL is quoted, so 1 VAL is reviewed.
+    func testReviewStatesTheQuotedAmountWhenTheEnteredOneHasMoreDecimalsThanItsAsset() async {
+        let f = make(); f.model.firstAssetId = f.val; f.model.secondAssetId = f.xor
+        f.model.inputedFirstAmount = Decimal(string: "1.0000005")!
+        let params = PolkaswapMainInteractorQuoteParams(fromAssetId: f.val, toAssetId: f.xor, amount: "1000000",
+            swapVariant: .desiredInput, liquiditySources: [], filterMode: .disabled)
+        f.model.didLoadQuote(SwapValues(amount: "2000000000000000000", route: [f.val, f.xor]), dexId: 4, params: params)
+        await awaitAmounts(f)
+        XCTAssertEqual(f.model.amounts?.fromAmount, 1); XCTAssertEqual(f.model.amounts?.toAmount, 2)
+        f.model.reviewButtonTapped()
+        let review = f.routes.reviews.last
+        XCTAssertEqual(review?.0, f.val); XCTAssertEqual(review?.2, 1); XCTAssertEqual(review?.3, 2)
+    }
+    func testShareOfABalanceIsCutToWholeUnitsOfItsAsset() {
+        let f = make(); f.model.firstAssetId = f.val; f.model.secondAssetId = f.xor
+        f.balances.values[f.val] = Decimal(string: "0.000003")!; f.model.updateAssetsBalance()
+        f.model.focusedField = .one; f.model.didSelect(variant: Decimal(string: "0.5")!)
+        XCTAssertEqual(f.model.inputedFirstAmount, Decimal(string: "0.000001"))
+    }
+    /// After the pair turns over, the amount that moved to the second field is written with that field's asset: XOR's 18 decimals, not VAL's 6.
+    func testReversedPairWritesEachAmountWithTheDecimalsOfItsNewAsset() async {
+        let f = make(); f.model.viewDidLoad(); await settle(); f.model.focusedField = .one
+        f.model.inputedFirstAmount = Decimal(string: "1.2345678901")!
+        f.model.middleButtonActionHandler?()
+        XCTAssertEqual(f.model.firstAssetId, f.val); XCTAssertEqual(f.model.secondAssetId, f.xor)
+        XCTAssertEqual(f.view.secondText, "1.2345678901")
+    }
+}

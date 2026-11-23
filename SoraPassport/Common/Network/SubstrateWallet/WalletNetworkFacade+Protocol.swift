@@ -162,6 +162,11 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
                 .createWithResult(())
 
             let transferWrapper: CompoundOperationWrapper = nodeOperationFactory.transferOperation(info)
+            // The saved swap call is scaled as the signed one was: by the
+            // decimals of each asset in the account's settings.
+            let swapPrecisions = info.type == .swap
+                ? SwapAssetPrecisions(info: info, assets: accountSettings.assets)
+                : nil
 
             let txSaveOperation = txStorage.saveOperation({
                 let txHash = try Sora2LegacySubmissionProjection
@@ -173,7 +178,8 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
                     transactionHash: txHash,
                     senderAddress: self.address,
                     networkType: currentNetworkType,
-                    addressFactory: addressFactory
+                    addressFactory: addressFactory,
+                    swapPrecisions: swapPrecisions
                 )
                 return [item]
             }, { [] })

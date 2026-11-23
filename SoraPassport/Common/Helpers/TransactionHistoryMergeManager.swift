@@ -78,7 +78,8 @@ enum TransactionHistoryMergeItem {
         address: String,
         networkType: SNAddressType,
         asset: WalletAsset,
-        addressFactory: SS58AddressFactoryProtocol
+        addressFactory: SS58AddressFactoryProtocol,
+        assets: [WalletAsset] = []
     ) -> AssetTransactionData? {
         switch self {
         case let .local(item):
@@ -87,7 +88,8 @@ enum TransactionHistoryMergeItem {
                 address: address,
                 networkType: networkType,
                 asset: asset,
-                addressFactory: addressFactory
+                addressFactory: addressFactory,
+                assets: assets
             )
         case let .remote(item):
             return item.createTransactionForAddress(
@@ -118,17 +120,22 @@ final class TransactionHistoryMergeManager {
     let networkType: SNAddressType
     let asset: WalletAsset
     let addressFactory: SS58AddressFactoryProtocol
+    /// The account's assets: a saved swap is read back with the decimals of
+    /// each of its two assets.
+    let assets: [WalletAsset]
 
     init(
         address: String,
         networkType: SNAddressType,
         asset: WalletAsset,
-        addressFactory: SS58AddressFactoryProtocol
+        addressFactory: SS58AddressFactoryProtocol,
+        assets: [WalletAsset] = []
     ) {
         self.address = address
         self.networkType = networkType
         self.asset = asset
         self.addressFactory = addressFactory
+        self.assets = assets
     }
 
     func merge(
@@ -181,7 +188,8 @@ final class TransactionHistoryMergeManager {
                     address: address,
                     networkType: networkType,
                     asset: asset,
-                    addressFactory: addressFactory
+                    addressFactory: addressFactory,
+                    assets: assets
                 )
             }
 
