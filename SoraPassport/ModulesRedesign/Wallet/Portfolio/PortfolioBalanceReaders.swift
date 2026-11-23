@@ -23,6 +23,51 @@ struct PortfolioRawBalance: Equatable {
     static let zero = PortfolioRawBalance(free: 0, reserved: 0, frozen: 0)
 }
 
+/// Gives up on a read that takes too long: a node that does not answer is a failed read, so one
+/// wallet or network never holds back the others.
+enum PortfolioReadDeadline {
+    private final class Once<T>: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<T, Error>?
+
+        init(_ continuation: CheckedContinuation<T, Error>) {
+            self.continuation = continuation
+        }
+
+        func resume(_ result: Result<T, Error>) {
+            lock.lock()
+            let continuation = self.continuation
+            self.continuation = nil
+            lock.unlock()
+            continuation?.resume(with: result)
+        }
+    }
+
+    static func run<T>(seconds: TimeInterval, _ read: @escaping () async throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            let once = Once(continuation)
+            let reading = Task<Void, Never> {
+                do {
+                    let value = try await read()
+                    once.resume(.success(value))
+                } catch {
+                    once.resume(.failure(error))
+                }
+            }
+            let timer = Task {
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+                once.resume(.failure(PortfolioReaderError.noConnection))
+                reading.cancel()
+            }
+            Task {
+                await reading.value
+                timer.cancel()
+            }
+        }
+    }
+}
+
 /// Reads the SORA2 balances of any address. Storage queries only: it holds no signer and never
 /// touches keys, account storage or the selected wallet.
 protocol PortfolioSora2BalanceReading: AnyObject {

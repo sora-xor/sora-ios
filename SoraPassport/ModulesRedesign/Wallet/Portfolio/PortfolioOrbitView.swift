@@ -125,11 +125,15 @@ final class PortfolioOrbitView: UIView {
         ring.path = UIBezierPath(ovalIn: ringRect).cgPath
         ring.strokeColor = (PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.16) : tokens.hairline).cgColor
         ringFill.frame = ringRect
+        ringFill.isHidden = !FxPolicy.current.glows
         let tint = PortfolioTheme.isDark ? UIColor(portfolioHex: 0x8B5CFF, alpha: 0.22) : UIColor(portfolioHex: 0x8B5CFF, alpha: 0.10)
         ringFill.colors = [tint.cgColor, tint.withAlphaComponent(0).cgColor]
         ringFill.startPoint = CGPoint(x: 0.5, y: 0.5)
         ringFill.endPoint = CGPoint(x: 1, y: 1)
 
+        let glows = FxPolicy.current.glows
+        halo.isHidden = !glows
+        nodeHalo.isHidden = !glows
         let haloRadius: CGFloat = 70
         halo.frame = CGRect(x: center.x - haloRadius, y: center.y - haloRadius, width: haloRadius * 2, height: haloRadius * 2)
         let haloColor = PortfolioTheme.flowerPink.withAlphaComponent(PortfolioTheme.isDark ? 0.30 : 0.14)
@@ -211,7 +215,7 @@ final class PortfolioOrbitView: UIView {
         readyLinks.path = solid.cgPath
         readyLinks.strokeColor = PortfolioTheme.flowerPink.cgColor
         readyLinks.shadowColor = PortfolioTheme.flowerPink.cgColor
-        readyLinks.shadowOpacity = PortfolioTheme.isDark ? 0.6 : 0.25
+        readyLinks.shadowOpacity = glows ? (PortfolioTheme.isDark ? 0.6 : 0.25) : 0
         readyLinks.shadowRadius = 4
         readyLinks.shadowOffset = .zero
         CATransaction.commit()

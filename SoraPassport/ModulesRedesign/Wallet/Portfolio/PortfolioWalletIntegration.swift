@@ -18,6 +18,11 @@ final class PortfolioHome {
     let listItem = PortfolioListItem()
     let otherNetworksItem = PortfolioOtherNetworksItem()
     private(set) var coordinator: PortfolioCoordinator?
+    /// A read found a different amount on a network other than SORA2: "XOR on other networks" reads again.
+    var onOtherNetworksChange: (() -> Void)?
+    /// "XOR on other networks" appeared, stepped aside or changed its title with the scope.
+    var reloadOtherNetworks: (() -> Void)?
+    private var otherNetworkAmounts: [String: Decimal]?
     private let dataSource: PortfolioDataSource
 
     /// The top of the Wallet tab, above its other cards: the hero, the selected account's key
@@ -102,6 +107,31 @@ final class PortfolioHome {
         lensItem.selected = render.list.lens
         listItem.model = render.list
         coordinator?.renderDidChange()
+        let holdings = viewModel.snapshot.holdings.filter { $0.network != .sora2 }
+        let amounts = Dictionary(holdings.map { ($0.id, $0.amount) }, uniquingKeysWith: { first, _ in first })
+        if let known = otherNetworkAmounts, known != amounts { onOtherNetworksChange?() }
+        otherNetworkAmounts = amounts
+        applyScopeToOtherNetworks()
+    }
+
+    /// These rows are always the selected wallet's: its network pages are the ones they open.
+    private func applyScopeToOtherNetworks() {
+        let wallets = viewModel.snapshot.wallets
+        let selected = wallets.first(where: \.isSelected)
+        let isShown: Bool
+        let name: String?
+        switch viewModel.state.scope {
+        case .allWallets:
+            isShown = true
+            name = wallets.count >= 2 ? selected?.name : nil
+        case let .wallet(id):
+            isShown = id == selected?.id
+            name = nil
+        }
+        guard isShown != otherNetworksItem.isShown || name != otherNetworksItem.walletName else { return }
+        otherNetworksItem.isShown = isShown
+        otherNetworksItem.walletName = name
+        reloadOtherNetworks?()
     }
 
     // MARK: Lifecycle
@@ -456,6 +486,11 @@ extension RedesignWalletViewModel {
         }
         home.otherNetworksItem.onOpen = { [weak self] account in
             Task { @MainActor in self?.openNetwork(account: account) }
+        }
+        home.onOtherNetworksChange = { [weak self] in self?.refreshNetworkRows() }
+        home.reloadOtherNetworks = { [weak self] in
+            guard let self else { return }
+            self.reloadItem?([self.portfolioHome.otherNetworksItem])
         }
     }
 }

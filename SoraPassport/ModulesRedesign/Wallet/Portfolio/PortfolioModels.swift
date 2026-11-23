@@ -142,6 +142,8 @@ struct PortfolioSnapshot: Equatable {
     let liveNetworks: Set<PortfolioNetwork>
     /// The first read of the wallets is still running: neither the empty state nor OFFLINE applies yet.
     var isLoading = false
+    /// Set while the prices are not fresh: the time of the app's "Prices as of" note.
+    var pricesAsOf: Date?
 
     /// The app's network directory with this snapshot's live networks (the debug sample shows every
     /// network as live).

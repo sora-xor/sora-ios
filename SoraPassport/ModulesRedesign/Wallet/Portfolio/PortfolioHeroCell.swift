@@ -98,7 +98,7 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
             $0.translatesAutoresizingMaskIntoConstraints = false
             contentView.addSubview($0)
         }
-        card.shape = .chamfer(radius: 24, cut: 18)
+        card.shape = .rounded(24)
         card.fill = .strong
         cardLight.translatesAutoresizingMaskIntoConstraints = false
         card.contentView.addSubview(cardLight)
@@ -232,7 +232,7 @@ final class PortfolioHeroCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
 
         scopeButton.configure(title: model.scopeTitle, icon: model.scopeIcon, enabled: model.canChangeScope)
         chip.configure(text: model.chipText, tone: model.chipTone)
-        chip.isHidden = model.isLoading
+        chip.isHidden = model.isLoading || model.chipText.isEmpty
         eyebrow.setEyebrow(PortfolioStrings.totalBalance, color: tokens.textSecondary)
 
         let wholeFont = PortfolioTheme.font(FontType.displayHero, .largeTitle, maximum: 64)

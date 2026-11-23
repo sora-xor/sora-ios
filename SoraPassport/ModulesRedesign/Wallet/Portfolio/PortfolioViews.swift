@@ -617,7 +617,7 @@ final class PortfolioDotsView: UIStackView {
 
     func configure(_ slots: [PortfolioSlot]) {
         arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for slot in slots.prefix(6) {
+        for slot in slots.prefix(4) {
             let dot = UIView()
             dot.translatesAutoresizingMaskIntoConstraints = false
             dot.backgroundColor = PortfolioTheme.color(for: slot)

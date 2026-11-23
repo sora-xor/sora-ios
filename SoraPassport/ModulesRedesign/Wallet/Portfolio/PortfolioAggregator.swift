@@ -130,7 +130,9 @@ enum PortfolioAggregator {
         let total = wallets.reduce(Decimal(0)) { $0 + walletTotal($1.id, in: snapshot) }
         let change = wallets.reduce(Decimal(0)) { $0 + walletChange($1.id, in: snapshot) }
         let previous = total - change
-        let percent: Decimal? = previous > 0 ? change / previous * 100 : nil
+        // No token's 24 h change to go by (none read, or the prices are old): no change to state, not a zero.
+        let hasChange = scopedHoldings(snapshot, scope: scope).contains { isCounted($0) && $0.token.change24h != nil }
+        let percent: Decimal? = hasChange && previous > 0 ? change / previous * 100 : nil
 
         var hidden = 0, unpriced = 0, testnet = 0
         for holding in scopedHoldings(snapshot, scope: scope) {
@@ -230,6 +232,10 @@ enum PortfolioAggregator {
         if lhs.value != rhs.value { return lhs.value > rhs.value }
         if lhs.isTestnetOnly != rhs.isTestnetOnly { return !lhs.isTestnetOnly }
         guard case let .token(left) = lhs.kind, case let .token(right) = rhs.kind else { return lhs.key < rhs.key }
+        // Without prices every value ties: XOR and the app's other default tokens come first, in its order.
+        let leftRank = WalletAssetId(rawValue: left.id)?.defaultSort ?? Int.max
+        let rightRank = WalletAssetId(rawValue: right.id)?.defaultSort ?? Int.max
+        if leftRank != rightRank { return leftRank < rightRank }
         if left.symbol != right.symbol { return left.symbol < right.symbol }
         return left.id < right.id
     }

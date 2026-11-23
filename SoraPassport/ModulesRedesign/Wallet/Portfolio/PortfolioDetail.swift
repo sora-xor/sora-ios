@@ -119,9 +119,10 @@ enum PortfolioDetailPresenter {
             let wallet = snapshot.wallet(holding.walletId)?.name ?? ""
             let amount = PortfolioFormat.amount(holding.amount, symbol: holding.token.symbol)
             let value = PortfolioPresenter.holdingValueText(holding)
+            let numbers = PortfolioPresenter.rowNumbers(value: value, amount: amount)
             let network = PortfolioStrings.networkName(holding.network)
             return .init(id: holding.id, network: holding.network, walletName: wallet,
-                         walletSlot: walletSlots[holding.walletId], amount: amount, value: value,
+                         walletSlot: walletSlots[holding.walletId], amount: numbers.detail, value: numbers.value,
                          tag: PortfolioPresenter.tag(for: holding, snapshot: snapshot),
                          isSelected: holding.id == selectedId,
                          accessibilityLabel: "\(network), \(wallet), \(amount), \(value)")
@@ -130,8 +131,9 @@ enum PortfolioDetailPresenter {
         let panel = holdings.first { $0.id == selectedId }.map { panel(for: $0, snapshot: snapshot) }
         let amount = group?.tokenAmount ?? first.amount
         let value = PortfolioPresenter.valueText(of: holdings)
-        let share = PortfolioStrings.shareOfScope(PortfolioFormat.share(group?.share ?? 0),
-                                                  allWallets: scope == .allWallets)
+        // Without a price a token has no share of a total: the page does not say 0%.
+        let share = (group?.value ?? 0) > 0 ? PortfolioStrings.shareOfScope(PortfolioFormat.share(group?.share ?? 0),
+                                                                            allWallets: scope == .allWallets) : ""
         let counts = PortfolioStrings.upper(PortfolioStrings.holdingsCount(holdings.count)) + " · " +
             PortfolioStrings.upper(PortfolioStrings.networksCount(networks.count))
 
