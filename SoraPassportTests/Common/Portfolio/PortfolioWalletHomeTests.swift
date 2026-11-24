@@ -69,6 +69,68 @@ final class PortfolioWalletHomeTests: XCTestCase {
         XCTAssertEqual(home.listItem.model?.lens, .tokens)
     }
 
+    func testIOSUpdateIsAskedForOnReleasesExploitKitsBreakInto() {
+        func needs(_ major: Int, _ minor: Int, _ patch: Int) -> Bool {
+            IOSPatchLevel.needsUpdate(OperatingSystemVersion(majorVersion: major, minorVersion: minor, patchVersion: patch))
+        }
+        XCTAssertTrue(needs(16, 0, 0)); XCTAssertTrue(needs(16, 7, 15)); XCTAssertFalse(needs(16, 7, 16))
+        XCTAssertTrue(needs(17, 2, 1)); XCTAssertTrue(needs(17, 7, 10))
+        XCTAssertTrue(needs(18, 4, 0)); XCTAssertTrue(needs(18, 7, 7)); XCTAssertFalse(needs(18, 7, 12))
+        XCTAssertTrue(needs(26, 0, 0)); XCTAssertTrue(needs(26, 3, 0)); XCTAssertFalse(needs(26, 7, 3)); XCTAssertFalse(needs(26, 8, 0))
+        XCTAssertFalse(needs(27, 0, 0)); XCTAssertFalse(needs(27, 2, 1)); XCTAssertFalse(needs(28, 0, 0))
+    }
+
+    @MainActor
+    func testIOSUpdateNoticeComesAfterTheKeyWarningAndNotNowHidesItForAWeekOnThatRelease() {
+        let suite = "portfolio.home.ios-update"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var version = OperatingSystemVersion(majorVersion: 18, minorVersion: 6, patchVersion: 2)
+        var now = Date(timeIntervalSince1970: 2_000_000_000)
+        let item = PortfolioSystemUpdateItem(defaults: defaults, version: { version }, now: { now })
+        var changes = 0
+        item.onChange = { changes += 1 }
+        XCTAssertFalse(item.isShown, "nothing until the home asks")
+        item.refresh()
+        XCTAssertTrue(item.isShown); XCTAssertEqual(changes, 1)
+        item.refresh()
+        XCTAssertEqual(changes, 1, "an unchanged notice is not redrawn")
+        item.hideForAWeek()
+        XCTAssertFalse(item.isShown); XCTAssertEqual(changes, 2)
+        now = now.addingTimeInterval(6 * 24 * 60 * 60); item.refresh()
+        XCTAssertFalse(item.isShown)
+        now = now.addingTimeInterval(2 * 24 * 60 * 60); item.refresh()
+        XCTAssertTrue(item.isShown, "back after a week")
+        item.hideForAWeek()
+        version = OperatingSystemVersion(majorVersion: 18, minorVersion: 7, patchVersion: 0); item.refresh()
+        XCTAssertTrue(item.isShown, "hiding is for one release only")
+        // After the first check it checks again each time the app comes back.
+        item.hideForAWeek()
+        XCTAssertFalse(item.isShown)
+        now = now.addingTimeInterval(8 * 24 * 60 * 60)
+        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+        XCTAssertTrue(item.isShown, "a week later it is back without the home asking")
+        version = OperatingSystemVersion(majorVersion: 27, minorVersion: 2, patchVersion: 1)
+        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+        XCTAssertFalse(item.isShown, "updated")
+
+        let fresh = home()
+        XCTAssertFalse(fresh.items.contains { $0 === fresh.systemUpdateItem }, "not shown before refresh")
+        let shown = PortfolioSystemUpdateItem(defaults: defaults,
+                                              version: { OperatingSystemVersion(majorVersion: 17, minorVersion: 5, patchVersion: 1) })
+        let home = PortfolioHome(dataSource: PortfolioFakeSource(PortfolioFixtures.snapshot()),
+                                 preferences: PortfolioPreferences(defaults: UserDefaults(suiteName: "portfolio.home")!),
+                                 systemUpdateItem: shown)
+        shown.refresh()
+        XCTAssertTrue(shown.cellType === PortfolioSystemUpdateCell.self)
+        XCTAssertEqual(home.items.count, 4)
+        XCTAssertTrue(home.items[1] === shown)
+        home.noticeItem.setCapability(.missingKeys)
+        XCTAssertEqual(home.items.count, 5)
+        XCTAssertTrue(home.items[1] === home.noticeItem)
+        XCTAssertTrue(home.items[2] === shown)
+    }
+
     @MainActor
     func testNoticeReportsWhenTheHomeNeedsToInsertOrRemoveIt() {
         let item = PortfolioNoticeItem()

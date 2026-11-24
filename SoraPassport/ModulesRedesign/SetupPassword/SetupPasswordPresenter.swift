@@ -69,7 +69,9 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
          lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
          recoveryGate: WalletRecoveryCapabilityGate = .shared,
          backupAccountStore: WalletGoogleBackupAccountStore = .shared) {
-        self.backupAccount = account
+        // Every save reads the phrase, seed, JSON and path again (`prepareBackup`), so none
+        // that the caller passed is kept here.
+        self.backupAccount = account.withoutSecrets
         self.completion = completion
         self.createAccountRequest = createAccountRequest
         self.createAccountService = createAccountService
@@ -101,6 +103,7 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
             self.view?.showLoading()
             defer {
                 self.isSavingBackup = false
+                self.forgetPreparedSecrets()
                 self.view?.hideLoading()
             }
             do {
@@ -177,6 +180,12 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
                     from: self.view)
             }
         }
+    }
+
+    /// After each save attempt, saved or not, what was read for it leaves this screen; another
+    /// attempt reads it again (`prepareBackup`).
+    private func forgetPreparedSecrets() {
+        backupAccount = backupAccount.withoutSecrets
     }
 
     private func createSnapshot() -> SetupPasswordSnapshot {
@@ -269,5 +278,19 @@ extension SetupPasswordPresenter: Localizable {
 
     func applyLocalization() {
         reload()
+    }
+}
+
+extension OpenBackupAccount {
+    /// The same backup without the phrase, the SORA seed, the SORA signing-key JSON or the
+    /// derivation path (which can carry a password). The Ethereum parts are not read from this
+    /// iPhone's keys, so they stay.
+    var withoutSecrets: OpenBackupAccount {
+        var copy = self
+        copy.passphrase = nil
+        copy.substrateDerivationPath = nil
+        copy.encryptedSeed = encryptedSeed.map { OpenBackupAccount.Seed(substrateSeed: nil, ethSeed: $0.ethSeed) }
+        copy.json = json.map { OpenBackupAccount.Json(substrateJson: nil, ethJson: $0.ethJson) }
+        return copy
     }
 }

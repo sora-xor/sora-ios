@@ -57,6 +57,9 @@ final class AccountOptionsPresenter {
     }
     
     private func handle(_ account: OpenBackupAccount?, authorization: AccountOptionsCloudBackupAuthorization?) {
+        // The password screen reads the phrase again when it saves; the alert and the screen's
+        // closures below keep only what names the account.
+        let account = account?.withoutSecrets
         Task {
             let isCurrentAccountBackedup = await interactor.checkCurrentAccountBackedup()
             view?.hideLoading()

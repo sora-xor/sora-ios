@@ -14,6 +14,7 @@ final class PortfolioHome {
     let viewModel: PortfolioViewModel
     let heroItem = PortfolioHeroItem()
     let noticeItem = PortfolioNoticeItem()
+    let systemUpdateItem: PortfolioSystemUpdateItem
     let lensItem = PortfolioLensItem()
     let listItem = PortfolioListItem()
     let otherNetworksItem = PortfolioOtherNetworksItem()
@@ -26,15 +27,19 @@ final class PortfolioHome {
     private let dataSource: PortfolioDataSource
 
     /// The top of the Wallet tab, above its other cards: the hero, the selected account's key
-    /// warning while it cannot sign, the assets, then XOR on other networks. The home has no
-    /// Tokens / Networks / Wallets switch; it always lists tokens.
+    /// warning while it cannot sign, "Update iOS" on an iOS release exploit kits break into, the
+    /// assets, then XOR on other networks. The home has no Tokens / Networks / Wallets switch; it
+    /// always lists tokens.
     var items: [SoramitsuTableViewItemProtocol] {
         let notice: [SoramitsuTableViewItemProtocol] = noticeItem.isShown ? [noticeItem] : []
-        return [heroItem] + notice + [listItem, otherNetworksItem]
+        let update: [SoramitsuTableViewItemProtocol] = systemUpdateItem.isShown ? [systemUpdateItem] : []
+        return [heroItem] + notice + update + [listItem, otherNetworksItem]
     }
 
-    init(dataSource: PortfolioDataSource, preferences: PortfolioPreferences = PortfolioPreferences()) {
+    init(dataSource: PortfolioDataSource, preferences: PortfolioPreferences = PortfolioPreferences(),
+         systemUpdateItem: PortfolioSystemUpdateItem = PortfolioSystemUpdateItem()) {
         self.dataSource = dataSource
+        self.systemUpdateItem = systemUpdateItem
         viewModel = PortfolioViewModel(dataSource: dataSource, preferences: preferences)
         PortfolioFormat.locale = LocalizationManager.shared.isArabic ? Locale(identifier: "en_US")
             : LocalizationManager.shared.selectedLocale
@@ -504,6 +509,10 @@ extension RedesignWalletViewModel {
                 }
             }
         }
+        home.systemUpdateItem.onChange = { [weak self] in
+            Task { @MainActor in self?.updateItems() }
+        }
+        home.systemUpdateItem.refresh()
         home.otherNetworksItem.onOpen = { [weak self] account in
             Task { @MainActor in self?.openNetwork(account: account) }
         }

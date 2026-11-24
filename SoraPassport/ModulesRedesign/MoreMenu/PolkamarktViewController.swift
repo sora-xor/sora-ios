@@ -2202,12 +2202,27 @@ final class PolkamarktMarketViewController: WalletTableViewController {
         }
         switch section {
         case .links:
-            UIApplication.shared.open(links[indexPath.row].1)
+            confirmOpening(links[indexPath.row].1)
         case .position where indexPath.row == 2:
             presentClaims()
         default:
             break
         }
+    }
+
+    /// A market's creator chose these links, not SORA. Ad-delivered iOS exploits run from a web
+    /// page alone (MoldyRoost, Confiant 2026-11-20), so a tap names the site and asks first.
+    func confirmOpening(_ url: URL) {
+        let alert = UIAlertController(
+            title: WalletUX.text("Open this site?"),
+            message: (url.host ?? url.absoluteString) + "\n\n" + WalletUX.text("The market's creator chose this link, not SORA."),
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: R.string.localizable.commonCancel(preferredLanguages: .currentLocale), style: .cancel))
+        alert.addAction(UIAlertAction(title: WalletUX.text("Open"), style: .default) { _ in
+            UIApplication.shared.open(url)
+        })
+        present(alert, animated: true)
     }
 
     @objc private func trade() {

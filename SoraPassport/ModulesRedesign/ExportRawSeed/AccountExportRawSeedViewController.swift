@@ -77,10 +77,11 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
         }
     }()
 
-    private var copyButton: SoramitsuButton = {
+    /// Only where no raw seed is on this iPhone. The seed itself is never put on the clipboard:
+    /// malware on a compromised phone reads it (see `WalletSecretCopy`).
+    private var exportJSONButton: SoramitsuButton = {
         SoramitsuButton(size: .large, type: .tonal(.tertiary)).then {
-            $0.sora.leftImage = R.image.copyNeu()
-            $0.addTarget(nil, action: #selector(copyTapped), for: .touchUpInside)
+            $0.addTarget(nil, action: #selector(exportJSONTapped), for: .touchUpInside)
             $0.sora.cornerRadius = .circle
         }
     }()
@@ -135,9 +136,9 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
         descriptionLabel.isHidden = hasSeed && !revealed
         pathLabel.text = revealed ? WalletUX.text("Also save this derivation path:") + "\n" + backupPath : nil
         pathLabel.isHidden = !revealed || backupPath.isEmpty
-        copyPathButton.isHidden = !revealed || backupPath.isEmpty
-        copyButton.isEnabled = !hasSeed || revealed
-        copyButton.sora.title = hasSeed ? R.string.localizable.copyToClipboard(preferredLanguages: languages) : WalletUX.text("Export JSON")
+        copyPathButton.isHidden = !revealed || !WalletSecretCopy.allowsCopying(derivationPath: backupPath)
+        exportJSONButton.isHidden = hasSeed
+        exportJSONButton.sora.title = WalletUX.text("Export JSON")
         revealButton.isHidden = !hasSeed
         revealButton.setTitle(revealed ? R.string.localizable.commonHide(preferredLanguages: .currentLocale) : R.string.localizable.commonShow(preferredLanguages: .currentLocale), for: .normal)
     }
@@ -167,7 +168,7 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
             titleLabel,
             revealButton,
             descriptionLabel,
-            copyButton,
+            exportJSONButton,
             pathLabel,
             copyPathButton
         ])
@@ -188,18 +189,15 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
     }
 
     @objc private func copyPath() {
-        guard revealed, !backupPath.isEmpty else { return }
+        guard revealed, WalletSecretCopy.allowsCopying(derivationPath: backupPath) else { return }
         UIPasteboard.general.setItems([["public.utf8-plain-text": backupPath]],
             options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(45)])
     }
 
     @objc
-    private func copyTapped(){
-        guard hasSeed else { presenter.exportJSON(); return }
-        guard revealed else { return }
-        LitMotion.rise(copyButton, by: 3)
-        copyButton.sora.title = R.string.localizable.commonCopied(preferredLanguages: .currentLocale)
-        presenter.copyRawSeed()
+    private func exportJSONTapped() {
+        guard !hasSeed else { return }
+        presenter.exportJSON()
     }
 }
 

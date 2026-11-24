@@ -774,3 +774,13 @@ final class WalletSensitiveScreenShield {
         cover.layoutIfNeeded()
     }
 }
+
+/// What a backup screen may put on the clipboard. The recovery phrase and the raw seed never go
+/// there: wallet-stealing malware on a compromised phone reads the clipboard (MoldyRoost and the
+/// iOS exploit kits it serves, Confiant 2026-11-20). A derivation path may be copied, unless it
+/// carries a password (the part after `///`).
+enum WalletSecretCopy {
+    static func allowsCopying(derivationPath path: String) -> Bool {
+        !path.isEmpty && !path.contains("///")
+    }
+}

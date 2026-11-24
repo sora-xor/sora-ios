@@ -380,23 +380,19 @@ extension AccountExportFileBoundaryTests {
         XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(tags))
         for (tag, bytes) in before { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
     }
+    /// Wallet-stealing malware reads the clipboard: showing the raw seed never puts it there.
     @MainActor
-    func testRawSeedCopyBeforeExportLeavesTheClipboardUntouched() throws {
+    func testRawSeedExportNeverTouchesTheClipboard() throws {
         let original = UIPasteboard.general.items
         defer { UIPasteboard.general.items = original }
         UIPasteboard.general.string = "Public clipboard fixture"
         let (interactor, output, _, _) = try rawSeedFixture()
-        interactor.copyRawSeedToClipboard()
-        XCTAssertEqual(UIPasteboard.general.string, "Public clipboard fixture")
+        let view = RawSeedExportView(), presenter = AccountExportRawSeedPresenter()
+        presenter.view = view; presenter.interactor = interactor; interactor.presenter = presenter
+        presenter.exportRawSeed()
         XCTAssertTrue(output.values.isEmpty)
-    }
-    @MainActor
-    func testRawSeedCopyUsesOnlyTheSuccessfullyExportedSeed() throws {
-        let original = UIPasteboard.general.items
-        defer { UIPasteboard.general.items = original }
-        let (interactor, output, _, _) = try rawSeedFixture()
-        interactor.exportRawSeed(); interactor.copyRawSeedToClipboard()
-        XCTAssertEqual(UIPasteboard.general.string, output.values.last?.0)
+        XCTAssertEqual(view.values.map(\.0), ["0x" + String(repeating: "07", count: 32)])
+        XCTAssertEqual(UIPasteboard.general.string, "Public clipboard fixture")
     }
     @MainActor
     func testRawSeedExportWithMissingMaterialPublishesOnlyEmptyValues() throws {
@@ -413,17 +409,12 @@ extension AccountExportFileBoundaryTests {
         XCTAssertEqual(output.values.first?.0, ""); XCTAssertEqual(output.values.first?.1, "")
     }
     @MainActor
-    func testFailedSecondExportClearsThePreviouslyCopyableSeed() throws {
-        let original = UIPasteboard.general.items
-        defer { UIPasteboard.general.items = original }
+    func testFailedSecondExportPublishesNoSeed() throws {
         let (interactor, output, keys, _) = try rawSeedFixture()
         interactor.exportRawSeed()
         for tag in try keys.allKeyIdentifiers() { try keys.deleteKey(for: tag) }
         interactor.exportRawSeed()
         XCTAssertEqual(output.values.count, 2); XCTAssertEqual(output.values.last?.0, "")
-        UIPasteboard.general.string = "Public clipboard fixture"
-        interactor.copyRawSeedToClipboard()
-        XCTAssertEqual(UIPasteboard.general.string, "Public clipboard fixture")
     }
     @MainActor
     func testRawSeedPresenterDrivesTheRealInteractorAndForwardsItsValues() throws {
@@ -434,14 +425,37 @@ extension AccountExportFileBoundaryTests {
         XCTAssertEqual(view.values.map(\.0), ["0x" + String(repeating: "07", count: 32)])
         XCTAssertEqual(view.values.map(\.1), [""])
     }
+    /// With a seed the screen offers Show and nothing to copy; without one, only Export JSON.
     @MainActor
-    func testRawSeedPresenterCopiesOnlyThroughTheInteractor() throws {
+    func testRawSeedScreenOffersNoCopyAndExportJSONOnlyWithoutASeed() throws {
         let original = UIPasteboard.general.items
         defer { UIPasteboard.general.items = original }
-        let (interactor, output, _, _) = try rawSeedFixture()
-        let presenter = AccountExportRawSeedPresenter(); presenter.interactor = interactor
-        presenter.exportRawSeed(); presenter.copyRawSeed()
-        XCTAssertEqual(UIPasteboard.general.string, output.values.last?.0)
+        UIPasteboard.general.string = "Public clipboard fixture"
+        let controller = AccountExportRawSeedViewController()
+        let presenter = RawSeedScreenPresenter(); controller.presenter = presenter
+        controller.loadViewIfNeeded()
+        func buttons() -> [SoramitsuButton] { soramitsuButtons(in: controller.view).filter { !$0.isHidden } }
+        func titles() -> [String] { buttons().map { $0.sora.title ?? "" } }
+        controller.set(rawSeed: "0xPUBLIC_SYNTHETIC_SEED", derivationPath: "//public")
+        let reveal = try XCTUnwrap(soramitsuDescendants(controller.view).first {
+            $0.accessibilityIdentifier == "wallet-raw-seed-reveal" } as? UIButton)
+        reveal.sendActions(for: .touchUpInside)
+        XCTAssertFalse(titles().contains(R.string.localizable.copyToClipboard(preferredLanguages: .currentLocale)))
+        XCTAssertFalse(titles().contains("Export JSON"))
+        // Every other control on the revealed screen (the derivation path's Copy among them).
+        let controls = soramitsuDescendants(controller.view).compactMap { $0 as? UIControl }
+            .filter { !$0.isHidden && $0 !== reveal }
+        XCTAssertFalse(controls.isEmpty)
+        for control in controls {
+            control.sendActions(for: .touchUpInside)
+            control.sendActions(for: .primaryActionTriggered)
+            XCTAssertNotEqual(UIPasteboard.general.string, "0xPUBLIC_SYNTHETIC_SEED")
+        }
+        XCTAssertEqual(UIPasteboard.general.string, "//public", "only the path was copied")
+        controller.set(rawSeed: "", derivationPath: "")
+        let export = try XCTUnwrap(buttons().first { $0.sora.title == "Export JSON" })
+        export.sendActions(for: .touchUpInside)
+        XCTAssertEqual(presenter.exports, 1)
     }
     @MainActor
     func testRawSeedPresenterRequestsJsonOnlyWhenTheUserChoosesIt() {
@@ -458,4 +472,18 @@ private final class RawSeedExportOutput: AccountExportRawSeedInteractorOutputPro
 @MainActor private final class RawSeedExportView: UIViewController, AccountExportRawSeedViewProtocol {
     var values = [(String, String)]()
     func set(rawSeed: String, derivationPath: String) { values.append((rawSeed, derivationPath)) }
+}
+
+private final class RawSeedScreenPresenter: AccountExportRawSeedPresenterProtocol {
+    var exports = 0
+    func exportRawSeed() {}
+    func exportJSON() { exports += 1 }
+}
+
+private func soramitsuDescendants(_ view: UIView) -> [UIView] {
+    view.subviews + view.subviews.flatMap(soramitsuDescendants)
+}
+
+private func soramitsuButtons(in view: UIView) -> [SoramitsuButton] {
+    soramitsuDescendants(view).compactMap { $0 as? SoramitsuButton }
 }

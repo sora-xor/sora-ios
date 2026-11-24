@@ -44,7 +44,6 @@ final class AccountCreateViewController: SoramitsuViewController {
     private var phraseWords: [String] = []
     private var phraseRevealed = false
     private var hideTimer: Timer?
-    private var copyReset: DispatchWorkItem?
     private lazy var revealButton: WalletNeonButton = {
         let button = WalletSafeMode.button(.secondary, title: WalletUX.text("Show my recovery phrase"))
         button.accessibilityIdentifier = "wallet-backup-reveal"
@@ -84,14 +83,6 @@ final class AccountCreateViewController: SoramitsuViewController {
             $0.translatesAutoresizingMaskIntoConstraints = false
             $0.accessibilityIdentifier = "wallet-backup-words"
             $0.isHidden = true
-        }
-    }()
-
-    private var shareButton: SoramitsuButton = {
-        SoramitsuButton(size: .large, type: .tonal(.tertiary)).then {
-            $0.sora.leftImage = R.image.copyNeu()
-            $0.addTarget(nil, action: #selector(actionShare), for: .touchUpInside)
-            $0.sora.cornerRadius = .circle
         }
     }()
 
@@ -205,7 +196,6 @@ final class AccountCreateViewController: SoramitsuViewController {
             titleLabel,
             revealButton,
             mnemonicView,
-            shareButton,
             backupPathLabel,
             copyBackupPathButton,
             nextButton,
@@ -233,7 +223,6 @@ final class AccountCreateViewController: SoramitsuViewController {
 
         soramitsuView.sora.backgroundColor = .bgPage
 
-        shareButton.isHidden = mode == .registration || mode == .registrationWithoutAccessToGoogle
         googleButton.isHidden = mode == .view || mode == .registration
         nextButton.isHidden = mode == .view
     }
@@ -283,12 +272,7 @@ final class AccountCreateViewController: SoramitsuViewController {
         mnemonicView.accessibilityElementsHidden = !phraseRevealed
         backupPathLabel.text = phraseRevealed ? WalletUX.text("Also save this derivation path:") + "\n" + backupPath : nil
         backupPathLabel.isHidden = !phraseRevealed || backupPath.isEmpty
-        copyBackupPathButton.isHidden = !phraseRevealed || backupPath.isEmpty
-        if !phraseRevealed {
-            copyReset?.cancel()
-            shareButton.sora.title = R.string.localizable.commonCopy(preferredLanguages: .currentLocale)
-        }
-        shareButton.isEnabled = phraseRevealed
+        copyBackupPathButton.isHidden = !phraseRevealed || !WalletSecretCopy.allowsCopying(derivationPath: backupPath)
         revealButton.setTitle(phraseRevealed ? R.string.localizable.commonHide(preferredLanguages: .currentLocale) : WalletUX.text("Show my recovery phrase"), for: .normal)
     }
 
@@ -302,7 +286,6 @@ final class AccountCreateViewController: SoramitsuViewController {
         title = R.string.localizable.mnemonicTitle(preferredLanguages: locale.rLanguages).capitalized
         titleLabel.sora.text = R.string.localizable.mnemonicText(preferredLanguages: locale.rLanguages)
         nextButton.sora.title = mode.nextButtonTitle
-        shareButton.sora.title = R.string.localizable.commonCopy(preferredLanguages: .currentLocale)
         
         navigationItem.rightBarButtonItem = createRightButtonItem()
     }
@@ -312,19 +295,6 @@ final class AccountCreateViewController: SoramitsuViewController {
         presenter.proceed()
     }
 
-    @IBAction private func actionShare() {
-        guard phraseRevealed else { return }
-        shareButton.sora.title = R.string.localizable.commonCopied(preferredLanguages: .currentLocale)
-        presenter.share()
-        if LitMotion.allowed { LitMotion.rise(shareButton, by: 3) }
-        UIAccessibility.post(notification: .announcement, argument: shareButton.sora.title)
-        copyReset?.cancel()
-        let reset = DispatchWorkItem { [weak self] in
-            self?.shareButton.sora.title = R.string.localizable.commonCopy(preferredLanguages: .currentLocale)
-        }
-        copyReset = reset
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: reset)
-    }
     
     @objc private func actionOpenInfo() {
         presenter.activateInfo()
@@ -379,7 +349,7 @@ extension AccountCreateViewController: AccountCreateViewProtocol {
     }
 
     @objc private func copyBackupPath() {
-        guard phraseRevealed, !backupPath.isEmpty else { return }
+        guard phraseRevealed, WalletSecretCopy.allowsCopying(derivationPath: backupPath) else { return }
         UIPasteboard.general.setItems([["public.utf8-plain-text": backupPath]],
             options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(45)])
     }

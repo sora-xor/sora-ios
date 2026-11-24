@@ -3164,7 +3164,6 @@ private final class NeonBackupVisualPresenter: AccountCreatePresenterProtocol {
     func setup() { }
     func activateInfo() { }
     func proceed() { }
-    func share() { }
     func restoredApp() { }
     func skip() { }
     func backupToGoogle() { }
@@ -3172,7 +3171,6 @@ private final class NeonBackupVisualPresenter: AccountCreatePresenterProtocol {
 
 private final class NeonRawSeedVisualPresenter: AccountExportRawSeedPresenterProtocol {
     func exportRawSeed() { }
-    func copyRawSeed() { }
     func exportJSON() { }
 }
 
@@ -3409,17 +3407,19 @@ final class AccountBackupActionBoundaryTests: RootActionFixtureTests {
         XCTAssertTrue(renderedWords(view).isEmpty)
     }
 
-    func testCopyingThePhraseRequiresRevealAndCallsThePresenterOnce() throws {
-        let (view, presenter) = make()
-        let copy = try soraButton(R.string.localizable.commonCopy(preferredLanguages: .currentLocale), in: view)
-        XCTAssertFalse(copy.isEnabled)
-        copy.sendActions(for: .touchUpInside)
-        XCTAssertEqual(presenter.shares, 0)
-        try tap("wallet-backup-reveal", view)
-        XCTAssertTrue(copy.isEnabled)
-        copy.sendActions(for: .touchUpInside)
-        XCTAssertEqual(presenter.shares, 1)
-        XCTAssertEqual(copy.sora.title, R.string.localizable.commonCopied(preferredLanguages: .currentLocale))
+    /// Wallet-stealing malware reads the clipboard, so the phrase screen has no Copy in any mode.
+    func testThePhraseScreenOffersNoCopyInAnyMode() throws {
+        let copyTitles = [R.string.localizable.commonCopy(preferredLanguages: .currentLocale),
+                          R.string.localizable.commonCopied(preferredLanguages: .currentLocale)]
+        for mode in [AccountCreateViewController.Mode.view, .registration, .registrationWithoutAccessToGoogle] {
+            let (view, _) = make(mode)
+            try tap("wallet-backup-reveal", view)
+            XCTAssertEqual(renderedWords(view).count, words.count)
+            XCTAssertFalse(all(SoramitsuButton.self, view.view).contains {
+                copyTitles.contains($0.sora.title ?? "") ||
+                    copyTitles.contains($0.sora.attributedText?.attributedString.string ?? "")
+            }, "\(mode)")
+        }
     }
 
     func testCopyingTheDerivationPathRequiresARevealedNonemptyPath() throws {
@@ -3434,6 +3434,11 @@ final class AccountBackupActionBoundaryTests: RootActionFixtureTests {
         copy.sendActions(for: .touchUpInside)
         XCTAssertEqual(UIPasteboard.general.string, "//public-fixture")
         view.set(backupDerivationPath: "")
+        copy.sendActions(for: .touchUpInside)
+        XCTAssertEqual(UIPasteboard.general.string, "//public-fixture")
+        // The part after `///` is a password: the path is shown but never copied.
+        view.set(backupDerivationPath: "//public-fixture///synthetic-password")
+        XCTAssertTrue(copy.isHidden)
         copy.sendActions(for: .touchUpInside)
         XCTAssertEqual(UIPasteboard.general.string, "//public-fixture")
     }
@@ -3496,11 +3501,10 @@ final class AccountBackupActionBoundaryTests: RootActionFixtureTests {
 }
 
 private final class BackupActionPresenter: AccountCreatePresenterProtocol {
-    var setups = 0, infos = 0, proceeds = 0, shares = 0, foregrounds = 0, skips = 0, googleBackups = 0
+    var setups = 0, infos = 0, proceeds = 0, foregrounds = 0, skips = 0, googleBackups = 0
     func setup() { setups += 1 }
     func activateInfo() { infos += 1 }
     func proceed() { proceeds += 1 }
-    func share() { shares += 1 }
     func restoredApp() { foregrounds += 1 }
     func skip() { skips += 1 }
     func backupToGoogle() { googleBackups += 1 }

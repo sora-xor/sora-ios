@@ -33,21 +33,22 @@ final class ClassicPhoneLayoutTests: XCTestCase {
     ]
 
     /// Recorded on 2a350001 (iOS 26.5 simulator, English); home and PIN with the white-and-red materials.
+    /// Phrase and raw seed re-recorded 2026-11-23 without their clipboard Copy buttons.
     static let recorded: [String: String] = [
         "home-375x667": "38e5d880c5518b2dbf2ddcbd2022007e787ba9154e4869109b17127449099353",
         "home-402x874": "192e42b9ea9ba78a7c831385bd36d5714414406178a0dba9ad41961e1a4d48d9",
         "launch-375x667": "5ce85bf0039f243875f9b51c7597a3477d7278bc22f02a9383e230c2879a515c",
         "launch-402x874": "2ba0bfaed8d6755af6022315f30b8f1315e0b2583881b1e2d4b93063f42641fe",
-        "phrase-hidden-375x667": "4511cb5222e130fd52df5c0275de3a20c836fea780eea6fa129d9ccc63e40863",
-        "phrase-hidden-402x874": "6b8e2b7f94a533563ec05d3112af4ad1595d9c7f1f2906a80572cdc3bb8cf19a",
-        "phrase-shown-375x667": "57f17c4ced77e0f818bf0be0cbff3a67679b0d0dec2f25367a3cdb064c58d9f8",
-        "phrase-shown-402x874": "7ebabcf4d4f89a4e931be2192ca166363b27397753d41af654ee36898d5382ff",
+        "phrase-hidden-375x667": "5892589c50d285d2ac4ee5238c04ec63ee60e2bae32d9abe7dfa1378bc403dd4",
+        "phrase-hidden-402x874": "a8b6d055a7e21f9ae6c976ed1ecfd1ce980d7811d5af3f3f9f0b7f89033ad7cd",
+        "phrase-shown-375x667": "3cf14fc28ab032ea55a101a7f971244ef8e9557fe1b7d5edd3f03771fe816d3b",
+        "phrase-shown-402x874": "7e6d33352ba4845985a92ddcf2a61aa1491eda8472fc98be06d283ec50c55a6e",
         "pin-entry-375x667": "84cc4bf050efaabd62c462c0840ae7809e5352a996f4c4eb4914e5348fa69d7e",
         "pin-entry-402x874": "860169971f1584365427b7a30117dfcfc1b1d5fdb20e864f78154ed87675a848",
         "pin-unlock-key-375x667": "84cc4bf050efaabd62c462c0840ae7809e5352a996f4c4eb4914e5348fa69d7e",
         "pin-unlock-key-402x874": "860169971f1584365427b7a30117dfcfc1b1d5fdb20e864f78154ed87675a848",
-        "raw-seed-375x667": "5155535c866101546def330f95a721671613795b231157bafa310c9d6e9e8bb5",
-        "raw-seed-402x874": "1e8bfbd13e01131839a0ceaa3819d4f3a462a9b39a36781a72b2054cefffaf1a",
+        "raw-seed-375x667": "b2e76813cf065e8655ed0f02ccfa04b05028f06e749653d21cb55040d91b6d6b",
+        "raw-seed-402x874": "deaabad6e639decb735db85245da3e8529844b41faac8a76973ed65eb601d1f3",
     ]
 
     private var windows: [UIWindow] = []
@@ -273,7 +274,6 @@ final class ClassicBackupPresenter: AccountCreatePresenterProtocol {
     func setup() {}
     func activateInfo() {}
     func proceed() {}
-    func share() {}
     func restoredApp() {}
     func skip() {}
     func backupToGoogle() {}
@@ -281,7 +281,6 @@ final class ClassicBackupPresenter: AccountCreatePresenterProtocol {
 
 final class ClassicRawSeedPresenter: AccountExportRawSeedPresenterProtocol {
     func exportRawSeed() {}
-    func copyRawSeed() {}
     func exportJSON() {}
 }
 

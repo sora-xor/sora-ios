@@ -75,14 +75,14 @@ final class PolkamarktAccountScreenTests: XCTestCase {
     func testDetailReappearanceWithChangedWalletReturnsToCatalog() async throws { let d = try await detail(); SelectedWalletSettings.shared.commitInternalValue(nil); d.beginAppearanceTransition(true,animated:false); d.endAppearanceTransition(); XCTAssertFalse(navigation.viewControllers.contains { $0 === d }) }
     func testCatalogClearsAnotherWalletsPositionsImmediately() async { let c = await catalog(); SelectedWalletSettings.shared.commitInternalValue(nil); XCTAssertEqual(content(c,1)?.text,"Connect a SORA2 wallet to see positions") }
     func testRefreshReplacesRuntimeSharesInsteadOfKeepingOldPosition() async throws { let d = try await detail(); fixture.server.yesShares = "12345"; d.refreshControl?.sendActions(for:.valueChanged); await wait { self.cell(d,1,0).detailTextLabel?.text == PolkamarktAmountCodec.format(12345) }; XCTAssertEqual(fixture.extrinsics.prepareCount,0) }
-    private func interactiveDetail(allowsMutations: @escaping () -> Bool = { true }) async throws -> PolkamarktMarketViewController {
+    private func interactiveDetail(allowsMutations: @escaping () -> Bool = { true }, extraMarketFields: String = "") async throws -> PolkamarktMarketViewController {
         fixture.server.kusd = "10000000000000000000"; fixture.server.xor = "20000000000000000000"
         fixture.server.noShares = "5000000000000000000"
         fixture.server.buyOverrides = ["collateralIn": "1000000000000000000", "feeAmount": "5000000000000000", "pricingCollateral": "995000000000000000", "sharesOut": "2222000000000000000"]
         fixture.server.sellOverrides = ["sharesIn": "1000000000000000000", "grossCollateralOut": "556000000000000000", "feeAmount": "1000000000000000", "collateralOut": "555000000000000000"]
         fixture.extrinsics.rawFee = "7000000000000000"
         let client = PIIndexerClient(session: session, historyShapeMemory: PIHistoryShapeMemory(), cacheDirectory: directory, retryPause: { _ in })
-        let market = try JSONDecoder().decode(PIMarket.self, from: Data(#"{"id":"market-42","marketId":42,"title":"Runtime-backed market","status":"Open","mechanism":"DynamicParimutuel"}"#.utf8))
+        let market = try JSONDecoder().decode(PIMarket.self, from: Data((#"{"id":"market-42","marketId":42,"title":"Runtime-backed market","status":"Open","mechanism":"DynamicParimutuel""# + extraMarketFields + "}").utf8))
         let detail = PolkamarktMarketViewController(market: market, client: client, coordinator: fixture.subject, pendingStore: try PolkamarktPendingStore(baseURL: fixture.directory), account: fixture.account.address, marketDataFromCache: false, mutationsAllowed: allowsMutations)
         navigation = UINavigationController(rootViewController: detail); window.rootViewController = navigation; window.makeKeyAndVisible(); detail.loadViewIfNeeded()
         await wait { detail.tableView.tableHeaderView is PolkamarktLineChartView && PIStubIndexerProtocol.requests.contains("MobilePolkamarktTrades") }
@@ -92,6 +92,15 @@ final class PolkamarktAccountScreenTests: XCTestCase {
     private func alert(_ controller: UIViewController) async throws -> UIAlertController {
         await wait { controller.presentedViewController is UIAlertController }
         return try XCTUnwrap(controller.presentedViewController as? UIAlertController)
+    }
+    /// A market's creator chooses its links: tapping one names the site and asks before Safari opens.
+    func testTappingAMarketLinkNamesItsSiteAndAsksBeforeOpening() async throws {
+        let d = try await interactiveDetail(extraMarketFields: #","rulesUri":"https://evidence.example/rules?id=42""#)
+        let links = d.tableView.numberOfSections - 1
+        XCTAssertEqual(d.tableView.numberOfRows(inSection: links), 1)
+        d.tableView(d.tableView, didSelectRowAt: IndexPath(row: 0, section: links))
+        let a = try await alert(d); XCTAssertEqual(a.title, "Open this site?"); XCTAssertTrue(a.message?.hasPrefix("evidence.example\n") == true)
+        XCTAssertEqual(a.actions.map(\.title), ["Cancel", "Open"]); XCTAssertEqual(a.actions.first?.style, .cancel)
     }
     func testTradeInputExplainsBuyAssetAndUsesDecimalKeyboards() async throws {
         let d = try await interactiveDetail(); d.presentTradeInput(side: .buy, outcome: .yes)

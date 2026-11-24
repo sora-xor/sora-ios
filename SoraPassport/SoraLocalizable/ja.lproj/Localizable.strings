@@ -955,3 +955,11 @@
 "This iPhone has no usable keys for this wallet, so its Google Drive backup may be the only copy. The backup was kept. Restore the wallet’s keys first." = "この iPhone にはこのウォレットで使えるキーがないため、Google ドライブのバックアップが唯一のコピーかもしれません。バックアップは削除していません。先にウォレットのキーを復元してください。";
 "Backup not deleted" = "バックアップは削除していません";
 "This account’s Google Drive backup is being deleted. Wait until that has finished, then try again. Nothing was removed." = "このアカウントの Google ドライブのバックアップを削除しています。完了してから、もう一度お試しください。何も削除していません。";
+
+/* Exploit-kit hardening, 2026-11-23 */
+"Update iOS" = "iOSをアップデート";
+"This iOS is missing security updates, and web attacks that steal wallets target out-of-date iOS. Update in Settings › General › Software Update." = "このiOSにはセキュリティアップデートが適用されていません。ウォレットを盗むWeb攻撃は古いiOSを狙っています。設定 › 一般 › ソフトウェアアップデート から更新してください。";
+"Not now" = "後で";
+"Open this site?" = "このサイトを開きますか？";
+"The market's creator chose this link, not SORA." = "このリンクはSORAではなく、マーケットの作成者が設定したものです。";
+"Open" = "開く";

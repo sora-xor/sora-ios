@@ -29,10 +29,6 @@ final class AccountExportRawSeedPresenter {
 extension AccountExportRawSeedPresenter: AccountExportRawSeedPresenterProtocol {
     func exportJSON() { exportJSONAction?() }
 
-    func copyRawSeed() {
-        interactor.copyRawSeedToClipboard()
-    }
-
     func exportRawSeed() {
         interactor.exportRawSeed()
     }

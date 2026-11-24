@@ -1298,7 +1298,10 @@ final class WalletRecoveryPhraseViewController: UIViewController {
                         options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(60)])
                 }, for: .touchUpInside)
                 derivationStack.addArrangedSubview(label)
-                derivationStack.addArrangedSubview(button)
+                // A path that carries a password stays off the clipboard (`WalletSecretCopy`).
+                if WalletSecretCopy.allowsCopying(derivationPath: path) {
+                    derivationStack.addArrangedSubview(button)
+                }
             }
         } else {
             wordsLabel.text = nil

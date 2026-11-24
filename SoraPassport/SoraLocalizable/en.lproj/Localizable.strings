@@ -1055,3 +1055,11 @@
 "This iPhone has no usable keys for this wallet, so its Google Drive backup may be the only copy. The backup was kept. Restore the wallet’s keys first." = "This iPhone has no usable keys for this wallet, so its Google Drive backup may be the only copy. The backup was kept. Restore the wallet’s keys first.";
 "Backup not deleted" = "Backup not deleted";
 "This account’s Google Drive backup is being deleted. Wait until that has finished, then try again. Nothing was removed." = "This account’s Google Drive backup is being deleted. Wait until that has finished, then try again. Nothing was removed.";
+
+/* Exploit-kit hardening, 2026-11-23 */
+"Update iOS" = "Update iOS";
+"This iOS is missing security updates, and web attacks that steal wallets target out-of-date iOS. Update in Settings › General › Software Update." = "This iOS is missing security updates, and web attacks that steal wallets target out-of-date iOS. Update in Settings › General › Software Update.";
+"Not now" = "Not now";
+"Open this site?" = "Open this site?";
+"The market's creator chose this link, not SORA." = "The market's creator chose this link, not SORA.";
+"Open" = "Open";

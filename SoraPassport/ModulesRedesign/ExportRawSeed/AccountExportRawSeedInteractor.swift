@@ -25,7 +25,6 @@ final class AccountExportRawSeedInteractor {
 
     private(set) var keystore: KeystoreProtocol
     private let account: AccountItem
-    private var rawSeed = ""
 
     init(
         keystore: KeystoreProtocol,
@@ -38,27 +37,19 @@ final class AccountExportRawSeedInteractor {
 }
 
 extension AccountExportRawSeedInteractor: AccountExportRawSeedInteractorInputProtocol {
-    func copyRawSeedToClipboard() {
-        guard !rawSeed.isEmpty else { return }
-        UIPasteboard.general.setItems([["public.utf8-plain-text": rawSeed]],
-            options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(45)])
-    }
-
     func exportRawSeed() {
         do {
-            rawSeed = ""
             var backup = try WalletBackupMaterial.load(for: account, keystore: keystore)
             defer { backup.wipe() }
             guard let expectedSeedData = backup.seed else {
                 presenter.set(rawSeed: "", derivationPath: "")
                 return
             }
-            rawSeed = expectedSeedData.toHex(includePrefix: true)
-            presenter.set(rawSeed: rawSeed, derivationPath: backup.derivationPath ?? "")
+            // Handed to the screen only; the interactor keeps no copy.
+            presenter.set(rawSeed: expectedSeedData.toHex(includePrefix: true), derivationPath: backup.derivationPath ?? "")
         } catch {
             // Never emit the address, Keychain identifier, or underlying error from a
             // secret-export path. The presenter keeps the existing no-value failure behavior.
-            rawSeed = ""
             presenter.set(rawSeed: "", derivationPath: "")
             return
         }
