@@ -2,13 +2,10 @@ import UIKit
 
 final class ThemeManager {
 
+	/// Light only, as the app was before 3.9: the classic SORA design has no
+	/// dark theme. A stored choice is kept but no longer applied.
 	var theme: SoramitsuThemeType {
-        switch mode {
-        case .system:
-            return systemTheme
-        case let .manual(theme):
-            return theme
-        }
+        .light
     }
 
 	var themeMode: SoramitsuThemeMode {
@@ -98,16 +95,11 @@ final class ThemeManager {
 		syncWindows()
 	}
 
-	/// The `overrideUserInterfaceStyle` matching the in-app choice, so system
-	/// UI (alerts, keyboards, sheets, Liquid Glass, system materials) follows
-	/// the app theme rather than the device setting.
+	/// Always light, like the app's own palette, so system UI (alerts,
+	/// keyboards, sheets, system materials) matches it on a device set to
+	/// dark mode.
 	var userInterfaceStyle: UIUserInterfaceStyle {
-		switch mode {
-		case .system:
-			return .unspecified
-		case let .manual(theme):
-			return theme == .dark ? .dark : .light
-		}
+		.light
 	}
 
 	func applyInterfaceStyle(to window: UIWindow) {

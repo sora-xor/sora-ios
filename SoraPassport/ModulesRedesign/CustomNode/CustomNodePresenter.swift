@@ -123,7 +123,7 @@ private extension CustomNodePresenter {
             view?.showNameTextField(R.string.localizable.selectNodeAlreadyExist(preferredLanguages: .currentLocale))
             return false
         }
-        guard let url = URL(string: address), SoraNodeConnectionPolicy.isAllowedEndpoint(url) else {
+        guard SoraNodeConnectionPolicy.isAllowedEndpoint(address), let url = URL(string: address) else {
             view?.showAddressTextField(R.string.localizable.selectNodeInvalidNode(preferredLanguages: .currentLocale))
             return false
         }

@@ -30,6 +30,7 @@ extension WalletNetworkFacade {
     ) -> BaseOperation<TransactionHistoryMergeResult> {
         let currentNetworkType = networkType
         let addressFactory = SS58AddressFactory()
+        let accountAssets = accountSettings.assets
 
         return ClosureOperation {
             let remoteTransactions = try remoteOperation?.extractNoCancellableResultData().historyItems ?? []
@@ -44,7 +45,8 @@ extension WalletNetworkFacade {
                     address: address,
                     networkType: currentNetworkType,
                     asset: feeAsset,
-                    addressFactory: addressFactory
+                    addressFactory: addressFactory,
+                    assets: accountAssets
                 )
                 return manager.merge(
                     remoteItems: remoteTransactions,

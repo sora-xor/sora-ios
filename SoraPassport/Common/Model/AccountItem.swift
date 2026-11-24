@@ -31,7 +31,7 @@ public enum CryptoType: UInt8, Codable, CaseIterable {
     }
     
     init(type: String) {
-        switch type {
+        switch type.uppercased() {
         case "SR25519":
             self = .sr25519
         case "ED25519":

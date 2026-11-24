@@ -53,7 +53,7 @@ final class ZeroBalanceCell: SoramitsuTableViewCell {
             button.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             button.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             button.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
-            button.heightAnchor.constraint(equalToConstant: 32)
+            button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
         ])
     }
 }
@@ -76,7 +76,7 @@ extension ZeroBalanceCell: SoramitsuTableViewCellProtocol {
                                          alignment: .center)
         button.sora.attributedText = textItem
 
-        UIView.animate(withDuration: 0.3) {
+        UIView.animate(withDuration: LitMotion.allowed && window != nil ? 0.2 : 0) {
             self.button.rightImageView.transform = item.isShown ? CGAffineTransform(rotationAngle: .pi) : CGAffineTransform.identity
         }
 

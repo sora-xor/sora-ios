@@ -117,6 +117,10 @@ private final class WordColumnView: SoramitsuView {
         setupColumn(count: words.count)
 
         for (wordIndex, word) in words.enumerated() {
+            self.indexes[wordIndex].isAccessibilityElement = false
+            self.words[wordIndex].isAccessibilityElement = !word.isEmpty
+            self.words[wordIndex].accessibilityIdentifier = word.isEmpty ? nil : "wallet-backup-word-\(index + wordIndex)"
+            self.words[wordIndex].accessibilityValue = word.isEmpty ? nil : String(index + wordIndex)
             if word != "" {
                 self.words[wordIndex].sora.text = word
                 self.indexes[wordIndex].sora.text = String(index + wordIndex)

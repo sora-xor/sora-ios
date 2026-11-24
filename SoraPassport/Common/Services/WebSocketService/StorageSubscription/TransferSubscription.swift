@@ -33,9 +33,6 @@ struct TransactionExtrinsicInfo {
     let hex: String
 }
 
-private typealias ResultAndFeeOperationWrapper =
-    CompoundOperationWrapper<(TransactionSubscriptionResult, Decimal)>
-
 final class TransactionSubscription {
     let engine: JSONRPCEngine
     let address: String

@@ -31,12 +31,16 @@ protocol AssetProviderProtocol: AnyObject {
     /// The assets among `assetIds` whose balance the last read could not
     /// give. They are shown as "Balance unavailable".
     func unavailableBalanceAssetIds(among assetIds: [String]) -> Set<String>
+    /// No read from the node has ended yet. Until one has, an asset with
+    /// no balance here is still loading rather than missing.
+    var isAwaitingFirstRead: Bool { get }
     func add(observer: AssetProviderObserverProtocol)
     func remove(observer: AssetProviderObserverProtocol)
 }
 
 extension AssetProviderProtocol {
     func unavailableBalanceAssetIds(among _: [String]) -> Set<String> { [] }
+    var isAwaitingFirstRead: Bool { false }
 }
 
 struct AssetProviderObserver {
@@ -67,7 +71,12 @@ final class AssetProvider {
     /// does nothing.
     private var retryChain = 0
     private var retryScheduled = false
-    
+    /// Written on the main queue, read from any (under `stateLock`).
+    private var firstReadEnded = false
+    /// A failed first request ends the loading presentation, but still
+    /// allows the independent saved-balance read to fill any known values.
+    private var firstReadFailed = false
+
     convenience init(assetInfos: [AssetInfo], providerFactory: BalanceProviderFactory) {
         self.init(assetInfos: assetInfos) { assets in
             try? providerFactory.createBalanceDataProvider(for: assets, onlyVisible: false)
@@ -88,6 +97,7 @@ final class AssetProvider {
     /// asset rows keep their loading state.
     init(assetInfos: [AssetInfo], makeBalanceProvider: ([AssetInfo]) -> SingleValueProvider<[BalanceData]>?) {
         balanceProvider = assetInfos.isEmpty ? nil : makeBalanceProvider(assetInfos)
+        firstReadEnded = balanceProvider == nil
         let provider = balanceProvider
         refresh = { provider?.refresh() }
         retryDelays = Self.retryDelays
@@ -95,25 +105,36 @@ final class AssetProvider {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
         }
         setupBalanceDataProvider()
+        loadSavedBalances()
         EventCenter.shared.add(observer: self)
     }
 
     /// For tests: what the balance provider delivers is passed to
-    /// `receive(_:)` and `receiveReadFailure()` directly.
+    /// `receive(_:)` and `receiveReadFailure()` directly. `readsBalances`
+    /// stands for a balance provider whose first read has not ended.
     init(
         refresh: @escaping () -> Void,
         retryDelays: [TimeInterval] = AssetProvider.retryDelays,
-        schedule: @escaping (TimeInterval, @escaping () -> Void) -> Void
+        schedule: @escaping (TimeInterval, @escaping () -> Void) -> Void,
+        readsBalances: Bool = false
     ) {
         balanceProvider = nil
         self.refresh = refresh
         self.retryDelays = retryDelays
         self.schedule = schedule
+        firstReadEnded = !readsBalances
     }
     
     func setupBalanceDataProvider() {
         let changesBlock = { [weak self] (changes: [DataProviderChange<[BalanceData]>]) -> Void in
-            guard let change = changes.first else { return }
+            guard let change = changes.first else {
+                // The observer's first answer comes after the provider's
+                // first read. Nothing at all means that read failed and no
+                // earlier read was saved: ask again instead of waiting for
+                // the next balance event.
+                self?.receiveEmptyFirstAnswer()
+                return
+            }
             switch change {
             case .insert(let items), .update(let items):
                 self?.receive(items)
@@ -138,6 +159,8 @@ final class AssetProvider {
         let merged = AssetProvider.merge(previous: balanceData, items: items)
         balanceData = merged.balances
         unavailableAssetIds = merged.unavailable
+        firstReadEnded = true
+        firstReadFailed = false
         stateLock.unlock()
         notify()
         readEnded(incomplete: merged.incomplete)
@@ -145,7 +168,64 @@ final class AssetProvider {
 
     /// A read failed as a whole (main queue). The balances shown stay.
     func receiveReadFailure() {
+        stateLock.lock()
+        let changed = !firstReadEnded && !firstReadFailed
+        if !firstReadEnded {
+            firstReadFailed = true
+        }
+        stateLock.unlock()
+        if changed {
+            notify()
+        }
         readEnded(incomplete: true)
+    }
+
+    /// The balances the last read of an earlier run saved (main queue).
+    /// They are shown at once, while the first read of this run waits for
+    /// the node; that read replaces them. They never replace a read of
+    /// this run, and they ask for no further read.
+    func receiveSaved(_ items: [BalanceData]) {
+        stateLock.lock()
+        guard !firstReadEnded, balanceData.isEmpty, unavailableAssetIds.isEmpty else {
+            stateLock.unlock()
+            return
+        }
+        let merged = AssetProvider.merge(previous: [], items: items)
+        balanceData = merged.balances
+        unavailableAssetIds = merged.unavailable
+        stateLock.unlock()
+        notify()
+    }
+
+    /// The first read failed and nothing was saved before (main queue).
+    func receiveEmptyFirstAnswer() {
+        stateLock.lock()
+        let isFirst = !firstReadEnded
+        stateLock.unlock()
+        guard isFirst else { return }
+        receiveReadFailure()
+    }
+
+    /// Reads what the provider saved for this account without waiting for
+    /// its first read, which needs the node. The provider's own observer
+    /// waits for that read before it answers.
+    private func loadSavedBalances() {
+        guard let provider = balanceProvider else { return }
+        let operation = provider.repository.fetchOperation(by: provider.targetIdentifier,
+                                                           options: RepositoryFetchOptions())
+        operation.completionBlock = { [weak self] in
+            guard
+                let saved = try? operation.extractNoCancellableResultData(),
+                let items = try? JSONDecoder().decode([BalanceData].self, from: saved.payload),
+                !items.isEmpty
+            else {
+                return
+            }
+            DispatchQueue.main.async {
+                self?.receiveSaved(items)
+            }
+        }
+        provider.executionQueue.addOperation(operation)
     }
 }
 
@@ -229,10 +309,26 @@ extension AssetProvider {
 }
 
 extension AssetProvider: AssetProviderProtocol {
+    /// Without a balance provider (no asset list yet) nothing is read, and
+    /// nothing is awaited.
+    var isAwaitingFirstRead: Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return !firstReadEnded && !firstReadFailed
+    }
+
     func unavailableBalanceAssetIds(among assetIds: [String]) -> Set<String> {
         stateLock.lock()
         defer { stateLock.unlock() }
-        return unavailableAssetIds.intersection(assetIds)
+        var unavailable = unavailableAssetIds.intersection(assetIds)
+        if firstReadFailed {
+            // The account request failed before giving any balances. A
+            // cached amount remains useful; every other requested asset is
+            // unavailable, rather than loading forever or appearing as zero.
+            let knownIds = Set(balanceData.map(\.identifier))
+            unavailable.formUnion(Set(assetIds).subtracting(knownIds))
+        }
+        return unavailable
     }
 
     func getBalances(with assetIds: [String]) -> [BalanceData] {

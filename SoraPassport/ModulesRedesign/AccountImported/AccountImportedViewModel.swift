@@ -30,14 +30,18 @@ final class AccountImportedViewModel: AccountImportedViewModelProtocol {
     private let wireframe: AccountImportedWireframeProtocol
     private let importedAccount: OpenBackupAccount?
     private let backedUpAccounts: [OpenBackupAccount]
+    /// The Google account the backup list was read from.
+    private let googleAccount: CloudStorageAccountIdentity
     private var endAddingBlock: (() -> Void)?
 
     init(importedAccountAddress: String,
          backedUpAccounts: [OpenBackupAccount],
+         googleAccount: CloudStorageAccountIdentity,
          wireframe: AccountImportedWireframeProtocol,
          endAddingBlock: (() -> Void)? = nil) {
         self.importedAccount = backedUpAccounts.first(where: { $0.address == importedAccountAddress })
         self.backedUpAccounts = backedUpAccounts
+        self.googleAccount = googleAccount
         self.wireframe = wireframe
         self.endAddingBlock = endAddingBlock
     }
@@ -69,7 +73,8 @@ final class AccountImportedViewModel: AccountImportedViewModelProtocol {
                                        areThereAnotherAccounts: areThereAnotherAccounts )
         item.loadMoreTapHandler = { [weak self] in
             let notBackedUpAccount = self?.backedUpAccounts.filter { !WalletDriveBackupList.hidesBackup(of: $0.address) }
-            self?.wireframe.showBackepedAccounts(accounts: notBackedUpAccount ?? [])
+            guard let self else { return }
+            self.wireframe.showBackepedAccounts(accounts: notBackedUpAccount ?? [], googleAccount: self.googleAccount)
         }
         item.continueTapHandler = { [weak self] in
             if self?.endAddingBlock != nil {

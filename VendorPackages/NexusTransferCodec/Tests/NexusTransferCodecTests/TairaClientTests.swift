@@ -165,4 +165,62 @@ final class TairaClientTests: XCTestCase {
         let wrong = TairaClient(transport: { _, _ in Data("{\"body\":{\"network_id\":\"wrong\"}}".utf8) })
         do { _ = try await wrong.checkpoint(); XCTFail("wrong network accepted") } catch { }
     }
+
+    private func latestBlockBody(height: Int = 12471, count: Int = 1,
+                                 hash: String = "hash:09FCDDC1EB8103B2CB29779CDD466E0E098124CB180EA02A1EF30726191F2B71#D98F") throws -> Data {
+        let item: [String: Any] = ["height": height, "hash": hash]
+        return try JSONSerialization.data(withJSONObject: [
+            "items": Array(repeating: item, count: count), "next_cursor": "older"
+        ])
+    }
+
+    func testCheckpointAnswersFromLatestBlockWhileTheNodeCannotAttestItsTip() async throws {
+        for status in [409, 503] {
+            let paths = LockedPaths()
+            let body = try latestBlockBody()
+            let client = TairaClient(transport: { request, _ in
+                paths.append(request.url!.absoluteString)
+                if request.url!.path.contains("finality") { throw TairaClient.Failure.rejected(status) }
+                return body
+            })
+            let checkpoint = try await client.checkpoint()
+            XCTAssertEqual(checkpoint.height, 12471)
+            XCTAssertEqual(paths.values, [
+                "https://taira.sora.org/v1/bridge/finality/attestation/latest",
+                "https://taira.sora.org/v1/explorer/blocks?limit=1",
+            ])
+        }
+    }
+
+    func testOtherAttestationFailuresAreNotAnsweredFromTheBlockList() async {
+        let paths = LockedPaths()
+        let client = TairaClient(transport: { request, _ in
+            paths.append(request.url!.absoluteString)
+            throw TairaClient.Failure.rejected(500)
+        })
+        do { _ = try await client.checkpoint(); XCTFail("a server failure was answered") } catch { }
+        XCTAssertEqual(paths.values.count, 1)
+    }
+
+    func testLatestBlockAnswerMustHoldExactlyOneValidBlock() async throws {
+        for body in [
+            try latestBlockBody(count: 0),
+            try latestBlockBody(count: 2),
+            try latestBlockBody(height: 0),
+            try latestBlockBody(hash: "not-a-hash"),
+        ] {
+            let client = TairaClient(transport: { request, _ in
+                if request.url!.path.contains("finality") { throw TairaClient.Failure.rejected(409) }
+                return body
+            })
+            do { _ = try await client.checkpoint(); XCTFail("an invalid block list was accepted") } catch { }
+        }
+    }
+}
+
+private final class LockedPaths: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [String] = []
+    var values: [String] { lock.lock(); defer { lock.unlock() }; return stored }
+    func append(_ value: String) { lock.lock(); stored.append(value); lock.unlock() }
 }

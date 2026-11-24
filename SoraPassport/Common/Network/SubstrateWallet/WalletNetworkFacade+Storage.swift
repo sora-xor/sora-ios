@@ -77,24 +77,26 @@ extension WalletNetworkFacade {
 
             let accountInfoOperation: CompoundOperationWrapper<JSON?> = createAccountInfoStorageFetchOperation(accountId)
 
-            let dependencies = assets.map {
-                factory.createUsableBalanceOperation(
-                    accountId: address,
-                    assetId: $0.identifier
-                )
-            }
+            // Every token's storage in one request. XOR is the account record above, and the
+            // placeholder the asset manager appends to a visible list is not on the chain.
+            let placeholder = WalletAsset.dummyAsset.identifier
+            let tokenStorage = factory.createTokenStorageOperation(
+                accountId: address,
+                assetIds: assets.map(\.identifier).filter { $0 != WalletAssetId.xor.rawValue && $0 != placeholder }
+            )
+            let dependencies = tokenStorage.allOperations
             
             let eraOperation = factory.createActiveEraOperation()
             let stackingInfoOperation = factory.createStackingIngoOperation(accountId: accountId)
             
             let mappingOperation = ClosureOperation<[BalanceData]?> {
 
-                let result = try dependencies.map { operation -> BalanceData in
-                    let assetNetworkId = operation.parameters?.last
-                    guard let asset = assets.first(where: { assetNetworkId?.contains($0.identifier.dropFirst(2)) ?? false }) else {
-                        return .init(identifier: WalletAsset.dummyAsset.identifier, balance: .init(value: 0))
+                let tokens = (try? tokenStorage.targetOperation.extractNoCancellableResultData()) ?? [:]
+                let result = try assets.map { asset -> BalanceData in
+                    if asset.identifier == placeholder {
+                        // As it always was: an entry with no balance, in its place in the list.
+                        return .init(identifier: placeholder, balance: .init(value: 0))
                     }
-
                     let reading: WalletBalanceReading
                     if asset.identifier == WalletAssetId.xor.rawValue {
                         // No answer for the account at all (offline, node
@@ -104,8 +106,10 @@ extension WalletNetworkFacade {
                             account: try accountInfoOperation.targetOperation.extractNoCancellableResultData()
                         )
                     } else {
+                        // A token with no outcome (its read was cancelled) was not read.
                         reading = WalletBalanceReading.token(
-                            storage: Result { try operation.extractNoCancellableResultData() }
+                            storage: tokens[asset.identifier]
+                                ?? .failure(WalletNetworkOperationFactoryError.storageNotAnswered)
                         )
                     }
 

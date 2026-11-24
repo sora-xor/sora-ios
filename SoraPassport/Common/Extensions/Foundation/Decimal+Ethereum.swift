@@ -29,8 +29,4 @@ extension Decimal {
         return (decimalValue as NSDecimalNumber).multiplying(byPowerOf10: -18).decimalValue
     }
 
-    func toEthereumAmount() -> BigUInt? {
-        let valueString = (self as NSDecimalNumber).multiplying(byPowerOf10: 18).stringValue
-        return BigUInt(valueString)
-    }
 }

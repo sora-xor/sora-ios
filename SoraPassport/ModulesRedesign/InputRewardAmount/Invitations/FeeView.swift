@@ -23,7 +23,7 @@ final class FeeView: SoramitsuView {
     
     let titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.sora.text = R.string.localizable.networkFee()
+        label.sora.text = R.string.localizable.networkFee(preferredLanguages: .currentLocale)
         label.sora.font = FontType.textBoldXS
         label.sora.textColor = .fgSecondary
         label.sora.numberOfLines = 0
@@ -31,7 +31,8 @@ final class FeeView: SoramitsuView {
     }()
     
     let infoButton: ImageButton = {
-        let button = ImageButton(size: CGSize(width: 14, height: 14))
+        let button = ImageButton(size: CGSize(width: 44, height: 44))
+        button.accessibilityLabel = R.string.localizable.networkFee(preferredLanguages: .currentLocale)
         button.sora.image = R.image.wallet.info()
         button.sora.tintColor = .fgSecondary
         return button
@@ -76,6 +77,7 @@ private extension FeeView {
         }
         
         feeLabel.snp.makeConstraints { make in
+            make.leading.greaterThanOrEqualTo(infoButton.snp.trailing).offset(4)
             make.top.bottom.trailing.equalTo(self)
         }
     }

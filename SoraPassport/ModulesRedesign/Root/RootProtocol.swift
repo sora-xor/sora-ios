@@ -24,10 +24,6 @@ protocol RootPresenterProtocol: AnyObject {
 protocol RootWireframeProtocol: AnyObject {
     func showLocalAuthentication(on view: UIWindow)
     func showOnboarding(on view: UIWindow)
-    func showLegacyWalletUpgrade(
-        on view: UIWindow,
-        onConfirm: @escaping () -> Void
-    )
     func showBroken(on view: UIWindow)
     func showPincodeSetup(on view: UIWindow)
     /// Keychain items from an earlier install, and no wallet database.
@@ -37,7 +33,10 @@ protocol RootWireframeProtocol: AnyObject {
 protocol RootInteractorInputProtocol: AnyObject {
     func setup()
     func decideModuleSynchroniously()
-    func performLegacyWalletUpgrade()
+    /// Turns a SORA 1.x wallet into the same account with no screen, as App
+    /// Store 3.8.6 did it. The PIN screen that follows is the check: a saved
+    /// 1.x PIN stays the wallet's PIN and is asked for there.
+    func performAutomaticLegacyWalletUpgrade()
 }
 
 protocol RootInteractorOutputProtocol: AnyObject {

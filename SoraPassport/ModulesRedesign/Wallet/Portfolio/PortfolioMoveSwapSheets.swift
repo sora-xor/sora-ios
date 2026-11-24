@@ -98,12 +98,8 @@ final class PortfolioMoveSheet: PortfolioSheetViewController, UITextFieldDelegat
 
     private func amountField(symbol: String, icon: PortfolioIcon) -> UIView {
         let tokens = PortfolioTheme.tokens
-        let container = UIView()
-        container.backgroundColor = tokens.inputFill
-        container.layer.cornerRadius = 20
-        container.layer.cornerCurve = .continuous
-        container.layer.borderWidth = 1
-        container.layer.borderColor = tokens.borderInput.withAlphaComponent(0.5).cgColor
+        let container = PortfolioPressedWell()
+        container.setFloor(nil, depth: 3, radius: 20)
         field.text = amountText
         field.placeholder = "0"
         field.keyboardType = .decimalPad
@@ -296,13 +292,12 @@ final class PortfolioSwapSheet: PortfolioSheetViewController {
 /// A target token in the Swap sheet.
 final class PortfolioTargetChip: UIControl {
     var onTap: (() -> Void)?
+    private lazy var backing = LitBacking(host: self)
     private let icon = PortfolioTokenIconView(size: 22)
     private let label = UILabel.portfolio(FontType.textBoldS, .subheadline, maximum: 22)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        layer.cornerCurve = .continuous
-        layer.borderWidth = 1
         let stack = UIStackView(arrangedSubviews: [icon, label])
         stack.spacing = 6
         stack.alignment = .center
@@ -331,17 +326,18 @@ final class PortfolioTargetChip: UIControl {
         icon.configure(.token(id: target.id, symbol: target.symbol, icon: target.icon))
         label.text = target.symbol
         label.textColor = tokens.textPrimary
-        backgroundColor = selected ? PortfolioTheme.flowerPink.withAlphaComponent(PortfolioTheme.isDark ? 0.18 : 0.08)
-            : (PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.05) : tokens.surface)
-        layer.borderColor = (selected ? PortfolioTheme.flowerPink : tokens.hairline).cgColor
-        layer.borderWidth = selected ? 1.5 : 1
+        backing.style = selected ? .pressed(floor: PortfolioTheme.tintedFloor(PortfolioTheme.flowerPink), depth: 2.2) : .raised(elevation: 6)
         accessibilityLabel = target.symbol
         accessibilityTraits = selected ? [.button, .selected] : .button
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        layer.cornerRadius = bounds.height / 2
+        backing.layout(radius: bounds.height / 2)
+    }
+
+    override var isHighlighted: Bool {
+        didSet { if isHighlighted != oldValue { LitMotion.press(self, pressed: isHighlighted, scale: 0.95) } }
     }
 
     @objc private func tapped() { onTap?() }

@@ -19,10 +19,10 @@ final class ProductListBehaviorTests: XCTestCase {
     private var shown: [SoramitsuTableViewItemProtocol] = []
     override func setUp() { super.setUp(); language = LocalizationManager.shared.selectedLocalization; LocalizationManager.shared.selectedLocalization = "en" }
     override func tearDown() { LocalizationManager.shared.selectedLocalization = language; super.tearDown() }
-    private func item(_ asset: AssetInfo, balance: Decimal = 1, unavailable: Bool = false) -> AssetListItem {
+    private func item(_ asset: AssetInfo, balance: Decimal = 1, owned: Decimal? = nil, unavailable: Bool = false) -> AssetListItem {
         let result = AssetListItem(assetInfo: asset,
             assetViewModel: AssetViewModel(identifier: asset.identifier, title: asset.name, subtitle: asset.symbol,
-                fiatText: unavailable ? WalletUX.balanceUnavailableText : "$2", mode: .selection, isFavorite: asset.visible), balance: balance)
+                fiatText: unavailable ? WalletUX.balanceUnavailableText : "$2", mode: .selection, isFavorite: asset.visible), balance: balance, owned: owned)
         result.balanceUnavailable = unavailable; return result
     }
     private func selection() -> SelectAssetViewModel {
@@ -82,6 +82,12 @@ final class ProductListBehaviorTests: XCTestCase {
         XCTAssertEqual(identifiers, [manager.assets[0].identifier, manager.assets[1].identifier, manager.assets[3].identifier])
         XCTAssertEqual(shown.compactMap { $0 as? ZeroBalanceItem }.count, 1)
     }
+    /// A balance that is all reserved is owned, not zero: it stays above the fold.
+    func testManageKeepsAReservedOnlyBalanceAboveTheZeroFold() {
+        let model = manage()
+        model.assetItems = [item(manager.assets[0]), item(manager.assets[2], balance: 0, owned: 5), item(manager.assets[3], balance: 0)]
+        XCTAssertEqual(identifiers, [manager.assets[0].identifier, manager.assets[2].identifier])
+    }
     func testManageShowZeroToggleCanExpandAndCollapseRepeatedly() throws {
         let model = manage(); model.assetItems = [item(manager.assets[0]), item(manager.assets[2], balance: 0)]
         try XCTUnwrap(shown.compactMap { $0 as? ZeroBalanceItem }.first).buttonHandler?()
@@ -117,6 +123,54 @@ final class ProductListBehaviorTests: XCTestCase {
     }
     private func settleRows(_ model: SelectAssetViewModel) async {
         for _ in 0..<100 where model.assetItems.isEmpty { try? await Task.sleep(nanoseconds: 10_000_000) }
+    }
+    private func postBlacklist(_ blacklist: FixedAssetBlacklist, _ ids: [String]) {
+        blacklist.list = AssetBlacklist(assetIds: ids, source: .remote)
+        NotificationCenter.default.post(name: AssetBlacklistStore.didChange, object: nil)
+    }
+    private func until(_ condition: () -> Bool) async {
+        for _ in 0..<300 where !condition() { try? await Task.sleep(nanoseconds: 10_000_000) }
+    }
+    /// Every token chooser leaves out blacklisted tokens, also when the list changes while it is open.
+    func testSelectionLeavesOutBlacklistedTokensAndFollowsANewList() async {
+        provider.balances = manager.assets.map { BalanceData(identifier: $0.identifier, balance: AmountDecimal(value: 1)) }
+        let blacklist = FixedAssetBlacklist(AssetBlacklist(assetIds: [manager.assets[1].identifier], source: .remote))
+        let model = selection(); model.assetBlacklist = blacklist
+        model.viewDidLoad(); await settleRows(model)
+        XCTAssertEqual(Set(model.assetItems.map(\.assetInfo.identifier)), Set([0, 2, 3].map { manager.assets[$0].identifier }))
+        let staleRow = model.assetItems.first { $0.assetInfo.identifier == manager.assets[2].identifier }
+        XCTAssertNotNil(staleRow)
+        let newlyAllowed = manager.assets[1]
+        model.isActiveSearch = true
+        model.searchText = newlyAllowed.identifier
+        XCTAssertTrue(model.filteredAssetItems.isEmpty)
+        var selection: String?
+        model.selectionCompletion = { selection = $0 }
+        postBlacklist(blacklist, [manager.assets[2].identifier])
+        let expected = Set([0, 1, 3].map { manager.assets[$0].identifier })
+        await until { Set(model.assetItems.map(\.assetInfo.identifier)) == expected }
+        XCTAssertEqual(Set(model.assetItems.map(\.assetInfo.identifier)), expected)
+        XCTAssertEqual(model.filteredAssetItems.map(\.assetInfo.identifier), [newlyAllowed.identifier])
+        staleRow?.assetHandler?(manager.assets[2].identifier)
+        XCTAssertNil(selection)
+        model.filteredAssetItems.first?.assetHandler?(newlyAllowed.identifier)
+        XCTAssertEqual(selection, newlyAllowed.identifier)
+    }
+    /// The full asset list follows a list that arrives while it is open: a blacklisted token
+    /// with a known zero balance goes, a held one stays, marked.
+    func testManageListFollowsANewBlacklist() async throws {
+        provider.balances = [BalanceData(identifier: manager.assets[0].identifier, balance: AmountDecimal(value: 1)),
+                             BalanceData(identifier: manager.assets[1].identifier, balance: AmountDecimal(value: 0)),
+                             BalanceData(identifier: manager.assets[2].identifier, balance: AmountDecimal(value: 2))]
+        let blacklist = FixedAssetBlacklist(AssetBlacklist(assetIds: [], source: .remote))
+        let model = manage(); model.assetBlacklist = blacklist
+        model.viewDidLoad(); await until { model.assetItems.count == 3 }
+        XCTAssertEqual(model.assetItems.count, 3)
+        postBlacklist(blacklist, [manager.assets[1].identifier, manager.assets[2].identifier])
+        let expected = Set([0, 2].map { manager.assets[$0].identifier })
+        await until { Set(model.assetItems.map(\.assetInfo.identifier)) == expected }
+        XCTAssertEqual(Set(model.assetItems.map(\.assetInfo.identifier)), expected)
+        XCTAssertTrue(try XCTUnwrap(model.assetItems.first { $0.assetInfo.identifier == manager.assets[2].identifier }).isHiddenByBlacklist)
     }
     func testSelectionLoadsKnownAndUnavailableBalancesBeforePricesAndChoosesCurrentAsset() async throws {
         provider.balances = [BalanceData(identifier: manager.assets[0].identifier, balance: AmountDecimal(value: 3))]
@@ -162,6 +216,27 @@ final class ProductListBehaviorTests: XCTestCase {
         XCTAssertFalse(row.assetInfo.visible); row.favoriteHandle?(row); XCTAssertTrue(row.assetInfo.visible)
         model.mode = .edit; model.mode = .view
         XCTAssertEqual(manager.saved.last?.first { $0.identifier == manager.assets[2].identifier }?.visible, true)
+    }
+    func testManagedListKeepsAHeldBlacklistedAssetMarkedHiddenAndDropsAnUnheldOne() async throws {
+        let val = manager.assets[1].identifier, zero = manager.assets[2].identifier
+        provider.balances = [BalanceData(identifier: val, balance: AmountDecimal(value: 3)),
+                             BalanceData(identifier: zero, balance: AmountDecimal(value: 0))]
+        let model = manage()
+        model.assetBlacklist = FixedAssetBlacklist(AssetBlacklist(assetIds: [val, zero], source: .remote))
+        model.processBalance(data: provider.balances)
+        for _ in 0..<100 where model.assetItems.isEmpty { try? await Task.sleep(nanoseconds: 10_000_000) }
+        XCTAssertEqual(model.assetItems.map(\.assetInfo.identifier), [val])
+        XCTAssertEqual(identifiers, [val], "the held token is listed, not behind the zero-balance toggle")
+        let row = try XCTUnwrap(model.assetItems.first)
+        XCTAssertTrue(row.isHiddenByBlacklist); XCTAssertFalse(row.canFavorite)
+        XCTAssertTrue(row.assetViewModel.subtitle.hasSuffix(AssetBlacklist.hiddenNote))
+        model.isActiveSearch = true; model.searchText = "ZERO"
+        XCTAssertTrue(identifiers.isEmpty, "an unheld blacklisted token cannot be found by search")
+        model.isActiveSearch = false; model.searchText = ""
+        model.mode = .edit; model.mode = .view
+        let saved = try XCTUnwrap(manager.saved.last)
+        XCTAssertEqual(Set(saved.map(\.identifier)), Set(manager.assets.map(\.identifier)), "every asset is kept")
+        XCTAssertEqual(saved.first { $0.identifier == val }?.visible, true, "the saved choice is not changed")
     }
     private func poolModel() -> (PoolListViewModel, ProductPools) {
         let network = WalletNetworkOperationFactoryProtocolMock(); let pools = ProductPools()
@@ -381,4 +456,231 @@ private final class ProductEngine: JSONRPCEngine {
     func connectIfNeeded() {}
     func disconnectIfNeeded() {}
     func unsubsribe(_ identifier: UInt16) throws {}
+}
+
+@MainActor
+final class PoolListLoadingCoverageTests: XCTestCase {
+    private var language = "en"
+    override func setUp() { super.setUp(); language = LocalizationManager.shared.selectedLocalization; LocalizationManager.shared.selectedLocalization = "en" }
+    override func tearDown() { LocalizationManager.shared.selectedLocalization = language; super.tearDown() }
+    private func pool(_ id: String = "pool", favorite: Bool = true, target: String = WalletAssetId.val.rawValue) -> PoolInfo {
+        PoolInfo(baseAssetId: WalletAssetId.xor.rawValue, targetAssetId: target, poolId: id, isFavorite: favorite, accountId: "public pool fixture", baseAssetPooledByAccount: 2, targetAssetPooledByAccount: 3)
+    }
+    private func make(_ rows: [PoolInfo] = []) -> PoolLoadingFixture { PoolLoadingFixture(rows: rows) }
+    private func wait(_ predicate: () -> Bool) async {
+        for _ in 0..<200 { if predicate() { return }; try? await Task.sleep(nanoseconds: 10_000_000) }; XCTAssertTrue(predicate())
+    }
+    func testLoadingCreatesRowsFromTheActualPoolAmounts() async throws {
+        let f = make([pool()]); f.model.viewDidLoad(); await wait { f.model.poolItems.count == 1 }
+        let item = try XCTUnwrap(f.model.poolItems.first)
+        XCTAssertEqual(item.poolViewModel.title, "XOR-VAL"); XCTAssertEqual(item.poolViewModel.subtitle, "2 XOR - 3 VAL")
+        XCTAssertEqual(item.poolViewModel.fiatText, ""); XCTAssertEqual(item.poolInfo.poolId, "pool")
+    }
+    func testLoadingSortsSavedFavoritesAheadOfOrdinaryPools() async {
+        let f = make([pool("ordinary", favorite: false), pool("favorite", favorite: true)])
+        f.model.viewDidLoad(); await wait { f.model.poolItems.count == 2 }
+        XCTAssertEqual(f.model.poolItems.map(\.poolInfo.poolId), ["favorite", "ordinary"])
+        XCTAssertEqual(f.model.poolItems.map(\.poolViewModel.isFavorite), [true, false])
+    }
+    func testUnavailableTargetAssetDoesNotProduceAnIncompletePoolRow() async {
+        let f = make([pool("invalid", target: "unavailable"), pool("valid")]); f.model.viewDidLoad()
+        await wait { f.model.poolItems.count == 1 }; XCTAssertEqual(f.model.poolItems.first?.poolInfo.poolId, "valid")
+    }
+    func testEmptyInitialPoolSnapshotDismissesWithoutInventingRows() async {
+        let f = make(); f.model.viewDidLoad(); await wait { !f.dismissals.isEmpty }
+        XCTAssertEqual(f.dismissals, [false]); XCTAssertTrue(f.model.poolItems.isEmpty)
+    }
+    func testLoadedFavoriteActionPersistsTheChangedSavedPreference() async throws {
+        let f = make([pool(favorite: false)]); f.model.viewDidLoad(); await wait { f.model.poolItems.count == 1 }
+        let row = try XCTUnwrap(f.model.poolItems.first); try XCTUnwrap(row.favoriteHandle)(row)
+        XCTAssertTrue(row.poolInfo.isFavorite); f.model.mode = .edit; f.model.mode = .view
+        XCTAssertEqual(f.pools.saved.last?.first?.isFavorite, true)
+    }
+    func testLoadedRowTapForwardsTheExactPoolAndItsBoundServices() async throws {
+        let f = make([pool()]); f.model.viewDidLoad(); await wait { f.model.poolItems.count == 1 }
+        try XCTUnwrap(f.model.poolItems.first?.tapHandler)()
+        XCTAssertEqual(f.route.pools.map(\.poolId), ["pool"]); XCTAssertTrue(f.route.assets === f.assets)
+        XCTAssertTrue(f.route.provider === f.model.providerFactory); XCTAssertTrue(f.route.host === f.host)
+    }
+    func testReturningFromDetailsDismissesOnlyAfterAllPoolsHaveGone() async throws {
+        let f = make([pool()]); f.model.viewDidLoad(); await wait { f.model.poolItems.count == 1 }
+        try XCTUnwrap(f.model.poolItems.first?.tapHandler)(); f.route.dismiss?(); XCTAssertTrue(f.dismissals.isEmpty)
+        f.model.poolItems = []; f.route.dismiss?(); XCTAssertEqual(f.dismissals, [false])
+    }
+    func testMissingPoolServiceCannotOpenAnIncompleteDetailsRoute() {
+        let f = make(); f.model.poolsService = nil; f.model.showPoolDetails(poolInfo: pool())
+        XCTAssertTrue(f.route.pools.isEmpty)
+    }
+    func testDismissalPublishesThePoolsSectionChange() {
+        let f = make(); f.model.viewdismissed(); XCTAssertEqual(f.changedSections, [.pools])
+    }
+    func testPriceNotificationRebuildsTheCurrentRowsOutsideEditing() async throws {
+        let f = make([pool()]); f.model.viewDidLoad(); await wait { f.model.poolItems.count == 1 }
+        let original = try XCTUnwrap(f.model.poolItems.first)
+        NotificationCenter.default.post(name: PICatalogs.pricesDidChange, object: nil)
+        await wait { f.model.poolItems.first !== original }
+        XCTAssertEqual(f.model.poolItems.first?.poolInfo.poolId, "pool")
+    }
+    func testPriceNotificationPreservesInProgressFavoriteEdits() async throws {
+        let f = make([pool()]); f.model.viewDidLoad(); await wait { f.model.poolItems.count == 1 }
+        let original = try XCTUnwrap(f.model.poolItems.first); f.model.mode = .edit
+        NotificationCenter.default.post(name: PICatalogs.pricesDidChange, object: nil); try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertTrue(f.model.poolItems.first === original); XCTAssertEqual(original.poolViewModel.mode, .edit)
+    }
+    func testPriceNotificationPreservesTheCurrentSearchSnapshot() async throws {
+        let f = make([pool()]); f.model.viewDidLoad(); await wait { f.model.poolItems.count == 1 }
+        let original = try XCTUnwrap(f.model.poolItems.first); f.model.isActiveSearch = true; f.model.searchText = "val"
+        NotificationCenter.default.post(name: PICatalogs.pricesDidChange, object: nil); try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertTrue(f.model.poolItems.first === original); XCTAssertTrue(f.model.filteredPoolItems.first === original)
+    }
+    func testPriceNotificationDoesNotReopenAnEmptyPoolList() async {
+        let f = make(); f.model.viewDidLoad(); await wait { f.dismissals.count == 1 }
+        NotificationCenter.default.post(name: PICatalogs.pricesDidChange, object: nil); try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(f.dismissals, [false]); XCTAssertTrue(f.model.poolItems.isEmpty)
+    }
+}
+
+@MainActor
+private final class PoolLoadingFixture {
+    let assets = PoolLoadingAssets(), pools = PoolLoadingPools(), route = PoolLoadingRoute(), host = UIViewController()
+    var model: PoolListViewModel!
+    var dismissals = [Bool](), changedSections = [UpdatedSection]()
+    init(rows: [PoolInfo]) {
+        pools.rows = rows
+        let network = WalletNetworkOperationFactoryProtocolMock(), fiat = ProductFiat()
+        model = PoolListViewModel(poolsService: pools, assetManager: assets, fiatService: fiat,
+            poolViewModelFactory: PoolViewModelFactory(walletAssets: assets.assets, assetManager: assets, fiatService: fiat),
+            providerFactory: BalanceProviderFactory(accountId: "", cacheFacade: CoreDataCacheFacade.shared, networkOperationFactory: network, identifierFactory: SingleProviderIdentifierFactory()),
+            operationFactory: network, assetsProvider: ProductBalances(), marketCapService: ProductMarket(), farmingService: ProductFarms(), feeProvider: FeeProvider(account: nil), updateHandler: { [weak self] in self?.changedSections.append($0) })
+        model.wireframe = route; model.view = host; model.dismiss = { [weak self] in self?.dismissals.append($0) }
+    }
+}
+private final class PoolLoadingAssets: AssetManagerProtocol {
+    static var networkAssets: [AssetInfo] = []
+    let assets = [(WalletAssetId.xor.rawValue, "XOR"), (WalletAssetId.val.rawValue, "VAL"), (WalletAssetId.pswap.rawValue, "PSWAP")].map {
+        AssetInfo(id: $0.0, symbol: $0.1, chainId: "", precision: 18, icon: nil, displayName: $0.1, visible: true)
+    }
+    func assetInfo(for identifier: String) -> AssetInfo? { assets.first { $0.identifier == identifier } }
+    func getAssetList() -> [AssetInfo]? { assets }
+    func updateAssetList(_ list: [AssetInfo]) {}
+    func saveAssetList(_ list: [AssetInfo]) {}
+    func sortedAssets(_ list: [WalletAsset], onlyVisible: Bool) -> [WalletAsset] { list }
+    func visibleCount() -> UInt { UInt(assets.count) }
+    func setup(for accountSettings: SelectedWalletSettings) {}
+}
+private final class PoolLoadingPools: PoolsServiceInputProtocol {
+    var rows = [PoolInfo](), saved = [[PoolInfo]]()
+    func loadAccountPools() {}
+    func getAccountPools() -> [PoolInfo] { rows }
+    func updatePools(_ pools: [PoolInfo]) { saved.append(pools) }
+    func getPool(by id: String) -> PoolInfo? { rows.first { $0.poolId == id } }
+    func getPool(by base: String, targetAssetId: String) async -> PoolInfo? { rows.first { $0.baseAssetId == base && $0.targetAssetId == targetAssetId } }
+    func loadPool(by base: String, targetAssetId: String) async -> PoolInfo? { await getPool(by: base, targetAssetId: targetAssetId) }
+    func loadPairState(baseAssetId: String, targetAssetId: String) async throws -> PoolNetworkState { PoolNetworkState(isPresented: false, isEnabled: false) }
+    func loadPools(currentAsset: AssetInfo) -> [PoolInfo] { rows }
+    func loadTargetPools(for id: String) -> [PoolInfo] { rows }
+    func appendDelegate(delegate: PoolsServiceOutput) {}
+}
+private final class PoolLoadingRoute: PoolListWireframeProtocol {
+    var pools = [PoolInfo](); weak var assets: AssetManagerProtocol?, provider: BalanceProviderFactory?, host: UIViewController?
+    var dismiss: (() -> Void)?
+    func showPoolDetails(on viewController: UIViewController?, poolInfo: PoolInfo, assetManager: AssetManagerProtocol, fiatService: FiatServiceProtocol, poolsService: PoolsServiceInputProtocol, providerFactory: BalanceProviderFactory, operationFactory: WalletNetworkOperationFactoryProtocol, assetsProvider: AssetProviderProtocol, marketCapService: MarketCapServiceProtocol, farmingService: DemeterFarmingServiceProtocol, feeProvider: FeeProviderProtocol, dismissHandler: (() -> Void)?) {
+        pools.append(poolInfo); assets = assetManager; provider = providerFactory; host = viewController; dismiss = dismissHandler
+    }
+}
+
+@MainActor
+final class AssetFactoryFiatBoundaryTests: XCTestCase {
+    private var previousLanguage = "en"
+    private let assets = ProductAssets()
+    private var factory: AssetViewModelFactory {
+        AssetViewModelFactory(walletAssets: assets.assets, assetManager: assets, fiatService: nil)
+    }
+    override func setUp() {
+        super.setUp()
+        previousLanguage = LocalizationManager.shared.selectedLocalization
+        LocalizationManager.shared.selectedLocalization = "en"
+    }
+    override func tearDown() {
+        LocalizationManager.shared.selectedLocalization = previousLanguage
+        super.tearDown()
+    }
+    private func balance(_ amount: String, id: String? = nil) -> BalanceData {
+        BalanceData(identifier: id ?? assets.assets[0].identifier,
+                    balance: AmountDecimal(value: Decimal(string: amount)!))
+    }
+    private func price(_ raw: String?, id: String? = nil) throws -> [PIExactFiatData] {
+        [PIExactFiatData(id: id ?? assets.assets[0].identifier, priceUsd: try raw.map(PIQuantity.init))]
+    }
+
+    func testBalanceRowMultipliesTheExactPriceAndPreservesModeAndFavorite() throws {
+        let row = try XCTUnwrap(factory.createAssetViewModel(with: balance("1.25"),
+            fiatData: price("2"), mode: .edit, priceDelta: Decimal(string: "1.25")))
+        XCTAssertEqual(row.identifier, assets.assets[0].identifier)
+        XCTAssertEqual(row.title, "XOR")
+        XCTAssertEqual(row.subtitle, "1.25 XOR")
+        XCTAssertEqual(row.fiatText, "$2.5")
+        XCTAssertEqual(row.mode, .edit)
+        XCTAssertTrue(row.isFavorite)
+        XCTAssertEqual(row.deltaPriceText?.attributedString.string, "+1.25%")
+    }
+
+    func testMissingPriceRemainsBlankWhileAConfirmedZeroPriceIsDisplayed() throws {
+        for prices in [try price(nil), try price("7", id: assets.assets[1].identifier), []] {
+            let row = try XCTUnwrap(factory.createAssetViewModel(with: balance("10"), fiatData: prices, mode: .view))
+            XCTAssertEqual(row.fiatText, "")
+            XCTAssertNil(row.deltaPriceText)
+        }
+        let zero = try XCTUnwrap(factory.createAssetViewModel(with: balance("10"), fiatData: price("0"), mode: .view))
+        XCTAssertEqual(zero.fiatText, "$0")
+    }
+
+    func testBalanceRowCannotInventAnUnknownCatalogAsset() throws {
+        XCTAssertNil(factory.createAssetViewModel(with: balance("1", id: "absent"), fiatData: [], mode: .selection))
+        let absent = AssetInfo(id: "catalog-only", symbol: "X", chainId: "", precision: 18,
+            icon: nil, displayName: "Missing metadata", visible: true)
+        let catalogOnly = AssetViewModelFactory(walletAssets: [absent], assetManager: assets, fiatService: nil)
+        XCTAssertNil(catalogOnly.createAssetViewModel(with: balance("1", id: absent.identifier), fiatData: [], mode: .view))
+    }
+
+    func testBalanceDisplayRoundsDownWithoutChangingItsFiatValue() throws {
+        let row = try XCTUnwrap(factory.createAssetViewModel(with: balance("1.2349"),
+            fiatData: price("100"), mode: .view))
+        XCTAssertEqual(row.subtitle, "1.234 XOR")
+        XCTAssertEqual(row.fiatText, "$123.49")
+    }
+
+    func testSmallAssetPriceRetainsSubCentPrecision() throws {
+        let row = try XCTUnwrap(factory.createAssetViewModel(with: assets.assets[0],
+            fiatData: price("0.00123456789"), mode: .selection, priceDelta: -2))
+        XCTAssertEqual(row.subtitle, "XOR")
+        XCTAssertEqual(row.fiatText, "$0.00123456")
+        XCTAssertEqual(row.deltaPriceText?.attributedString.string, "-2%")
+        XCTAssertEqual(row.mode, .selection)
+    }
+
+    func testAssetPriceAboveOneCentUsesFiatRounding() throws {
+        let row = try XCTUnwrap(factory.createAssetViewModel(with: assets.assets[0],
+            fiatData: price("3.14159"), mode: .view))
+        XCTAssertEqual(row.fiatText, "$3.14")
+        XCTAssertEqual(row.identifier, assets.assets[0].identifier)
+        XCTAssertTrue(row.isFavorite)
+    }
+
+    func testCatalogRowsPreserveNonfavoriteStateAndUnknownPrice() throws {
+        let row = try XCTUnwrap(factory.createAssetViewModel(with: assets.assets[2], fiatData: [], mode: .view))
+        XCTAssertEqual(row.title, "Zero asset")
+        XCTAssertEqual(row.subtitle, "ZERO")
+        XCTAssertEqual(row.fiatText, "")
+        XCTAssertFalse(row.isFavorite)
+        XCTAssertNil(row.deltaPriceText)
+    }
+
+    func testRightToLeftBalanceStartsWithTheAssetSymbol() throws {
+        LocalizationManager.shared.selectedLocalization = "ar"
+        XCTAssertTrue(LocalizationManager.shared.isRightToLeft)
+        let row = try XCTUnwrap(factory.createAssetViewModel(with: balance("2"), fiatData: [], mode: .view))
+        XCTAssertTrue(row.subtitle.hasPrefix("XOR "))
+        XCTAssertFalse(row.subtitle.hasSuffix(" XOR"))
+    }
 }

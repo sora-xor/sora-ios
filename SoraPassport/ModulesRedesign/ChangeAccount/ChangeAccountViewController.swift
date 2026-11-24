@@ -111,6 +111,13 @@ final class ChangeAccountViewController: SoramitsuViewController {
         presenter?.reload()
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let available = view.safeAreaLayoutGuide.layoutFrame.height - 3 * Constants.inset - actionButton.sora.size.height
+        let height = min(CGFloat(viewModel.count) * AccountMenuItem.itemHeight, max(0, available))
+        if tableConstraint?.constant != height { tableConstraint?.constant = height }
+    }
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
@@ -161,14 +168,17 @@ final class ChangeAccountViewController: SoramitsuViewController {
     }
     
     private func setupConstraints() {
-        tableBg.horizontalAnchors == view.horizontalAnchors + Constants.inset
+        // The list and the button under it stand in the content column.
+        tableBg.leadingAnchor == view.litColumnGuide.leadingAnchor
+        tableBg.trailingAnchor == view.litColumnGuide.trailingAnchor
         tableBg.topAnchor == view.soraSafeTopAnchor
         tableConstraint = tableBg.heightAnchor.constraint(equalToConstant: 0)
         tableConstraint?.isActive = true
         
         tableView.edgeAnchors == tableBg.edgeAnchors
 
-        actionButton.horizontalAnchors == view.horizontalAnchors + Constants.inset
+        actionButton.leadingAnchor == view.litColumnGuide.leadingAnchor
+        actionButton.trailingAnchor == view.litColumnGuide.trailingAnchor
         actionButton.topAnchor == tableBg.bottomAnchor + Constants.inset
     }
 
@@ -239,11 +249,7 @@ extension ChangeAccountViewController: ChangeAccountViewProtocol {
         
         tableView.sora.sections = [SoramitsuTableViewSection(rows: viewModel)]
         
-        let height = CGFloat(accountViewModels.count) * AccountMenuItem.itemHeight
-        let maxHeight = view.safeAreaLayoutGuide.layoutFrame.height - 3 * Constants.inset - actionButton.sora.size.height
-        
-        tableConstraint?.constant = height < maxHeight ? height : maxHeight
-        view.layoutSubviews()
+        view.setNeedsLayout()
     }
 }
 

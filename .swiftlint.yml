@@ -16,3 +16,13 @@ line_length: 145
 type_body_length: 400
 function_body_length: 55
 file_length: 500
+
+identifier_name:
+  # SwiftLint's default exclusion, plus the coordinate and quaternion components of the
+  # geometry and tilt maths (CGPoint-style x/y, sensor quaternion x/y/z/w).
+  excluded:
+    - "^id$"
+    - "^x$"
+    - "^y$"
+    - "^z$"
+    - "^w$"

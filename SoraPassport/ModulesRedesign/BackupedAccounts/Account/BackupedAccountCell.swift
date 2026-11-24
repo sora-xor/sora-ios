@@ -55,6 +55,9 @@ extension BackupedAccountCell: SoramitsuTableViewCellProtocol {
         guard let item = item as? BackupedAccountItem else {
             return
         }
+        isAccessibilityElement = true
+        accessibilityTraits = .button
+        accessibilityLabel = [item.accountName, item.accountAddress].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
         accountView.sora.cornerMask = item.config.cornerMask
         accountView.sora.cornerRadius = item.config.cornerRaduis
         accountView.accountTitle.sora.text = item.accountName

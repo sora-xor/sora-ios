@@ -136,6 +136,16 @@ final class PortfolioAggregatorTests: XCTestCase {
         XCTAssertFalse(summary.hasExclusions)
     }
 
+    func testNoTokensChangeMeansNoChangePercentRatherThanZero() {
+        let unchanged = PortfolioSnapshot(wallets: [PortfolioFixtures.wallet("A", "Alpha", order: 0, selected: true)],
+                                          holdings: [PortfolioFixtures.holding("A", .sora2, PortfolioFixtures.pswap, "100")],
+                                          networks: [.sora2], swapsAvailable: true,
+                                          swapDisclaimerAccepted: false, liveNetworks: [.sora2])
+        let summary = PortfolioAggregator.summary(unchanged, scope: .allWallets)
+        XCTAssertGreaterThan(summary.total, 0)
+        XCTAssertNil(summary.changePercent)
+    }
+
     func testFreshnessIsTheWorstWallets() {
         let saved = PortfolioFixtures.snapshot(freshnessB: .saved(Date(timeIntervalSince1970: 500)))
         XCTAssertEqual(PortfolioAggregator.summary(saved, scope: .allWallets).freshness.state, .saved)
@@ -257,5 +267,9 @@ final class PortfolioPolicyTests: XCTestCase {
         XCTAssertTrue(PortfolioFreshnessPolicy.isDue(lastAttempt: nil, now: now))
         XCTAssertFalse(PortfolioFreshnessPolicy.isDue(lastAttempt: now.addingTimeInterval(-59), now: now))
         XCTAssertTrue(PortfolioFreshnessPolicy.isDue(lastAttempt: now.addingTimeInterval(-60), now: now))
+        // A failed read comes back sooner, doubling up to the minute.
+        XCTAssertEqual((0...6).map { PortfolioFreshnessPolicy.retryInterval(failedReads: $0) }, [60, 5, 10, 20, 40, 60, 60])
+        XCTAssertTrue(PortfolioFreshnessPolicy.isDue(lastAttempt: now.addingTimeInterval(-5), failedReads: 1, now: now))
+        XCTAssertFalse(PortfolioFreshnessPolicy.isDue(lastAttempt: now.addingTimeInterval(-9), failedReads: 2, now: now))
     }
 }

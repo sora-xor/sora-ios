@@ -48,7 +48,7 @@ class InformationItemView: SoramitsuView {
 
     let titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.numberOfLines = 1
+        label.numberOfLines = 0
         label.textAlignment = .left
         label.backgroundColor = .clear
         label.sora.font = FontType.textM
@@ -58,7 +58,7 @@ class InformationItemView: SoramitsuView {
     
     let subtitleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.numberOfLines = 1
+        label.numberOfLines = 0
         label.textAlignment = .left
         label.backgroundColor = .clear
         label.sora.font = FontType.textBoldXS
@@ -135,6 +135,7 @@ class InformationItemView: SoramitsuView {
     }
     
     func addSeparator() {
+        guard separator.superview == nil else { return }
         addSubview(separator)
         separator.leadingAnchor == labelStack.leadingAnchor
         separator.heightAnchor == 1

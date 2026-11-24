@@ -30,7 +30,6 @@ protocol AccountCreatePresenterProtocol: AnyObject {
     func setup()
     func activateInfo()
     func proceed()
-    func share()
     func restoredApp()
     func skip()
     func backupToGoogle()

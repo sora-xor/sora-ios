@@ -1,0 +1,6 @@
+# SHA-256 of outputs recorded from the prebuilt sr25519lib, libed25519 and
+# blake2lib xcframeworks (removed on 2026-11-07), running harness.c in an
+# iOS 26.5 simulator: `harness gen 3000` without SIG/SELFVERIFY/
+# SOFTSIGVERIFY/IRCREATE lines (randomized), and `harness fromed 2000`.
+deterministic-gen-3000 63df1310236ab1bb8f70bbd4ea315e57429e349ea433c64a5977d4a6706fdcf8
+fromed-2000 43b0817d13e69c4d86e48acaafce1700b402bea0de7f0e67981b1df6c50e9d49

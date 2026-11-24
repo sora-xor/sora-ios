@@ -76,3 +76,41 @@ public struct ScryptParameters {
         return data
     }
 }
+
+// MARK: - Encrypted payload bounds
+
+public extension ScryptParameters {
+    /// The largest scrypt + XSalsa20-Poly1305 payload (header, nonce, box) accepted.
+    static let maximumEncryptedLength = 1_048_576
+    static let macLength = 16
+    /// The header, the nonce and the MAC of an empty message.
+    static let minimumEncryptedLength =
+        encodedLength + KeystoreConstants.nonceLength + macLength
+
+    /// Reads the header of an encrypted payload only if its nonce and MAC are
+    /// present and its key derivation work is bounded, so callers can check
+    /// it before any native scrypt work or slicing. These are the limits of
+    /// the SORA app's Google Drive recovery path; the backup and keystore
+    /// writers (SORA, Fearless, Polkadot.js) use N=32768, r=8, p=1.
+    init?(boundedEncryptedData data: Data) {
+        guard data.count >= Self.minimumEncryptedLength,
+              data.count <= Self.maximumEncryptedLength,
+              let parameters = try? Self(data: data) else
+        {
+            return nil
+        }
+
+        let n = UInt64(parameters.scryptN)
+        let r = UInt64(parameters.scryptR)
+        let p = UInt64(parameters.scryptP)
+        // Each bound is checked before the products, so they cannot overflow.
+        guard n >= 2, n.nonzeroBitCount == 1, n <= 262_144,
+              r > 0, r <= 32, p > 0, p <= 16,
+              n * r <= 2_097_152, n * r * p <= 4_194_304 else
+        {
+            return nil
+        }
+
+        self = parameters
+    }
+}

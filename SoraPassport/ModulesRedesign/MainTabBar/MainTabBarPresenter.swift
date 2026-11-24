@@ -76,5 +76,9 @@ extension MainTabBarPresenter: MainTabBarInteractorOutputProtocol {
         wireframe.removeClaim(on: view)
     }
 
+    func didFindUnwarnedShortPhraseWallets(_ wallets: [AccountItem]) {
+        wireframe.presentShortPhraseWarnings(for: wallets, on: view)
+    }
+
     func didReceive(deepLink: DeepLinkProtocol) {}
 }

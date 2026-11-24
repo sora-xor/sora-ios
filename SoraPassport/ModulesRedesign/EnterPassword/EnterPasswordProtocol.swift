@@ -38,5 +38,7 @@ protocol EnterPasswordViewModelProtocol: AnyObject {
 }
 
 protocol EnterPasswordWireframeProtocol: Loadable {
-    func openSuccessImport(importedAccountAddress: String, accounts: [OpenBackupAccount])
+    func openSuccessImport(importedAccountAddress: String, accounts: [OpenBackupAccount],
+                           googleAccount: CloudStorageAccountIdentity)
+    func presentShortPhraseWarning(name: String?, address: String, acknowledged: @escaping () -> Void)
 }

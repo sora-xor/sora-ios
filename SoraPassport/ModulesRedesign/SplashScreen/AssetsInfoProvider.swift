@@ -203,13 +203,27 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
     ) {
         self.connection = connection
         self.chainId = chainId
-        assetInfoKey = try! storageKeyFactory.assetsInfoKeysPaged().toHex(includePrefix: true)
+        assetInfoKey = Self.makeAssetInfoKey(using: storageKeyFactory)
         self.policy = policy
         self.timer = timer ?? Self.timer(on: queue)
         self.now = now
         self.random = random
         self.logger = logger
         self.queue = queue
+    }
+
+    /// `Assets.AssetInfos`, the prefix every asset's info is stored under.
+    static let assetInfosStorageKey = "0x682a59d51ab9e48a8c8cc418ff9708d2f5b4fc54f4471c9a65803b7767ecc9ff"
+
+    /// The key is twox128("Assets") + twox128("AssetInfos"), which cannot fail to hash; if the factory
+    /// ever throws, the fixed prefix keeps the paged read on the same storage map.
+    static func makeAssetInfoKey(using storageKeyFactory: StorageKeyFactoryProtocol) -> String {
+        do {
+            return try storageKeyFactory.assetsInfoKeysPaged().toHex(includePrefix: true)
+        } catch {
+            assertionFailure("The Assets.AssetInfos storage key did not encode: \(error)")
+            return assetInfosStorageKey
+        }
     }
 
     deinit {
@@ -496,13 +510,18 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
     }
 
     static func assetInfo(from change: StorageUpdateData.StorageUpdateChangeData, chainId: String) -> AssetInfo? {
-        guard let assetInfoDto = assetInfoDto(from: change.value) else { return nil }
+        // SORA2 cannot store more than 18 decimals, so a larger value is a
+        // node's invention. Such an asset is left out rather than scaled.
+        guard let assetInfoDto = assetInfoDto(from: change.value),
+              WalletAssetPrecision.isPossible(UInt32(assetInfoDto.precision)) else { return nil }
         let assetId = assetId(from: change.key)
         return AssetInfo(
             id: assetId,
             symbol: assetInfoDto.symbol,
             chainId: chainId,
-            precision: UInt32(assetInfoDto.precision),
+            // The decimals scale the amount the user signs. Predefined assets
+            // keep the runtime's value whatever the node reports.
+            precision: WalletAssetPrecision.pinned(for: assetId) ?? UInt32(assetInfoDto.precision),
             icon: nil,
             displayName: assetInfoDto.name,
             visible: [

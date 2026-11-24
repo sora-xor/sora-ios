@@ -35,17 +35,3 @@ extension Reusable {
 protocol CellViewModel {
     var cellReuseIdentifier: String { get }
 }
-
-protocol ReusableHeader: UITableViewHeaderFooterView {
-    static var reuseIdentifier: String { get }
-    func bind(viewModel: CellViewModel)
-}
-
-extension ReusableHeader {
-    static var reuseIdentifier: String {
-        return String(describing: self)
-    }
-
-    func bind(viewModel: CellViewModel) {
-    }
-}

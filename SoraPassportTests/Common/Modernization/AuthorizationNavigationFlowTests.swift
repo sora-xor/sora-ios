@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import SoraUIKit
 import UIKit
 import XCTest
 
@@ -126,10 +127,43 @@ import XCTest
     f.removeExistingAuthViewIfPresented { calls += 1 }
     XCTAssertEqual(calls, 1)
   }
+  func testFlickingThePinSheetClosedCancelsTheRequestAndAllowsTheNextOne() {
+    let f = make()
+    let sheet = BlurViewController()
+    f.screen = sheet
+    f.begin()
+    // What BlurViewController's flick does once the sheet is gone.
+    sheet.completionHandler?()
+    XCTAssertEqual(f.results, [false])
+    XCTAssertFalse((f as AuthorizationAccessible).isAuthorizing)
+    XCTAssertFalse(f.navigation.viewControllers.contains { $0 === sheet })
+    f.begin()
+    XCTAssertEqual(f.creationFlags.count, 2)
+    XCTAssertTrue((f as AuthorizationAccessible).isAuthorizing)
+    f.showAuthorizationCompletion(with: true)
+    XCTAssertEqual(f.results, [false, true])
+  }
   func testNoncancellableRequestPassesTheChoiceToScreenFactory() {
     let f = make()
     f.authorize(animated: false, cancellable: false, inView: f.navigation) { _ in }
     XCTAssertEqual(f.creationFlags, [false])
+  }
+  /// Revealing or exporting a secret asks for the typed PIN screen, never the
+  /// one that also offers Face ID or Touch ID.
+  func testPinOnlyAuthorizationUsesThePinOnlyScreen() {
+    let f = make()
+    f.authorizeWithPin(animated: false, cancellable: true, inView: f.navigation) { [weak f] value in f?.results.append(value) }
+    XCTAssertEqual(f.creationFlags, []); XCTAssertEqual(f.pinOnlyFlags, [true])
+    XCTAssertTrue(f.navigation.topViewController === f.screen)
+    f.showAuthorizationCompletion(with: true)
+    XCTAssertEqual(f.results, [true])
+  }
+  func testAccountOptionsSecretsUseThePinOnlyScreen() {
+    let f = make()
+    AccountOptionsRouteEnvironment.app.authorize(f) { [weak f] value in f?.results.append(value) }
+    XCTAssertEqual(f.creationFlags, []); XCTAssertEqual(f.pinOnlyFlags, [true])
+    f.showAuthorizationCompletion(with: false)
+    XCTAssertEqual(f.results, [false])
   }
 }
 @MainActor
@@ -137,11 +171,15 @@ private final class AuthorizationFixture: AuthorizationPresentable, Authorizatio
   var presenter: UIViewController? = UIViewController(),
     screen: UIViewController? = UIViewController()
   let navigation = AuthorizationNavigation(rootViewController: UIViewController())
-  var results = [Bool](), creationFlags = [Bool]()
+  var results = [Bool](), creationFlags = [Bool](), pinOnlyFlags = [Bool]()
   var authorizationPresentingController: UIViewController? { presenter }
   func createAuthorizationView(cancellable: Bool) -> UIViewController? {
     creationFlags.append(cancellable)
     if creationFlags.count > 1 { screen = UIViewController() }
+    return screen
+  }
+  func createPinOnlyAuthorizationView(cancellable: Bool) -> UIViewController? {
+    pinOnlyFlags.append(cancellable)
     return screen
   }
   func begin(animated: Bool = false, callback: ((Bool) -> Void)? = nil) {

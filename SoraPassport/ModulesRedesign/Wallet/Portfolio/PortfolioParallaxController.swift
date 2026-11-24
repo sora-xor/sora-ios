@@ -32,7 +32,10 @@ final class PortfolioParallaxController {
     var onRender: ((CGFloat, CGFloat) -> Void)?
 
     private let layers: [Layer]
-    private let manager = CMMotionManager()
+    typealias MotionPolicy = (enabled: Bool, reduceMotion: Bool, lowPower: Bool)
+
+    private let manager: CMMotionManager
+    private let motionPolicy: () -> MotionPolicy
     private var baseline = PortfolioTilt.Baseline()
     private var smooth = PortfolioTilt.Smooth2D(tauMs: PortfolioTilt.Constants.phoneSmoothTauMs)
     private var link: CADisplayLink?
@@ -45,8 +48,14 @@ final class PortfolioParallaxController {
     /// A fixed deflection injected for screenshots in non-production builds.
     private var injected: (x: Double, y: Double)?
 
-    init(layers: [Layer]) {
+    init(layers: [Layer], manager: CMMotionManager = CMMotionManager(),
+         motionPolicy: @escaping () -> MotionPolicy = {
+             let fx = FxPolicy.current
+             return (fx.tier == .full, fx.reduceMotion, ProcessInfo.processInfo.isLowPowerModeEnabled)
+         }) {
         self.layers = layers
+        self.manager = manager
+        self.motionPolicy = motionPolicy
     }
 
     deinit {
@@ -56,12 +65,22 @@ final class PortfolioParallaxController {
     }
 
     var gate: PortfolioTilt.Gate {
-        let fx = FxPolicy.current
-        return PortfolioTilt.Gate(enabled: fx.tier == .full,
-                                  reduceMotion: fx.reduceMotion,
-                                  lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled,
-                                  hidden: !appActive,
+        let policy = motionPolicy()
+        return PortfolioTilt.Gate(enabled: policy.enabled,
+                                  reduceMotion: policy.reduceMotion,
+                                  lowPower: policy.lowPower,
+                                  hidden: !appActive || isCovered,
                                   heroVisible: heroVisible)
+    }
+
+    /// The view the layers stand on (the sky, the orbit). The layers themselves may be hidden while the
+    /// surface shows something else in their place (the ray-traced hero hides the drawn sky).
+    weak var surface: UIView?
+
+    /// A screen presented over this one hides it whole (`BlurViewController`): no tilt is read behind it.
+    private var isCovered: Bool {
+        guard let surface, surface.window != nil else { return false }
+        return !LitStage.isShown(surface.layer)
     }
 
     /// The current smoothed deflection.
@@ -94,7 +113,17 @@ final class PortfolioParallaxController {
             center.addObserver(forName: .NSProcessInfoPowerStateDidChange, object: nil, queue: .main) {
                 [weak self] _ in self?.refresh()
             },
-            center.addObserver(forName: .neonFxChanged, object: nil, queue: .main) { [weak self] _ in self?.refresh() }
+            center.addObserver(forName: .neonFxChanged, object: nil, queue: .main) { [weak self] _ in self?.refresh() },
+            center.addObserver(forName: LitStage.didChangeNotification, object: nil, queue: .main) {
+                [weak self] _ in self?.refresh()
+            },
+            // A window shown or hidden changes what can be seen without any view in it changing.
+            center.addObserver(forName: UIWindow.didBecomeVisibleNotification, object: nil, queue: .main) {
+                [weak self] _ in self?.refresh()
+            },
+            center.addObserver(forName: UIWindow.didBecomeHiddenNotification, object: nil, queue: .main) {
+                [weak self] _ in self?.refresh()
+            }
         ]
         refresh()
     }
@@ -136,7 +165,10 @@ final class PortfolioParallaxController {
             reference = nil
             manager.deviceMotionUpdateInterval = 1.0 / 60.0
             manager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
-                guard let self, let attitude = motion?.attitude else { return }
+                // CoreMotion may already have queued a sample when updates stop.
+                // A late callback must not restart rendering after the surface closes.
+                guard let self, self.started, self.gate.isOpen,
+                      let attitude = motion?.attitude else { return }
                 // Rotation since the first sample about the device's own axes (no gimbal problem upright).
                 guard let reference = self.reference else {
                     self.reference = attitude.copy() as? CMAttitude

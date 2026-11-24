@@ -48,19 +48,21 @@ final class AccountOnboardingNavigationTests: XCTestCase {
         route.endAddingBlock = {}; route.showSignup(from: OnboardingRouteHost(), isGoogleBackupSelected: false); await drainMainQueue()
         XCTAssertEqual(nav.viewControllers.count, 1)
     }
-    func testEveryRestoreSourcePushesTheMatchingImportPresenter() throws {
+    func testEveryRestoreSourcePushesTheMatchingImportPresenter() async throws {
         for source in AccountImportSource.allCases {
             let (route, host, nav) = make(); route.showAccountRestoreRedesign(from: host, sourceType: source)
+            await drainMainQueue()
             let view = try XCTUnwrap(nav.topViewController as? ImportAccountViewController)
             let presenter = try XCTUnwrap(view.presenter as? AccountImportPresenter)
             XCTAssertEqual(presenter.selectedSourceType, source); XCTAssertTrue(presenter.view === view)
             XCTAssertNotNil(presenter.interactor); XCTAssertTrue(presenter.wireframe is AddImportedWireframe)
         }
     }
-    func testKeystoreImportOnlyPushesFromTheRootOfTheFlow() throws {
+    func testKeystoreImportOnlyPushesFromTheRootOfTheFlow() async throws {
         let (route, host, nav) = make(); route.showKeystoreImport(from: host)
+        await drainMainQueue()
         XCTAssertTrue(nav.topViewController is ImportAccountViewController); XCTAssertEqual(nav.viewControllers.count, 2)
-        route.showKeystoreImport(from: host); XCTAssertEqual(nav.viewControllers.count, 2)
+        route.showKeystoreImport(from: host); await drainMainQueue(); XCTAssertEqual(nav.viewControllers.count, 2)
     }
     func testMissingImportServiceDoesNotPushAnIncompleteDestination() {
         URLHandlingService.shared.setup(children: [])
@@ -77,7 +79,8 @@ final class AccountOnboardingNavigationTests: XCTestCase {
     }
     func testBackupSelectionPushesTheAccountChooser() async throws {
         let (route, host, nav) = make()
-        route.showBackupedAccounts(from: host, accounts: [OpenBackupAccount(name: "Fixture", address: "public-account")])
+        route.showBackupedAccounts(from: host, accounts: [OpenBackupAccount(name: "Fixture", address: "public-account")],
+                                   googleAccount: CloudStorageAccountIdentity(userID: "fixture-google-user", email: "fixture@example.com"))
         await drainMainQueue()
         let view = try XCTUnwrap(nav.topViewController as? BackupedAccountsViewController)
         XCTAssertNotNil(view.viewModel)
@@ -149,27 +152,29 @@ final class AccountOnboardingNavigationTests: XCTestCase {
         let nav = try XCTUnwrap(container.children.first as? UINavigationController)
         XCTAssertEqual(container.modalPresentationStyle, .overFullScreen); XCTAssertTrue(nav.topViewController is WelcomeViewController)
     }
-    func testExportRouteRequiresTheWarningBeforeAuthentication() throws {
+    func testExportRouteRequiresTheWarningBeforeAuthentication() async throws {
         let host = OnboardingRouteHost(), nav = UINavigationController(rootViewController: OnboardingRouteHost())
         nav.pushViewController(host, animated: false)
         ChangeAccountWireframe().showExportAccounts(accounts: [], from: host)
+        await drainMainQueue()
         let warning = try XCTUnwrap(nav.topViewController as? AccountWarningViewController)
         XCTAssertTrue(warning.hidesBottomBarWhenPushed); XCTAssertNotNil(warning.completion)
     }
-    func testJsonExportRoutePushesItsWarningWithoutCreatingAnExportFile() throws {
+    func testJsonExportRoutePushesItsWarningWithoutCreatingAnExportFile() async throws {
         let host = OnboardingRouteHost(), nav = UINavigationController(rootViewController: OnboardingRouteHost())
         nav.pushViewController(host, animated: false)
         AccountExportWireframe(localizationManager: LocalizationManager.shared).showJson(from: host, accounts: [])
+        await drainMainQueue()
         XCTAssertTrue(nav.topViewController is AccountWarningViewController); XCTAssertEqual(nav.viewControllers.count, 3)
     }
-    func testShareCancellationKeepsTheExportScreenAndSuccessReturnsToItsCaller() throws {
+    func testShareCancellationKeepsTheExportScreenAndSuccessReturnsToItsCaller() async throws {
         let host = OnboardingRouteHost(), root = OnboardingRouteHost(), nav = UINavigationController(rootViewController: OnboardingRouteHost())
         nav.setViewControllers([root, host], animated: false)
         let route = AccountExportWireframe(localizationManager: LocalizationManager.shared)
         route.showShareFile(url: NSURL(fileURLWithPath: "/tmp/public-test-export.json"), in: host)
         let activity = try XCTUnwrap(host.shown.last as? UIActivityViewController)
-        activity.completionWithItemsHandler?(nil, false, nil, nil); XCTAssertTrue(nav.topViewController === host)
-        activity.completionWithItemsHandler?(.copyToPasteboard, true, nil, nil); XCTAssertTrue(nav.topViewController === root)
+        activity.completionWithItemsHandler?(nil, false, nil, nil); await drainMainQueue(); XCTAssertTrue(nav.topViewController === host)
+        activity.completionWithItemsHandler?(.copyToPasteboard, true, nil, nil); await drainMainQueue(); XCTAssertTrue(nav.topViewController === root)
     }
     func testNameSetupStartsEmptyForNewWalletAndDefersProceedUntilWarningCompletes() throws {
         let view = OnboardingRouteHost(), route = UsernameRouteSpy(), presenter = UsernameSetupPresenter()
@@ -188,14 +193,16 @@ final class AccountOnboardingNavigationTests: XCTestCase {
     }
     func testBackupPasswordFactoryBuildsAndRendersTheChosenPublicAccount() throws {
         let account = OpenBackupAccount(name: "Fixture backup", address: "public-account")
-        let view = try XCTUnwrap(EnterPasswordViewFactory.createView(with: account.address, backedUpAccounts: [account]) as? EnterPasswordViewController)
+        let view = try XCTUnwrap(EnterPasswordViewFactory.createView(with: account.address, backedUpAccounts: [account],
+            googleAccount: CloudStorageAccountIdentity(userID: "fixture-google-user", email: "fixture@example.com")) as? EnterPasswordViewController)
         XCTAssertNotNil(view.viewModel)
         view.loadViewIfNeeded()
         XCTAssertFalse(view.view.subviews.isEmpty)
     }
     func testBackupPasswordFactoryRequiresItsImportService() {
         URLHandlingService.shared.setup(children: [])
-        XCTAssertNil(EnterPasswordViewFactory.createView(with: "public-account", backedUpAccounts: []))
+        XCTAssertNil(EnterPasswordViewFactory.createView(with: "public-account", backedUpAccounts: [],
+            googleAccount: CloudStorageAccountIdentity(userID: "fixture-google-user")))
     }
     func testConfirmationFactoriesBindTheSamePublicFixtureMnemonicToTheirInteractors() throws {
         let words = Array(repeating: "abandon", count: 11) + ["about"]
@@ -224,10 +231,11 @@ final class AccountOnboardingNavigationTests: XCTestCase {
             XCTAssertTrue(presenter.view === view); XCTAssertNotNil(presenter.interactor)
         }
     }
-    func testAddNameWarningPreservesTheContinuationAndRequiresExplicitAction() throws {
+    func testAddNameWarningPreservesTheContinuationAndRequiresExplicitAction() async throws {
         let view = OnboardingRouteHost(), nav = UINavigationController(rootViewController: OnboardingRouteHost())
         nav.pushViewController(view, animated: false); var completions = 0
         AddUsernameWireframe(localizationManager: LocalizationManager.shared, isNeedSetupName: true).showWarning(from: view) { completions += 1 }
+        await drainMainQueue()
         let warning = try XCTUnwrap(nav.topViewController as? AccountWarningViewController)
         XCTAssertEqual(completions, 0); warning.completion?(); XCTAssertEqual(completions, 1)
     }
@@ -245,4 +253,113 @@ private final class UsernameRouteSpy: UsernameSetupWireframeProtocol {
     func showWeb(url: URL, from view: ControllerBackedProtocol, style: WebPresentableStyle) { urls.append(url); webView = view }
     func present(error: Swift.Error, from view: ControllerBackedProtocol?, locale: Locale?) -> Bool { false }
     func present(error: Swift.Error, from view: ControllerBackedProtocol?, locale: Locale?, completion: @escaping () -> Void) -> Bool { false }
+}
+
+@MainActor final class OnboardingActionBoundaryTests: XCTestCase {
+    private func make() -> (OnboardingMainPresenter, OnboardingActionHost, OnboardingActionInput, OnboardingActionRoute) {
+        let presenter = OnboardingMainPresenter(locale: Locale(identifier: "en")), host = OnboardingActionHost(), input = OnboardingActionInput(), route = OnboardingActionRoute()
+        presenter.view = host; presenter.interactor = input; presenter.wireframe = route
+        return (presenter, host, input, route)
+    }
+    private func select(_ method: OnboardingImportMethod, on route: OnboardingActionRoute) throws {
+        try XCTUnwrap(route.sheets.last)(method)
+    }
+    func testSignupStartsTheLocalCreationFlowFromTheCurrentScreen() {
+        let (p, host, input, route) = make(); p.activateSignup()
+        XCTAssertEqual(route.signups, [false]); XCTAssertTrue(route.source === host); XCTAssertEqual(input.reads, 0)
+    }
+    func testKeystoreSuggestionRoutesTheCurrentScreenWithoutReadingCloudBackups() {
+        let (p, host, input, route) = make(); p.didSuggestKeystoreImport()
+        XCTAssertEqual(route.keystoreCount, 1); XCTAssertTrue(route.source === host); XCTAssertEqual(input.reads, 0)
+    }
+    func testRestoreSheetOffersCloudMnemonicAndSeedWithoutStartingAnImport() throws {
+        let (p, host, input, route) = make(); p.activateAccountRestore()
+        let sheet = OnboardingImportSheet(select: try XCTUnwrap(route.sheets.last))
+        sheet.loadViewIfNeeded()
+        func buttons(in view: UIView) -> [UIButton] {
+            view.subviews.flatMap { child in (child as? UIButton).map { [$0] } ?? buttons(in: child) }
+        }
+        let labels = buttons(in: sheet.view).compactMap { $0.configuration?.title }
+        XCTAssertEqual(labels, [R.string.localizable.recoveryPassphrase(preferredLanguages: .currentLocale),
+                                R.string.localizable.commonRawSeed(preferredLanguages: .currentLocale), "Google",
+                                R.string.localizable.commonCancel(preferredLanguages: .currentLocale)])
+        XCTAssertTrue(route.source === host)
+        XCTAssertEqual(input.reads, 0); XCTAssertTrue(route.restore.isEmpty); XCTAssertTrue(route.signups.isEmpty)
+    }
+    func testMnemonicChoicePreservesItsSourceAndDoesNotOpenSeedImport() throws {
+        let (p, host, _, route) = make(); p.activateAccountRestore(); try select(.passphrase, on: route)
+        XCTAssertEqual(route.restore, [.mnemonic]); XCTAssertTrue(route.source === host)
+    }
+    func testRawSeedChoicePreservesItsSourceAndDoesNotOpenMnemonicImport() throws {
+        let (p, host, _, route) = make(); p.activateAccountRestore(); try select(.rawSeed, on: route)
+        XCTAssertEqual(route.restore, [.seed]); XCTAssertTrue(route.source === host)
+    }
+    func testCloudChoiceRunsOneRequestAndUsesCloudSignupForAnEmptyAccountList() async throws {
+        let (p, host, input, route) = make(); let finished = expectation(description: "cloud route")
+        route.didFinish = { finished.fulfill() }; p.activateAccountRestore(); try select(.google, on: route)
+        await fulfillment(of: [finished], timeout: 2)
+        XCTAssertEqual(input.reads, 1); XCTAssertEqual(host.loading, [true, false]); XCTAssertEqual(route.signups, [true])
+    }
+    func testRetainedRestoreActionsDoNothingAfterPresenterRelease() throws {
+        var p: OnboardingMainPresenter? = OnboardingMainPresenter(locale: Locale(identifier: "en"))
+        let host = OnboardingActionHost(), input = OnboardingActionInput(), route = OnboardingActionRoute()
+        p?.view = host; p?.interactor = input; p?.wireframe = route; p?.activateAccountRestore()
+        let select = try XCTUnwrap(route.sheets.last); weak var released = p; p = nil
+        XCTAssertNil(released); OnboardingImportMethod.allCases.forEach(select)
+        XCTAssertTrue(route.restore.isEmpty); XCTAssertTrue(route.signups.isEmpty); XCTAssertEqual(input.reads, 0)
+    }
+    func testRetainedMnemonicActionUsesTheCurrentViewAfterRebinding() throws {
+        let (p, first, _, route) = make(); p.activateAccountRestore(); let select = try XCTUnwrap(route.sheets.last)
+        let replacement = OnboardingActionHost(); p.view = replacement; select(.passphrase)
+        XCTAssertTrue(route.source === replacement); XCTAssertFalse(route.source === first)
+    }
+    func testRepeatedRestoreSheetsDoNotStartCloudAuthorization() {
+        let (p, _, input, route) = make(); p.activateAccountRestore(); p.activateAccountRestore()
+        XCTAssertEqual(route.sheets.count, 2); XCTAssertEqual(input.reads, 0); XCTAssertTrue(route.restore.isEmpty)
+    }
+    func testSetupInitializesTheInteractorBeforeAnyChoice() {
+        let (p, _, input, route) = make(); p.setup(); XCTAssertEqual(input.setups, 1)
+        XCTAssertTrue(route.sheets.isEmpty); XCTAssertTrue(route.signups.isEmpty)
+    }
+    func testReappearingWithoutACloudRequestResetsThePreviousSignInState() {
+        let (p, _, input, _) = make(); p.viewWillAppear(); p.viewWillAppear(); XCTAssertEqual(input.resets, 2)
+    }
+    func testCloudFailureFromTheRestoreSheetStopsLoadingAndCanBeSelectedAgain() async throws {
+        let (p, host, input, route) = make(); input.failure = CloudStorageServiceError.notFound
+        let first = expectation(description: "first cloud failure"); route.didFinish = { first.fulfill() }
+        p.activateAccountRestore(); let select = try XCTUnwrap(route.sheets.last); select(.google); await fulfillment(of: [first], timeout: 2)
+        XCTAssertEqual(route.messages.count, 1); XCTAssertEqual(host.loading, [true, false]); XCTAssertTrue(route.signups.isEmpty)
+        let second = expectation(description: "retry cloud failure"); route.didFinish = { second.fulfill() }
+        select(.google); await fulfillment(of: [second], timeout: 2)
+        XCTAssertEqual(input.reads, 2); XCTAssertEqual(route.messages.count, 2)
+    }
+}
+private final class OnboardingActionHost: UIViewController, OnboardingMainViewProtocol {
+    var loading = [Bool]()
+    func showLoading() { loading.append(true) }
+    func hideLoading() { loading.append(false) }
+}
+private final class OnboardingActionInput: OnboardingMainInteractorInputProtocol {
+    var setups = 0, resets = 0, reads = 0; var failure: Error?
+    func setup() { setups += 1 }
+    func resetGoogleState() { resets += 1 }
+    func getBackupedAccounts() async throws -> WalletDriveBackupListing {
+        reads += 1; if let failure { throw failure }
+        return WalletDriveBackupListing(accounts: [], googleAccount: CloudStorageAccountIdentity(userID: "fixture-google-user"))
+    }
+}
+private final class OnboardingActionRoute: OnboardingMainWireframeProtocol {
+    var activityIndicatorWindow: UIWindow?
+    var source: ControllerBackedProtocol?, sheets = [(OnboardingImportMethod) -> Void](), restore = [AccountImportSource](), signups = [Bool](), messages = [String?](), keystoreCount = 0
+    var didFinish: (() -> Void)?
+    func showSignup(from view: OnboardingMainViewProtocol?, isGoogleBackupSelected: Bool) { source = view; signups.append(isGoogleBackupSelected); didFinish?() }
+    func showAccountRestoreRedesign(from view: OnboardingMainViewProtocol?, sourceType: AccountImportSource) { source = view; restore.append(sourceType) }
+    func showKeystoreImport(from view: OnboardingMainViewProtocol?) { source = view; keystoreCount += 1 }
+    func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount],
+                              googleAccount: CloudStorageAccountIdentity) { XCTFail("No cloud account expected") }
+    func showImportMethods(from view: OnboardingMainViewProtocol?, select: @escaping (OnboardingImportMethod) -> Void) {
+        source = view
+        sheets.append(select)
+    }
+    func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) { source = view; messages.append(message); didFinish?() }
 }

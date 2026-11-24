@@ -80,7 +80,4 @@ extension AccountMenuItem: SoramitsuTableViewItemProtocol {
         onTap?()
     }
     
-    func itemActionMore(with context: SoramitsuTableViewContext?) {
-        onMore?()
-    }
 }

@@ -480,6 +480,7 @@ private final class SubmitFlowServer {
   var stateId = 42, kusd = "10000", xor = "20000", yesShares = "2000", noShares = "1500",
     claimMissing = false
   var buyOverrides = [String: Any](), sellOverrides = [String: Any]()
+  var recoveryEvents: String?
   var claimStatus = "Open", payout = "0", creatorFees = "0", isCreator = false
   private let lock = NSLock()
   private var recorded = [String]()
@@ -514,7 +515,10 @@ private final class SubmitFlowServer {
     lock.unlock()
     let result: Any
     switch method {
-    case SoraPassport.RPCMethod.getBlockHash: result = genesis
+    case SoraPassport.RPCMethod.getBlockHash:
+      result = (params.first as? Int) == 0 ? genesis : block
+    case SoraPassport.RPCMethod.getChainBlock:
+      result = ["block": ["header": ["number": "0x190", "parentHash": block, "extrinsicsRoot": block, "stateRoot": block, "digest": ["logs": []]], "extrinsics": ["0x00"]]]
     case SoraPassport.RPCMethod.getRuntimeMetadata: result = metadataHex
     case SoraPassport.RPCMethod.getHead: result = block
     case SoraPassport.RPCMethod.getHeader:
@@ -524,12 +528,14 @@ private final class SubmitFlowServer {
       ]
     case SoraPassport.RPCMethod.queryStorageAt:
       let keys = try XCTUnwrap(params.first as? [String])
-      XCTAssertEqual(
-        keys,
-        [
-          "0x7c9df7ef418f869f0ab365233bda527fd8426954fc0e154310293fc43493f5829017d1c733ec2aeaa6fd0230614e397e2a000000"
-        ])
-      result = [["block": block, "changes": keys.map { [$0, market as Any? ?? NSNull()] }]]
+      if let recoveryEvents {
+        XCTAssertEqual(keys, [try StorageKeyFactory().key(from: .events).toHex(includePrefix: true)])
+        XCTAssertEqual(params.last as? String, block)
+        result = [["block": block, "changes": keys.map { [$0, recoveryEvents] }]]
+      } else {
+        XCTAssertEqual(keys, ["0x7c9df7ef418f869f0ab365233bda527fd8426954fc0e154310293fc43493f5829017d1c733ec2aeaa6fd0230614e397e2a000000"])
+        result = [["block": block, "changes": keys.map { [$0, market as Any? ?? NSNull()] }]]
+      }
     case PolkamarktRuntimeContract.RPC.marketState:
       result = [
         "marketId": stateId, "mechanism": "DynamicParimutuel", "virtualDepth": "100",
@@ -862,5 +868,146 @@ private final class SubmitFlowFarms: DemeterFarmingServiceProtocol {
   { [] }
   func getSingleSidedXorFarmedPools(completion: @escaping ([UserFarmInfo]) -> Void) {
     completion([])
+  }
+}
+
+
+extension PolkamarktSubmissionBoundaryTests {
+  func testCanonicalSuccessEventFinalizesTheExactIndexedTransaction() async throws {
+    let f = try make()
+    try await f.prepareRecovery(events: [(0, true)])
+    let rows = try await f.subject.reconcilePending(account: f.account.address)
+    equal(rows.first?.state, .finalized)
+    equal(rows.first?.finalizedBlock, 400)
+    equal(try await f.pending.all(), rows)
+    equal(f.extrinsics.prepareCount, 0)
+    equal(f.extrinsics.preparedSubmitCount, 0)
+    XCTAssertTrue(f.server.methods.contains(SoraPassport.RPCMethod.queryStorageAt))
+  }
+
+  func testCanonicalFailureOverridesAnIndexerSuccessFlag() async throws {
+    let f = try make()
+    try await f.prepareRecovery(events: [(0, false)])
+    let rows = try await f.subject.reconcilePending(account: f.account.address)
+    equal(rows.first?.state, .rejected)
+    equal(rows.first?.finalizedBlock, 400)
+    equal(try await f.pending.all(), rows)
+    equal(f.extrinsics.preparedSubmitCount, 0)
+  }
+
+  func testEventsForAnotherExtrinsicCannotResolveThePendingTransaction() async throws {
+    let f = try make()
+    try await f.prepareRecovery(events: [(1, true), (2, false)])
+    let rows = try await f.subject.reconcilePending(account: f.account.address)
+    equal(rows.first?.state, .submitted)
+    XCTAssertNil(rows.first?.finalizedBlock)
+  }
+
+  func testConflictingCanonicalEventsKeepTheTransactionUnresolved() async throws {
+    let f = try make()
+    try await f.prepareRecovery(events: [(0, true), (0, false)])
+    equal(try await f.subject.reconcilePending(account: f.account.address).first?.state, .submitted)
+    equal(try await f.pending.all().first?.state, .submitted)
+  }
+
+  func testDuplicateCanonicalSuccessEventsCannotReleaseAdmission() async throws {
+    let f = try make()
+    try await f.prepareRecovery(events: [(0, true), (0, true)])
+    await fails(.unavailable) { _ = try await f.subject.reconcilePending(account: f.account.address) }
+    equal(try await f.pending.all().first?.state, .submitted)
+  }
+
+  func testDuplicateCanonicalFailureEventsCannotReleaseAdmission() async throws {
+    let f = try make()
+    try await f.prepareRecovery(events: [(0, false), (0, false)])
+    await fails(.unavailable) { _ = try await f.subject.reconcilePending(account: f.account.address) }
+    equal(try await f.pending.all().first?.state, .submitted)
+  }
+
+  func testEmptyCanonicalEventsDoNotInventASuccess() async throws {
+    let f = try make()
+    try await f.prepareRecovery(events: [])
+    equal(try await f.subject.reconcilePending(account: f.account.address).first?.state, .submitted)
+  }
+
+  func testMalformedCanonicalEventsPreserveThePendingJournal() async throws {
+    let f = try make()
+    try await f.prepareRecovery(events: [(0, true)])
+    f.server.recoveryEvents = "0xff"
+    await fails { _ = try await f.subject.reconcilePending(account: f.account.address) }
+    equal(try await f.pending.all().first?.state, .submitted)
+    equal(f.extrinsics.preparedSubmitCount, 0)
+  }
+
+  func testUnavailableRuntimeCannotTrustIndexerSuccessAlone() async throws {
+    let f = try make()
+    try await f.prepareRecovery(events: [(0, true)])
+    f.runtime.failure = SubmitFlowFailure.unexpected
+    await fails { _ = try await f.subject.reconcilePending(account: f.account.address) }
+    equal(try await f.pending.all().first?.state, .submitted)
+    XCTAssertFalse(f.server.methods.contains(SoraPassport.RPCMethod.queryStorageAt))
+  }
+
+  func testFinalizedRecoveryIsIdempotentWithoutAnotherNodeRead() async throws {
+    let f = try make()
+    try await f.prepareRecovery(events: [(0, true)])
+    let first = try await f.subject.reconcilePending(account: f.account.address)
+    let methods = f.server.methods
+    equal(try await f.subject.reconcilePending(account: f.account.address), first)
+    equal(f.server.methods, methods)
+  }
+
+  func testMarketStatusWireRoundTripUsesAnExplicitEmptyVariantPayload() throws {
+    for status in [PolkamarktMarketStatus.open, .locked, .resolved, .cancelled] {
+      let encoded = try JSONEncoder().encode(status)
+      let json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [Any])
+      equal(json.first as? String, status.rawValue)
+      XCTAssertTrue(json.last is NSNull)
+      equal(try JSONDecoder().decode(PolkamarktMarketStatus.self, from: encoded), status)
+    }
+    for value in [Data("\"Unknown\"".utf8), Data("[\"Unknown\",null]".utf8)] {
+      XCTAssertThrowsError(try JSONDecoder().decode(PolkamarktMarketStatus.self, from: value))
+    }
+  }
+}
+
+private extension SubmitFlowFixture {
+  func prepareRecovery(events: [(UInt32, Bool)]) async throws {
+    let hash = try Data([0]).blake2b32().toHex(includePrefix: false)
+    let now = Date(timeIntervalSince1970: 1)
+    var row = PolkamarktPendingMutation(id: UUID(), account: account.address, action: "buy_yes",
+      marketIds: [42], createdAt: now, updatedAt: now, extrinsicHash: nil, state: .preparing,
+      finalizedBlock: nil, errorClass: nil)
+    row = try await pending.put(row)
+    row.extrinsicHash = hash
+    row.state = .signedBeforeTransport
+    row = try await pending.put(row)
+    row.state = .submitted
+    _ = try await pending.put(row)
+    // Runtime 130's System events, decoded by the production runtime coder.
+    // Each tuple deliberately identifies both the extrinsic index and result.
+    var bytes = Data([UInt8(events.count << 2)])
+    for (index, succeeded) in events {
+      bytes.append(0)
+      withUnsafeBytes(of: index.littleEndian) { bytes.append(contentsOf: $0) }
+      bytes.append(contentsOf: succeeded ? [0, 0] : [0, 1, 0])
+      bytes.append(contentsOf: [0x22, 0x90, 0x75, 0x3e, 0x55, 0x17, 0, 0, 0])
+    }
+    server.recoveryEvents = bytes.toHex(includePrefix: true)
+    let owner = account.address, block = server.block
+    PIStubIndexerProtocol.install { request in
+      if request.operation == "MobileHealth" {
+        return .init(body: PIAdvancingIndexer.health(indexed: 400, finalized: 401,
+          indexedAt: Int(Date().timeIntervalSince1970) - 1))
+      }
+      guard request.operation == "MobileHistory" else { return .init(status: 400, body: "{}") }
+      let entry: [String: Any] = ["id": "0x" + hash, "address": owner, "dataFrom": owner,
+        "dataTo": "peer", "timestamp": 100, "networkFee": "7", "execution": ["success": true],
+        "blockHeight": 400, "blockHash": block]
+      let page: [String: Any] = ["nodes": [entry], "pageInfo": ["hasNextPage": false,
+        "hasPreviousPage": false, "startCursor": "c1", "endCursor": "c1"], "totalCount": 1]
+      return .init(body: String(data: try! JSONSerialization.data(withJSONObject:
+        ["data": ["historyElements": page]]), encoding: .utf8)!)
+    }
   }
 }

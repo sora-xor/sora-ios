@@ -19,13 +19,27 @@ public final class SoramitsuLoadingPlaceholderDecorator {
 		}
 	}
 
-	public private(set) lazy var shimmerview = SoramitsuShimmerView(style: style)
+	// Each overlay is made the first time it is shown. Taking one away never makes it: a view that only
+	// ever shimmered used to get a retry button (and its cut glass, following the light) made just to be
+	// removed, and that button kept itself alive through its own handler.
+	private var madeShimmer = false
+	private var madeActivity = false
+	private var madeRetry = false
 
-	public private(set) lazy var activityView = SoramitsuActivityIndicatorView(style: style)
+	public private(set) lazy var shimmerview: SoramitsuShimmerView = {
+		madeShimmer = true
+		return SoramitsuShimmerView(style: style)
+	}()
+
+	public private(set) lazy var activityView: SoramitsuActivityIndicatorView = {
+		madeActivity = true
+		return SoramitsuActivityIndicatorView(style: style)
+	}()
 
 	public var retryHandler: (() -> Void)?
 
 	private(set) lazy var retryButton: SoramitsuButton = {
+		madeRetry = true
         let button = SoramitsuButton(style: style, size: .large)
 		button.sora.stater.animationDuration = 0.4
 		let rotation: CGFloat = -1 * .pi
@@ -33,8 +47,9 @@ public final class SoramitsuLoadingPlaceholderDecorator {
             sora.transform = sora.transform.rotated(by: rotation)
             sora.transform = sora.transform.rotated(by: rotation)
 		}
+		let delay = button.sora.stater.animationDuration
 		button.sora.addHandler(for: .touchUpInside) { [weak self] in
-			DispatchQueue.main.asyncAfter(deadline: .now() + button.sora.stater.animationDuration) {
+			DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
 				self?.retryHandler?()
 			}
 		}
@@ -58,13 +73,13 @@ public final class SoramitsuLoadingPlaceholderDecorator {
 			case .none:
 				self.stopAll()
 			case .activity:
-				self.retryButton.removeFromSuperview()
+				self.removeRetry()
 				self.stopShimmer()
 				self.add(self.activityView, on: view)
 				self.activityView.pinToSuperView(respectingSafeArea: false)
 				self.activityView.startAnimating()
 			case .shimmer:
-				self.retryButton.removeFromSuperview()
+				self.removeRetry()
 				self.stopActivity()
 				self.add(self.shimmerview, on: view)
 				self.shimmerview.pinToSuperView(respectingSafeArea: false)
@@ -91,17 +106,24 @@ public final class SoramitsuLoadingPlaceholderDecorator {
 	}
 
 	private func stopAll() {
-		retryButton.removeFromSuperview()
+		removeRetry()
 		stopActivity()
 		stopShimmer()
 	}
 
+	private func removeRetry() {
+		guard madeRetry else { return }
+		retryButton.removeFromSuperview()
+	}
+
 	private func stopActivity() {
+		guard madeActivity else { return }
 		self.activityView.removeFromSuperview()
 		self.activityView.stopAnimating()
 	}
 
 	private func stopShimmer() {
+		guard madeShimmer else { return }
 		self.shimmerview.removeFromSuperview()
 		self.shimmerview.sora.stopShimmering()
 	}

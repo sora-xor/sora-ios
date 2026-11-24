@@ -30,6 +30,12 @@ open class SoramitsuBaseViewController: UIViewController, ObservableViewControll
 		view = soramitsuView
 	}
 
+	/// The classic bars stay along the top and the bottom. Where the system would move bar content to
+	/// a bar down the side (an unfolded screen in landscape), these screens keep the layout they have
+	/// on every other iPhone.
+	@available(iOS 27.1, *)
+	open override var preferredVerticalBarBehavior: UIVerticalBarBehavior { .disabled }
+
 	public func presentAnimations() {
 		// определить в наследниках
 	}

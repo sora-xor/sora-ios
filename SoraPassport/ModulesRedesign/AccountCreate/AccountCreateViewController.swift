@@ -86,14 +86,6 @@ final class AccountCreateViewController: SoramitsuViewController {
         }
     }()
 
-    private var shareButton: SoramitsuButton = {
-        SoramitsuButton(size: .large, type: .tonal(.tertiary)).then {
-            $0.sora.leftImage = R.image.copyNeu()
-            $0.addTarget(nil, action: #selector(actionShare), for: .touchUpInside)
-            $0.sora.cornerRadius = .circle
-        }
-    }()
-
     private var nextButton: SoramitsuButton = {
         SoramitsuButton().then {
             $0.sora.cornerRadius = .circle
@@ -159,8 +151,10 @@ final class AccountCreateViewController: SoramitsuViewController {
         configure()
 
         presenter.setup()
+        // Also when the scene moves to another screen (a phone folded or unfolded): words shown on
+        // one screen are not carried onto the other.
         [UIApplication.willResignActiveNotification, UIScreen.capturedDidChangeNotification,
-         UIApplication.userDidTakeScreenshotNotification].forEach {
+         UIApplication.userDidTakeScreenshotNotification, WalletDisplay.screenDidChangeNotification].forEach {
             NotificationCenter.default.addObserver(self, selector: #selector(hidePhrase), name: $0, object: nil)
         }
         hidePhrase()
@@ -202,7 +196,6 @@ final class AccountCreateViewController: SoramitsuViewController {
             titleLabel,
             revealButton,
             mnemonicView,
-            shareButton,
             backupPathLabel,
             copyBackupPathButton,
             nextButton,
@@ -215,12 +208,11 @@ final class AccountCreateViewController: SoramitsuViewController {
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            containerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
-            containerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
             containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
-            containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
-            containerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32)
+            containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16)
         ])
+        // 16 from each side on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(containerView, inScroll: scrollView, margin: 16)
         
         NSLayoutConstraint.activate([
             loadingView.widthAnchor.constraint(equalTo: view.widthAnchor),
@@ -231,7 +223,6 @@ final class AccountCreateViewController: SoramitsuViewController {
 
         soramitsuView.sora.backgroundColor = .bgPage
 
-        shareButton.isHidden = mode == .registration || mode == .registrationWithoutAccessToGoogle
         googleButton.isHidden = mode == .view || mode == .registration
         nextButton.isHidden = mode == .view
     }
@@ -244,6 +235,11 @@ final class AccountCreateViewController: SoramitsuViewController {
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if isViewLoaded { updatePhraseVisibility() }
+    }
+
+    static func phraseColumns(canvas: LayoutCanvas, accessibilitySize: Bool) -> Int {
+        if accessibilitySize { return 1 }
+        return canvas.isWide ? 3 : 2
     }
 
     @objc private func togglePhrase() {
@@ -266,15 +262,17 @@ final class AccountCreateViewController: SoramitsuViewController {
 
     private func updatePhraseVisibility() {
         var words = phraseRevealed ? phraseWords : []
-        let columns = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? 1 : 2
-        if words.count % columns != 0 { words.append("") }
+        // Two columns on a phone. A wide window (an unfolded screen) has room for three, so even a
+        // 24-word phrase is on screen at once, to be copied down without scrolling.
+        let columns = Self.phraseColumns(canvas: WalletDisplay.canvas(for: viewIfLoaded),
+                                         accessibilitySize: traitCollection.preferredContentSizeCategory.isAccessibilityCategory)
+        while words.count % columns != 0 { words.append("") }
         mnemonicView.bind(words: words, columnsCount: columns)
         mnemonicView.isHidden = !phraseRevealed
         mnemonicView.accessibilityElementsHidden = !phraseRevealed
         backupPathLabel.text = phraseRevealed ? WalletUX.text("Also save this derivation path:") + "\n" + backupPath : nil
         backupPathLabel.isHidden = !phraseRevealed || backupPath.isEmpty
-        copyBackupPathButton.isHidden = !phraseRevealed || backupPath.isEmpty
-        shareButton.isEnabled = phraseRevealed
+        copyBackupPathButton.isHidden = !phraseRevealed || !WalletSecretCopy.allowsCopying(derivationPath: backupPath)
         revealButton.setTitle(phraseRevealed ? R.string.localizable.commonHide(preferredLanguages: .currentLocale) : WalletUX.text("Show my recovery phrase"), for: .normal)
     }
 
@@ -288,7 +286,6 @@ final class AccountCreateViewController: SoramitsuViewController {
         title = R.string.localizable.mnemonicTitle(preferredLanguages: locale.rLanguages).capitalized
         titleLabel.sora.text = R.string.localizable.mnemonicText(preferredLanguages: locale.rLanguages)
         nextButton.sora.title = mode.nextButtonTitle
-        shareButton.sora.title = R.string.localizable.commonCopy(preferredLanguages: .currentLocale)
         
         navigationItem.rightBarButtonItem = createRightButtonItem()
     }
@@ -298,11 +295,6 @@ final class AccountCreateViewController: SoramitsuViewController {
         presenter.proceed()
     }
 
-    @IBAction private func actionShare() {
-        guard phraseRevealed else { return }
-        shareButton.sora.title = R.string.localizable.commonCopied(preferredLanguages: .currentLocale)
-        presenter.share()
-    }
     
     @objc private func actionOpenInfo() {
         presenter.activateInfo()
@@ -357,7 +349,7 @@ extension AccountCreateViewController: AccountCreateViewProtocol {
     }
 
     @objc private func copyBackupPath() {
-        guard phraseRevealed, !backupPath.isEmpty else { return }
+        guard phraseRevealed, WalletSecretCopy.allowsCopying(derivationPath: backupPath) else { return }
         UIPasteboard.general.setItems([["public.utf8-plain-text": backupPath]],
             options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(45)])
     }

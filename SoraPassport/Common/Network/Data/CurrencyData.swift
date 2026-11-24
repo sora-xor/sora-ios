@@ -30,13 +30,4 @@ struct CurrencyData: Codable, Equatable {
 }
 
 extension CurrencyData {
-    func sortedItems() -> [CurrencyItemData] {
-        return topics.enumerated().sorted(by: { (firstItem, secondItem) in
-            let firstIndex = Int(firstItem.element.key) ?? 0
-            let secondIndex = Int(secondItem.element.key) ?? 0
-
-            return firstIndex < secondIndex
-        })
-            .map({ $0.element.value })
-    }
 }

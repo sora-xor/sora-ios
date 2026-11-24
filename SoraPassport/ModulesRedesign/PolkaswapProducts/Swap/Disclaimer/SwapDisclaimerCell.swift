@@ -173,8 +173,58 @@ final class SwapDisclaimerCell: SoramitsuTableViewCell {
         return label
     }()
     
+    /// The flower over the title, so the sheet reads as Polkaswap before a word is read.
+    private let flowerView: UIImageView = {
+        let view = UIImageView(image: PortfolioGlyphs.flowerImage(size: 44))
+        view.contentMode = .center
+        view.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        return view
+    }()
+
+    /// The rest of the disclaimer, one tap away: the sheet opens on its first paragraph only.
+    private lazy var moreButton: SoramitsuButton = {
+        let button = SoramitsuButton(size: .small, type: .text(.primary))
+        button.sora.title = R.string.localizable.showMore(preferredLanguages: .currentLocale)
+        button.sora.rightImage = UIImage(systemName: "chevron.down",
+                                         withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .bold))
+        button.sora.imageSize = 12
+        button.sora.addHandler(for: .touchUpInside) { [weak self] in self?.revealRest() }
+        return button
+    }()
+
+    /// The first text's second paragraph, which waits behind Show more with the rest.
+    private let text1RestLabel: SoramitsuLabel = {
+        let label = SoramitsuLabel()
+        label.sora.font = FontType.paragraphM
+        label.sora.textColor = .fgPrimary
+        label.sora.numberOfLines = 0
+        return label
+    }()
+
+    private var restViews: [UIView] { [text1RestLabel, text2Label, text3View, text4View, text5View, text6View] }
+
+    private func revealRest() {
+        let table = sequence(first: superview, next: { $0?.superview }).compactMap { $0 as? UITableView }.first
+        let animated = !UIAccessibility.isReduceMotionEnabled
+        restViews.forEach { $0.alpha = 0 }
+        let reveal = {
+            self.restViews.forEach { $0.isHidden = false }
+            self.moreButton.isHidden = true
+            self.stackView.layoutIfNeeded()
+        }
+        if let table, animated {
+            table.performBatchUpdates { UIView.animate(withDuration: 0.3, animations: reveal) }
+        } else {
+            reveal()
+            table?.performBatchUpdates(nil)
+        }
+        for (index, view) in restViews.enumerated() {
+            UIView.animate(withDuration: animated ? 0.35 : 0, delay: animated ? 0.06 * Double(index) : 0) { view.alpha = 1 }
+        }
+    }
+
     private lazy var closeButton: SoramitsuButton = {
-        let button = SoramitsuButton(size: .large, type: .tonal(.primary))
+        let button = SoramitsuButton(size: .large, type: .filled(.primary))
         button.sora.horizontalOffset = 0
         button.sora.title = R.string.localizable.commonClose(preferredLanguages: .currentLocale)
         button.sora.cornerRadius = .circle
@@ -201,8 +251,16 @@ final class SwapDisclaimerCell: SoramitsuTableViewCell {
         text5View.addArrangedSubviews(text5NumberLabel, text5Label)
         text6View.addArrangedSubviews(text6UnderlineView, text6Label)
 
-        stackView.addArrangedSubviews(titleLabel, text1Label, text2Label, text3View, text4View, text5View, text6View, closeButton)
+        // The sheet opens on the paragraph with the FAQ, terms and privacy links; the rest is one tap away.
+        let paragraphs = (text1Label.text ?? "").components(separatedBy: "\n\n")
+        text1Label.text = paragraphs.first
+        text1RestLabel.sora.text = paragraphs.dropFirst().joined(separator: "\n\n")
+        stackView.addArrangedSubviews(flowerView, titleLabel, text1Label, moreButton,
+                                      text1RestLabel, text2Label, text3View, text4View, text5View, text6View, closeButton)
+        stackView.setCustomSpacing(8, after: flowerView)
         stackView.setCustomSpacing(34, after: text6View)
+        stackView.setCustomSpacing(24, after: moreButton)
+        restViews.forEach { $0.isHidden = true }
 
         decorate(label: text1Label)
         decorate(label: text6Label)
@@ -211,7 +269,7 @@ final class SwapDisclaimerCell: SoramitsuTableViewCell {
     func decorate(label: NantesLabel) {
         label.delegate = self
         label.linkAttributes = [
-            NSAttributedString.Key.foregroundColor: R.color.brandPolkaswapPink()!
+            NSAttributedString.Key.foregroundColor: Lit.lacquerText
         ]
         var text = label.text ?? ""
         let links: [(URL, NSRange)] = linkDecorator.links(inText: &text)

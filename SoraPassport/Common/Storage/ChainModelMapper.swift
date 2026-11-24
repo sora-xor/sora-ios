@@ -47,7 +47,9 @@ final class ChainModelMapper {
             id: id,
             symbol: symbol,
             chainId: chainId,
-            precision: UInt32(entity.precision ?? "", radix: 10) ?? 8,
+            // Saved decimals came from a node. Predefined assets keep the
+            // runtime's value, because the decimals scale the signed amount.
+            precision: WalletAssetPrecision.pinned(for: id) ?? UInt32(entity.precision ?? "", radix: 10) ?? 8,
             icon: entity.icon,
 //            priceId: entity.priceId,
 //            price: entity.price as Decimal?,

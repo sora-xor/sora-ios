@@ -21,12 +21,6 @@ final class WalletHistoryConversionTests: XCTestCase {
         ["baseAssetId": "XOR", "targetAssetId": "VAL", "baseAssetAmount": "2.5",
          "targetAssetAmount": "5.25", "liquidityProviderFee": "0.01", "selectedMarket": "XYK"]
     }
-    private func subquery(_ fields: [String: Any], fee: String = "7", success: Bool = true) throws -> SubqueryHistoryElement {
-        let data = try JSONSerialization.data(withJSONObject: ["id": "transaction-1", "timestamp": "1234",
-            "blockHash": "block-1", "address": address, "networkFee": fee, "data": fields,
-            "execution": ["success": success]])
-        return try JSONDecoder().decode(SubqueryHistoryElement.self, from: data)
-    }
     private func sdk(_ fields: [String: String], fee: String = "7", success: Bool = true,
                      method: String = "transfer", nested: [TxHistoryItemNested]? = nil) -> TxHistoryItem {
         TxHistoryItem(id: "transaction-1", blockHash: "block-1", module: "assets", method: method,
@@ -37,8 +31,8 @@ final class WalletHistoryConversionTests: XCTestCase {
         item.createTransactionForAddress(account ?? address, networkType: 69, asset: asset, addressFactory: SS58AddressFactory())
     }
 
-    func testBothTransferAdaptersPreserveDirectionAmountFeeAndIdentifier() throws {
-        let inputs: [WalletRemoteHistoryItemProtocol] = [try subquery(transfer), sdk(transfer)]
+    func testTransferAdapterPreserveDirectionAmountFeeAndIdentifier() throws {
+        let inputs: [WalletRemoteHistoryItemProtocol] = [sdk(transfer)]
         for input in inputs {
             let outgoing = try XCTUnwrap(convert(input))
             XCTAssertEqual(outgoing.transactionId, "transaction-1")
@@ -60,15 +54,14 @@ final class WalletHistoryConversionTests: XCTestCase {
         }
     }
 
-    func testBothTransferAdaptersKeepFailureStatus() throws {
-        for input in [try subquery(transfer, success: false) as WalletRemoteHistoryItemProtocol,
-                      sdk(transfer, success: false)] {
+    func testTransferAdapterKeepFailureStatus() throws {
+        for input in [sdk(transfer, success: false)] {
             XCTAssertEqual(convert(input)?.status, .rejected)
         }
     }
 
-    func testBothSwapAdaptersPreserveBothAssetsAndProviderFee() throws {
-        for input in [try subquery(swap) as WalletRemoteHistoryItemProtocol, sdk(swap)] {
+    func testSwapAdapterPreserveBothAssetsAndProviderFee() throws {
+        for input in [sdk(swap)] {
             let result = try XCTUnwrap(convert(input))
             XCTAssertEqual(result.type, TransactionType.swap.rawValue)
             XCTAssertEqual(result.assetId, "VAL")
@@ -81,11 +74,11 @@ final class WalletHistoryConversionTests: XCTestCase {
         }
     }
 
-    func testBothLiquidityAdaptersPreserveDepositAndRemovalSides() throws {
+    func testLiquidityAdapterPreserveDepositAndRemovalSides() throws {
         for type in ["Deposit", "Removal"] {
             let fields = ["baseAssetId": "XOR", "targetAssetId": "VAL", "baseAssetAmount": "2.5",
                           "targetAssetAmount": "5.25", "type": type]
-            for input in [try subquery(fields) as WalletRemoteHistoryItemProtocol, sdk(fields)] {
+            for input in [sdk(fields)] {
                 let result = try XCTUnwrap(convert(input))
                 XCTAssertEqual(result.assetId, "VAL")
                 XCTAssertEqual(result.peerId, "XOR")
@@ -93,34 +86,6 @@ final class WalletHistoryConversionTests: XCTestCase {
                 XCTAssertEqual(result.amount.decimalValue, Decimal(string: "5.25"))
                 XCTAssertEqual(result.type, type == "Deposit" ? TransactionType.liquidityAdd.rawValue : TransactionType.liquidityRemoval.rawValue)
             }
-        }
-    }
-
-    func testSubqueryRewardsAndSlashesConvertAtomicAmountsAndEra() throws {
-        for reward in [true, false] {
-            let input = try subquery(["amount": "2500000000000000000", "isReward": reward, "era": 3, "validator": "validator"])
-            let result = try XCTUnwrap(convert(input))
-            XCTAssertEqual(result.amount.decimalValue, Decimal(string: "2.5"))
-            XCTAssertEqual(result.type, reward ? TransactionType.reward.rawValue : TransactionType.slash.rawValue)
-            XCTAssertEqual(result.peerId, "validator")
-            XCTAssertEqual(result.context?[TransactionContextKeys.era], "3")
-            XCTAssertTrue(result.fees.isEmpty)
-        }
-        let result = try XCTUnwrap(convert(try subquery(["amount": "0", "isReward": true])))
-        XCTAssertEqual(result.peerId, "")
-        XCTAssertNil(result.context)
-    }
-
-    func testSubqueryExtrinsicPreservesRuntimeFailureAndAtomicFee() throws {
-        for success in [true, false] {
-            let input = try subquery(["hash": "extrinsic-hash", "module": "balances", "call": "transfer",
-                                      "fee": "500000000000000000", "success": success])
-            let result = try XCTUnwrap(convert(input))
-            XCTAssertEqual(result.type, TransactionType.extrinsic.rawValue)
-            XCTAssertEqual(result.amount.decimalValue, Decimal(string: "0.5"))
-            XCTAssertEqual(result.status, success ? .commited : .rejected)
-            XCTAssertEqual(result.peerName, "balances transfer")
-            XCTAssertEqual(result.context?[TransactionContextKeys.extrinsicHash], "extrinsic-hash")
         }
     }
 
@@ -155,48 +120,146 @@ final class WalletHistoryConversionTests: XCTestCase {
     }
 
     func testUnrecognizedHistoryPayloadHasNoTransaction() throws {
-        XCTAssertNil(convert(try subquery(["unknown": "value"])))
         XCTAssertNil(convert(sdk(["unknown": "value"])))
     }
 
-    func testBothTransferAdaptersRejectMalformedAndLossyAmounts() throws {
+    func testTransferAdapterRejectMalformedAndLossyAmounts() throws {
         for raw in ["", "1garbage", "1e2", "-1", "NaN", "1.2.3", "1\n", String(repeating: "9", count: 45)] {
             let fields = transfer.merging(["amount": raw]) { _, new in new }
-            XCTAssertNil(convert(try subquery(fields)), raw)
             XCTAssertNil(convert(sdk(fields)), raw)
         }
     }
 
-    func testBothAdaptersRejectInvalidNetworkFeesRatherThanInventingZero() throws {
+    func testAdapterRejectInvalidNetworkFeesRatherThanInventingZero() throws {
         for raw in ["", "7garbage", "-1", "NaN", "1\n", String(repeating: "9", count: 45)] {
-            XCTAssertNil(convert(try subquery(transfer, fee: raw)), raw)
             XCTAssertNil(convert(sdk(transfer, fee: raw)), raw)
         }
     }
 
-    func testBothSwapAdaptersValidateBothAmountsAndProviderFee() throws {
+    func testSwapAdapterValidateBothAmountsAndProviderFee() throws {
         for key in ["baseAssetAmount", "targetAssetAmount", "liquidityProviderFee"] {
             for raw in ["1garbage", "-1", "NaN", String(repeating: "9", count: 45)] {
                 let fields = swap.merging([key: raw]) { _, new in new }
-                XCTAssertNil(convert(try subquery(fields)), "\(key): \(raw)")
                 XCTAssertNil(convert(sdk(fields)), "\(key): \(raw)")
             }
         }
     }
 
-    func testBothLiquidityAdaptersValidateBothAmountFields() throws {
+    func testLiquidityAdapterValidateBothAmountFields() throws {
         let fields = ["baseAssetId": "XOR", "targetAssetId": "VAL", "baseAssetAmount": "2.5", "targetAssetAmount": "5.25", "type": "Deposit"]
         for key in ["baseAssetAmount", "targetAssetAmount"] {
             let malformed = fields.merging([key: "1garbage"]) { _, new in new }
-            XCTAssertNil(convert(try subquery(malformed)))
             XCTAssertNil(convert(sdk(malformed)))
         }
     }
 
-    func testSubqueryAtomicAmountsCannotSilentlyBecomeZero() throws {
-        for raw in ["garbage", "-1", "0.5"] {
-            XCTAssertNil(convert(try subquery(["amount": raw, "isReward": true])), raw)
-            XCTAssertNil(convert(try subquery(["hash": "hash", "module": "balances", "call": "transfer", "fee": raw, "success": true])), raw)
+    func testSDKRewardsAndSlashesDecodeStringFlagsAndEra() throws {
+        for reward in [true, false] {
+            let result = try XCTUnwrap(convert(sdk([
+                "amount": "2500000000000000000", "isReward": String(reward),
+                "era": "37", "validator": "validator-account"
+            ])))
+            XCTAssertEqual(result.type, reward ? TransactionType.reward.rawValue : TransactionType.slash.rawValue)
+            XCTAssertEqual(result.amount.decimalValue, Decimal(string: "2.5"))
+            XCTAssertEqual(result.assetId, "XOR")
+            XCTAssertEqual(result.status, .commited)
+            XCTAssertEqual(result.peerId, "validator-account")
+            XCTAssertEqual(result.peerName, "validator-account")
+            XCTAssertEqual(result.context?[TransactionContextKeys.era], "37")
+            XCTAssertTrue(result.fees.isEmpty)
         }
+    }
+
+    func testSDKRewardWithoutOptionalEraOrValidatorKeepsZeroAmount() throws {
+        let result = try XCTUnwrap(convert(sdk(["amount": "0", "isReward": "true"])))
+        XCTAssertEqual(result.amount.decimalValue, .zero)
+        XCTAssertEqual(result.peerId, "")
+        XCTAssertEqual(result.peerName, "")
+        XCTAssertNil(result.context)
+    }
+
+    func testSDKRewardRejectsMalformedAtomicAmounts() {
+        for value in ["garbage", "-1", "0.5"] {
+            XCTAssertNil(convert(sdk(["amount": value, "isReward": "true"])), value)
+        }
+    }
+
+    func testSDKRewardRejectsMalformedTypedParameters() {
+        for value in ["", "1", "yes", "TRUE"] {
+            XCTAssertNil(convert(sdk(["amount": "1", "isReward": value])), value)
+        }
+        for value in ["", "era-37", "3.7", "9223372036854775808"] {
+            XCTAssertNil(convert(sdk(["amount": "1", "isReward": "true", "era": value])), value)
+        }
+    }
+
+    func testSDKExtrinsicDecodesItsExecutionFlagAndAtomicFee() throws {
+        for succeeded in [true, false] {
+            let result = try XCTUnwrap(convert(sdk([
+                "hash": "extrinsic-hash", "module": "balances", "call": "transfer",
+                "fee": "500000000000000000", "success": String(succeeded)
+            ], success: succeeded)))
+            XCTAssertEqual(result.type, TransactionType.extrinsic.rawValue)
+            XCTAssertEqual(result.status, succeeded ? .commited : .rejected)
+            XCTAssertEqual(result.amount.decimalValue, Decimal(string: "0.5"))
+            XCTAssertEqual(result.assetId, "XOR")
+            XCTAssertEqual(result.peerFirstName, "balances")
+            XCTAssertEqual(result.peerLastName, "transfer")
+            XCTAssertEqual(result.peerName, "balances transfer")
+            XCTAssertEqual(result.peerId, try SS58AddressFactory().accountId(fromAddress: address, type: 69).toHex())
+            XCTAssertEqual(result.context?[TransactionContextKeys.extrinsicHash], "extrinsic-hash")
+            XCTAssertTrue(result.fees.isEmpty)
+        }
+    }
+
+    func testSDKExtrinsicPreservesAnUnrecognizedAccountAsItsPeer() throws {
+        let result = try XCTUnwrap(convert(sdk([
+            "hash": "extrinsic-hash", "module": "balances", "call": "transfer",
+            "fee": "0", "success": "false"
+        ], success: false), account: "unrecognized-account"))
+        XCTAssertEqual(result.peerId, "unrecognized-account")
+        XCTAssertEqual(result.amount.decimalValue, .zero)
+        XCTAssertEqual(result.status, .rejected)
+    }
+
+    func testSDKExtrinsicRejectsInvalidFeeOrExecutionFlag() {
+        let fields = ["hash": "h", "module": "balances", "call": "transfer", "fee": "0", "success": "true"]
+        for value in ["garbage", "-1", "0.5"] {
+            XCTAssertNil(convert(sdk(fields.merging(["fee": value]) { _, new in new })), value)
+        }
+        for value in ["", "1", "yes", "FALSE"] {
+            XCTAssertNil(convert(sdk(fields.merging(["success": value]) { _, new in new })), value)
+        }
+    }
+
+    func testSDKExtrinsicSourceRetainsStableIdentityAndTimestamp() {
+        let input = sdk([:])
+        XCTAssertEqual(input.label, .extrinsics)
+        XCTAssertEqual(input.identifier, "transaction-1")
+        XCTAssertEqual(input.itemTimestamp, 1234)
+    }
+
+    func testSDKPoolCreationRejectsMalformedNestedAmountsAndFee() {
+        let fields = ["inputAssetA": "XOR", "inputAssetB": "VAL", "inputADesired": "3", "inputBDesired": "6"]
+        func nested(_ values: [String: String]) -> [TxHistoryItemNested] {
+            [TxHistoryItemNested(module: "poolXYK", method: "depositLiquidity", hash: "nested-hash",
+                data: values.map { TxHistoryItemParam(paramName: $0.key, paramValue: $0.value) })]
+        }
+        for key in ["inputADesired", "inputBDesired"] {
+            XCTAssertNil(convert(sdk([:], nested: nested(fields.merging([key: "invalid"]) { _, new in new }))))
+        }
+        XCTAssertNil(convert(sdk([:], fee: "invalid", nested: nested(fields))))
+        XCTAssertNil(convert(sdk([:], nested: nested([:]))))
+    }
+
+    func testSDKPoolCreationPreservesRejectedExecution() throws {
+        let nested = TxHistoryItemNested(module: "poolXYK", method: "depositLiquidity", hash: "nested-hash",
+            data: ["inputAssetA": "XOR", "inputAssetB": "VAL", "inputADesired": "0", "inputBDesired": "0"].map {
+                TxHistoryItemParam(paramName: $0.key, paramValue: $0.value)
+            })
+        let result = try XCTUnwrap(convert(sdk([:], success: false, nested: [nested])))
+        XCTAssertEqual(result.status, .rejected)
+        XCTAssertEqual(result.amount.decimalValue, .zero)
+        XCTAssertEqual(result.details, "0")
     }
 }

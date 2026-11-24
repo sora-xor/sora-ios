@@ -46,25 +46,9 @@ final class ExploreFarmsPageViewModel {
     private func createSnapshot(viewModels: [ExploreFarmViewModel] = []) -> ExplorePageSnapshot {
         var snapshot = ExplorePageSnapshot()
 
-        let title = R.string.localizable.exploreDemeterTitle(preferredLanguages: .currentLocale)
-        let subTitleText = R.string.localizable.exploreDemeterSubtitle(preferredLanguages: .currentLocale)
-        let headerItem = HeaderItem(titleText: title, subTitleText: subTitleText)
-        
-        var sections = [ ExplorePageSection(items: [ .header(headerItem) ]) ]
-        
-        if viewModels.isEmpty {
-            let serialNumbers = Array(1...20)
-            let shimmersPoolItems = serialNumbers.map {
-                ExploreFarmItem(serialNumber: String($0), farmViewModel: ExploreFarmViewModel(serialNumber: String($0)))
-            }
-            
-            let shimmerSection = ExplorePageSection(items: shimmersPoolItems.map { .farm($0) })
-            sections.append(shimmerSection)
-        } else {
-            let farmItems = viewModels.map { ExploreFarmItem(serialNumber: $0.serialNumber, farmViewModel: $0) }
-            let farmSection = ExplorePageSection(items: farmItems.map { .farm($0) })
-            sections.append(farmSection)
-        }
+        let items = viewModels.map { ExploreFarmItem(serialNumber: $0.serialNumber, farmViewModel: $0) }
+        guard !items.isEmpty else { return snapshot }
+        let sections = [ExplorePageSection(items: items.map { .farm($0) })]
 
         snapshot.appendSections(sections)
         sections.forEach { snapshot.appendItems($0.items, toSection: $0) }
@@ -90,7 +74,7 @@ extension ExploreFarmsPageViewModel: ExplorePageViewModelProtocol {
     
     func setup() {
         setupSubscription()
-        snapshot = createSnapshot()
+        snapshot = createSnapshot(viewModels: farmsViewModelsService.viewModels)
         farmsViewModelsService.setup()
     }
     

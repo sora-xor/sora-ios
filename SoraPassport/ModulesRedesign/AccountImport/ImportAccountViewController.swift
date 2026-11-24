@@ -32,12 +32,14 @@ final class ImportAccountViewController: SoramitsuViewController {
     private let optionsStack = UIStackView()
     private let advancedStack = UIStackView()
     private let cryptoButton = UIButton(type: .system)
+    private let uploadWarning = WalletUX.label(style: .subheadline)
     private let pathField = UITextField()
     private let passwordField = UITextField()
     private let passwordLabel = WalletUX.label(WalletUX.text("Backup file password"), style: .subheadline)
     private lazy var advancedButton: UIButton = WalletUX.button(WalletUX.text("Advanced options")) { [weak self] in
         guard let self else { return }
         self.advancedStack.isHidden.toggle()
+        if !self.advancedStack.isHidden { LitMotion.rise(self.advancedStack, by: 6) }
         self.advancedButton.accessibilityValue = self.advancedStack.isHidden
             ? WalletUX.text("Collapsed") : WalletUX.text("Expanded")
     }
@@ -58,7 +60,6 @@ final class ImportAccountViewController: SoramitsuViewController {
         label.sora.font = FontType.paragraphM
         label.sora.dynamicTextStyle = .body
         label.sora.textColor = .fgPrimary
-        label.sora.text = R.string.localizable.onboardingCreateAccountDescription(preferredLanguages: .currentLocale)
         label.sora.alignment = .left
         return label
     }()
@@ -71,6 +72,9 @@ final class ImportAccountViewController: SoramitsuViewController {
             $0.textView.autocorrectionType = .no
             $0.textView.returnKeyType = .done
             $0.textView.autocapitalizationType = .none
+            // The phrase, seed or JSON never feeds spelling, prediction or
+            // Writing Tools, so the keyboard keeps none of it.
+            WalletSecretTextInput.harden($0.textView)
             $0.delegate = self
             $0.accessibilityIdentifier = "textView"
         }
@@ -115,6 +119,9 @@ final class ImportAccountViewController: SoramitsuViewController {
         advancedStack.axis = .vertical
         advancedStack.spacing = 10
         advancedStack.isHidden = true
+        uploadWarning.textColor = Lit.lacquerText
+        uploadWarning.isHidden = true
+        optionsStack.addArrangedSubview(uploadWarning)
         optionsStack.addArrangedSubview(passwordLabel)
         optionsStack.addArrangedSubview(passwordField)
         optionsStack.addArrangedSubview(advancedButton)
@@ -122,6 +129,8 @@ final class ImportAccountViewController: SoramitsuViewController {
         advancedButton.accessibilityIdentifier = "wallet-import-advanced"
         advancedStack.addArrangedSubview(WalletUX.label(WalletUX.text("Key type"), style: .subheadline))
         advancedStack.addArrangedSubview(cryptoButton)
+        cryptoButton.tintColor = Lit.lacquerText
+        cryptoButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
         cryptoButton.contentHorizontalAlignment = .leading
         cryptoButton.titleLabel?.font = .preferredFont(forTextStyle: .body)
         cryptoButton.showsMenuAsPrimaryAction = true
@@ -161,9 +170,6 @@ final class ImportAccountViewController: SoramitsuViewController {
             scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 8),
             containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
-            containerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
-            containerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
-            containerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32),
             
             subtitleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
             subtitleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
@@ -181,6 +187,8 @@ final class ImportAccountViewController: SoramitsuViewController {
             createAccountButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             createAccountButton.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -24),
         ])
+        // 16 from each side on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(containerView, inScroll: scrollView, margin: 16)
     }
 }
 
@@ -255,10 +263,14 @@ extension ImportAccountViewController: AccountImportViewProtocol {
     
     func setSource(type: AccountImportSource) {
         title = type.navigationTitle
+        usernameField.textView.accessibilityLabel = type.navigationTitle
+        uploadWarning.text = nil
+        uploadWarning.isHidden = true
         subtitleLabel.sora.text = type.containerTitle
         let isJSON = type == .keystore
         advancedButton.isHidden = isJSON
         advancedStack.isHidden = true
+        advancedButton.accessibilityValue = WalletUX.text("Collapsed")
         passwordField.isHidden = !isJSON
         passwordLabel.isHidden = !isJSON
     }
@@ -291,9 +303,30 @@ extension ImportAccountViewController: AccountImportViewProtocol {
         })
     }
 
-    func setUploadWarning(message: String) {}
+    func setUploadWarning(message: String) {
+        uploadWarning.text = message
+        uploadWarning.isHidden = message.isEmpty
+    }
     
     func dismissPresentedController() {
         dismiss(animated: true)
+    }
+}
+
+/// Text input settings for fields that receive wallet secrets.
+enum WalletSecretTextInput {
+    static func harden(_ textView: UITextView) {
+        textView.autocorrectionType = .no
+        textView.autocapitalizationType = .none
+        textView.spellCheckingType = .no
+        textView.smartQuotesType = .no
+        textView.smartDashesType = .no
+        textView.smartInsertDeleteType = .no
+        if #available(iOS 17.0, *) {
+            textView.inlinePredictionType = .no
+        }
+        if #available(iOS 18.0, *) {
+            textView.writingToolsBehavior = .none
+        }
     }
 }

@@ -25,7 +25,7 @@ final class NodesWireframe: NodesWireframeProtocol {
         guard let viewController = NodesViewFactory.customNodeView(with: chain, mode: action, completion: completion) else {
             return
         }
-        controller.navigationController?.pushViewController(viewController as! UIViewController, animated: true)
+        controller.navigationController?.pushViewController(viewController.controller, animated: true)
     }
 
     func showRoot() {

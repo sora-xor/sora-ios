@@ -23,6 +23,51 @@ struct PortfolioRawBalance: Equatable {
     static let zero = PortfolioRawBalance(free: 0, reserved: 0, frozen: 0)
 }
 
+/// Gives up on a read that takes too long: a node that does not answer is a failed read, so one
+/// wallet or network never holds back the others.
+enum PortfolioReadDeadline {
+    private final class Once<T>: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<T, Error>?
+
+        init(_ continuation: CheckedContinuation<T, Error>) {
+            self.continuation = continuation
+        }
+
+        func resume(_ result: Result<T, Error>) {
+            lock.lock()
+            let continuation = self.continuation
+            self.continuation = nil
+            lock.unlock()
+            continuation?.resume(with: result)
+        }
+    }
+
+    static func run<T>(seconds: TimeInterval, _ read: @escaping () async throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            let once = Once(continuation)
+            let reading = Task<Void, Never> {
+                do {
+                    let value = try await read()
+                    once.resume(.success(value))
+                } catch {
+                    once.resume(.failure(error))
+                }
+            }
+            let timer = Task {
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+                once.resume(.failure(PortfolioReaderError.noConnection))
+                reading.cancel()
+            }
+            Task {
+                await reading.value
+                timer.cancel()
+            }
+        }
+    }
+}
+
 /// Reads the SORA2 balances of any address. Storage queries only: it holds no signer and never
 /// touches keys, account storage or the selected wallet.
 protocol PortfolioSora2BalanceReading: AnyObject {
@@ -48,11 +93,20 @@ final class PortfolioSora2BalanceReader: PortfolioSora2BalanceReading {
          runtime: @escaping () -> RuntimeCodingServiceProtocol? = {
              ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())
          },
-         queue: OperationQueue = OperationManagerFacade.sharedDefaultQueue) {
+         queue: OperationQueue = PortfolioSora2BalanceReader.readQueue) {
         self.engine = engine
         self.runtime = runtime
         self.queue = queue
     }
+
+    /// Balance reads have a queue of their own. The app's shared queue is where everything else
+    /// waits its turn while the wallet opens, and a balance that the node has already answered
+    /// waited there with it.
+    static let readQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.qualityOfService = .userInitiated
+        return queue
+    }()
 
     func balances(address: String, assets: [(id: String, precision: Int16)]) async throws -> [String: PortfolioRawBalance] {
         try Task.checkCancellation()
@@ -66,29 +120,49 @@ final class PortfolioSora2BalanceReader: PortfolioSora2BalanceReading {
                   seen.insert(identifier).inserted else { throw PortfolioReaderError.invalidAsset }
         }
 
-        var result: [String: PortfolioRawBalance] = [:]
-        if let xor = assets.first(where: { $0.id == xorId }) {
-            let info = try await accountInfo(accountId: accountId, engine: engine, runtime: runtime)
-            if let data = info?.data {
-                result[xorId] = PortfolioRawBalance(
-                    free: try amount(data.free, precision: xor.precision),
-                    reserved: try amount(data.reserved, precision: xor.precision),
-                    frozen: try amount(max(data.miscFrozen, data.feeFrozen), precision: xor.precision)
-                )
-            } else {
-                result[xorId] = .zero
-            }
-        }
-
+        let xor = assets.first(where: { $0.id == xorId })
         let tokens = assets.filter { $0.id != xorId }
-        guard !tokens.isEmpty else { return result }
+        guard xor != nil || !tokens.isEmpty else { return [:] }
         let keyFactory = StorageKeyFactory()
+        let xorKey = try xor.map { _ in try keyFactory.accountInfoKeyForId(accountId) }
         var keyToAsset: [Data: (id: String, precision: Int16)] = [:]
         for token in tokens {
             let key = try keyFactory.accountsKey(account: accountId, asset: Data.sora(hex: token.id))
             keyToAsset[key] = token
         }
-        let values = try await storageValues(keys: Array(keyToAsset.keys), engine: engine)
+        // XOR and every token in one request. XOR's account record is decoded with the runtime's
+        // types, which are made ready while the node answers instead of before asking it.
+        let coder = xor == nil ? nil : Task { try await self.run(runtime.fetchCoderFactoryOperation()) }
+        let values: [Data: Data?]
+        do {
+            values = try await storageValues(keys: (xorKey.map { [$0] } ?? []) + Array(keyToAsset.keys),
+                                             engine: engine)
+        } catch {
+            coder?.cancel()
+            throw error
+        }
+
+        var result: [String: PortfolioRawBalance] = [:]
+        if let xor, let xorKey, let coder {
+            if let data = values[xorKey] ?? nil {
+                let operation = StorageDecodingOperation<AccountInfo>(path: .account, data: data)
+                operation.codingFactory = try await withTaskCancellationHandler {
+                    try await coder.value
+                } onCancel: {
+                    coder.cancel()
+                }
+                let info = try await run(operation)
+                result[xorId] = PortfolioRawBalance(
+                    free: try amount(info.data.free, precision: xor.precision),
+                    reserved: try amount(info.data.reserved, precision: xor.precision),
+                    frozen: try amount(max(info.data.miscFrozen, info.data.feeFrozen), precision: xor.precision)
+                )
+            } else {
+                coder.cancel()
+                result[xorId] = .zero
+            }
+        }
+
         for (key, token) in keyToAsset {
             guard let value = values[key] ?? nil else {
                 result[token.id] = .zero
@@ -151,17 +225,6 @@ final class PortfolioSora2BalanceReader: PortfolioSora2BalanceReading {
         return values
     }
 
-    private func accountInfo(accountId: Data, engine: JSONRPCEngine,
-                             runtime: RuntimeCodingServiceProtocol) async throws -> AccountInfo? {
-        let factory = try await run(runtime.fetchCoderFactoryOperation())
-        let key = try StorageKeyFactory().accountInfoKeyForId(accountId)
-        let values = try await storageValues(keys: [key], engine: engine)
-        guard let data = values[key] ?? nil else { return nil }
-        let operation = StorageDecodingOperation<AccountInfo>(path: .account, data: data)
-        operation.codingFactory = factory
-        return try await run(operation)
-    }
-
     /// Enqueues `operation` (its dependencies must already be queued) and awaits its result.
     private func run<T>(_ operation: BaseOperation<T>) async throws -> T {
         try Task.checkCancellation()
@@ -202,6 +265,11 @@ final class PortfolioNexusBalanceReader: PortfolioNexusBalanceReading {
         }
         let current = try await readCurrentNexusXorBalance(account: account, configuration: configuration,
                                                            readClient: readClient)
-        return current.quantity.decimalValue ?? 0
+        // An amount the display type cannot hold exactly is an unread balance, never zero or rounded.
+        guard let amount = Decimal.parseLocalizedAmount(current.quantity.rawValue,
+                                                        locale: Locale(identifier: "en_US_POSIX")) else {
+            throw PortfolioReaderError.unrepresentableBalance
+        }
+        return amount
     }
 }

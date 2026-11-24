@@ -35,7 +35,8 @@ extension AssetTransactionData {
         address: String,
         networkType: SNAddressType,
         asset: WalletAsset,
-        addressFactory: SS58AddressFactoryProtocol
+        addressFactory: SS58AddressFactoryProtocol,
+        assets: [WalletAsset] = []
     ) -> AssetTransactionData {
         if item.callPath.isTransfer {
             return createLocalTransfer(
@@ -55,7 +56,8 @@ extension AssetTransactionData {
             return createLocalSwap(
                 from: item,
                 address: address,
-                asset: asset
+                asset: asset,
+                assets: assets
             )
         }
 
@@ -288,7 +290,8 @@ extension AssetTransactionData {
     private static func createLocalSwap(
         from item: TransactionHistoryItem,
         address: String,
-        asset: WalletAsset
+        asset: WalletAsset,
+        assets: [WalletAsset]
     ) -> AssetTransactionData {
 
         let swap = try? JSONDecoder.scaleCompatible().decode(RuntimeCall<SwapCall>.self, from: item.call).args
@@ -300,8 +303,21 @@ extension AssetTransactionData {
         let slip = amountStruct?.type == .desiredOutput
             ? amountStruct?.desired ?? 0 : amountStruct?.slip ?? 0
 
-        let amountDecimal = Decimal.fromSubstrateAmount(slip, precision: asset.precision) ?? .zero
-        let fromAmountDecimal = Decimal.fromSubstrateAmount(desired, precision: asset.precision) ?? .zero
+        // The saved call holds each amount in the units of its own asset, as
+        // it was signed. An asset the account no longer lists falls back to
+        // the fee asset's decimals, as before.
+        func precision(of assetId: String?) -> Int16 {
+            assets.first(where: { $0.identifier == assetId })
+                .flatMap(WalletAssetPrecision.signing(for:)) ?? asset.precision
+        }
+        let amountDecimal = Decimal.fromSubstrateAmount(
+            slip,
+            precision: precision(of: swap?.outputAssetId.value)
+        ) ?? .zero
+        let fromAmountDecimal = Decimal.fromSubstrateAmount(
+            desired,
+            precision: precision(of: swap?.inputAssetId.value)
+        ) ?? .zero
 
         let feeDecimal: Decimal = historyFee(item.fee, precision: asset.precision)
         let fee = AssetTransactionFee(

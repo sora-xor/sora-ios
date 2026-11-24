@@ -62,12 +62,13 @@ final class FriendsCell: SoramitsuTableViewCell {
     private lazy var startInvitingButton: SoramitsuButton = {
         let title = SoramitsuTextItem(text: R.string.localizable.referralStartInviting(preferredLanguages: .currentLocale) ,
                                       fontData: FontType.textBoldS ,
-                                      textColor: .custom(uiColor: Colors.white100),
+                                      textColor: .custom(uiColor: Lit.lacquerText),
                                       alignment: .center)
 
+        // An invitation, not the thing this screen is for: a soft pad with a red label, not cut glass.
         let button = SoramitsuButton()
         button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .accentPrimary
+        button.sora.backgroundColor = .bgSurface
         button.sora.attributedText = title
         button.sora.isUserInteractionEnabled = false
         button.sora.horizontalOffset = 8

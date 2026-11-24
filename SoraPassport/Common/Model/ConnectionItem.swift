@@ -37,9 +37,4 @@ extension ConnectionItem {
         type = managedConnectionItem.type
     }
 
-    func replacingTitle(_ newTitle: String) -> ConnectionItem {
-        ConnectionItem(title: newTitle,
-                       url: url,
-                       type: type)
-    }
 }

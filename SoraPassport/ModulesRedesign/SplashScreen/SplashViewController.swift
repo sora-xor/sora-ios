@@ -17,7 +17,6 @@
 
 import Foundation
 import UIKit
-import Lottie
 import SoraUIKit
 import SnapKit
 
@@ -30,43 +29,67 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     private var animationPhase: AnimationPhase = .notStarted
     private var startupCompletion: (() -> Void)?
     
-    private lazy var animationView: LottieAnimationView = {
-        let animationView = LottieAnimationView(filePath: R.file.soraSplashJson.path()!)
-        animationView.contentMode = .scaleAspectFit
-        animationView.backgroundBehavior = .pauseAndRestore
-        animationView.translatesAutoresizingMaskIntoConstraints = false
-        Self.applyNeonColors(to: animationView)
-        return animationView
-    }()
+    /// The launch flight: through the gate of heaven to the planet. It stops in front of the last seal
+    /// until the wallet is ready, then goes through as day breaks into the first screen. A phone that can
+    /// fly the traced scene gets it; one saving power gets the same flight as line figures.
+    private(set) var flight: (UIView & SacredFlight)?
+    private let flightHost = UIView()
+    /// How long the traced scene's shader may take to build before the plain flight goes instead.
+    static var sceneWait: TimeInterval = 0.6
 
-    /// The splash animation was drawn for a light page: its rings are light
-    /// grey and the mark is SORA red. Recolour both for the theme in use so
-    /// dark mode has no light flash (spec §8.1).
-    private static func applyNeonColors(to animationView: LottieAnimationView) {
-        let tokens = NeonTokens.current
-        func lottie(_ color: UIColor) -> LottieColor {
-            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-            color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-            return LottieColor(r: Double(red), g: Double(green), b: Double(blue), a: Double(alpha))
-        }
-        let rings: [UIColor] = tokens.isDark
-            ? [tokens.canvas, tokens.layer1, tokens.surface]
-            : [tokens.canvas, tokens.layer1, tokens.surfaceVariant]
-        animationView.setValueProvider(
-            GradientValueProvider(rings.map(lottie), locations: [0.75, 0.875, 1]),
-            keypath: AnimationKeypath(keypath: "**.Gradient Fill 1.Colors")
-        )
-        animationView.setValueProvider(
-            ColorValueProvider(lottie(tokens.brandRed)),
-            keypath: AnimationKeypath(keypath: "**.Fill 1.Color")
-        )
+    /// Reduced effects and Reduce Motion show where the flight rests, and nothing moves.
+    private var showsMotion: Bool { !(FxPolicy.reduceEffects || FxPolicy.current.reduceMotion) }
+
+    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+
+    // The launch scene fills the screen; nothing of it belongs in a bar down the side.
+    @available(iOS 27.1, *)
+    override var preferredVerticalBarBehavior: UIVerticalBarBehavior { .disabled }
+
+    private func install(_ view: UIView & SacredFlight) {
+        flight?.removeFromSuperview()
+        // The flight measures its scene from its size, so the screen is laid out first.
+        self.view.layoutIfNeeded()
+        view.frame = flightHost.bounds
+        view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        flightHost.addSubview(view)
+        flight = view
     }
-    
+
+    /// Picks the flight and starts it. The traced scene is used when its shader is built in time.
+    private func startFlight() {
+        guard SacredTenmonView.canFly else {
+            flyIntro(SacredGateView())
+            return
+        }
+        let scene = SacredTenmonView()
+        scene.page = SoramitsuThemeType.light.palette.color(.bgPage)
+        #if F_RELEASE
+        let wait = Self.sceneWait
+        #else
+        // `-SacredSceneWait 8` on a slow simulator, to film the traced scene there.
+        let wait = max(Self.sceneWait, UserDefaults.standard.double(forKey: "SacredSceneWait"))
+        #endif
+        SacredTenmonPipeline.shared.whenReady(within: wait) { [weak self] ready in
+            guard let self, self.animationPhase == .intro, self.flight == nil else { return }
+            let chosen: UIView & SacredFlight = ready ? scene : SacredGateView()
+            self.flyIntro(chosen)
+        }
+    }
+
+    private func flyIntro(_ view: UIView & SacredFlight) {
+        install(view)
+        view.playIntro { [weak self] in
+            self?.introCompleted()
+        }
+    }
+
     private var messageLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.text = R.string.localizable.launchScreenLoadingTitle(preferredLanguages: .currentLocale)
         label.sora.font = FontType.textS
-        label.sora.textColor = .fgSecondary
+        // Pale, for the dark launch page.
+        label.sora.textColor = .custom(uiColor: SacredInk.nightLine.withAlphaComponent(0.78))
         label.sora.alignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -75,7 +98,7 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     private var loaderView: UIActivityIndicatorView = {
         let loaderView = UIActivityIndicatorView(style: .large)
         loaderView.translatesAutoresizingMaskIntoConstraints = false
-        loaderView.color = NeonTokens.current.cyan
+        loaderView.color = SacredInk.nightLine.withAlphaComponent(0.78)
         return loaderView
     }()
     
@@ -88,7 +111,8 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
+        // The launch screen's own dark: the flight rises out of it.
+        view.backgroundColor = SacredInk.night
         setupHierarchy()
         setupLayout()
     }
@@ -97,13 +121,13 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         super.viewDidAppear(animated)
         guard animationPhase == .notStarted, !isWaitingForStorage else { return }
         animationPhase = .intro
-        if FxPolicy.reduceEffects || FxPolicy.current.reduceMotion {
-            animationView.currentProgress = 0.8
-            introCompleted()
+        if showsMotion {
+            startFlight()
         } else {
-            animationView.play(fromProgress: 0, toProgress: 0.8, loopMode: .playOnce) { [weak self] _ in
-                self?.introCompleted()
-            }
+            let still = SacredGateView()
+            install(still)
+            still.showArrival()
+            introCompleted()
         }
     }
 
@@ -121,7 +145,7 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     }
     
     private func setupHierarchy() {
-        view.addSubview(animationView)
+        view.addSubview(flightHost)
         view.addSubview(containerView)
         
         containerView.addSubview(messageLabel)
@@ -132,7 +156,8 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         let containerViewBottomOffset: CGFloat = 76
         let spinnerViewTopOffset: CGFloat = 24
         
-        animationView.snp.makeConstraints { make in
+        flightHost.isUserInteractionEnabled = false
+        flightHost.snp.makeConstraints { make in
             make.center.width.height.equalTo(view)
         }
         
@@ -170,8 +195,8 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         storageRetryView = nil
         isWaitingForStorage = false
         hideLoader()
-        // Local startup can finish before the view even appears. Keep the original
-        // ring-and-logo introduction, then play its exit once startup is ready.
+        // Local startup can finish before the view even appears. The flight still runs to the
+        // inner gate, and goes through once startup is ready.
         startupCompletion = completion
         finishAnimationIfReady()
     }
@@ -179,12 +204,12 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     private func finishAnimationIfReady() {
         guard animationPhase == .holding, startupCompletion != nil, !isWaitingForStorage else { return }
         animationPhase = .outro
-        if FxPolicy.reduceEffects || FxPolicy.current.reduceMotion {
-            animationCompleted()
-        } else {
-            animationView.play(fromProgress: 0.8, toProgress: 1, loopMode: .playOnce) { [weak self] _ in
+        if showsMotion, let flight {
+            flight.playOutro { [weak self] in
                 self?.animationCompleted()
             }
+        } else {
+            animationCompleted()
         }
     }
 
@@ -193,7 +218,28 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         animationPhase = .finished
         let completion = startupCompletion
         startupCompletion = nil
+        let window = view.window
         completion?()
+        handOver(in: window)
+    }
+
+    /// The next screen replaces this one at once. What the flight ended on stays over it for a moment and
+    /// fades, so a PIN screen's own emblem, standing where the planet landed, simply takes its place.
+    private func handOver(in window: UIWindow?) {
+        guard let window, window.rootViewController !== self, let landed = flight,
+              landed.superview === flightHost else { return }
+        landed.removeFromSuperview()
+        landed.autoresizingMask = []
+        landed.translatesAutoresizingMaskIntoConstraints = true
+        landed.frame = window.bounds
+        window.addSubview(landed)
+        // It fills the window while it fades, also when the window is resized under it.
+        landed.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        UIView.animate(withDuration: SacredGeometry.beat(2), delay: 0, options: [.curveEaseOut]) {
+            landed.alpha = 0
+        } completion: { _ in
+            landed.removeFromSuperview()
+        }
     }
 
     func showStorageSpaceRetry(onRetry: @escaping () -> Void) {
@@ -202,7 +248,7 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         startupCompletion = nil
         animationPhase = .holding
         hideLoader()
-        animationView.pause()
+        flight?.rest()
         storageRetryView?.removeFromSuperview()
 
         // Safe Mode panel (spec §9.2 U4): calm, theme coloured, one action.

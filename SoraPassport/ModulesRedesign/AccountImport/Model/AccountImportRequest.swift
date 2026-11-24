@@ -47,4 +47,7 @@ struct AccountImportKeystoreRequest {
 struct AccountImportBackedupRequest {
     let account: OpenBackupAccount
     let password: String
+    /// The Google user ID of the account whose backup list the user chose
+    /// this backup from. The backup is read only from that account.
+    let expectedGoogleUserID: String
 }

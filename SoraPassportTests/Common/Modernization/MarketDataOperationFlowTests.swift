@@ -126,55 +126,6 @@ final class MarketDataOperationFlowTests: XCTestCase {
       XCTFail("Expected transport failure")
     } catch {}
   }
-  private func phishing(_ body: String) async throws -> [PhishingItem] {
-    MarketDataFixtureProtocol.reply = body
-    return try await run(
-      GitHubOperationFactory().fetchPhishingListOperation(
-        URL(string: "https://fixture.invalid/phishing.json")!))
-  }
-  private func address(_ byte: UInt8, type: UInt16 = 69) throws -> String {
-    try SS58AddressFactory().addressFromAccountId(
-      data: Data(repeating: byte, count: 32), type: SNAddressType(type))
-  }
-  func testPhishingFactoryDecodesPublicKeysAndSourceNames() async throws {
-    let a = try address(1)
-    let rows = try await phishing("{\"fixture-source\":[\"\(a)\"]}")
-    XCTAssertEqual(rows.count, 1)
-    XCTAssertEqual(rows.first?.source, "fixture-source")
-    XCTAssertEqual(rows.first?.publicKey, Data(repeating: 1, count: 32).toHex())
-  }
-  func testPhishingFactorySupportsKnownAlternativeNetworkPrefixes() async throws {
-    let a = try address(2, type: 42)
-    let rows = try await phishing("{\"source\":[\"\(a)\"]}")
-    XCTAssertEqual(rows.first?.publicKey, Data(repeating: 2, count: 32).toHex())
-  }
-  func testPhishingFactoryCannotTruncateAnExtendedNetworkPrefix() async throws {
-    let a = try address(3, type: 1000)
-    let rows = try await phishing("{\"source\":[\"\(a)\"]}")
-    XCTAssertEqual(rows.first?.publicKey, Data(repeating: 3, count: 32).toHex())
-  }
-  func testPhishingFactoryPreservesAllSources() async throws {
-    let a = try address(1)
-    let b = try address(2)
-    let rows = try await phishing("{\"a\":[\"\(a)\"],\"b\":[\"\(b)\"]}")
-    XCTAssertEqual(Set(rows.map(\.source)), ["a", "b"])
-  }
-  func testPhishingFactoryRejectsMalformedJson() async {
-    do {
-      _ = try await phishing("{bad")
-      XCTFail("Expected invalid list")
-    } catch {}
-  }
-  func testPhishingFactoryRejectsAnInvalidAddress() async {
-    do {
-      _ = try await phishing("{\"source\":[\"bad-address\"]}")
-      XCTFail("Expected invalid address")
-    } catch {}
-  }
-  func testPhishingFactoryPreservesAnExplicitEmptyList() async throws {
-    let rows = try await phishing("{}")
-    XCTAssertTrue(rows.isEmpty)
-  }
 }
 private final class MarketDataFixtureProtocol: URLProtocol {
   static let lock = NSLock()

@@ -100,9 +100,11 @@ final class AccountWarningViewController: SoramitsuViewController, ControllerBac
             scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 8),
             containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
-            containerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
-            containerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
-            containerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32)
+            // The card stands in the content column: 16 points from the sides on a phone, as before, and the
+            // readable width in a wider window. The scroll view only scrolls up and down.
+            containerView.leadingAnchor.constraint(equalTo: view.litColumnGuide.leadingAnchor),
+            containerView.trailingAnchor.constraint(equalTo: view.litColumnGuide.trailingAnchor),
+            scrollView.contentLayoutGuide.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
         ])
 
         let warnings: [String]

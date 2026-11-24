@@ -19,11 +19,14 @@ import UIKit
 import SoraUIKit
 
 final class ActivityIndicatorViewController: SoramitsuViewController {
-    /// Theme-aware backdrop (dark in dark mode).
     lazy var blurredView: UIView = {
-        let backdrop = NeonScrimView(frame: view.bounds)
-        backdrop.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        return backdrop
+        let containerView = UIView()
+        let blurEffect = UIBlurEffect(style: .light)
+        let customBlurEffectView = CustomVisualEffectView(effect: blurEffect, intensity: 0.5)
+        customBlurEffectView.frame = self.view.bounds
+
+        containerView.addSubview(customBlurEffectView)
+        return containerView
     }()
     
     override func viewDidLoad() {
@@ -36,24 +39,38 @@ final class ActivityIndicatorViewController: SoramitsuViewController {
         view.addSubview(blurredView)
         view.sendSubviewToBack(blurredView)
         
-        // A small glass card holding the spinner (spec §7.14).
-        let backgroundView = GlassView()
-        backgroundView.fill = .strong
-        backgroundView.shape = .rounded(16)
+        // A raised white disc, not a grey system square.
+        let backgroundView = UIView()
+        backgroundView.backgroundColor = .clear
+        let pad = LitPlateLayer()
+        pad.cornerRadiusValue = 44
+        pad.elevation = 14
+        pad.frame = CGRect(x: 0, y: 0, width: 88, height: 88)
+        backgroundView.layer.addSublayer(pad)
         view.addSubview(backgroundView)
         backgroundView.snp.makeConstraints {
             $0.center.equalToSuperview()
-            $0.size.equalTo(CGSize(width: 64, height: 64))
+            $0.size.equalTo(CGSize(width: 88, height: 88))
+        }
+        if !UIAccessibility.isReduceMotionEnabled {
+            backgroundView.transform = CGAffineTransform(scaleX: 0.6, y: 0.6)
+            backgroundView.alpha = 0
+            UIView.animate(withDuration: 0.45, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.4) {
+                backgroundView.transform = .identity
+                backgroundView.alpha = 1
+            }
         }
         
-        let activityIndicatorView = UIActivityIndicatorView()
-        activityIndicatorView.style = .large
-        activityIndicatorView.color = NeonTokens.current.cyan
-        backgroundView.addSubview(activityIndicatorView)
-        activityIndicatorView.snp.makeConstraints {
+        // What was sent is in flight: the open circle of heaven turns round the square of earth.
+        let seal = SacredSealView()
+        seal.workingColor = Lit.lacquerText
+        seal.isAccessibilityElement = true
+        seal.accessibilityTraits = .updatesFrequently
+        seal.accessibilityLabel = R.string.localizable.launchScreenLoadingTitle(preferredLanguages: .currentLocale)
+        backgroundView.addSubview(seal)
+        seal.snp.makeConstraints {
             $0.center.equalToSuperview()
+            $0.size.equalTo(CGSize(width: 48, height: 48))
         }
-        
-        activityIndicatorView.startAnimating()
     }
 }

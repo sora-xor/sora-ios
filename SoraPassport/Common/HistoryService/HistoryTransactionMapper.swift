@@ -39,148 +39,175 @@ final class HistoryTransactionMapper {
 
 extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
     func map(items: [TxHistoryItem]) throws -> [Transaction?] {
-        return try items.compactMap { item in
-            let networkFee = try Self.validatedFee(item.networkFee)
-            let transactionBase = TransactionBase(txHash: item.id,
-                                                  blockHash: item.blockHash,
-                                                  fee: networkFee,
-                                                  status: item.success ? TransactionBase.Status.success : TransactionBase.Status.failed,
-                                                  timestamp: item.timestamp)
-            let callPath = KmmCallCodingPath(moduleName: item.module, callName: item.method)
-            
-            if callPath.isTransfer {
-                guard let transferData = item.data?.toTransferData() else {
-                    throw HistoryTransactionMapperError.unexpectedError
-                }
-                
-                return TransferTransaction(base: transactionBase,
-                                           amount: try Self.validatedAmount(transferData.amount),
-                                           peer: transferData.to == myAddress ? transferData.from : transferData.to,
-                                           transferType: transferData.to == myAddress ? .incoming : .outcoming,
-                                           tokenId: transferData.assetId)
-            }
-            
-            if callPath == KmmCallCodingPath.bondReferralBalance {
-                guard let referralBondData = item.data?.toReferralData() else {
-                    throw HistoryTransactionMapperError.unexpectedError
-                }
-                
-                return ReferralBondTransaction(base: transactionBase,
-                                               amount: try Self.validatedAmount(referralBondData.amount),
-                                               tokenId: assets.first { $0.isFeeAsset }?.identifier ?? "",
-                                               type: .bond)
-            }
-            
-            if callPath == KmmCallCodingPath.unbondReferralBalance {
-                guard let referralBondData = item.data?.toReferralData() else {
-                    throw HistoryTransactionMapperError.unexpectedError
-                }
-                
-                return ReferralBondTransaction(base: transactionBase,
-                                               amount: try Self.validatedAmount(referralBondData.amount),
-                                               tokenId: assets.first { $0.isFeeAsset }?.identifier ?? "",
-                                               type: .unbond)
-            }
-            
-            if callPath == KmmCallCodingPath.setReferral {
-                guard let setReferrerData = item.data?.toSetReferrerData(with: myAddress) else {
-                    throw HistoryTransactionMapperError.unexpectedError
-                }
-                
-                return SetReferrerTransaction(base: transactionBase,
-                                              who: setReferrerData.address,
-                                              isMyReferrer: setReferrerData.my,
-                                              tokenId: assets.first { $0.isFeeAsset }?.identifier ?? "")
-            }
-            
-            if callPath.isSwap {
-                guard let swapData = item.data?.toSwapData() else {
-                    throw HistoryTransactionMapperError.unexpectedError
-                }
-
-                let market = LiquiditySourceType.allCases.first(where: { $0.rawValue == swapData.selectedMarket }) ?? LiquiditySourceType.smart
-                return Swap(base: transactionBase,
-                            fromTokenId: swapData.baseTokenId,
-                            toTokenId: swapData.targetTokenId,
-                            fromAmount: try Self.validatedAmount(swapData.baseTokenAmount),
-                            toAmount: try Self.validatedAmount(swapData.targetTokenAmount),
-                            market: market)
-            }
-            
-            if callPath.isDepositLiquidity || callPath.isWithdrawLiquidity {
-                guard let liquidityData = item.data?.toLiquidityData() else {
-                    throw HistoryTransactionMapperError.unexpectedError
-                }
-
-                return Liquidity(base: transactionBase,
-                                 firstTokenId: liquidityData.baseTokenId,
-                                 secondTokenId: liquidityData.targetTokenId,
-                                 firstAmount: try Self.validatedAmount(liquidityData.baseTokenAmount),
-                                 secondAmount: try Self.validatedAmount(liquidityData.targetTokenAmount),
-                                 type: item.method == "depositLiquidity" ? .add : .withdraw)
-            }
-            
-            if callPath.isClaimReward {
-                guard let claimData = item.data?.toClaimRewardData() else {
-                    throw HistoryTransactionMapperError.unexpectedError
-                }
-
-                let amount = try Self.validatedAmount(claimData.amount)
-                return ClaimReward(base: transactionBase,
-                                   amount: amount,
-                                   peer: myAddress,
-                                   rewardTokenId: claimData.rewardAssetId)
-            }
-            
-            if callPath.isDepositFarmLiquidity || callPath.isWithdrawFarmLiquidity {
-                guard let data = item.data?.toFarmLiquidity() else {
-                    throw HistoryTransactionMapperError.unexpectedError
-                }
-
-                let amount = try Self.validatedAmount(data.amount)
-                return FarmLiquidity(base: transactionBase,
-                                     firstTokenId: data.baseTokenAmount,
-                                     secondTokenId: data.poolTokenAmount,
-                                     rewardTokenId: data.rewardAssetId,
-                                     amount: amount,
-                                     sender: myAddress,
-                                     type: item.method == "deposit" ? .add : .withdraw)
-            }
-            
-            if callPath == KmmCallCodingPath.batchUtility || callPath == KmmCallCodingPath.batchAllUtility {
-                let depositLiquidityData = item.nestedData?.first { $0.module == "poolXYK" && $0.method == "depositLiquidity" }
-                
-                if depositLiquidityData != nil {
-                    guard let liquidityBatchData = depositLiquidityData?.data.toLiquidityBatchData() else {
-                        throw HistoryTransactionMapperError.unexpectedError
-                    }
-                    
-                    return Liquidity(base: transactionBase,
-                                     firstTokenId: liquidityBatchData.baseTokenId,
-                                     secondTokenId: liquidityBatchData.targetTokenId,
-                                     firstAmount: try Self.validatedAmount(liquidityBatchData.baseTokenAmount),
-                                     secondAmount: try Self.validatedAmount(liquidityBatchData.targetTokenAmount),
-                                     type: .add)
-                }
-                
-                
-                let withdrawLiquidityData = item.nestedData?.first { $0.module == "poolXYK" && $0.method == "withdrawLiquidity" }
-                if withdrawLiquidityData != nil {
-                    guard let liquidityBatchData = withdrawLiquidityData?.data.toLiquidityBatchData()  else {
-                        throw HistoryTransactionMapperError.unexpectedError
-                    }
-                    
-                    return Liquidity(base: transactionBase,
-                                     firstTokenId: liquidityBatchData.baseTokenId,
-                                     secondTokenId: liquidityBatchData.targetTokenId,
-                                     firstAmount: try Self.validatedAmount(liquidityBatchData.baseTokenAmount),
-                                     secondAmount: try Self.validatedAmount(liquidityBatchData.targetTokenAmount),
-                                     type: .withdraw)
-                }
-            }
-
-            return nil
+        // Items of an unknown kind are left out; the result holds no nil.
+        let transactions: [Transaction] = try items.compactMap { item in
+            try transaction(for: item)
         }
+        return transactions
+    }
+
+    private func transaction(for item: TxHistoryItem) throws -> Transaction? {
+        let networkFee = try Self.validatedFee(item.networkFee)
+        let transactionBase = TransactionBase(txHash: item.id,
+                                              blockHash: item.blockHash,
+                                              fee: networkFee,
+                                              status: item.success ? TransactionBase.Status.success : TransactionBase.Status.failed,
+                                              timestamp: item.timestamp)
+        let callPath = KmmCallCodingPath(moduleName: item.module, callName: item.method)
+
+        if callPath.isTransfer {
+            return try transferTransaction(item, base: transactionBase)
+        }
+        if callPath == KmmCallCodingPath.bondReferralBalance {
+            return try referralBondTransaction(item, base: transactionBase, type: .bond)
+        }
+        if callPath == KmmCallCodingPath.unbondReferralBalance {
+            return try referralBondTransaction(item, base: transactionBase, type: .unbond)
+        }
+        if callPath == KmmCallCodingPath.setReferral {
+            return try setReferrerTransaction(item, base: transactionBase)
+        }
+        if callPath.isSwap {
+            return try swapTransaction(item, base: transactionBase)
+        }
+        if callPath.isDepositLiquidity || callPath.isWithdrawLiquidity {
+            return try liquidityTransaction(item, base: transactionBase)
+        }
+        if callPath.isClaimReward {
+            return try claimRewardTransaction(item, base: transactionBase)
+        }
+        if callPath.isDepositFarmLiquidity || callPath.isWithdrawFarmLiquidity {
+            return try farmLiquidityTransaction(item, base: transactionBase)
+        }
+        if callPath == KmmCallCodingPath.batchUtility || callPath == KmmCallCodingPath.batchAllUtility {
+            return try batchLiquidityTransaction(item, base: transactionBase)
+        }
+        return nil
+    }
+
+    private func transferTransaction(_ item: TxHistoryItem, base transactionBase: TransactionBase) throws -> TransferTransaction {
+        guard let transferData = item.data?.toTransferData() else {
+            throw HistoryTransactionMapperError.unexpectedError
+        }
+
+        return TransferTransaction(base: transactionBase,
+                                   amount: try Self.validatedAmount(transferData.amount),
+                                   peer: transferData.to == myAddress ? transferData.from : transferData.to,
+                                   transferType: transferData.to == myAddress ? .incoming : .outcoming,
+                                   tokenId: transferData.assetId)
+    }
+
+    private func referralBondTransaction(
+        _ item: TxHistoryItem,
+        base transactionBase: TransactionBase,
+        type: ReferralBondTransaction.ReferralTransactionType
+    ) throws -> ReferralBondTransaction {
+        guard let referralBondData = item.data?.toReferralData() else {
+            throw HistoryTransactionMapperError.unexpectedError
+        }
+
+        return ReferralBondTransaction(base: transactionBase,
+                                       amount: try Self.validatedAmount(referralBondData.amount),
+                                       tokenId: assets.first { $0.isFeeAsset }?.identifier ?? "",
+                                       type: type)
+    }
+
+    private func setReferrerTransaction(_ item: TxHistoryItem, base transactionBase: TransactionBase) throws -> SetReferrerTransaction {
+        guard let setReferrerData = item.data?.toSetReferrerData(with: myAddress) else {
+            throw HistoryTransactionMapperError.unexpectedError
+        }
+
+        return SetReferrerTransaction(base: transactionBase,
+                                      who: setReferrerData.address,
+                                      isMyReferrer: setReferrerData.my,
+                                      tokenId: assets.first { $0.isFeeAsset }?.identifier ?? "")
+    }
+
+    private func swapTransaction(_ item: TxHistoryItem, base transactionBase: TransactionBase) throws -> Swap {
+        guard let swapData = item.data?.toSwapData() else {
+            throw HistoryTransactionMapperError.unexpectedError
+        }
+
+        let market = LiquiditySourceType.allCases.first(where: { $0.rawValue == swapData.selectedMarket }) ?? LiquiditySourceType.smart
+        return Swap(base: transactionBase,
+                    fromTokenId: swapData.baseTokenId,
+                    toTokenId: swapData.targetTokenId,
+                    fromAmount: try Self.validatedAmount(swapData.baseTokenAmount),
+                    toAmount: try Self.validatedAmount(swapData.targetTokenAmount),
+                    market: market)
+    }
+
+    private func liquidityTransaction(_ item: TxHistoryItem, base transactionBase: TransactionBase) throws -> Liquidity {
+        guard let liquidityData = item.data?.toLiquidityData() else {
+            throw HistoryTransactionMapperError.unexpectedError
+        }
+
+        return Liquidity(base: transactionBase,
+                         firstTokenId: liquidityData.baseTokenId,
+                         secondTokenId: liquidityData.targetTokenId,
+                         firstAmount: try Self.validatedAmount(liquidityData.baseTokenAmount),
+                         secondAmount: try Self.validatedAmount(liquidityData.targetTokenAmount),
+                         type: item.method == "depositLiquidity" ? .add : .withdraw)
+    }
+
+    private func claimRewardTransaction(_ item: TxHistoryItem, base transactionBase: TransactionBase) throws -> ClaimReward {
+        guard let claimData = item.data?.toClaimRewardData() else {
+            throw HistoryTransactionMapperError.unexpectedError
+        }
+
+        let amount = try Self.validatedAmount(claimData.amount)
+        return ClaimReward(base: transactionBase,
+                           amount: amount,
+                           peer: myAddress,
+                           rewardTokenId: claimData.rewardAssetId)
+    }
+
+    private func farmLiquidityTransaction(_ item: TxHistoryItem, base transactionBase: TransactionBase) throws -> FarmLiquidity {
+        guard let data = item.data?.toFarmLiquidity() else {
+            throw HistoryTransactionMapperError.unexpectedError
+        }
+
+        let amount = try Self.validatedAmount(data.amount)
+        return FarmLiquidity(base: transactionBase,
+                             firstTokenId: data.baseTokenAmount,
+                             secondTokenId: data.poolTokenAmount,
+                             rewardTokenId: data.rewardAssetId,
+                             amount: amount,
+                             sender: myAddress,
+                             type: item.method == "deposit" ? .add : .withdraw)
+    }
+
+    /// A batch that deposits or withdraws pool liquidity; nil for any other batch.
+    private func batchLiquidityTransaction(_ item: TxHistoryItem, base transactionBase: TransactionBase) throws -> Transaction? {
+        let depositLiquidityData = item.nestedData?.first { $0.module == "poolXYK" && $0.method == "depositLiquidity" }
+
+        if depositLiquidityData != nil {
+            guard let liquidityBatchData = depositLiquidityData?.data.toLiquidityBatchData() else {
+                throw HistoryTransactionMapperError.unexpectedError
+            }
+
+            return Liquidity(base: transactionBase,
+                             firstTokenId: liquidityBatchData.baseTokenId,
+                             secondTokenId: liquidityBatchData.targetTokenId,
+                             firstAmount: try Self.validatedAmount(liquidityBatchData.baseTokenAmount),
+                             secondAmount: try Self.validatedAmount(liquidityBatchData.targetTokenAmount),
+                             type: .add)
+        }
+
+        let withdrawLiquidityData = item.nestedData?.first { $0.module == "poolXYK" && $0.method == "withdrawLiquidity" }
+        if withdrawLiquidityData != nil {
+            guard let liquidityBatchData = withdrawLiquidityData?.data.toLiquidityBatchData()  else {
+                throw HistoryTransactionMapperError.unexpectedError
+            }
+
+            return Liquidity(base: transactionBase,
+                             firstTokenId: liquidityBatchData.baseTokenId,
+                             secondTokenId: liquidityBatchData.targetTokenId,
+                             firstAmount: try Self.validatedAmount(liquidityBatchData.baseTokenAmount),
+                             secondAmount: try Self.validatedAmount(liquidityBatchData.targetTokenAmount),
+                             type: .withdraw)
+        }
+        return nil
     }
 
     static func validatedAmount(_ rawValue: String) throws -> Amount {

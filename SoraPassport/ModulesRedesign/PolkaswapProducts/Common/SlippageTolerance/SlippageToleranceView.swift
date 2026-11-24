@@ -99,6 +99,25 @@ struct PolkaswapSlippage: Equatable, Sendable {
         amount * Decimal(10_000 + Int(basisPoints)) / 10_000
     }
 
+    /// The limits as the chain holds them for an asset with `precision`
+    /// decimals: the minimum received rounded down and the maximum sold
+    /// rounded up to whole units, which is how a swap signs them. A screen
+    /// shows these, so the limit it shows is the limit that is signed.
+    func minimumAmount(for amount: Decimal, precision: Int16) -> Decimal {
+        Self.wholeUnits(minimumAmount(for: amount), precision: precision, mode: .down)
+    }
+
+    func maximumAmount(for amount: Decimal, precision: Int16) -> Decimal {
+        Self.wholeUnits(maximumAmount(for: amount), precision: precision, mode: .up)
+    }
+
+    private static func wholeUnits(_ value: Decimal, precision: Int16, mode: NSDecimalNumber.RoundingMode) -> Decimal {
+        var input = value
+        var output = Decimal()
+        NSDecimalRound(&output, &input, Int(precision), mode)
+        return output
+    }
+
     private init(uncheckedBasisPoints: UInt16) {
         basisPoints = uncheckedBasisPoints
     }

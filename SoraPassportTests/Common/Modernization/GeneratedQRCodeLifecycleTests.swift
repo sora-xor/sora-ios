@@ -55,38 +55,38 @@ final class GeneratedQRCodeLifecycleTests: XCTestCase {
         let f = make(); f.model.viewDidLoad(); XCTAssertEqual(f.service.infos, [ReceiveInfo(accountId: owner.publicKeyData.toHex(), assetId: WalletAssetId.xor.rawValue, amount: nil, details: "")]); XCTAssertGreaterThan(f.service.sizes[0].width, 0); XCTAssertEqual(f.service.sizes[0].width, f.service.sizes[0].height)
     }
     func testReceiveAddressAndNameBelongToTheGeneratedAccount() async {
-        let f = make(); f.model.viewDidLoad(); f.service.complete(0); await wait { !f.output.received.isEmpty }; XCTAssertEqual(f.output.received.last?.address, owner.address); XCTAssertEqual(f.output.received.last?.name, owner.username)
+        let f = make(); f.model.viewDidLoad(); f.service.complete(0); await wait { f.output.received.last?.qrImage != nil }; XCTAssertEqual(f.output.received.last?.address, owner.address); XCTAssertEqual(f.output.received.last?.name, owner.username)
     }
     func testChangingSelectedWalletWhileGeneratingCannotRelabelAnOldQR() async throws {
-        let f = make(); f.model.viewDidLoad(); SelectedWalletSettings.shared.commitInternalValue(try account(3, name: "Another wallet")); f.service.complete(0); await wait { !f.output.received.isEmpty }
+        let f = make(); f.model.viewDidLoad(); SelectedWalletSettings.shared.commitInternalValue(try account(3, name: "Another wallet")); f.service.complete(0); await wait { f.output.received.last?.qrImage != nil }
         XCTAssertEqual(f.output.received.last?.address, owner.address); XCTAssertEqual(f.output.received.last?.name, owner.username)
     }
     func testGenerationPublishesTheReceiveModelOnMain() async {
         let f = make(); f.model.viewDidLoad(); let done = expectation(description: "background completion")
-        DispatchQueue.global().async { f.service.complete(0); done.fulfill() }; await fulfillment(of: [done]); await wait { !f.output.received.isEmpty }; XCTAssertEqual(f.output.deliveryThreads, [true])
+        DispatchQueue.global().async { f.service.complete(0); done.fulfill() }; await fulfillment(of: [done]); await wait { f.output.received.last?.qrImage != nil }; XCTAssertEqual(f.output.deliveryThreads, [true, true])
     }
     func testShareUsesTheSameAccountAndImageAsTheDisplayedQR() async {
-        let f = make(); f.model.viewDidLoad(); f.service.complete(0); await wait { !f.output.received.isEmpty }; f.output.received.last?.shareHandler?()
+        let f = make(); f.model.viewDidLoad(); f.service.complete(0); await wait { f.output.received.last?.qrImage != nil }; f.output.received.last?.shareHandler?()
         XCTAssertEqual(f.share.infos.first?.accountId, owner.publicKeyData.toHex()); XCTAssertTrue(f.share.images.first === f.output.received.last?.qrImage); XCTAssertEqual(f.output.shared.first?.first as? String, "share-fixture")
     }
     func testOutOfOrderGenerationCannotReplaceTheLatestImage() async {
         let f = make(); f.model.viewDidLoad(); f.model.viewDidLoad(); let latest = UIImage(systemName: "circle")!; let old = UIImage(systemName: "square")!
-        f.service.complete(1, image: latest); await wait { !f.output.received.isEmpty }; f.service.complete(0, image: old); await pause(); XCTAssertTrue(f.output.received.last?.qrImage === latest)
+        f.service.complete(1, image: latest); await wait { f.output.received.last?.qrImage != nil }; f.service.complete(0, image: old); await pause(); XCTAssertTrue(f.output.received.last?.qrImage === latest)
     }
     func testStartingAnotherGenerationCancelsThePreviousOperation() {
         let f = make(); f.model.viewDidLoad(); f.model.viewDidLoad(); XCTAssertTrue(f.service.operations[0].isCancelled); XCTAssertFalse(f.service.operations[1].isCancelled)
     }
     func testDiscardedModelCancelsGenerationWithoutPublishing() async {
-        var f: Fixture? = make(); let service = f!.service; weak var model = f!.model; let output = f!.output; f!.model.viewDidLoad(); f = nil; await pause(); XCTAssertNil(model); XCTAssertTrue(service.operations[0].isCancelled); service.complete(0); await pause(); XCTAssertTrue(output.received.isEmpty)
+        var f: Fixture? = make(); let service = f!.service; weak var model = f!.model; let output = f!.output; f!.model.viewDidLoad(); f = nil; await pause(); XCTAssertNil(model); XCTAssertTrue(service.operations[0].isCancelled); service.complete(0); await pause(); XCTAssertEqual(output.received.count, 1); XCTAssertNil(output.received.last?.qrImage)
     }
     func testRetainingAReceiveRowDoesNotRetainItsScreenModel() async {
-        var f: Fixture? = make(); let output = f!.output; weak var model = f!.model; f!.model.viewDidLoad(); f!.service.complete(0); await wait { !output.received.isEmpty }; f = nil; await pause(); XCTAssertNil(model)
+        var f: Fixture? = make(); let output = f!.output; weak var model = f!.model; f!.model.viewDidLoad(); f!.service.complete(0); await wait { output.received.last?.qrImage != nil }; f = nil; await pause(); XCTAssertNil(model)
     }
     func testGenerationFailureDoesNotPublishOrShareAnImage() async {
-        let f = make(); f.model.viewDidLoad(); f.service.completions[0](.failure(GeneratedQRError.expected)); await pause(); XCTAssertTrue(f.output.received.isEmpty); XCTAssertTrue(f.output.shared.isEmpty)
+        let f = make(); f.model.viewDidLoad(); f.service.completions[0](.failure(GeneratedQRError.expected)); await pause(); XCTAssertEqual(f.output.received.last?.address, owner.address); XCTAssertNil(f.output.received.last?.qrImage); XCTAssertNil(f.output.received.last?.shareHandler); XCTAssertEqual(f.output.received.last?.isGenerating, false); XCTAssertTrue(f.output.shared.isEmpty)
     }
     func testMissingGenerationResultDoesNotPublishAnImage() async {
-        let f = make(); f.model.viewDidLoad(); f.service.completions[0](nil); await pause(); XCTAssertTrue(f.output.received.isEmpty)
+        let f = make(); f.model.viewDidLoad(); f.service.completions[0](nil); await pause(); XCTAssertEqual(f.output.received.last?.address, owner.address); XCTAssertNil(f.output.received.last?.qrImage); XCTAssertNil(f.output.received.last?.shareHandler); XCTAssertEqual(f.output.received.last?.isGenerating, false)
     }
     func testAlreadyOpenScannerReturnsToItsOwner() {
         let f = make(scannerShown: true); f.model.scanQRCodeButtonTapped(); XCTAssertEqual(f.view.dismissals, 1); XCTAssertEqual(f.route.scans, 0)

@@ -56,6 +56,11 @@ Jenkins and GitHub Actions are retired. Run validation on the local build machin
 with an installed Xcode 26 or 27 and a matching iOS simulator. Use the same Xcode
 version for validation and release archives, and retain the local results.
 
+The build gate, `verify-modernization-dependencies.sh`, is the first build phase of both
+app targets and takes seconds: source lints, the migration test inventory, the reviewed
+dependency pins and a scan for prebuilt binaries. `scripts/archive-app-store.sh` runs it in
+lint mode for every App Store archive; any other Release build stops at its end.
+
 ```sh
 xcodebuild -version
 /bin/sh SoraPassport/Scripts/verify-modernization-dependencies.sh --lint-ios-migration-release-source-gate
@@ -67,8 +72,8 @@ xcodebuild test -project SoraPassport.xcodeproj -scheme SoraPassport \
 
 ```
 
-The complete production line-coverage gate runs the app unit suite, the ordinary
-UI launch test, and the app-owned NexusTransferCodec package. Use a disposable
+The complete production line-coverage gate runs the app unit, integration, and UI
+test targets, plus the app-owned NexusTransferCodec package. Use a disposable
 simulator and an output directory that does not already exist:
 
 ```sh
@@ -77,7 +82,7 @@ simulator and an output directory that does not already exist:
   /absolute/path/new-coverage-result
 ```
 
-The gate requires at least **80% of executable production source lines**. It
+The gate requires at least **90.01% of executable production source lines**. It
 includes unexecuted app UI and debug code and the first-party codec; it excludes
 test targets, third-party dependencies, and generated `R.swift` output. Each
 executable source line counts once, including lines that appear in overlapping
@@ -86,13 +91,33 @@ denominator, percentage, and every file's counts. The original `.xcresult`, logs
 source hashes, raw line data, and codec report remain beside it for review.
 
 A test failure or missing/incompatible coverage fails the command. A passing test
-suite below 80% also returns a failing exit status. Keep production sources frozen
-during measurement; the runner compares their hashes after both suites. Existing
-opt-in live and device-evidence tests keep their admission requirements. Use the
-`test` action for complete Xcode metadata; `test-without-building` can omit it.
+suite below 90.01% also returns a failing exit status. Keep production sources frozen
+during measurement; the runner compares their hashes after the app and codec runs.
+Use the `test` action for complete Xcode metadata; `test-without-building` can omit it.
+
+The integration target includes three read-only live-node tests: both
+`AssetsInfoProviderTests` cases and `JSONRPCTests.testNeedsMigration`. They use
+`wss://mof2.sora.org` and require a reachable node with the expected RPC methods;
+they do not require funds or submit transactions, and failures fail the run. The
+scheme retains its six existing `JSONRPCPoolXYKTests` exclusions because those
+fixtures depend on a historical funded account and storage layout.
+
+Existing live-network, visual-fixture, simulator-upgrade, and physical-device
+evidence tests retain their explicit admission requirements. Without opt-in
+environment settings, the UI target runs its ordinary launch test and records
+four setup-dependent skips. The two visual tests require separately prepared
+empty or sample-wallet simulators; the historical upgrade test requires its
+public-fixture prepare/launch/verify harness. Physical migration evidence requires
+the protected controller and a production-IPA-derived installation and cannot be
+qualified by this simulator coverage run.
 
 Choose an available simulator name if yours differs. Debug simulator signing uses
 Xcode's local ad-hoc identity so tests can access Keychain.
+
+The Debug suite covers the optional sample and migration-evidence helpers, which
+ordinary Release hosts exclude. Eleven durable-write fault-injection cases explicitly
+skip ordinary Release hosts because their checkpoint observer is absent; the other
+wallet storage and screen tests remain enabled in Release.
 
 For the complete Release suite, use the existing local wrapper with fresh output
 paths outside the checkout:
@@ -116,8 +141,9 @@ python3 SoraPassport/Scripts/test-swiftpm-advisories.py
 python3 SoraPassport/Scripts/audit-swiftpm-advisories.py --output /absolute/path/swiftpm-advisories.json
 ```
 
-It checks immutable SwiftPM source revisions; vendored source and native binaries
-retain their separate qualification requirements. An incomplete scan fails.
+It checks immutable SwiftPM source revisions. Prebuilt binaries are kept out of the
+tree by the build gate's repository scan (`SoraPassport/Scripts/scan-repository-binaries.py`).
+An incomplete scan fails.
 
 ## License
 

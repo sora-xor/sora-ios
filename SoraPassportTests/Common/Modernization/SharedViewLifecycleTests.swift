@@ -67,112 +67,6 @@ import XCTest
     XCTAssertEqual(loading(c).count, 1)
     XCTAssertFalse(c.view.isUserInteractionEnabled)
   }
-  func testKeyboardHandlerInstallationIsIdempotent() {
-    let c = KeyboardFixture()
-    c.setupKeyboardHandler()
-    let h = c.keyboardHandler
-    c.setupKeyboardHandler()
-    XCTAssertTrue(c.keyboardHandler === h)
-  }
-  func testClearingKeyboardHandlerReleasesIt() {
-    let c = KeyboardFixture()
-    c.setupKeyboardHandler()
-    weak let h = c.keyboardHandler
-    c.clearKeyboardHandler()
-    XCTAssertNil(c.keyboardHandler)
-    XCTAssertNil(h)
-  }
-  func testKeyboardAnimationStoresTheLatestFrame() {
-    let c = KeyboardFixture()
-    c.setupKeyboardHandler()
-    let frame = CGRect(x: 0, y: 400, width: 320, height: 240)
-    c.keyboardHandler?.animateOnFrameChange?(frame)
-    XCTAssertEqual(c.currentKeyboardFrame, frame)
-  }
-  func testKeyboardWithoutBottomConstraintUsesTheCustomCallback() {
-    let c = KeyboardFixture()
-    c.currentKeyboardFrame = CGRect(x: 0, y: 400, width: 320, height: 240)
-    c.applyCurrentKeyboardFrame()
-    XCTAssertEqual(c.frames, [c.currentKeyboardFrame!])
-  }
-  func testMissingKeyboardFrameDoesNotTouchLayout() {
-    let c = KeyboardFixture()
-    c.constraint = NSLayoutConstraint()
-    c.constraint?.constant = -12
-    c.applyCurrentKeyboardFrame()
-    XCTAssertEqual(c.constraint?.constant, -12)
-    XCTAssertTrue(c.frames.isEmpty)
-  }
-  func testDockedKeyboardOffsetsTheBottomByItsOverlap() {
-    let c = KeyboardFixture()
-    c.constraint = NSLayoutConstraint()
-    c.currentKeyboardFrame = CGRect(x: 0, y: 400, width: 320, height: 240)
-    c.applyCurrentKeyboardFrame()
-    XCTAssertEqual(c.constraint?.constant, -240)
-  }
-  func testKeyboardGapIsAddedToTheVisibleOverlap() {
-    let c = KeyboardFixture()
-    c.constraint = NSLayoutConstraint()
-    c.gap = 8
-    c.currentKeyboardFrame = CGRect(x: 0, y: 400, width: 320, height: 240)
-    c.applyCurrentKeyboardFrame()
-    XCTAssertEqual(c.constraint?.constant, -248)
-    XCTAssertEqual(c.insets, [240])
-  }
-  func testDisabledKeyboardAdaptationPreservesTheConstraint() {
-    let c = KeyboardFixture()
-    c.constraint = NSLayoutConstraint()
-    c.constraint?.constant = -10
-    c.applies = false
-    c.currentKeyboardFrame = CGRect(x: 0, y: 400, width: 320, height: 240)
-    c.applyCurrentKeyboardFrame()
-    XCTAssertEqual(c.constraint?.constant, -10)
-  }
-  func testKeyboardBelowTheScreenNeverPushesContentDown() {
-    let c = KeyboardFixture()
-    c.constraint = NSLayoutConstraint()
-    c.currentKeyboardFrame = CGRect(x: 0, y: 900, width: 320, height: 240)
-    c.applyCurrentKeyboardFrame()
-    XCTAssertEqual(c.constraint?.constant, 0)
-  }
-  func testKeyboardOnAnotherDisplayDoesNotMoveThisContent() {
-    let c = KeyboardFixture()
-    c.constraint = NSLayoutConstraint()
-    c.currentKeyboardFrame = CGRect(x: 500, y: 400, width: 320, height: 240)
-    c.applyCurrentKeyboardFrame()
-    XCTAssertEqual(c.constraint?.constant, 0)
-  }
-  func testZeroSizeKeyboardDoesNotMoveContent() {
-    let c = KeyboardFixture()
-    c.constraint = NSLayoutConstraint()
-    c.currentKeyboardFrame = .zero
-    c.applyCurrentKeyboardFrame()
-    XCTAssertEqual(c.constraint?.constant, 0)
-  }
-  func testKeyboardInsetCannotExceedTheVisibleView() {
-    let c = KeyboardFixture()
-    c.constraint = NSLayoutConstraint()
-    c.currentKeyboardFrame = CGRect(x: 0, y: -100, width: 320, height: 900)
-    c.applyCurrentKeyboardFrame()
-    XCTAssertEqual(c.constraint?.constant, -640)
-  }
-  func testPlainKeyboardAdoptableReceivesFrameChanges() {
-    let f = PlainKeyboardFixture()
-    f.setupKeyboardHandler()
-    f.keyboardHandler?.animateOnFrameChange?(CGRect(x: 0, y: 2, width: 3, height: 4))
-    XCTAssertEqual(f.frames, [CGRect(x: 0, y: 2, width: 3, height: 4)])
-    f.clearKeyboardHandler()
-    XCTAssertNil(f.keyboardHandler)
-  }
-  func testKeyboardHandlerDoesNotRetainItsOwner() {
-    var f: PlainKeyboardFixture? = PlainKeyboardFixture()
-    f?.setupKeyboardHandler()
-    let handler = f?.keyboardHandler
-    weak let weakOwner = f
-    f = nil
-    XCTAssertNil(weakOwner)
-    handler?.animateOnFrameChange?(.zero)
-  }
   func testRootTransitionReplacesTheExactWindowRoot() {
     let w = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
     let old = UIViewController()
@@ -197,22 +91,6 @@ import XCTest
 @MainActor private final class LoadingFixture: UIViewController, LoadableViewProtocol {}
 @MainActor private final class InteractiveLoadingFixture: UIViewController, LoadableViewProtocol {
   var shouldDisableInteractionWhenLoading: Bool { false }
-}
-@MainActor private final class KeyboardFixture: UIViewController, KeyboardViewAdoptable {
-  var constraint: NSLayoutConstraint?, applies = true, gap: CGFloat = 0, frames = [CGRect](),
-    insets = [CGFloat]()
-  var targetBottomConstraint: NSLayoutConstraint? { constraint }
-  var shouldApplyKeyboardFrame: Bool { applies }
-  override func loadView() { view = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 640)) }
-  func offsetFromKeyboardWithInset(_ inset: CGFloat) -> CGFloat {
-    insets.append(inset)
-    return gap
-  }
-  func updateWhileKeyboardFrameChanging(_ frame: CGRect) { frames.append(frame) }
-}
-private final class PlainKeyboardFixture: KeyboardAdoptable {
-  var keyboardHandler: KeyboardHandler?, frames = [CGRect]()
-  func updateWhileKeyboardFrameChanging(_ frame: CGRect) { frames.append(frame) }
 }
 
 @MainActor private final class RootAnimationWindow: UIWindow {

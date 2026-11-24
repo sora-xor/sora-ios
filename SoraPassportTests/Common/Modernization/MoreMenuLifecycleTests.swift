@@ -26,6 +26,13 @@ final class MoreMenuLifecycleTests: XCTestCase {
         cell.set(item: item("New", subtitle: "Disconnected"), context: nil)
         XCTAssertEqual(cell.categoryItem.titleLabel.text, "New"); XCTAssertEqual(cell.categoryItem.subtitleLabel.text, "Disconnected"); XCTAssertTrue(cell.categoryItem.circle.isHidden)
     }
+    func testTitleOnlyMenuRowCollapsesSubtitleAfterShowingANode() {
+        let cell = MoreMenuCell(style: .default, reuseIdentifier: nil)
+        cell.set(item: item("Nodes", subtitle: "Fixture node"), context: nil)
+        XCTAssertFalse(cell.categoryItem.subtitleView.isHidden)
+        cell.set(item: item("Accounts", subtitle: ""), context: nil)
+        XCTAssertTrue(cell.categoryItem.subtitleView.isHidden)
+    }
     func testMenuCellPublishesCurrentSubtitleStreamAndNil() async {
         let (updates, continuation): (AsyncStream<String?>, AsyncStream<String?>.Continuation) = stream(); defer { continuation.finish() }
         let cell = MoreMenuCell(style: .default, reuseIdentifier: nil); let row = item(subtitleStream: updates); cell.set(item: row, context: nil)
@@ -100,15 +107,14 @@ final class MoreMenuLifecycleTests: XCTestCase {
     }
     func testMenuPresenterRoutesEveryActionThroughItsWireframe() {
         let model = MoreMenuPresenter(); let routes = MenuLifecycleRoutes(); model.wireframe = routes
-        model.showAccounts(); model.showNexusPortfolio(); model.showPolkamarkt(); model.showNodes(); model.showAppSettings(); model.showLoginAndSecurity(); model.showInviteFriends(); model.showInformation()
-        XCTAssertEqual(routes.calls, ["accounts", "nexus", "polkamarkt", "nodes", "settings", "security", "friends", "information"])
+        model.showAccounts(); model.showPolkamarkt(); model.showNodes(); model.showAppSettings(); model.showLoginAndSecurity(); model.showInviteFriends(); model.showInformation()
+        XCTAssertEqual(routes.calls, ["accounts", "polkamarkt", "nodes", "settings", "security", "friends", "information"])
     }
 }
 private final class MenuLifecyclePresenter: MoreMenuPresenterProtocol { weak var view: MoreMenuViewProtocol?; var loads = 0; func reload() { loads += 1 } }
 private final class MenuLifecycleRoutes: MoreMenuWireframeProtocol {
     var calls: [String] = []
     func showChangeAccountView(from view: MoreMenuViewProtocol?) { calls.append("accounts") }
-    func showNexusPortfolio(from view: MoreMenuViewProtocol?) { calls.append("nexus") }
     func showPolkamarkt(from view: MoreMenuViewProtocol?) { calls.append("polkamarkt") }
     func showFriendsView(from view: MoreMenuViewProtocol?) { calls.append("friends") }
     func showNodes(from view: MoreMenuViewProtocol?) { calls.append("nodes") }

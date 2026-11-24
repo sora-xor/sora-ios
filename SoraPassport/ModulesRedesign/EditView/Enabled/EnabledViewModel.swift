@@ -22,6 +22,7 @@ import SoraUIKit
 
 enum Cards: Int, CaseIterable {
     case referralProgram = 1
+    case liquidAssets = 2
     case pooledAssets = 3
 
     var id: Int {
@@ -32,16 +33,26 @@ enum Cards: Int, CaseIterable {
         switch self {
         case .referralProgram:
             return R.string.localizable.referralToolbarTitle(preferredLanguages: .currentLocale)
+        case .liquidAssets:
+            return R.string.localizable.liquidAssets(preferredLanguages: .currentLocale)
         case .pooledAssets:
             return R.string.localizable.pooledAssets(preferredLanguages: .currentLocale)
         }
     }
     
-    var defaultState: State { .selected }
+    var defaultState: State {
+        switch self {
+        case .referralProgram, .pooledAssets:
+            return .selected
+        case .liquidAssets:
+            return .unselected
+        }
+    }
 }
 
 enum State {
     case selected
+    case unselected
     case disabled
 }
 

@@ -35,6 +35,6 @@ protocol AccountImportedViewModelProtocol: AnyObject {
 
 protocol AccountImportedWireframeProtocol {
     func showSetupPinCode()
-    func showBackepedAccounts(accounts: [OpenBackupAccount])
+    func showBackepedAccounts(accounts: [OpenBackupAccount], googleAccount: CloudStorageAccountIdentity)
     func dismiss(completion: (() -> Void)?)
 }

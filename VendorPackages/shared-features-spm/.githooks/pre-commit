@@ -1,3 +1,0 @@
-#!/bin/sh
-cd tools/swiftformat
-./swiftformat --lint ./../../Sources

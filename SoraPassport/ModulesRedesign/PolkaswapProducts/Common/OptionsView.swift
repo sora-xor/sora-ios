@@ -45,9 +45,11 @@ final class OptionsView: SoramitsuView {
         let button = SoramitsuButton(size: .extraSmall, type: .bleached(.secondary))
         button.sora.horizontalOffset = 12
         button.sora.cornerRadius = .circle
+        // A glyph says what the pad is; the word stays for VoiceOver.
+        button.sora.leftImage = OptionsView.glyph("plusminus")
+        button.sora.imageSize = 14
+        button.accessibilityHint = R.string.localizable.slippage(preferredLanguages: .currentLocale)
         button.setContentHuggingPriority(.required, for: .horizontal)
-        button.sora.addHandler(for: .touchUpInside) { [weak self] in
-        }
         return button
     }()
     
@@ -68,12 +70,19 @@ final class OptionsView: SoramitsuView {
         button.sora.title = "Smart"
         button.sora.cornerRadius = .circle
         button.sora.isHidden = true
-        button.clipsToBounds = true
+        button.sora.leftImage = OptionsView.glyph("arrow.triangle.branch")
+        button.sora.imageSize = 14
+        button.accessibilityHint = R.string.localizable.polkaswapMarket(preferredLanguages: .currentLocale)
+        // The pad's shadow falls outside it.
+        button.clipsToBounds = false
         button.setContentHuggingPriority(.required, for: .horizontal)
-        button.sora.addHandler(for: .touchUpInside) { [weak self] in
-        }
         return button
     }()
+
+    static func glyph(_ name: String) -> UIImage? {
+        UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .bold))?
+            .withTintColor(Lit.lacquerText, renderingMode: .alwaysOriginal)
+    }
     
     init() {
         super.init(frame: .zero)
@@ -90,8 +99,11 @@ final class OptionsView: SoramitsuView {
         sora.backgroundColor = .custom(uiColor: .clear)
         translatesAutoresizingMaskIntoConstraints = false
         addSubview(stackView)
+        // Two pads with glyphs, no labels beside them: the labels were cut to "…" in Japanese.
+        marketLabel.isHidden = true
+        slipageTitleLabel.isHidden = true
+        stackView.spacing = 12
         stackView.addArrangedSubviews(marketLabel, marketButton)
-        stackView.setCustomSpacing(16, after: marketButton)
         stackView.addArrangedSubviews(slipageTitleLabel, slipageButton)
     }
 

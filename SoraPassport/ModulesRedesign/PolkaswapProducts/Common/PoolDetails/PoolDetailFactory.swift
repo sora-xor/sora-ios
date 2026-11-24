@@ -430,17 +430,24 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                               swapFee: Decimal,
                               route: String,
                               viewModel: DetailViewModelDelegate) -> [DetailViewModel] {
-        let minMaxValue = direction == .desiredInput
-            ? slippage.minimumAmount(for: quote.toAmount)
-            : slippage.maximumAmount(for: quote.toAmount)
+        // The limit as it is signed: whole units of the asset it is in.
+        let minMaxValue = quote.slippageLimit(slippage, direction: direction, fromAsset: fromAsset, toAsset: toAsset)
         let minMaxReceivedViewModel = minMaxReceivedViewModel(asset: direction == .desiredInput ? toAsset : fromAsset,
                                                               title: direction.title,
                                                               minBuyValue: minMaxValue,
+                                                              roundsUp: direction == .desiredOutput,
                                                               slippage: slippage.percent,
                                                               fiatData: fiatData,
                                                               viewModel: viewModel)
         
-        let fromAssetToAssetAmount = amount / quote.toAmount
+        // `amount` is what the user entered and `quote.toAmount` what the
+        // node quoted for it. With a fixed output the entered amount is the
+        // destination side, so the two rates are worked out from the source
+        // and destination amounts, never from "entered" and "quoted".
+        let sourceAmount = direction == .desiredInput ? amount : quote.toAmount
+        let destinationAmount = direction == .desiredInput ? quote.toAmount : amount
+
+        let fromAssetToAssetAmount = sourceAmount / destinationAmount
         let fromAssetToAssetAmountText = NumberFormatter.cryptoAssets.stringFromDecimal(fromAssetToAssetAmount) ?? ""
         let fromAssetToAssetAmountTextItem = SoramitsuTextItem(text: fromAssetToAssetAmountText,
                                         fontData: FontType.textS,
@@ -449,7 +456,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let fromAssetToAsset = DetailViewModel(title: "\(fromAsset.symbol) / \(toAsset.symbol)",
                                                assetAmountText: fromAssetToAssetAmountTextItem)
         
-        let toAssetFromAssetAmount =  quote.toAmount / amount
+        let toAssetFromAssetAmount = destinationAmount / sourceAmount
         let toAssetFromAssetAmountText = NumberFormatter.cryptoAssets.stringFromDecimal(toAssetFromAssetAmount) ?? ""
         let toAssetFromAssetTextItem = SoramitsuTextItem(text: toAssetFromAssetAmountText,
                                         fontData: FontType.textS,
@@ -544,11 +551,15 @@ private extension DetailViewModelFactory {
     func minMaxReceivedViewModel(asset: AssetInfo,
                                  title: String,
                                  minBuyValue: Decimal,
+                                 roundsUp: Bool = false,
                                  slippage: Decimal,
                                  fiatData: [PIExactFiatData],
                                  viewModel: DetailViewModelDelegate) -> DetailViewModel {
         let minBuyToken = asset.symbol
-        let minBuyText = NumberFormatter.cryptoAssets.stringFromDecimal(minBuyValue) ?? ""
+        // Eight decimals are shown. The most that can be sold is rounded up
+        // to what is shown and the least received down, so the limit shown is
+        // never better than the limit signed.
+        let minBuyText = SwapAmountText.string(minBuyValue, formatter: NumberFormatter.cryptoAssets, roundingUp: roundsUp)
         let minBuyValueText = SoramitsuTextItem(text: "\(minBuyText) \(minBuyToken)",
                                                 fontData: FontType.textS,
                                                 textColor: .fgPrimary,

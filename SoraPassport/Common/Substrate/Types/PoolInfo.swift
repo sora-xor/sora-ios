@@ -20,8 +20,6 @@ import Foundation
 import SSFUtils
 import RobinHood
 
-typealias PoolModel = PoolInfo
-
 struct PoolInfo: Codable {
     enum CodingKeys: String, CodingKey {
         case baseAssetId
@@ -116,7 +114,7 @@ extension PoolInfo: Identifiable {
     var id: String { poolId }
 }
 
-extension PoolModel {
+extension PoolInfo {
     typealias Id = String
 }
 

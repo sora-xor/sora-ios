@@ -319,6 +319,13 @@ final class StartupNetworkTests: XCTestCase {
         var all: [[AssetInfo]] { lock.lock(); defer { lock.unlock() }; return lists }
     }
 
+    // MARK: - Asset info key
+
+    func testTheFixedAssetInfosKeyIsTheOneTheFactoryEncodes() throws {
+        XCTAssertEqual(AssetsInfoProvider.assetInfosStorageKey, prefix)
+        XCTAssertEqual(AssetsInfoProvider.makeAssetInfoKey(using: StorageKeyFactory()), prefix)
+    }
+
     // MARK: - Loader: first page fails, then the node recovers
 
     func testFailedFirstPageIsReloadedWhenTheNodeRecovers() throws {
@@ -1157,9 +1164,9 @@ final class StartupNetworkTests: XCTestCase {
     }
 
     /// A 1.x wallet (only the old global Keychain items, no account store).
-    /// Startup ends at the upgrade screen and boots no registry
+    /// Startup hands over to the automatic upgrade and boots no registry
     /// (`SplashInteractor.performStorageMigration`, "deferred for legacy
-    /// upgrade"). After "Upgrade wallet" and the PIN the wallet is opened
+    /// upgrade"). After the upgrade and the PIN the wallet is opened
     /// without another run of startup, and `MainTabBarInteractor` starts the
     /// registry through `ServiceCoordinator.setup()`. Nobody told the
     /// coordinator, so the asset list was never requested: the upgraded
@@ -1167,7 +1174,7 @@ final class StartupNetworkTests: XCTestCase {
     ///
     /// This runs the production `SplashInteractor`, `MainTabBarInteractor`,
     /// `ServiceCoordinator`, `StartupNetworkCoordinator` and loader. The
-    /// storage checks stand for the checks that end at the upgrade screen.
+    /// storage checks stand for the checks that defer to the upgrade.
     func testAWalletOpenedAfterAStartupThatBootedNoRegistryStillGetsItsAssetList() {
         node.answer = healthy()
         let config = StubConfigService()
@@ -1182,9 +1189,9 @@ final class StartupNetworkTests: XCTestCase {
         splash.setup()
         wait(for: [deferred], timeout: 5)
         settle()
-        XCTAssertTrue(node.calls.isEmpty, "the upgrade screen needs no list")
+        XCTAssertTrue(node.calls.isEmpty, "the upgrade needs no list")
 
-        // "Upgrade wallet", then the PIN: the wallet's tab bar is created.
+        // The upgrade, then the PIN: the wallet's tab bar is created.
         let log = BootLog()
         let registry = RecordingRegistry(log: log)
         let services = ServiceCoordinator(
@@ -1387,16 +1394,20 @@ final class StartupNetworkTests: XCTestCase {
     private final class StubRegistryServices: ChainSyncServiceProtocol, CommonTypesSyncServiceProtocol,
         RuntimeSyncServiceProtocol, SnapshotHotBootBuilderProtocol, SpecVersionSubscriptionFactoryProtocol,
         SpecVersionSubscriptionProtocol {
+        var knownChain = false, chainSyncing = false
+        var refreshRequests: [String] = []
+        var registeredChains: [String] = []
+        var subscriptionStarts = 0
         func syncUp() {}
         func startHotBoot() {}
-        func register(chain _: ChainModel, with _: ChainConnection) {}
+        func register(chain: ChainModel, with _: ChainConnection) { registeredChains.append(chain.chainId) }
         func unregister(chainId _: ChainModel.Id) {}
-        func apply(version _: RuntimeVersion, for _: ChainModel.Id) {}
-        func applyReplacingCachedMetadata(version _: RuntimeVersion, for _: ChainModel.Id) {}
-        func hasChain(with _: ChainModel.Id) -> Bool { false }
-        func isChainSyncing(_: ChainModel.Id) -> Bool { false }
+        func apply(version _: RuntimeVersion, for id: ChainModel.Id) { refreshRequests.append("apply:" + id) }
+        func applyReplacingCachedMetadata(version _: RuntimeVersion, for id: ChainModel.Id) { refreshRequests.append("replace:" + id) }
+        func hasChain(with _: ChainModel.Id) -> Bool { knownChain }
+        func isChainSyncing(_: ChainModel.Id) -> Bool { chainSyncing }
         func createSubscription(for _: ChainModel.Id, connection _: JSONRPCEngine) -> SpecVersionSubscriptionProtocol { self }
-        func subscribe() {}
+        func subscribe() { subscriptionStarts += 1 }
         func unsubscribe() {}
     }
 
@@ -2833,4 +2844,309 @@ final class StartupNetworkTests: XCTestCase {
         XCTAssertEqual(cache.balances(of: account), saved)
         withExtendedLifetime((withList, withoutList, rebuilt)) {}
     }
+}
+
+extension StartupNetworkTests {
+    private struct RegistryBoundaryFixture {
+        let registry: ChainRegistry; let services: StubRegistryServices
+        let repository: CoreDataRepository<ChainModel, CDChain>; let operations: OperationQueue
+        let chain: ChainModel
+    }
+    private func boundaryRegistry() -> RegistryBoundaryFixture {
+        let storage = SubstrateStorageTestFacade(), operations = OperationQueue()
+        let repository = ChainRepositoryFactory(storageFacade: storage).createRepository()
+        let observable = CoreDataContextObservable(service: storage.databaseService, mapper: repository.dataMapper, predicate: { _ in true })
+        observable.start { XCTAssertNil($0) }
+        let provider = StreamableProvider(source: AnyStreamableSource(SoraPassport.EmptyStreamableSource<ChainModel>()),
+            repository: AnyDataProviderRepository(repository), observable: AnyDataProviderRepositoryObservable(observable),
+            operationManager: OperationManager(operationQueue: operations))
+        let services = StubRegistryServices()
+        let registry = ChainRegistry(snapshotHotBootBuilder: services, runtimeProviderPool: StubRuntimePool(), connectionPool: StubPool(connection: node),
+            chainSyncService: services, runtimeSyncService: services, commonTypesSyncService: services, chainProvider: provider,
+            specVersionSubscriptionFactory: services, logger: nil, eventCenter: EventCenter(),
+            chainRepository: AnyDataProviderRepository(repository), operationManager: OperationManager(operationQueue: operations),
+            networkStatusPresenter: StatusRecorder(), nodeDidConnect: {})
+        let chain = ChainSyncService.preparedChain(chainId: "0x" + String(repeating: "5c", count: 32), addressPrefix: 69, name: "Boundary chain",
+            nodes: [ChainNodeModel(url: URL(string: "wss://boundary.invalid")!, name: "Boundary", apikey: nil)],
+            typesURL: nil, local: nil, assets: [], whitelist: .empty)
+        return RegistryBoundaryFixture(registry: registry, services: services, repository: repository, operations: operations, chain: chain)
+    }
+    func testRegistryExplicitSubscriptionPublishesKnownChainsAndReusesTheirAssetManager() throws {
+        let f = boundaryRegistry(); XCTAssertEqual(f.registry.availableChainIds, [])
+        let save = f.repository.saveOperation({ [f.chain] }, { [] }); f.operations.addOperations([save], waitUntilFinished: true)
+        _ = try XCTUnwrap(save.result).get(); f.registry.subscribeToChians()
+        XCTAssertTrue(waitOnMain { f.registry.getChain(for: f.chain.chainId) != nil })
+        XCTAssertEqual(f.registry.availableChainIds, [f.chain.chainId])
+        XCTAssertTrue(f.registry.getAssetManager(for: f.chain.chainId) === f.registry.getAssetManager(for: f.chain.chainId))
+        XCTAssertEqual(f.registry.getActiveNode(for: f.chain.chainId)?.name, "Boundary")
+        // Startup can hydrate getChain from its independent local read before
+        // the stream is listening. Wait for a subscriber's first delivery
+        // before exercising deletion on an active subscription.
+        let observer = NSObject()
+        let listening = expectation(description: "Subscribed to the saved chain")
+        f.registry.chainsSubscribe(observer, runningInQueue: .main) { changes in
+            if changes.contains(where: {
+                if case let .insert(chain) = $0 { return chain.chainId == f.chain.chainId }
+                return false
+            }) { listening.fulfill() }
+        }
+        defer { f.registry.chainsUnsubscribe(observer) }
+        wait(for: [listening], timeout: 10)
+        let remove = f.repository.saveOperation({ [] }, { [f.chain.chainId] }); f.operations.addOperations([remove], waitUntilFinished: true)
+        _ = try XCTUnwrap(remove.result).get(); XCTAssertTrue(waitOnMain { f.registry.getChain(for: f.chain.chainId) == nil })
+        XCTAssertEqual(f.registry.availableChainIds, [])
+    }
+    func testRegistryAdditionalObserverReceivesInitialChainsOnItsRequestedQueue() throws {
+        let f = boundaryRegistry(), observer = NSObject(), delivered = expectation(description: "chain observer initial snapshot")
+        let save = f.repository.saveOperation({ [f.chain] }, { [] }); f.operations.addOperations([save], waitUntilFinished: true)
+        _ = try XCTUnwrap(save.result).get()
+        let queue = DispatchQueue(label: "registry-boundary-delivery"), key = DispatchSpecificKey<Bool>(); queue.setSpecific(key: key, value: true)
+        f.registry.chainsSubscribe(observer, runningInQueue: queue) { changes in
+            XCTAssertEqual(DispatchQueue.getSpecific(key: key), true)
+            XCTAssertEqual(changes.compactMap { $0.item?.chainId }, [f.chain.chainId]); delivered.fulfill()
+        }
+        wait(for: [delivered], timeout: 3); f.registry.chainsUnsubscribe(observer)
+    }
+    func testRuntimeRefreshIgnoresUnknownAndSyncingChainsUnlessMetadataReplacementIsRequired() throws {
+        let f = boundaryRegistry(), version = try JSONDecoder().decode(RuntimeVersion.self, from: Data(#"{"specVersion":130,"transactionVersion":131}"#.utf8))
+        f.registry.requestRuntimeRefresh(for: "chain", liveVersion: version, replacingCachedMetadata: false)
+        XCTAssertTrue(f.services.refreshRequests.isEmpty)
+        f.services.knownChain = true
+        f.registry.requestRuntimeRefresh(for: "chain", liveVersion: version, replacingCachedMetadata: false)
+        XCTAssertEqual(f.services.refreshRequests, ["apply:chain"])
+        f.services.chainSyncing = true
+        f.registry.requestRuntimeRefresh(for: "chain", liveVersion: version, replacingCachedMetadata: false)
+        XCTAssertEqual(f.services.refreshRequests.count, 1)
+        f.registry.requestRuntimeRefresh(for: "chain", liveVersion: version, replacingCachedMetadata: true)
+        XCTAssertEqual(f.services.refreshRequests, ["apply:chain", "replace:chain"])
+    }
+}
+
+
+extension StartupNetworkTests {
+    /// Models the real observable's registration gap without relying on timing.
+    /// The provider has already read its initial rows when this hook runs.
+    private final class InitialChainGapObservable: DataProviderRepositoryObservable {
+        typealias Model = ChainModel
+        private let lock = NSLock()
+        private var delivery: (DispatchQueue, ([DataProviderChange<ChainModel>]) -> Void)?
+        var beforeRegistration: (() -> Void)?
+        var onRegistered: (() -> Void)?
+        private(set) var missedNotifications = 0
+        func start(completionBlock: @escaping (Error?) -> Void) { completionBlock(nil) }
+        func stop(completionBlock: @escaping (Error?) -> Void) { completionBlock(nil) }
+        func addObserver(_ observer: AnyObject, deliverOn queue: DispatchQueue,
+                         executing updateBlock: @escaping ([DataProviderChange<ChainModel>]) -> Void) {
+            beforeRegistration?()
+            lock.lock(); delivery = (queue, updateBlock); lock.unlock()
+            onRegistered?()
+        }
+        func removeObserver(_ observer: AnyObject) {
+            lock.lock(); delivery = nil; lock.unlock()
+        }
+        func emit(_ changes: [DataProviderChange<ChainModel>], completion: (() -> Void)? = nil) {
+            lock.lock()
+            let delivery = self.delivery
+            if delivery == nil { missedNotifications += 1 }
+            lock.unlock()
+            guard let (queue, callback) = delivery else { completion?(); return }
+            queue.async { callback(changes); completion?() }
+        }
+    }
+
+    /// Only the registry's additional read goes through this wrapper. Provider
+    /// notifications remain live while a captured local snapshot is held back.
+    private final class RegistryLocalReadRepository: DataProviderRepositoryProtocol {
+        typealias Model = ChainModel
+        let base: InMemoryDataProviderRepository<ChainModel>
+        var afterRead: (([ChainModel]) throws -> Void)?
+        init(_ base: InMemoryDataProviderRepository<ChainModel>) { self.base = base }
+        func fetchAllOperation(with options: RepositoryFetchOptions) -> BaseOperation<[ChainModel]> {
+            ClosureOperation { [self] in
+                let read = base.fetchAllOperation(with: options); read.start()
+                let rows = try XCTUnwrap(read.result).get()
+                try afterRead?(rows)
+                return rows
+            }
+        }
+        func fetchOperation(by ids: @escaping () throws -> [String], options: RepositoryFetchOptions) -> BaseOperation<[ChainModel]> { base.fetchOperation(by: ids, options: options) }
+        func fetchOperation(by id: @escaping () throws -> String, options: RepositoryFetchOptions) -> BaseOperation<ChainModel?> { base.fetchOperation(by: id, options: options) }
+        func fetchOperation(by request: RepositorySliceRequest, options: RepositoryFetchOptions) -> BaseOperation<[ChainModel]> { base.fetchOperation(by: request, options: options) }
+        func saveOperation(_ models: @escaping () throws -> [ChainModel], _ ids: @escaping () throws -> [String]) -> BaseOperation<Void> { base.saveOperation(models, ids) }
+        func saveBatchOperation(_ models: @escaping () throws -> [ChainModel], _ ids: @escaping () throws -> [String]) -> BaseOperation<Void> { base.saveBatchOperation(models, ids) }
+        func replaceOperation(_ models: @escaping () throws -> [ChainModel]) -> BaseOperation<Void> { base.replaceOperation(models) }
+        func deleteAllOperation() -> BaseOperation<Void> { base.deleteAllOperation() }
+        func fetchCountOperation() -> BaseOperation<Int> { base.fetchCountOperation() }
+    }
+
+    private final class InitialChainRuntimePool: RuntimeProviderPoolProtocol {
+        private var providers: [String: RuntimeProviderProtocol] = [:]
+        func setupRuntimeProvider(for chain: ChainModel) -> RuntimeProviderProtocol {
+            let provider = providers[chain.chainId] ?? StubRuntimeProvider(chainId: chain.chainId)
+            providers[chain.chainId] = provider
+            return provider
+        }
+        func setupHotRuntimeProvider(for chain: ChainModel, runtimeItem: RuntimeMetadataItem,
+                                     commonTypes: Data) -> RuntimeProviderProtocol { setupRuntimeProvider(for: chain) }
+        func destroyRuntimeProvider(for chainId: ChainModel.Id) { providers[chainId] = nil }
+        func getRuntimeProvider(for chainId: ChainModel.Id) -> RuntimeProviderProtocol? { providers[chainId] }
+    }
+
+    private struct InitialChainGapFixture {
+        let repository: InMemoryDataProviderRepository<ChainModel>
+        let localReads: RegistryLocalReadRepository
+        let observable: InitialChainGapObservable
+        let provider: StreamableProvider<ChainModel>
+        let registry: ChainRegistry
+        let events: EventCenter
+        let services: StubRegistryServices
+        let operations: OperationQueue
+        let chain: ChainModel
+        func save(_ rows: [ChainModel], deleting: [String] = []) throws {
+            let save = repository.saveOperation({ rows }, { deleting }); save.start()
+            _ = try XCTUnwrap(save.result).get()
+        }
+    }
+
+    private func initialChainGapFixture() -> InitialChainGapFixture {
+        let repository = InMemoryDataProviderRepository<ChainModel>()
+        let reads = RegistryLocalReadRepository(repository), observable = InitialChainGapObservable()
+        let provider = StreamableProvider(source: AnyStreamableSource(SoraPassport.EmptyStreamableSource<ChainModel>()),
+            repository: AnyDataProviderRepository(repository), observable: AnyDataProviderRepositoryObservable(observable),
+            operationManager: OperationManager())
+        let services = StubRegistryServices(), events = EventCenter(), operations = OperationQueue()
+        let registry = ChainRegistry(snapshotHotBootBuilder: services, runtimeProviderPool: InitialChainRuntimePool(),
+            connectionPool: StubPool(connection: node), chainSyncService: services, runtimeSyncService: services,
+            commonTypesSyncService: services, chainProvider: provider, specVersionSubscriptionFactory: services,
+            logger: nil, eventCenter: events, chainRepository: AnyDataProviderRepository(reads),
+            operationManager: OperationManager(operationQueue: operations), networkStatusPresenter: StatusRecorder(), nodeDidConnect: {})
+        let chain = ChainSyncService.preparedChain(chainId: "0x" + String(repeating: "6d", count: 32),
+            addressPrefix: 69, name: "Initial chain", nodes: [ChainNodeModel(url: URL(string: "wss://local.invalid")!, name: "Local", apikey: nil)],
+            typesURL: nil, local: nil, assets: [], whitelist: .empty)
+        return InitialChainGapFixture(repository: repository, localReads: reads, observable: observable,
+            provider: provider, registry: registry, events: events, services: services, operations: operations, chain: chain)
+    }
+
+    private func subscribeAcrossInitialChainGap(_ f: InitialChainGapFixture) {
+        let registered = expectation(description: "chain insert fell between initial fetch and observation")
+        f.observable.beforeRegistration = {
+            do { try f.save([f.chain]) } catch { XCTFail("Gap insert failed: \(error)") }
+            f.observable.emit([.insert(newItem: f.chain)])
+        }
+        f.observable.onRegistered = { registered.fulfill() }
+        f.registry.subscribeToChians()
+        wait(for: [registered], timeout: 3)
+        XCTAssertEqual(f.observable.missedNotifications, 1)
+    }
+
+    func testProviderInitialChainInsertGapLeavesACommittedRowUndelivered() throws {
+        let f = initialChainGapFixture()
+        subscribeAcrossInitialChainGap(f)
+        XCTAssertNil(f.registry.getChain(for: f.chain.chainId))
+        let read = f.repository.fetchAllOperation(with: RepositoryFetchOptions()); read.start()
+        XCTAssertEqual(try XCTUnwrap(read.result).get(), [f.chain])
+        f.provider.refresh()
+        XCTAssertFalse(waitOnMain(for: 0.1) { f.registry.getChain(for: f.chain.chainId) != nil },
+                       "EmptyStreamableSource refresh does not reload the missing local row")
+    }
+
+    func testRegistryAutomaticallyHydratesMissedInitialChainAfterSync() throws {
+        let f = initialChainGapFixture()
+        subscribeAcrossInitialChainGap(f)
+        XCTAssertNil(f.registry.getConnection(for: f.chain.chainId))
+        // A completed unchanged sync carries no repository update to rescue us.
+        f.events.notify(with: ChainSyncDidComplete(newOrUpdatedChains: [], removedChains: []))
+        XCTAssertTrue(waitOnMain { f.registry.getChain(for: f.chain.chainId) != nil })
+        XCTAssertNotNil(f.registry.getConnection(for: f.chain.chainId))
+        XCTAssertNotNil(f.registry.getRuntimeProvider(for: f.chain.chainId))
+        XCTAssertEqual(f.services.registeredChains, [f.chain.chainId])
+        XCTAssertEqual(f.services.subscriptionStarts, 1)
+
+        let delivered = expectation(description: "delayed original insert delivered")
+        f.observable.emit([.insert(newItem: f.chain)]) { delivered.fulfill() }
+        wait(for: [delivered], timeout: 3)
+        // The callback itself is queued onto the registry's delivery queue.
+        f.events.notify(with: ChainSyncDidComplete(newOrUpdatedChains: [], removedChains: []))
+        f.registry.syncUp()
+        XCTAssertFalse(waitOnMain(for: 0.1) { f.services.subscriptionStarts > 1 })
+        XCTAssertEqual(f.services.registeredChains, [f.chain.chainId])
+        XCTAssertEqual(f.registry.availableChainIds, [f.chain.chainId])
+    }
+
+    func testRegistryRetryHydratesMissedLocalChainWithoutAnotherRemoteEvent() throws {
+        let f = initialChainGapFixture()
+        subscribeAcrossInitialChainGap(f)
+        XCTAssertNil(f.registry.getChain(for: f.chain.chainId))
+        f.registry.syncUp()
+        XCTAssertTrue(waitOnMain { f.registry.getChain(for: f.chain.chainId) != nil })
+        XCTAssertNotNil(f.registry.getRuntimeProvider(for: f.chain.chainId))
+        XCTAssertEqual(f.services.registeredChains, [f.chain.chainId])
+    }
+
+    func testRegistryLocalReadCannotResurrectAChainDeletedWhileItWasInFlight() throws {
+        let f = initialChainGapFixture()
+        try f.save([f.chain])
+        let registered = expectation(description: "chain observer ready")
+        f.observable.onRegistered = { registered.fulfill() }
+        f.registry.subscribeToChians()
+        wait(for: [registered], timeout: 3)
+        XCTAssertTrue(waitOnMain { f.registry.getChain(for: f.chain.chainId) != nil })
+        let captured = expectation(description: "old local chain read captured"), release = DispatchSemaphore(value: 0)
+        let reread = expectation(description: "coalesced read follows stale completion")
+        var reads = 0
+        defer { release.signal() }
+        f.localReads.afterRead = { rows in
+            reads += 1
+            if reads == 1 {
+                XCTAssertEqual(rows, [f.chain]); captured.fulfill()
+                XCTAssertEqual(release.wait(timeout: .now() + 5), .success)
+            } else {
+                XCTAssertTrue(rows.isEmpty); reread.fulfill()
+            }
+        }
+        f.registry.syncUp()
+        wait(for: [captured], timeout: 3)
+        try f.save([], deleting: [f.chain.chainId])
+        f.observable.emit([.delete(deletedIdentifier: f.chain.chainId)])
+        XCTAssertTrue(waitOnMain { f.registry.getChain(for: f.chain.chainId) == nil })
+        // Invalidating a local read schedules its replacement automatically.
+        release.signal()
+        wait(for: [reread], timeout: 3)
+        XCTAssertNil(f.registry.getChain(for: f.chain.chainId))
+        XCTAssertNil(f.registry.getRuntimeProvider(for: f.chain.chainId))
+        XCTAssertEqual(f.services.subscriptionStarts, 1)
+    }
+
+    func testRegistryInvalidatedLocalReadRetriesAfterAnUnrelatedChainNotification() throws {
+        let f = initialChainGapFixture()
+        subscribeAcrossInitialChainGap(f)
+        let other = ChainSyncService.preparedChain(chainId: "other-local-chain", addressPrefix: 69,
+            name: "Other chain", nodes: f.chain.nodes, typesURL: nil, local: nil, assets: [], whitelist: .empty)
+        let captured = expectation(description: "missing chain read captured")
+        let reread = expectation(description: "invalidated read automatically replaced")
+        let release = DispatchSemaphore(value: 0)
+        var reads = 0
+        defer { release.signal() }
+        f.localReads.afterRead = { rows in
+            reads += 1
+            if reads == 1 {
+                XCTAssertEqual(rows, [f.chain]); captured.fulfill()
+                XCTAssertEqual(release.wait(timeout: .now() + 5), .success)
+            } else {
+                XCTAssertEqual(Set(rows.map(\.chainId)), [f.chain.chainId, other.chainId])
+                reread.fulfill()
+            }
+        }
+        f.registry.syncUp()
+        wait(for: [captured], timeout: 3)
+        try f.save([other])
+        f.observable.emit([.insert(newItem: other)])
+        XCTAssertTrue(waitOnMain { f.registry.getChain(for: other.chainId) != nil })
+        release.signal()
+        wait(for: [reread], timeout: 3)
+        XCTAssertTrue(waitOnMain { f.registry.getChain(for: f.chain.chainId) != nil })
+        XCTAssertEqual(Set(f.services.registeredChains), [f.chain.chainId, other.chainId])
+        XCTAssertEqual(f.services.subscriptionStarts, 2)
+    }
+
 }

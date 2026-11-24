@@ -1300,6 +1300,41 @@ final class WalletBackupPreservingGoogleService: GoogleService {
         }
     }
 
+    /// After the replacement is verified, the file's earlier versions are
+    /// removed. They hold the same keys under the passwords used before,
+    /// which may be weaker, and Drive would otherwise keep them for good.
+    /// Only versions older than the verified one go; a newer version (another
+    /// device saving at the same moment) is left alone. A version Drive will
+    /// not delete is unpinned, so Drive drops it within 30 days. The backup
+    /// itself is already safe, so a failure here is not an error.
+    private func removeEarlierRevisions(file: String, keeping head: String) async {
+        do {
+            let list = GTLRDriveQuery_RevisionsList.query(withFileId: file)
+            list.pageSize = 1000
+            list.fields = "revisions(id,modifiedTime)"
+            let listed = try await base.executeQuery(list)
+            let listedRevisions = (listed.file as? GTLRDrive_RevisionList)?.revisions ?? []
+            guard let headTime = listedRevisions.first(where: { $0.identifier == head })?.modifiedTime?.date else { return }
+            let earlier = listedRevisions.compactMap { revision -> String? in
+                guard let identifier = revision.identifier, identifier != head,
+                      let time = revision.modifiedTime?.date, time < headTime else { return nil }
+                return identifier
+            }
+            for revision in earlier {
+                do {
+                    _ = try await base.executeQuery(GTLRDriveQuery_RevisionsDelete.query(withFileId: file, revisionId: revision))
+                } catch {
+                    let unpinned = GTLRDrive_Revision(); unpinned.keepForever = false
+                    let unpin = GTLRDriveQuery_RevisionsUpdate.query(withObject: unpinned, fileId: file, revisionId: revision)
+                    unpin.fields = "id,keepForever"
+                    _ = try? await base.executeQuery(unpin)
+                }
+            }
+        } catch {
+            Logger.shared.warning("Google Drive backup: earlier versions were not removed")
+        }
+    }
+
     private func save(_ create: GTLRDriveQuery_FilesCreate, metadata submitted: GTLRDrive_File)
         async throws -> (ticket: GoogleServiceTicket, file: Any?) {
         guard let payload = create.uploadParameters?.data, !payload.isEmpty,
@@ -1367,6 +1402,9 @@ final class WalletBackupPreservingGoogleService: GoogleService {
         guard final.headRevisionId == saved.headRevisionId, final.size == saved.size else {
             throw WalletCloudBackupWriteError.verificationFailed
         }
+        if matches.files.first != nil {
+            await removeEarlierRevisions(file: saved.identifier!, keeping: saved.headRevisionId!)
+        }
         return result
     }
 }
@@ -1424,13 +1462,32 @@ final class WalletCloudBackupRecoveryService {
     static let maximumBackupBytes = 1_048_576
     private let drive: GoogleService
     private let authorize: () async throws -> Bool
+    /// The Google account the last authorization gave the Drive service, or
+    /// nil when it cannot be named.
+    private let authorizedAccount: () -> CloudStorageAccountIdentity?
+    private let backupAccountStore: WalletGoogleBackupAccountStore
 
-    init(viewController: UIViewController) {
+    /// The account chosen in Google's sign-in, set together with the Drive
+    /// authorizer and cleared when a new sign-in starts.
+    private final class ChosenAccount {
+        private let lock = NSLock()
+        private var account: CloudStorageAccountIdentity?
+        var value: CloudStorageAccountIdentity? {
+            get { lock.lock(); defer { lock.unlock() }; return account }
+            set { lock.lock(); defer { lock.unlock() }; account = newValue }
+        }
+    }
+
+    init(viewController: UIViewController, backupAccountStore: WalletGoogleBackupAccountStore = .shared) {
         let recoveryDrive = BaseGoogleService(googleService: GTLRDriveService())
+        let chosen = ChosenAccount()
         drive = recoveryDrive
+        authorizedAccount = { chosen.value }
+        self.backupAccountStore = backupAccountStore
         authorize = {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
                 Task { @MainActor in
+                    chosen.value = nil
                     // Recovery must let the user choose the backup's Google account
                     // even when ordinary cloud browsing already has a saved session.
                     GIDSignIn.sharedInstance.signIn(withPresenting: viewController, hint: nil,
@@ -1445,6 +1502,10 @@ final class WalletCloudBackupRecoveryService {
                             return
                         }
                         recoveryDrive.set(authorizer: user.fetcherAuthorizer)
+                        let userID = (user.userID ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                        let email = user.profile?.email.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                        chosen.value = userID.isEmpty ? nil
+                            : CloudStorageAccountIdentity(userID: userID, email: email.isEmpty ? nil : email)
                         continuation.resume(returning: true)
                     }
                 }
@@ -1452,9 +1513,13 @@ final class WalletCloudBackupRecoveryService {
         }
     }
 
-    init(drive: GoogleService, authorize: @escaping () async throws -> Bool) {
+    init(drive: GoogleService, authorize: @escaping () async throws -> Bool,
+         authorizedAccount: @escaping () -> CloudStorageAccountIdentity? = { nil },
+         backupAccountStore: WalletGoogleBackupAccountStore = .shared) {
         self.drive = drive
         self.authorize = authorize
+        self.authorizedAccount = authorizedAccount
+        self.backupAccountStore = backupAccountStore
     }
 
     func readBackup(for address: String) async throws -> Data {
@@ -1462,9 +1527,13 @@ final class WalletCloudBackupRecoveryService {
         guard (32...128).contains(address.count), address.allSatisfy({ alphabet.contains($0) }) else {
             throw WalletCloudBackupRecoveryError.identityMismatch
         }
+        let chosenAccount: CloudStorageAccountIdentity?
         do {
             try Task.checkCancellation()
             guard try await authorize() else { throw WalletCloudBackupRecoveryError.notAuthorized }
+            // The account this authorization chose, taken before the read
+            // so that a later sign-in cannot be recorded in its place.
+            chosenAccount = authorizedAccount()
         } catch let error as WalletCloudBackupRecoveryError { throw error }
         catch { throw WalletCloudBackupRecoveryError.authorizationError(for: error) }
         do {
@@ -1511,6 +1580,12 @@ final class WalletCloudBackupRecoveryService {
                   !data.isEmpty, data.count <= Self.maximumBackupBytes,
                   Int64(data.count) == file.size?.int64Value else {
                 throw WalletCloudBackupRecoveryError.invalidBackup
+            }
+            // The chosen Google account holds this wallet's backup file: the
+            // read found exactly one and downloaded it whole.
+            if let googleAccount = chosenAccount {
+                backupAccountStore.record(googleUserID: googleAccount.userID,
+                                          googleEmail: googleAccount.email, for: address)
             }
             return data
         } catch let error as WalletCloudBackupRecoveryError { throw error }
@@ -1632,10 +1707,11 @@ final class WalletCloudBackupRecoveryService {
         guard data.count >= ScryptParameters.encodedLength + 24 + 16,
               data.count <= maximumBackupBytes else { throw WalletCloudBackupRecoveryError.invalidBackup }
         let params = try ScryptParameters(data: data)
-        let n = UInt64(params.scryptN), r = UInt64(params.scryptR), p = UInt64(params.scryptP)
-        guard n >= 2, n.nonzeroBitCount == 1, n <= 262_144,
-              r > 0, r <= 32, p > 0, p <= 16,
-              n * r <= 2_097_152, n * r * p <= 4_194_304 else {
+        let cost = UInt64(params.scryptN), blockSize = UInt64(params.scryptR)
+        let parallelism = UInt64(params.scryptP)
+        guard cost >= 2, cost.nonzeroBitCount == 1, cost <= 262_144,
+              blockSize > 0, blockSize <= 32, parallelism > 0, parallelism <= 16,
+              cost * blockSize <= 2_097_152, cost * blockSize * parallelism <= 4_194_304 else {
             throw WalletCloudBackupRecoveryError.invalidBackup
         }
         return params
@@ -1685,7 +1761,7 @@ final class WalletCloudBackupRecoveryService {
         if account.cryptoType == .sr25519 {
             var scalar = Array(pkcs[header.count..<header.count + 32])
             guard scalar[0] & 7 == 0 else { throw WalletCloudBackupRecoveryError.invalidBackup }
-            for i in 0..<31 { scalar[i] = (scalar[i] >> 3) | (scalar[i + 1] << 5) }
+            for index in 0..<31 { scalar[index] = (scalar[index] >> 3) | (scalar[index + 1] << 5) }
             scalar[31] >>= 3
             guard isCanonicalScalar(scalar) else { throw WalletCloudBackupRecoveryError.invalidBackup }
         }
@@ -1722,8 +1798,8 @@ final class WalletCloudBackupRecoveryService {
             0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10]
         guard bytes.count == 32 else { return false }
-        for i in (0..<32).reversed() {
-            if bytes[i] != order[i] { return bytes[i] < order[i] }
+        for index in (0..<32).reversed() {
+            if bytes[index] != order[index] { return bytes[index] < order[index] }
         }
         return false
     }

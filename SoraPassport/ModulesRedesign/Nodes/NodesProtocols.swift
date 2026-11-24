@@ -28,7 +28,8 @@ protocol NodesViewProtocol: ControllerBackedProtocol, LoadableViewProtocol {
 
 // MARK: - Presenter
 
-protocol NodesPresenterProtocol: AlertPresentable {
+/// `buttonTapped()` (from `ButtonCellDelegate`) is the add-node action of the cells and the navigation bar.
+protocol NodesPresenterProtocol: AlertPresentable, ButtonCellDelegate {
     func setup()
 }
 

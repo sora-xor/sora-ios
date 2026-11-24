@@ -47,10 +47,6 @@ protocol FiatServiceProtocol: Actor {
     func getFiat() async -> [PIExactFiatData]
 }
 
-struct FiatServiceObserver {
-    weak var observer: FiatServiceObserverProtocol?
-}
-
 /// Prices as a screen may show them.
 struct FiatSnapshot {
     /// Empty when no price is known.

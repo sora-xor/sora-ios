@@ -19,7 +19,12 @@ enum PortfolioTilt {
 
     /// A sensor quaternion: x, y, z, w (device-to-world rotation; device axes x right, y up,
     /// z out of the screen).
-    typealias Quaternion = (x: Double, y: Double, z: Double, w: Double)
+    struct Quaternion: Equatable {
+        var x: Double
+        var y: Double
+        var z: Double
+        var w: Double
+    }
 
     static func clamp(_ value: Double, _ lower: Double, _ upper: Double) -> Double {
         min(upper, max(lower, value))
@@ -40,19 +45,19 @@ enum PortfolioTilt {
     /// long axis (roll) and short axis (pitch), from quaternions, so a phone held upright causes no
     /// Euler gimbal problem. x > 0 when the screen has turned toward the user's left, y > 0 when the
     /// screen has tilted up. Feed the result to `Baseline.normalise`.
-    static func viewerTilt(from q0: Quaternion, to q: Quaternion) -> (xDeg: Double, yDeg: Double) {
-        let (ax, ay, az, aw) = (-q0.x, -q0.y, -q0.z, q0.w) // conjugate of q0
-        var w = aw * q.w - ax * q.x - ay * q.y - az * q.z
-        var x = aw * q.x + ax * q.w + ay * q.z - az * q.y
-        var y = aw * q.y - ax * q.z + ay * q.w + az * q.x
-        var z = aw * q.z + ax * q.y - ay * q.x + az * q.w
+    static func viewerTilt(from rest: Quaternion, to current: Quaternion) -> (xDeg: Double, yDeg: Double) {
+        let (ax, ay, az, aw) = (-rest.x, -rest.y, -rest.z, rest.w) // conjugate of the resting pose
+        var w = aw * current.w - ax * current.x - ay * current.y - az * current.z
+        var x = aw * current.x + ax * current.w + ay * current.z - az * current.y
+        var y = aw * current.y - ax * current.z + ay * current.w + az * current.x
+        var z = aw * current.z + ax * current.y - ay * current.x + az * current.w
         if w < 0 { w = -w; x = -x; y = -y; z = -z }
-        let n = (x * x + y * y + z * z).squareRoot()
-        if n < 1e-12 { return (0, 0) }
-        let k = 2 * atan2(n, w) / n
+        let axisLength = (x * x + y * y + z * z).squareRoot()
+        if axisLength < 1e-12 { return (0, 0) }
+        let anglePerUnit = 2 * atan2(axisLength, w) / axisLength
         let deg = 180 / Double.pi
         // Rotation about +y is roll and about +x is pitch; negate to viewer orientation.
-        return (-(y * k) * deg, -(x * k) * deg)
+        return (-(y * anglePerUnit) * deg, -(x * anglePerUnit) * deg)
     }
 
     /// Parallax moves only when every condition holds.
@@ -89,10 +94,10 @@ enum PortfolioTilt {
             }
             let dt = max(0, nowMs - lastMs)
             lastMs = nowMs
-            let k = 1 - exp(-dt / tauMs)
+            let blend = 1 - exp(-dt / tauMs)
             var current = rest ?? (rollDeg, pitchDeg)
-            current.roll += (rollDeg - current.roll) * k
-            current.pitch += (pitchDeg - current.pitch) * k
+            current.roll += (rollDeg - current.roll) * blend
+            current.pitch += (pitchDeg - current.pitch) * blend
             rest = current
             func dead(_ value: Double) -> Double { abs(value) < Constants.deadzone ? 0 : value }
             return (dead(PortfolioTilt.clamp((rollDeg - current.roll) / Constants.tiltRangeDeg, -1, 1)),

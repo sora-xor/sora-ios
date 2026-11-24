@@ -38,11 +38,9 @@ final class AppSettingsPresenter: AppSettingsPresenterProtocol {
         var sections: [SoramitsuTableViewSection] = []
         
         sections.append(languageSection())
-        sections.append(appearanceSection())
         let tairaAdmitted = NexusNetworkAdmissionPolicy
             .current.isTairaAdmitted
-        if ProductSurfacePolicy.showsTairaSettings,
-           NexusPortfolioPresentationPolicy.exposesTairaSettings(
+        if NexusPortfolioPresentationPolicy.exposesTairaSettings(
                tairaAdmitted: tairaAdmitted
            ) {
             sections.append(networksSection())
@@ -56,7 +54,7 @@ final class AppSettingsPresenter: AppSettingsPresenterProtocol {
         var items: [SoramitsuTableViewItemProtocol] = []
         let languages = AppSettingsItem(title: R.string.localizable.changeLanguage(preferredLanguages: languages),
                                         picture: .icon(image: R.image.profile.language()!,
-                                                       color: .fgSecondary),
+                                                       color: .custom(uiColor: Lit.lacquerText)),
                                         rightItem: .arrow,
                                         onTap: { self.showLanguages() }
         )
@@ -64,44 +62,10 @@ final class AppSettingsPresenter: AppSettingsPresenterProtocol {
         return SoramitsuTableViewSection(rows: items)
     }
     
-    private func appearanceSection() -> SoramitsuTableViewSection {
-        let selected: Int
-        switch SoramitsuUI.shared.themeMode {
-        case .system: selected = 0
-        case .manual(.dark): selected = 1
-        case .manual(.light): selected = 2
-        }
-        let theme = AppAppearanceItem(
-            title: R.string.localizable.appearanceTitle(preferredLanguages: languages).uppercased(),
-            choices: [R.string.localizable.neonThemeSystem(preferredLanguages: languages),
-                      R.string.localizable.neonThemeDark(preferredLanguages: languages),
-                      R.string.localizable.neonThemeLight(preferredLanguages: languages)],
-            selectedIndex: selected
-        ) { [weak self] choice in
-            switch choice {
-            case 0: SoramitsuUI.shared.themeMode = .system
-            case 1: SoramitsuUI.shared.themeMode = .manual(.dark)
-            case 2: SoramitsuUI.shared.themeMode = .manual(.light)
-            default: return
-            }
-            self?.reload()
-        }
-        let reduceEffects = AppSettingsItem(
-            title: R.string.localizable.neonReduceEffects(preferredLanguages: languages),
-            rightItem: .switcher(state: FxPolicy.reduceEffects ? .on : .off),
-            onSwitch: { [weak self] enabled in
-                FxPolicy.reduceEffects = enabled
-                self?.reload()
-            }
-        )
-        let card = AppSettingsCardItem(title: nil, menuItems: [reduceEffects])
-        return SoramitsuTableViewSection(rows: [theme, card])
-    }
-
     private func networksSection() -> SoramitsuTableViewSection {
         let settings = SettingsManager.shared
         let taira = AppSettingsItem(
-            title: "Taira testnet",
+            title: "Taira",
             rightItem: .switcher(state: settings.isTairaEnabled ? .on : .off),
             onSwitch: { [weak self] enabled in
                 // The setter records an explicit choice, so a future remote
@@ -111,7 +75,7 @@ final class AppSettingsPresenter: AppSettingsPresenterProtocol {
             }
         )
         let card = AppSettingsCardItem(
-            title: "TEST NETWORKS",
+            title: R.string.localizable.testnet(preferredLanguages: languages),
             menuItems: [taira]
         )
         return SoramitsuTableViewSection(rows: [card])

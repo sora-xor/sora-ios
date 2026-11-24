@@ -126,8 +126,7 @@ private extension ReferrerCell {
             $0.leadingAnchor == contentView.leadingAnchor + 16
         }
         
-        enterLinkButton.do {
-            $0.heightAnchor == 56
-        }
+        // The button's own size makes it 56 high; a second, required 56 fought the stack that hides it
+        // once a referrer is set.
     }
 }

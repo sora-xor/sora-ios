@@ -20,14 +20,24 @@ import Anchorage
 
 class CategoryItem: SoramitsuView {
 
+    private let iconPad = UIView()
+    private lazy var padBacking = LitBacking(host: iconPad)
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        padBacking.layout(radius: 14)
+    }
+
     let horizontalStack: SoramitsuStackView = {
         var view = SoramitsuStackView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.sora.backgroundColor = .bgSurface
         view.sora.axis = .horizontal
         view.sora.cornerRadius = .max
-        view.sora.distribution = .fillProportionally
-        view.layoutMargins = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
+        view.sora.distribution = .fill
+        view.sora.alignment = .center
+        view.spacing = 14
+        view.layoutMargins = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
         view.isLayoutMarginsRelativeArrangement = true
         return view
     }()
@@ -51,13 +61,12 @@ class CategoryItem: SoramitsuView {
         view.sora.distribution = .fill
         view.sora.alignment = .center
         view.spacing = 4
-        view.heightAnchor == 14
         return view
     }()
 
     let titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.numberOfLines = 1
+        label.numberOfLines = 0
         label.textAlignment = .left
         label.backgroundColor = .clear
         label.sora.font = FontType.headline2
@@ -107,8 +116,14 @@ class CategoryItem: SoramitsuView {
         verticalStack.addArrangedSubviews(titleLabel)
         verticalStack.addArrangedSubviews(subtitleView)
 
-        horizontalStack.addArrangedSubviews(verticalStack)
-        horizontalStack.addArrangedSubviews(rightImageView)
+        iconPad.addSubview(rightImageView)
+        iconPad.translatesAutoresizingMaskIntoConstraints = false
+        iconPad.widthAnchor == 38
+        iconPad.heightAnchor == 38
+        rightImageView.heightAnchor == 24
+        rightImageView.centerAnchors == iconPad.centerAnchors
+        padBacking.style = .raised(elevation: 2)
+        horizontalStack.addArrangedSubviews(iconPad, verticalStack)
     }
 
     private func setupConstraints() {

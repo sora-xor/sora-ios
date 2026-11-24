@@ -49,6 +49,21 @@ public final class InputAssetFieldConfiguration<Type: InputAssetField>: Soramits
         }
     }
     
+    /// Tapping the balance (to use all of it). Setting it shows the wallet glyph before the balance.
+    public var balanceTapHandler: (() -> Void)? {
+        didSet {
+            guard let owner else { return }
+            let on = balanceTapHandler != nil
+            owner.balanceGlyph.isHidden = !on
+            owner.balanceGlyphWidth?.constant = on ? 16 : 0
+            owner.fullFiatAmountLabel.isUserInteractionEnabled = on
+            owner.fullFiatAmountLabel.accessibilityTraits = on ? .button : .staticText
+            if on, owner.fullFiatAmountLabel.gestureRecognizers?.isEmpty ?? true {
+                owner.fullFiatAmountLabel.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(balanceTapped)))
+            }
+        }
+    }
+
     public var assetChoiceHandler: (() -> Void)? {
         didSet {
             owner?.choiceButton.sora.addHandler(for: .touchUpInside, handler: assetChoiceHandler)
@@ -67,22 +82,27 @@ public final class InputAssetFieldConfiguration<Type: InputAssetField>: Soramits
     public override func styleDidChange(options: UpdateOptions) {
         super.styleDidChange(options: options)
 
-        // The chrome (fill, border, focus glow) depends on both.
-        if options.contains(.palette) || options.contains(.effects) {
+        if options.contains(.palette) {
             updateView()
         }
     }
     
+    @objc private func balanceTapped() {
+        guard let label = owner?.fullFiatAmountLabel else { return }
+        UIView.animate(withDuration: 0.12, animations: { label.transform = CGAffineTransform(scaleX: 1.08, y: 1.08) }) { _ in
+            UIView.animate(withDuration: 0.25, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0) {
+                label.transform = .identity
+            }
+        }
+        balanceTapHandler?()
+    }
+
     @objc private func choice() {
         assetChoiceHandler?()
     }
 
-    /// Fill, border and focus glow of the amount card (spec §7.5). This is
-    /// their only writer.
     func updateView() {
-        guard let owner else { return }
-        // The amount card keeps the card radius; it is a hero input (spec §8.11).
-        NeonInputStyle.apply(to: owner.containerView, state: state, isEnabled: true,
-                             cornerRadius: style.radii.radius(.max, size: owner.containerView.bounds.size))
+        owner?.containerView.layer.borderColor = style.palette.color(state.borderColor).cgColor
+        owner?.containerView.backgroundColor = style.palette.color(.bgSurface)
     }
 }

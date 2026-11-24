@@ -30,6 +30,8 @@ final class DetailViewModel {
     var infoHandler: (() -> Void)?
     let rewardAssetImage: UIImage?
     let statusAssetImage: UIImage?
+    /// A transaction's status drawn as a seal beside the value, in place of the status image.
+    let seal: SacredSealView.State?
     let assetAmountText: SoramitsuTextItem
     let fiatAmountText: SoramitsuTextItem?
     let type: DetailsType
@@ -37,12 +39,14 @@ final class DetailViewModel {
     init(title: String,
          rewardAssetImage: UIImage? = nil,
          statusAssetImage: UIImage? = nil,
+         seal: SacredSealView.State? = nil,
          assetAmountText: SoramitsuTextItem,
          fiatAmountText: SoramitsuTextItem? = nil,
          type: DetailsType = .casual) {
         self.title = title
         self.rewardAssetImage = rewardAssetImage
         self.statusAssetImage = statusAssetImage
+        self.seal = seal
         self.assetAmountText = assetAmountText
         self.fiatAmountText = fiatAmountText
         self.type = type
@@ -54,7 +58,7 @@ extension DetailViewModel: Hashable {
         lhs.title == rhs.title && lhs.assetAmountText.text == rhs.assetAmountText.text &&
             lhs.fiatAmountText?.text == rhs.fiatAmountText?.text && lhs.type == rhs.type &&
             lhs.rewardAssetImage == rhs.rewardAssetImage && lhs.statusAssetImage == rhs.statusAssetImage &&
-            (lhs.infoHandler != nil) == (rhs.infoHandler != nil)
+            lhs.seal == rhs.seal && (lhs.infoHandler != nil) == (rhs.infoHandler != nil)
     }
     
     public func hash(into hasher: inout Hasher) {
@@ -64,6 +68,7 @@ extension DetailViewModel: Hashable {
         hasher.combine(type)
         hasher.combine(rewardAssetImage)
         hasher.combine(statusAssetImage)
+        hasher.combine(seal)
         hasher.combine(infoHandler != nil)
     }
 }

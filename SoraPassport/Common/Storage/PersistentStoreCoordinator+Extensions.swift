@@ -17,6 +17,7 @@
 
 import Foundation
 import CoreData
+import SQLite3
 
 extension NSPersistentStoreCoordinator {
     static func replaceStore(at targetURL: URL, withStoreAt sourceURL: URL) throws {
@@ -34,11 +35,57 @@ extension NSPersistentStoreCoordinator {
     }
 
     static func metadata(at storeURL: URL) -> [String: Any]? {
-        try? NSPersistentStoreCoordinator.metadataForPersistentStore(
-            ofType: NSSQLiteStoreType,
-            at: storeURL,
-            options: nil
-        )
+        try? readOnlyMetadata(at: storeURL)
+    }
+
+    static func readOnlyMetadata(at storeURL: URL) throws -> [String: Any] {
+        // iOS 17's Core Data metadata API initializes unknown SQLite files
+        // even with NSReadOnlyPersistentStoreOption. Read the stored metadata
+        // directly through a genuinely read-only connection, including WAL
+        // pages, so probing never creates a database or rewrites its contents.
+        //
+        // Only the database file itself is refused as a symbolic link. SQLite's
+        // own SQLITE_OPEN_NOFOLLOW refuses a link anywhere in the path, and on
+        // an iPhone every app folder is reached through one (/var is a link to
+        // /private/var; no simulator has it). With that flag version 3.9.3 read
+        // no wallet database on any real iPhone and stopped every update.
+        var entry = stat()
+        let isRegularFile = storeURL.withUnsafeFileSystemRepresentation { path -> Bool in
+            guard let path else { return false }
+            return Darwin.lstat(path, &entry) == 0 && (entry.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG)
+        }
+        guard isRegularFile else { throw CocoaError(.fileReadCorruptFile) }
+        var database: OpaquePointer?
+        let opened = sqlite3_open_v2(storeURL.path, &database, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil)
+        defer { if let database { sqlite3_close(database) } }
+        guard opened == SQLITE_OK, let database else { throw CocoaError(.fileReadCorruptFile) }
+        sqlite3_limit(database, SQLITE_LIMIT_LENGTH, 1_048_576)
+        var statement: OpaquePointer?
+        defer { if let statement { sqlite3_finalize(statement) } }
+        guard sqlite3_prepare_v2(database, "SELECT Z_UUID, Z_PLIST FROM Z_METADATA LIMIT 2",
+                                 -1, &statement, nil) == SQLITE_OK,
+              sqlite3_step(statement) == SQLITE_ROW,
+              sqlite3_column_type(statement, 0) == SQLITE_TEXT,
+              (1...128).contains(Int(sqlite3_column_bytes(statement, 0))),
+              let uuidBytes = sqlite3_column_text(statement, 0),
+              sqlite3_column_type(statement, 1) == SQLITE_BLOB,
+              (1...1_048_576).contains(Int(sqlite3_column_bytes(statement, 1))),
+              let plistBytes = sqlite3_column_blob(statement, 1) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        guard let uuid = String(data: Data(bytes: uuidBytes, count: Int(sqlite3_column_bytes(statement, 0))),
+                                encoding: .utf8) else { throw CocoaError(.fileReadCorruptFile) }
+        let data = Data(bytes: plistBytes, count: Int(sqlite3_column_bytes(statement, 1)))
+        guard UUID(uuidString: uuid) != nil,
+              sqlite3_step(statement) == SQLITE_DONE,
+              var metadata = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              metadata[NSStoreTypeKey] as? String == NSSQLiteStoreType,
+              let hashes = metadata[NSStoreModelVersionHashesKey] as? [String: Data], !hashes.isEmpty,
+              metadata[NSStoreUUIDKey] == nil || metadata[NSStoreUUIDKey] as? String == uuid else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        metadata[NSStoreUUIDKey] = uuid
+        return metadata
     }
 
     func addPersistentStore(at storeURL: URL, options: [AnyHashable: Any]) throws -> NSPersistentStore {

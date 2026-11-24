@@ -67,12 +67,11 @@ final class PortfolioDetailViewController: UIViewController {
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            content.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
-            content.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
             content.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
-            content.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -32),
-            content.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
+            content.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -32)
         ])
+        // The same place on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(content, inScroll: scrollView, margin: 0)
 
         orbit.translatesAutoresizingMaskIntoConstraints = false
         orbit.heightAnchor.constraint(equalToConstant: 250).isActive = true
@@ -149,6 +148,7 @@ final class PortfolioDetailViewController: UIViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        parallax?.surface = orbit
         parallax?.start()
         parallax?.setHeroVisible(true)
         #if !F_RELEASE
@@ -191,6 +191,8 @@ final class PortfolioDetailViewController: UIViewController {
         symbolLabel.textColor = tokens.textPrimary
         nameLabel.text = model.name
         nameLabel.textColor = tokens.textSecondary
+        // "XOR XOR": the name says nothing the symbol has not.
+        nameLabel.isHidden = model.name.caseInsensitiveCompare(model.symbol) == .orderedSame
         amountLabel.text = model.amount
         amountLabel.textColor = tokens.textPrimary
         let summary = NSMutableAttributedString(string: model.value, attributes: [.foregroundColor: tokens.textSecondary])
@@ -199,7 +201,9 @@ final class PortfolioDetailViewController: UIViewController {
                 .foregroundColor: model.direction == .down ? tokens.error : tokens.success
             ]))
         }
-        summary.append(NSAttributedString(string: "   " + model.share, attributes: [.foregroundColor: tokens.textSecondary]))
+        if !model.share.isEmpty {
+            summary.append(NSAttributedString(string: "   " + model.share, attributes: [.foregroundColor: tokens.textSecondary]))
+        }
         summaryLabel.attributedText = summary
         sectionTitle.textColor = tokens.textPrimary
         countsLabel.setEyebrow(model.counts, color: tokens.textSecondary)
@@ -353,7 +357,8 @@ final class PortfolioDetailViewController: UIViewController {
         top.spacing = 14
         top.alignment = .center
         polkaswapStack.addArrangedSubview(top)
-        for check in model.polkaswap.checks {
+        // Only what is still to do: ticks for what is already true were a list to read past.
+        for check in model.polkaswap.checks where !check.isMet {
             let symbol = check.isMet ? "checkmark" : "circle"
             let color = check.isMet ? tokens.success : tokens.textTertiary
             let label = UILabel.portfolio(FontType.textS, .subheadline, lines: 0, maximum: 26)
@@ -366,8 +371,8 @@ final class PortfolioDetailViewController: UIViewController {
             polkaswapStack.addArrangedSubview(label)
         }
         let action = model.polkaswap.action
-        let button = PortfolioPrimaryButton(title: action.title, style: action.kind == .swap ? .swap : .primary,
-                                            showsFlower: action.kind == .swap) { [weak self] in
+        // A raised pad: the holding's own action above is the page's one slab of red glass.
+        let button = PortfolioSecondaryButton(action: action) { [weak self] in
             guard let self else { return }
             if action.kind == .swap {
                 self.onPolkaswap?(self.model?.polkaswap.holdingId)
@@ -377,7 +382,7 @@ final class PortfolioDetailViewController: UIViewController {
         }
         polkaswapStack.setCustomSpacing(16, after: polkaswapStack.arrangedSubviews.last!)
         polkaswapStack.addArrangedSubview(button)
-        if let reason = action.reason {
+        if let reason = action.reason, reason != PortfolioStrings.polkaswapRunsOnSora2 {
             polkaswapStack.addArrangedSubview(reasonLabel(reason))
         }
     }
@@ -426,6 +431,9 @@ final class PortfolioDetailHoldingRow: UIControl {
         value.setContentCompressionResistancePriority(.required, for: .horizontal)
         title.setContentCompressionResistancePriority(.defaultHigh + 1, for: .horizontal)
         subtitle.setContentCompressionResistancePriority(.defaultHigh - 1, for: .horizontal)
+        // The wallet's name takes a second line rather than being cut ("Audit imported phra…" beside a
+        // Taira amount at 402 points): it is what tells two holdings on one network apart.
+        subtitle.numberOfLines = 2
         amount.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         let subtitleLine = UIStackView(arrangedSubviews: [dot, subtitle])
         subtitleLine.spacing = 6
@@ -506,11 +514,11 @@ final class PortfolioDetailHoldingRow: UIControl {
 final class PortfolioBreakdownView: UIView {
     private let bar = PortfolioBreakdownBar()
     private let rows = UIStackView()
+    private lazy var backing = LitBacking(host: self)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        layer.cornerRadius = 16
-        layer.cornerCurve = .continuous
+        backing.style = .pressed(floor: nil, depth: 2.6)
         rows.axis = .vertical
         rows.spacing = 10
         let stack = UIStackView(arrangedSubviews: [bar, rows])
@@ -532,13 +540,16 @@ final class PortfolioBreakdownView: UIView {
     }
 
     func configure(_ panel: PortfolioDetailModel.Panel) {
-        let tokens = PortfolioTheme.tokens
-        backgroundColor = PortfolioTheme.isDark ? UIColor.black.withAlphaComponent(0.28) : tokens.layer1
         bar.fraction = CGFloat(panel.transferableFraction)
         rows.arrangedSubviews.forEach { $0.removeFromSuperview() }
         rows.addArrangedSubview(row(swatch: .solid, title: PortfolioStrings.transferable, value: panel.transferable))
         rows.addArrangedSubview(row(swatch: .striped, title: PortfolioStrings.locked, value: panel.locked))
         rows.addArrangedSubview(row(swatch: nil, title: PortfolioStrings.totalCounted, value: panel.total))
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        backing.layout(radius: 16)
     }
 
     private enum Swatch {
@@ -595,8 +606,9 @@ final class PortfolioBreakdownView: UIView {
 
 /// The breakdown's bar: a solid transferable part, a gap, then the locked part in stripes.
 final class PortfolioBreakdownBar: UIView {
-    static let lockedFill = UIColor(portfolioHex: 0x8B5CFF, alpha: 0.35)
-    static let lockedStripe = UIColor(portfolioHex: 0x8B5CFF)
+    // Ink stripes, not violet: the page is white and red.
+    static let lockedFill = Lit.inkTertiary.withAlphaComponent(0.22)
+    static let lockedStripe = Lit.inkSecondary
 
     var fraction: CGFloat = 1 {
         didSet { setNeedsLayout() }
@@ -653,12 +665,10 @@ final class PortfolioBreakdownBar: UIView {
 final class PortfolioRouteCard: UIView {
     private let chips = UIStackView()
     private let text = UILabel.portfolio(FontType.paragraphS, .subheadline, lines: 0, maximum: 28)
+    private lazy var backing = LitBacking(host: self)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        layer.cornerRadius = 16
-        layer.cornerCurve = .continuous
-        layer.borderWidth = 1
         chips.axis = .horizontal
         chips.spacing = 8
         chips.alignment = .center
@@ -689,26 +699,27 @@ final class PortfolioRouteCard: UIView {
         case .ready:
             chips.addArrangedSubview(arrow(dashed: false))
             chips.addArrangedSubview(polkaswapChip(dimmed: false))
-            backgroundColor = tokens.polkaswapContainer.withAlphaComponent(PortfolioTheme.isDark ? 0.6 : 1)
-            layer.borderColor = PortfolioTheme.flowerPink.withAlphaComponent(0.35).cgColor
+            backing.style = .pressed(floor: PortfolioTheme.tintedFloor(PortfolioTheme.flowerPink), depth: 2.2)
         case .noRoute:
             chips.addArrangedSubview(arrow(dashed: true))
             chips.addArrangedSubview(polkaswapChip(dimmed: true))
-            backgroundColor = .clear
-            layer.borderColor = tokens.hairline.cgColor
+            backing.style = .pressed(floor: nil, depth: 2.2)
         case .notListed:
-            backgroundColor = .clear
-            layer.borderColor = tokens.hairline.cgColor
+            backing.style = .pressed(floor: nil, depth: 2.2)
         case .test:
             let tag = PortfolioTagView()
             tag.configure(.network(.testnet))
             chips.addArrangedSubview(tag)
-            backgroundColor = tokens.warningContainer.withAlphaComponent(PortfolioTheme.isDark ? 0.6 : 1)
-            layer.borderColor = tokens.warning.withAlphaComponent(0.3).cgColor
+            backing.style = .pressed(floor: PortfolioTheme.tintedFloor(tokens.warning), depth: 2.2)
         }
         text.text = route.text
         text.textColor = tokens.textPrimary
         accessibilityLabel = route.text
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        backing.layout(radius: 16)
     }
 
     private func networkChip(_ network: PortfolioNetwork) -> UIView {
@@ -751,15 +762,13 @@ final class PortfolioSecondaryButton: UIControl {
     private let label = UILabel.portfolio(FontType.buttonM, .headline, maximum: 26)
     private let glyph = UIImageView()
     private let handler: () -> Void
+    private lazy var backing = LitBacking(host: self)
 
     init(action: PortfolioDetailModel.Action, handler: @escaping () -> Void) {
         self.handler = handler
         super.init(frame: .zero)
         let tokens = PortfolioTheme.tokens
-        layer.borderWidth = 1
-        layer.borderColor = (PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.18) : tokens.hairline).cgColor
-        layer.cornerCurve = .continuous
-        backgroundColor = PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.04) : tokens.surface
+        backing.style = .raised(elevation: 8)
         switch action.kind {
         case .send: glyph.image = PortfolioGlyphs.symbol("arrow.up.right", pointSize: 15, color: tokens.textPrimary)
         case .move: glyph.image = PortfolioGlyphs.moveImage(size: 20, color: tokens.textPrimary)
@@ -799,11 +808,11 @@ final class PortfolioSecondaryButton: UIControl {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        layer.cornerRadius = bounds.height / 2
+        backing.layout(radius: bounds.height / 2)
     }
 
     override var isHighlighted: Bool {
-        didSet { alpha = isHighlighted ? 0.7 : (isEnabled ? 1 : 0.45) }
+        didSet { if isHighlighted != oldValue { LitMotion.press(self, pressed: isHighlighted) } }
     }
 
     @objc private func tapped() { handler() }

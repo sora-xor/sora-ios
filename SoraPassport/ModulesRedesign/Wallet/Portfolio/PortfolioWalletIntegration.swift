@@ -14,21 +14,32 @@ final class PortfolioHome {
     let viewModel: PortfolioViewModel
     let heroItem = PortfolioHeroItem()
     let noticeItem = PortfolioNoticeItem()
+    let systemUpdateItem: PortfolioSystemUpdateItem
     let lensItem = PortfolioLensItem()
     let listItem = PortfolioListItem()
     let otherNetworksItem = PortfolioOtherNetworksItem()
     private(set) var coordinator: PortfolioCoordinator?
+    /// A read found a different amount on a network other than SORA2: "XOR on other networks" reads again.
+    var onOtherNetworksChange: (() -> Void)?
+    /// "XOR on other networks" appeared, stepped aside or changed its title with the scope.
+    var reloadOtherNetworks: (() -> Void)?
+    private var otherNetworkAmounts: [String: Decimal]?
     private let dataSource: PortfolioDataSource
 
     /// The top of the Wallet tab, above its other cards: the hero, the selected account's key
-    /// warning while it cannot sign, the lens and list, then XOR on other networks.
+    /// warning while it cannot sign, "Update iOS" on an iOS release exploit kits break into, the
+    /// assets, then XOR on other networks. The home has no Tokens / Networks / Wallets switch; it
+    /// always lists tokens.
     var items: [SoramitsuTableViewItemProtocol] {
         let notice: [SoramitsuTableViewItemProtocol] = noticeItem.isShown ? [noticeItem] : []
-        return [heroItem] + notice + [lensItem, listItem, otherNetworksItem]
+        let update: [SoramitsuTableViewItemProtocol] = systemUpdateItem.isShown ? [systemUpdateItem] : []
+        return [heroItem] + notice + update + [listItem, otherNetworksItem]
     }
 
-    init(dataSource: PortfolioDataSource, preferences: PortfolioPreferences = PortfolioPreferences()) {
+    init(dataSource: PortfolioDataSource, preferences: PortfolioPreferences = PortfolioPreferences(),
+         systemUpdateItem: PortfolioSystemUpdateItem = PortfolioSystemUpdateItem()) {
         self.dataSource = dataSource
+        self.systemUpdateItem = systemUpdateItem
         viewModel = PortfolioViewModel(dataSource: dataSource, preferences: preferences)
         PortfolioFormat.locale = LocalizationManager.shared.isArabic ? Locale(identifier: "en_US")
             : LocalizationManager.shared.selectedLocale
@@ -101,6 +112,31 @@ final class PortfolioHome {
         lensItem.selected = render.list.lens
         listItem.model = render.list
         coordinator?.renderDidChange()
+        let holdings = viewModel.snapshot.holdings.filter { $0.network != .sora2 }
+        let amounts = Dictionary(holdings.map { ($0.id, $0.amount) }, uniquingKeysWith: { first, _ in first })
+        if let known = otherNetworkAmounts, known != amounts { onOtherNetworksChange?() }
+        otherNetworkAmounts = amounts
+        applyScopeToOtherNetworks()
+    }
+
+    /// These rows are always the selected wallet's: its network pages are the ones they open.
+    private func applyScopeToOtherNetworks() {
+        let wallets = viewModel.snapshot.wallets
+        let selected = wallets.first(where: \.isSelected)
+        let isShown: Bool
+        let name: String?
+        switch viewModel.state.scope {
+        case .allWallets:
+            isShown = true
+            name = wallets.count >= 2 ? selected?.name : nil
+        case let .wallet(id):
+            isShown = id == selected?.id
+            name = nil
+        }
+        guard isShown != otherNetworksItem.isShown || name != otherNetworksItem.walletName else { return }
+        otherNetworksItem.isShown = isShown
+        otherNetworksItem.walletName = name
+        reloadOtherNetworks?()
     }
 
     // MARK: Lifecycle
@@ -132,6 +168,8 @@ final class PortfolioTableBinding: NSObject, UIScrollViewDelegate {
     private weak var host: UIViewController?
     private let backdrop = PortfolioStatusBackdrop()
     private var backdropHeight: NSLayoutConstraint?
+    /// The table the asset list is in when the home shows two pages; nil while it is in `tableView`.
+    weak var listTableView: SoramitsuTableView?
 
     init(home: PortfolioHome, tableView: SoramitsuTableView, host: UIViewController) {
         self.home = home
@@ -139,10 +177,11 @@ final class PortfolioTableBinding: NSObject, UIScrollViewDelegate {
         self.host = host
         super.init()
         tableView.scrollViewDelegate = self
-        home.listItem.onHeightChange = { [weak tableView] in
+        home.listItem.onHeightChange = { [weak self, weak tableView] in
+            let table = self?.listTableView ?? tableView
             UIView.performWithoutAnimation {
-                tableView?.beginUpdates()
-                tableView?.endUpdates()
+                table?.beginUpdates()
+                table?.endUpdates()
             }
         }
         backdrop.translatesAutoresizingMaskIntoConstraints = false
@@ -165,9 +204,13 @@ final class PortfolioTableBinding: NSObject, UIScrollViewDelegate {
         backdropHeight?.constant = top
         guard top != home.heroItem.topInset else { return }
         home.heroItem.topInset = top
+        // A table that has no width yet has measured nothing: its first layout measures the rows with this
+        // inset. Asked to re-measure now (the safe area arrives before the first layout), it fitted every
+        // row to a width of zero, and Auto Layout broke some 150 constraints to answer.
+        guard let tableView, tableView.bounds.width > 0 else { return }
         UIView.performWithoutAnimation {
-            tableView?.beginUpdates()
-            tableView?.endUpdates()
+            tableView.beginUpdates()
+            tableView.endUpdates()
         }
     }
 
@@ -175,6 +218,7 @@ final class PortfolioTableBinding: NSObject, UIScrollViewDelegate {
         let offset = scrollView.contentOffset.y
         let skyBottom = home.heroItem.topInset + PortfolioTheme.Sky.height
         home.heroItem.isSkyVisible = host?.view.window != nil && offset < skyBottom - 40
+        home.heroItem.scrollOffset = offset
         // The card reaches the status bar once the sky (minus the card's overlap) has scrolled by.
         backdrop.setShown(offset > PortfolioTheme.Sky.height - PortfolioTheme.Sky.cardOverlap, animated: true)
     }
@@ -207,6 +251,11 @@ final class PortfolioStatusBackdrop: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        background?.layer.shadowPath = UIBezierPath(rect: bounds).cgPath
+    }
+
     func setShown(_ shown: Bool, animated: Bool) {
         guard shown != isShown else { return }
         isShown = shown
@@ -224,6 +273,13 @@ final class PortfolioStatusBackdrop: UIView {
         view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         insertSubview(view, at: 0)
         background = view
+        // The slab behind the status bar stands over the page like the tab bar does. A blur has no shape to cast from.
+        if !(view is UIVisualEffectView) {
+            view.layer.shadowColor = UIColor(litHex: 0x6B4A40).cgColor
+            view.layer.shadowOpacity = 0.22
+            view.layer.shadowRadius = 9
+            view.layer.shadowOffset = CGSize(width: 0, height: 3)
+        }
         hairline.backgroundColor = PortfolioTheme.hairline
         applyVisibility()
     }
@@ -251,17 +307,27 @@ extension PortfolioStatusBackdrop: SoramitsuObserver {
 @MainActor
 final class PortfolioAccountSwitcher: PortfolioAccountSwitching {
     private let repository: AnyDataProviderRepository<AccountItem>
+    private let settings: SelectedWalletSettingsProtocol
+    private let eventCenter: EventCenterProtocol
+    private let operationQueue: OperationQueue
 
     init(repository: AnyDataProviderRepository<AccountItem> = AnyDataProviderRepository(
         UserDataStorageFacade.shared.createRepository(filter: nil, sortDescriptors: [],
-                                                      mapper: AnyCoreDataMapper(AccountItemMapper())))) {
+                                                      mapper: AnyCoreDataMapper(AccountItemMapper()))),
+         settings: SelectedWalletSettingsProtocol = SelectedWalletSettings.shared,
+         eventCenter: EventCenterProtocol = EventCenter.shared,
+         operationQueue: OperationQueue = OperationManagerFacade.sharedDefaultQueue) {
         self.repository = repository
+        self.settings = settings
+        self.eventCenter = eventCenter
+        self.operationQueue = operationQueue
     }
 
-    var selectedWalletId: String? { SelectedWalletSettings.shared.currentAccount?.address }
+    var selectedWalletId: String? { settings.currentAccount?.address }
 
     func switchTo(walletId: String, completion: @escaping (Bool) -> Void) {
         let operation = repository.fetchAllOperation(with: RepositoryFetchOptions())
+        let settings = self.settings, eventCenter = self.eventCenter
         operation.completionBlock = {
             let accounts = (try? operation.extractNoCancellableResultData()) ?? []
             DispatchQueue.main.async {
@@ -269,11 +335,11 @@ final class PortfolioAccountSwitcher: PortfolioAccountSwitching {
                     completion(false)
                     return
                 }
-                SelectedWalletSettings.shared.performSave(value: account) { result in
+                settings.performSave(value: account) { result in
                     DispatchQueue.main.async {
                         switch result {
                         case .success:
-                            EventCenter.shared.notify(with: SelectedAccountChanged(), completionOnMain: {
+                            eventCenter.notify(with: SelectedAccountChanged(), completionOnMain: {
                                 completion(true)
                             })
                         case .failure:
@@ -283,7 +349,7 @@ final class PortfolioAccountSwitcher: PortfolioAccountSwitching {
                 }
             }
         }
-        OperationManagerFacade.sharedDefaultQueue.addOperation(operation)
+        operationQueue.addOperation(operation)
     }
 }
 
@@ -396,7 +462,7 @@ final class PortfolioWalletRouter: PortfolioHandoffRouting {
         let settings = SettingsManager.shared
         guard let wallet, network != .sora2,
               let account = WalletNetworkAccounts.selectedWallet().first(where: { $0.networkId == network.networkId }),
-              ProductSurfacePolicy.showsNexusPortfolio, settings.nexusEnabled,
+              settings.nexusEnabled,
               NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
                   networkId: account.networkId,
                   nexusEnabled: settings.nexusEnabled,
@@ -443,8 +509,17 @@ extension RedesignWalletViewModel {
                 }
             }
         }
+        home.systemUpdateItem.onChange = { [weak self] in
+            Task { @MainActor in self?.updateItems() }
+        }
+        home.systemUpdateItem.refresh()
         home.otherNetworksItem.onOpen = { [weak self] account in
             Task { @MainActor in self?.openNetwork(account: account) }
+        }
+        home.onOtherNetworksChange = { [weak self] in self?.refreshNetworkRows() }
+        home.reloadOtherNetworks = { [weak self] in
+            guard let self else { return }
+            self.reloadItem?([self.portfolioHome.otherNetworksItem])
         }
     }
 }

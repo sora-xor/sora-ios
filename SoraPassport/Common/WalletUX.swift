@@ -22,8 +22,7 @@ enum WalletUX {
     static func text(_ value: String, language: String? = nil, bundle: Bundle = .main) -> String {
         let selected = language ?? LocalizationManager.shared.selectedLocalization
         for locale in [selected, "en"] {
-            guard let path = bundle.path(forResource: locale, ofType: "lproj"),
-                  let localized = Bundle(path: path) else { continue }
+            guard let localized = R.languageBundle(locale, in: bundle) else { continue }
             let result = localized.localizedString(forKey: value, value: value, table: "Localizable")
             if !result.isEmpty && result != value { return result }
         }
@@ -141,8 +140,8 @@ enum WalletUX {
             }
             return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
         }
-        let a = luminance(first), b = luminance(second)
-        return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+        let firstLuminance = luminance(first), secondLuminance = luminance(second)
+        return (max(firstLuminance, secondLuminance) + 0.05) / (min(firstLuminance, secondLuminance) + 0.05)
     }
 
     static func readableAttributedText(_ text: NSAttributedString) -> NSAttributedString {
@@ -287,7 +286,7 @@ class WalletTableViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
         var background = tableView.style == .plain ? UIBackgroundConfiguration.listPlainCell()
                                                    : UIBackgroundConfiguration.listGroupedCell()
-        background.backgroundColor = FxPolicy.current.opaqueGlass ? WalletUX.tokens.glassSolid : WalletUX.tokens.cardFill
+        background.backgroundColor = WalletUX.tokens.glassSolid
         cell.backgroundConfiguration = background
         cell.tintColor = WalletUX.tokens.cyan
         if var content = cell.contentConfiguration as? UIListContentConfiguration {
@@ -332,249 +331,24 @@ final class WalletInlineNoticeCell: SoramitsuTableViewCell, SoramitsuTableViewCe
     }
 }
 
-/// Entry and review share one draft; changing details invalidates the old quote.
-final class NexusSendViewController: UIViewController {
-    var onReview: ((String, String) -> Void)?
-    var onConfirm: ((NexusPreparedTransfer) -> Void)?
-    var onActivity: (() -> Void)?
-    private let network: String
-    private let balance: String
-    private lazy var availableLabel = WalletUX.label(WalletUX.format("Available: %@ XOR", balance))
-    private let recipient = UITextView()
-    private let amount = UITextField()
-    private let entry = UIStackView()
-    private let review = UIStackView()
-    private let addressActions = UIStackView()
-    private let notice = WalletUX.label()
-    private let spinner = UIActivityIndicatorView(style: .medium)
-    private var prepared: NexusPreparedTransfer?
-    private var completed = false
-    private var busy = false
-    private lazy var primary = WalletUX.button("Review send", primary: true) { [weak self] in self?.proceed() }
-    private lazy var edit = WalletUX.button("Edit details") { [weak self] in self?.editDraft() }
-    private lazy var activity = WalletUX.button("View Activity", primary: true) { [weak self] in
-        self?.dismiss(animated: true) { self?.onActivity?() }
-    }
-
-    init(network: String, balance: String) {
-        self.network = network
-        self.balance = balance
-        super.init(nibName: nil, bundle: nil)
-    }
-    required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        title = WalletUX.text("Send XOR")
-        view.backgroundColor = WalletUX.page
-        view.tintColor = WalletUX.accent
-        navigationItem.leftBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in
-            self?.dismiss(animated: true)
-        })
-        let scroll = UIScrollView()
-        scroll.keyboardDismissMode = .interactive
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(scroll)
-        let content = UIStackView()
-        content.axis = .vertical
-        content.spacing = 24
-        content.translatesAutoresizingMaskIntoConstraints = false
-        scroll.addSubview(content)
-        NSLayoutConstraint.activate([
-            scroll.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
-            scroll.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            scroll.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
-            content.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor, constant: 24),
-            content.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor, constant: -24),
-            content.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor, constant: 24),
-            content.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor, constant: -24),
-            content.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor, constant: -48)
-        ])
-        content.addArrangedSubview(WalletUX.label(network, style: .headline))
-        content.addArrangedSubview(availableLabel)
-        entry.axis = .vertical
-        entry.spacing = 12
-        entry.addArrangedSubview(WalletUX.label(WalletUX.text("Recipient address")))
-        recipient.backgroundColor = WalletUX.surface
-        recipient.textColor = WalletUX.foreground
-        recipient.font = UIFont.preferredFont(forTextStyle: .body)
-        recipient.adjustsFontForContentSizeCategory = true
-        recipient.layer.cornerRadius = 12
-        recipient.textContainerInset = UIEdgeInsets(top: 14, left: 12, bottom: 14, right: 12)
-        recipient.autocapitalizationType = .none
-        recipient.autocorrectionType = .no
-        recipient.isScrollEnabled = false
-        recipient.accessibilityLabel = WalletUX.text("Recipient address")
-        recipient.heightAnchor.constraint(greaterThanOrEqualToConstant: 88).isActive = true
-        entry.addArrangedSubview(recipient)
-        [
-            WalletUX.button("Paste address") { [weak self] in
-                guard let value = UIPasteboard.general.string, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                    self?.showError(WalletUX.text("The clipboard does not contain an address.")); return
-                }
-                self?.recipient.text = value
-            },
-            WalletUX.button("Scan QR") { [weak self] in self?.scan() }
-        ].forEach { addressActions.addArrangedSubview($0) }
-        addressActions.distribution = .fillEqually
-        addressActions.axis = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? .vertical : .horizontal
-        entry.addArrangedSubview(addressActions)
-        entry.addArrangedSubview(WalletUX.label(WalletUX.text("Use a receive address from this same network."), style: .subheadline))
-        entry.addArrangedSubview(WalletUX.label(WalletUX.text("Amount in XOR")))
-        amount.borderStyle = .roundedRect
-        amount.backgroundColor = WalletUX.surface
-        amount.textColor = WalletUX.foreground
-        amount.font = .preferredFont(forTextStyle: .title2)
-        amount.adjustsFontForContentSizeCategory = true
-        amount.keyboardType = .decimalPad
-        amount.placeholder = "0"
-        amount.accessibilityLabel = WalletUX.text("Amount in XOR")
-        amount.heightAnchor.constraint(greaterThanOrEqualToConstant: 56).isActive = true
-        entry.addArrangedSubview(amount)
-        entry.addArrangedSubview(WalletUX.label(WalletUX.text("The network fee is shown before you confirm."), style: .subheadline))
-        review.axis = .vertical
-        review.spacing = 16
-        review.isHidden = true
-        edit.isHidden = true
-        activity.isHidden = true
-        notice.isHidden = true
-        spinner.hidesWhenStopped = true
-        [entry, review, notice, spinner, primary, edit, activity].forEach { content.addArrangedSubview($0) }
-    }
-
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        addressActions.axis = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? .vertical : .horizontal
-    }
-
-    func setBusy(_ busy: Bool) {
-        self.busy = busy
-        primary.isEnabled = !busy
-        edit.isEnabled = !busy
-        entry.isUserInteractionEnabled = !busy
-        navigationItem.leftBarButtonItem?.isEnabled = !busy
-        isModalInPresentation = busy
-        busy ? spinner.startAnimating() : spinner.stopAnimating()
-    }
-
-    func showError(_ message: String) {
-        setBusy(false)
-        notice.text = message
-        notice.isHidden = false
-        UIAccessibility.post(notification: .announcement, argument: message)
-    }
-
-    func showUnsentError(_ message: String) {
-        setBusy(false)
-        editDraft()
-        showError(message)
-    }
-
-    func showReview(_ transfer: NexusPreparedTransfer) {
-        guard let total = WalletUX.total(amount: transfer.request.amount, fee: transfer.quote.fee) else {
-            showUnsentError(WalletUX.text("The send total could not be verified. Review a new quote.")); return
-        }
-        setBusy(false)
-        prepared = transfer
-        availableLabel.text = WalletUX.format("Available: %@ XOR", transfer.availableBalance.rawValue)
-        view.endEditing(true)
-        clearReview()
-        for (name, value) in [(WalletUX.text("You send"), "\(transfer.request.amount.rawValue) XOR"),
-                              (WalletUX.text("Network fee"), "\(transfer.quote.fee.rawValue) XOR"),
-                              (WalletUX.text("Total including fee"), "\(total) XOR"),
-                              (WalletUX.text("Recipient"), transfer.canonicalReceiver)] {
-            let title = WalletUX.label(name, style: .subheadline)
-            title.textColor = WalletUX.secondary
-            review.addArrangedSubview(title)
-            let detail = WalletUX.label(value, style: .headline)
-            detail.lineBreakMode = .byCharWrapping
-            review.addArrangedSubview(detail)
-        }
-        entry.isHidden = true
-        notice.isHidden = true
-        review.isHidden = false
-        edit.isHidden = false
-        primary.configuration?.title = WalletUX.text("Confirm and send")
-        UIAccessibility.post(notification: .screenChanged, argument: review)
-    }
-
-    func showResult(_ transaction: NexusPendingTransaction) {
-        setBusy(false)
-        if transaction.state == .failedBeforeSubmission {
-            editDraft()
-            showError(WalletUX.statusDetail(transaction.state))
-            return
-        }
-        completed = true
-        availableLabel.isHidden = true
-        clearReview()
-        review.addArrangedSubview(WalletUX.label(WalletUX.status(transaction.state), style: .headline))
-        review.addArrangedSubview(WalletUX.label(WalletUX.statusDetail(transaction.state)))
-        if let hash = transaction.hash {
-            review.addArrangedSubview(WalletUX.button("Copy transaction ID") { UIPasteboard.general.string = hash })
-        }
-        entry.isHidden = true
-        review.isHidden = false
-        primary.isHidden = true
-        edit.isHidden = true
-        notice.isHidden = true
-        activity.isHidden = false
-        UIAccessibility.post(notification: .screenChanged, argument: review)
-    }
-
-    func showUncertainSubmission(_ message: String) {
-        setBusy(false)
-        completed = true
-        availableLabel.isHidden = true
-        notice.text = message
-        notice.isHidden = false
-        entry.isHidden = true
-        primary.isHidden = true
-        edit.isHidden = true
-        activity.isHidden = false
-        UIAccessibility.post(notification: .screenChanged, argument: notice)
-    }
-
-    private func clearReview() {
-        review.arrangedSubviews.forEach { review.removeArrangedSubview($0); $0.removeFromSuperview() }
-    }
-    private func editDraft() {
-        guard !completed, !busy else { return }
-        prepared = nil
-        entry.isHidden = false
-        review.isHidden = true
-        edit.isHidden = true
-        notice.isHidden = true
-        primary.configuration?.title = WalletUX.text("Review send")
-        UIAccessibility.post(notification: .screenChanged, argument: recipient)
-    }
-    private func proceed() {
-        guard !completed, !busy else { return }
-        if let prepared { onConfirm?(prepared); return }
-        let receiver = recipient.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let input = (amount.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let separator = Locale.current.decimalSeparator ?? "."
-        let value = separator == "." ? input : input.replacingOccurrences(of: separator, with: ".")
-        guard !receiver.isEmpty, !value.isEmpty else {
-            showError(WalletUX.text("Enter a recipient address and the amount you want to send.")); return
-        }
-        onReview?(receiver, value)
-    }
-    private func scan() {
-        let scanner = WalletAddressScanner { [weak self] value in self?.recipient.text = value }
-        present(UINavigationController(rootViewController: scanner), animated: true)
-    }
-}
-
 /// QR scanning only fills the draft. Network/address admission still happens at review.
-private final class WalletAddressScanner: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
+final class WalletAddressScanner: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
     private let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "sora.wallet.qr-camera")
     private let completion: (String) -> Void
+    private let requestCameraAccess: (@escaping (Bool) -> Void) -> Void
+    private let makeCameraInput: () -> AVCaptureDeviceInput?
     private var preview: AVCaptureVideoPreviewLayer?
     private var received = false
-    init(completion: @escaping (String) -> Void) {
+    init(
+        requestCameraAccess: @escaping (@escaping (Bool) -> Void) -> Void = { AVCaptureDevice.requestAccess(for: .video, completionHandler: $0) },
+        makeCameraInput: @escaping () -> AVCaptureDeviceInput? = {
+            AVCaptureDevice.default(for: .video).flatMap { try? AVCaptureDeviceInput(device: $0) }
+        },
+        completion: @escaping (String) -> Void
+    ) {
+        self.requestCameraAccess = requestCameraAccess
+        self.makeCameraInput = makeCameraInput
         self.completion = completion
         super.init(nibName: nil, bundle: nil)
     }
@@ -584,7 +358,7 @@ private final class WalletAddressScanner: UIViewController, AVCaptureMetadataOut
         title = WalletUX.text("Scan receive address")
         view.backgroundColor = WalletUX.page
         navigationItem.leftBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in self?.dismiss(animated: true) })
-        AVCaptureDevice.requestAccess(for: .video) { [weak self] allowed in
+        requestCameraAccess { [weak self] allowed in
             DispatchQueue.main.async {
                 guard let self, self.view.window != nil else { return }
                 allowed ? self.startCamera() : self.showUnavailable()
@@ -600,8 +374,7 @@ private final class WalletAddressScanner: UIViewController, AVCaptureMetadataOut
         queue.async { [session] in session.stopRunning() }
     }
     private func startCamera() {
-        guard let device = AVCaptureDevice.default(for: .video),
-              let input = try? AVCaptureDeviceInput(device: device), session.canAddInput(input) else {
+        guard let input = makeCameraInput(), session.canAddInput(input) else {
             showUnavailable(); return
         }
         session.addInput(input)
@@ -628,7 +401,10 @@ private final class WalletAddressScanner: UIViewController, AVCaptureMetadataOut
         ])
     }
     func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
-        guard !received, let value = (metadataObjects.first as? AVMetadataMachineReadableCodeObject)?.stringValue else { return }
+        acceptScannedAddress((metadataObjects.first as? AVMetadataMachineReadableCodeObject)?.stringValue)
+    }
+    func acceptScannedAddress(_ value: String?) {
+        guard !received, let value else { return }
         received = true
         dismiss(animated: true) { [completion] in completion(value) }
     }
@@ -640,7 +416,8 @@ private final class WalletAddressScanner: UIViewController, AVCaptureMetadataOut
 enum WalletButtonStyle {
     /// Neon CTA: `cta.primary` gradient, ink label in dark, `glow.primary`.
     case primary
-    /// Glass: `glass.fill`, hairline border, `text.primary` label.
+    /// Outlined, as the classic secondary button: clear, with a SORA red
+    /// border and label.
     case secondary
     /// Text: `accent.cyan` label.
     case tertiary
@@ -658,6 +435,8 @@ final class WalletNeonButton: UIButton {
         }
     }
     private var glowSpec: GlowSpec?
+    /// Whether the button is cut glass, which touches the surface along its far edge.
+    private var castsContactShadow = false
     /// MINIMAL tier: a ring in the glow colour instead of the glow.
     private var ring: NeonRingLayer?
 
@@ -665,7 +444,7 @@ final class WalletNeonButton: UIButton {
         neonStyle = style
         super.init(frame: .zero)
         var configuration: UIButton.Configuration = style == .tertiary ? .plain() : .filled()
-        configuration.cornerStyle = .capsule
+        configuration.cornerStyle = .fixed
         configuration.titleAlignment = .center
         configuration.contentInsets = NSDirectionalEdgeInsets(top: 15, leading: 20, bottom: 15, trailing: 20)
         configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
@@ -680,11 +459,15 @@ final class WalletNeonButton: UIButton {
         titleLabel?.numberOfLines = 0
         titleLabel?.textAlignment = .center
         titleLabel?.adjustsFontForContentSizeCategory = true
-        let minimumHeight = heightAnchor.constraint(greaterThanOrEqualToConstant: style == .tertiary ? 44 : 52)
+        // A screen's button is as tall as the kit's main button on every screen (these were 52).
+        let minimumHeight = heightAnchor.constraint(
+            greaterThanOrEqualToConstant: style == .tertiary ? 44 : LayoutCanvas.primaryButtonHeight)
         // Hidden arranged buttons must be able to collapse to zero height.
         minimumHeight.priority = UILayoutPriority(999)
         minimumHeight.isActive = true
         layer.masksToBounds = false
+        // A sheet over the screen dims tint; the glass keeps its white title rather than turning maroon.
+        tintAdjustmentMode = .normal
         SoramitsuUI.updates.addObserver(self)
     }
 
@@ -696,14 +479,16 @@ final class WalletNeonButton: UIButton {
         let fx = FxPolicy.current
         var background = configuration.background
         background.customView = nil
+        background.cornerRadius = Lit.controlRadius
         background.strokeWidth = 0
         background.strokeColor = nil
         glowSpec = nil
         switch neonStyle {
         case .primary, .safe:
             if isEnabled {
-                let fill = NeonGradientView()
+                let fill = LitCutGlassFill()
                 fill.apply(neonStyle == .safe ? tokens.ctaSafe : tokens.ctaPrimary)
+                fill.isPressed = isHighlighted
                 background.customView = fill
                 background.backgroundColor = .clear
                 configuration.baseBackgroundColor = .clear
@@ -715,19 +500,21 @@ final class WalletNeonButton: UIButton {
                 configuration.baseForegroundColor = tokens.textDisabled
             }
         case .secondary:
-            let fill = fx.opaqueGlass ? tokens.glassSolid : (isHighlighted ? tokens.glassFillPressed : tokens.glassFill)
+            let fill = isHighlighted ? tokens.brandRed.withAlphaComponent(0.10) : .clear
             background.backgroundColor = fill
             configuration.baseBackgroundColor = fill
-            background.strokeColor = isEnabled ? tokens.hairline : .clear
+            background.strokeColor = isEnabled ? tokens.brandRed : tokens.textDisabled
             background.strokeWidth = fx.highContrast ? 2 : 1
-            configuration.baseForegroundColor = isEnabled ? tokens.textPrimary : tokens.textDisabled
+            configuration.baseForegroundColor = isEnabled ? tokens.brandRed : tokens.textDisabled
         case .tertiary:
             background.backgroundColor = isHighlighted ? tokens.cyan.withAlphaComponent(0.10) : .clear
             configuration.baseForegroundColor = isEnabled ? tokens.link : tokens.textDisabled
         }
         configuration.background = background
         self.configuration = configuration
+        castsContactShadow = isEnabled && (neonStyle == .primary || neonStyle == .safe)
         applyGlow(fx: fx)
+        updateContactShadow()
         if !fx.reduceMotion, neonStyle != .tertiary {
             let scale: CGFloat = isHighlighted ? 0.98 : 1
             UIView.animate(withDuration: isHighlighted ? NeonMotion.press : NeonMotion.fast, delay: 0,
@@ -737,38 +524,29 @@ final class WalletNeonButton: UIButton {
         }
     }
 
-    /// Glow at rest (pressed while highlighted), a ring in the MINIMAL tier,
-    /// nothing in a table or collection cell (spec §4.5, §10.3).
+    private func updateContactShadow() {
+        guard castsContactShadow, bounds.height > 0 else {
+            layer.shadowOpacity = 0
+            return
+        }
+        layer.shadowColor = UIColor(litHex: 0x33140D).cgColor
+        layer.shadowOpacity = isHighlighted ? 0.20 : 0.30
+        layer.shadowRadius = isHighlighted ? 1.2 : 2.5
+        layer.shadowOffset = isHighlighted ? CGSize(width: 0.3, height: 0.7) : CGSize(width: 0.7, height: 1.6)
+        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: Lit.controlRadius).cgPath
+    }
+
+    /// The classic design draws no glow at any tier.
     private func applyGlow(fx: FxPolicy) {
-        guard let glowSpec, fx.glows, !neonIsInsideListCell else {
-            layer.shadowOpacity = 0
-            ring?.removeFromSuperlayer()
-            ring = nil
-            return
-        }
-        if fx.tier == .minimal {
-            layer.shadowOpacity = 0
-            let ring = self.ring ?? NeonRingLayer()
-            if self.ring == nil {
-                layer.addSublayer(ring)
-                self.ring = ring
-            }
-            ring.apply(glowSpec)
-            ring.layout(around: bounds, cornerRadius: bounds.height / 2)
-            return
-        }
+        layer.shadowOpacity = 0
         ring?.removeFromSuperlayer()
         ring = nil
-        layer.applyNeonGlow(glowSpec, path: UIBezierPath(roundedRect: bounds, cornerRadius: bounds.height / 2).cgPath,
-                            alpha: isHighlighted ? glowSpec.pressed : glowSpec.rest)
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        if layer.shadowOpacity > 0 {
-            layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: bounds.height / 2).cgPath
-        }
-        ring?.layout(around: bounds, cornerRadius: bounds.height / 2)
+        updateContactShadow()
+        ring?.layout(around: bounds, cornerRadius: Lit.controlRadius)
     }
 
     /// Whether the button sits in a cell is only known once it is in a window.
@@ -994,5 +772,15 @@ final class WalletSensitiveScreenShield {
         if cover.superview == nil { view.addSubview(cover) }
         view.bringSubviewToFront(cover)
         cover.layoutIfNeeded()
+    }
+}
+
+/// What a backup screen may put on the clipboard. The recovery phrase and the raw seed never go
+/// there: wallet-stealing malware on a compromised phone reads the clipboard (MoldyRoost and the
+/// iOS exploit kits it serves, Confiant 2026-11-20). A derivation path may be copied, unless it
+/// carries a password (the part after `///`).
+enum WalletSecretCopy {
+    static func allowsCopying(derivationPath path: String) -> Bool {
+        !path.isEmpty && !path.contains("///")
     }
 }

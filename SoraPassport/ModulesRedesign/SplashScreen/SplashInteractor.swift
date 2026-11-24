@@ -22,8 +22,6 @@ import SoraKeystore
 import SSFUtils
 import IrohaCrypto
 
-typealias RuntimeServiceProtocol = RuntimeRegistryServiceProtocol & RuntimeCodingServiceProtocol
-
 /// Collect only outcomes of operations the wallet already performs. No key tags,
 /// identifiers, values, derivation strings or database paths enter this record.
 final class WalletSecretDiagnostics {
@@ -231,55 +229,9 @@ struct WalletStartupDiagnostic: Codable, Equatable {
         if let error = error as? KeystoreSystemError {
             return (.keychainSystem, Int(error.status))
         }
-        if let error = error as? KeystoreError {
-            switch error {
-            case .invalidIdentifierFormat: return (.keychainIdentifier, nil)
-            case .noKeyFound: return (.keychainMissing, nil)
-            case .duplicatedItem: return (.keychainDuplicate, nil)
-            case .unexpectedFail: return (.keychainResult, nil)
-            }
-        }
-        if let error = error as? SelectedWalletSettingsError {
-            switch error {
-            case .duplicateAccountIdentifiers: return (.duplicateAccounts, nil)
-            case .multipleSelectedAccounts: return (.multipleSelections, nil)
-            case .missingSelectedAccount: return (.missingSelection, nil)
-            }
-        }
-        if let error = error as? WalletIntegrityError {
-            switch error {
-            case .selectedAccountSecretMissing: return (.missingSecret, nil)
-            case .selectedAccountMissing: return (.missingSelection, nil)
-            case .legacyWalletUpgradeVerificationFailed: return (.legacyUpgradeProof, nil)
-            }
-        }
-        if let error = error as? WalletNetworkMigrationError {
-            switch error {
-            case .invalidMnemonic: return (.invalidMnemonic, nil)
-            case .invalidDerivationPath, .nonHardenedDerivationComponent,
-                 .invalidDerivationIndex: return (.invalidDerivation, nil)
-            case .keyDerivationFailed: return (.derivationFailed, nil)
-            case .invalidPrivateKey: return (.invalidPrivateKey, nil)
-            case .snapshotVerificationFailed: return (.snapshotVerification, nil)
-            case .missingSnapshot: return (.missingSnapshot, nil)
-            case .missingSelectedWallet: return (.missingSelection, nil)
-            case .lifecycleMutationBusy: return (.lifecycleBusy, nil)
-            case .walletRecoveryRequired: return (.recoveryRequired, nil)
-            case .legacyIdentityMismatch: return (.legacyIdentityMismatch, nil)
-            case .explicitRemovalTargetMissing, .explicitRemovalInventoryMismatch,
-                 .explicitRemovalSelectionMismatch: return (.removalMismatch, nil)
-            }
-        }
-        if error is DecodingError { return (.decoding, nil) }
-        if error is EncodingError { return (.encoding, nil) }
-        if error is FileProtectionMetadata.Failure { return (.fileProtection, nil) }
-        if error is WalletMigrationSafetyNamespaceAdmission.Failure { return (.migrationNamespace, nil) }
-        if let error = error as? DurableFileWriter.Failure {
-            switch error {
-            case .invalidTarget: return (.durableTarget, nil)
-            case .fileSystemFailure: return (.durableCommit, nil)
-            }
-        }
+        // The app's own error types, in this order, then the system domains.
+        if let cause = walletCause(of: error) { return (cause, nil) }
+        if let cause = storageCause(of: error) { return (cause, nil) }
         let systemError = error as NSError
         let family: Cause
         switch systemError.domain {
@@ -290,6 +242,85 @@ struct WalletStartupDiagnostic: Codable, Equatable {
         default: return (.unexpected, nil)
         }
         return (family, systemError.code)
+    }
+
+    /// Keychain, account selection, wallet integrity and network migration
+    /// errors; nil for any other error.
+    private static func walletCause(of error: Error) -> Cause? {
+        if let error = error as? KeystoreError { return keystoreCause(error) }
+        if let error = error as? SelectedWalletSettingsError { return selectionCause(error) }
+        if let error = error as? WalletIntegrityError { return integrityCause(error) }
+        if let error = error as? WalletNetworkMigrationError { return migrationCause(error) }
+        return nil
+    }
+
+    /// Coding, file protection, migration namespace and durable file errors;
+    /// nil for any other error.
+    private static func storageCause(of error: Error) -> Cause? {
+        if error is DecodingError { return .decoding }
+        if error is EncodingError { return .encoding }
+        if error is FileProtectionMetadata.Failure { return .fileProtection }
+        if error is WalletMigrationSafetyNamespaceAdmission.Failure { return .migrationNamespace }
+        if let error = error as? DurableFileWriter.Failure {
+            switch error {
+            case .invalidTarget: return .durableTarget
+            case .fileSystemFailure: return .durableCommit
+            }
+        }
+        return nil
+    }
+
+    private static func keystoreCause(_ error: KeystoreError) -> Cause {
+        switch error {
+        case .invalidIdentifierFormat: return .keychainIdentifier
+        case .noKeyFound: return .keychainMissing
+        case .duplicatedItem: return .keychainDuplicate
+        case .unexpectedFail: return .keychainResult
+        }
+    }
+
+    private static func selectionCause(_ error: SelectedWalletSettingsError) -> Cause {
+        switch error {
+        case .duplicateAccountIdentifiers: return .duplicateAccounts
+        case .multipleSelectedAccounts: return .multipleSelections
+        case .missingSelectedAccount: return .missingSelection
+        }
+    }
+
+    private static func integrityCause(_ error: WalletIntegrityError) -> Cause {
+        switch error {
+        case .selectedAccountSecretMissing: return .missingSecret
+        case .selectedAccountMissing: return .missingSelection
+        case .legacyWalletUpgradeVerificationFailed: return .legacyUpgradeProof
+        }
+    }
+
+    private static func migrationCause(_ error: WalletNetworkMigrationError) -> Cause {
+        switch error {
+        case .invalidMnemonic, .invalidDerivationPath, .nonHardenedDerivationComponent,
+             .invalidDerivationIndex, .keyDerivationFailed, .invalidPrivateKey:
+            return keyMaterialCause(error)
+        case .snapshotVerificationFailed: return .snapshotVerification
+        case .missingSnapshot: return .missingSnapshot
+        case .missingSelectedWallet: return .missingSelection
+        case .lifecycleMutationBusy: return .lifecycleBusy
+        case .walletRecoveryRequired: return .recoveryRequired
+        case .legacyIdentityMismatch: return .legacyIdentityMismatch
+        case .explicitRemovalTargetMissing, .explicitRemovalInventoryMismatch,
+             .explicitRemovalSelectionMismatch: return .removalMismatch
+        }
+    }
+
+    /// migrationCause's recovery phrase and key derivation cases.
+    private static func keyMaterialCause(_ error: WalletNetworkMigrationError) -> Cause {
+        switch error {
+        case .invalidMnemonic: return .invalidMnemonic
+        case .invalidDerivationPath, .nonHardenedDerivationComponent,
+             .invalidDerivationIndex: return .invalidDerivation
+        case .keyDerivationFailed: return .derivationFailed
+        case .invalidPrivateKey: return .invalidPrivateKey
+        default: return .unexpected // Not reached: migrationCause sends only the cases above.
+        }
     }
 
     static func record(_ error: Error, phase: Phase, settings: SettingsManagerProtocol) {
@@ -484,17 +515,18 @@ extension WalletStorageStartup {
                 recoveryGate: recoveryGate
             ).unresolved().isEmpty
         }
+        let localPaths: () throws -> WalletLocalStateSetAside.Paths = {
+            if let applicationSupportURL {
+                return .init(storeURL: storeURL, applicationSupportURL: applicationSupportURL,
+                             setAsideRootURL: storeURL.deletingLastPathComponent()
+                                .appendingPathComponent("WalletSetAside", isDirectory: true))
+            }
+            return try .production(fileManager: fileManager)
+        }
 //it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
         var deferredForLegacyUpgrade = false
         let accountCommitRecovery: () throws -> Void = {
-            let paths: WalletLocalStateSetAside.Paths
-            if let applicationSupportURL {
-                paths = .init(storeURL: storeURL, applicationSupportURL: applicationSupportURL,
-                              setAsideRootURL: storeURL.deletingLastPathComponent()
-                                .appendingPathComponent("WalletSetAside", isDirectory: true))
-            } else {
-                paths = try .production(fileManager: fileManager)
-            }
+            let paths = try localPaths()
             let returnLease = lifecycleCoordinator.acquire()
             do {
                 try WalletPreservedGeneration.resume(paths: paths, settings: settings, keystore: keystore)
@@ -527,6 +559,7 @@ extension WalletStorageStartup {
                 keystore: keystore,
                 settings: settings,
                 baseURL: applicationSupportURL,
+                availableCapacity: dbMigrator.availableCapacity,
                 lifecycleCoordinator: lifecycleCoordinator
             )
             try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
@@ -573,20 +606,41 @@ extension WalletStorageStartup {
                 )
             }
         }
-        let outcome: WalletStorageStartupOutcome
-        if let retryDelay {
-            outcome = run(
+        let ordinaryChecks: () -> WalletStorageStartupOutcome = {
+            deferredForLegacyUpgrade = false
+            if let retryDelay {
+                return run(
+                    settings: settings,
+                    accountCommitRecovery: accountCommitRecovery,
+                    retryDelay: retryDelay,
+                    migration: migration
+                )
+            }
+            return run(
                 settings: settings,
                 accountCommitRecovery: accountCommitRecovery,
-                retryDelay: retryDelay,
                 migration: migration
             )
-        } else {
-            outcome = run(
-                settings: settings,
-                accountCommitRecovery: accountCommitRecovery,
-                migration: migration
-            )
+        }
+
+        // An update asks nothing. A wallet whose files cannot be used comes
+        // back by itself (`WalletDatabaseSelfRepair`), including a wallet that
+        // an earlier version already stopped on the recovery screen.
+        let repair = (try? localPaths()).map {
+            WalletDatabaseSelfRepair.Environment(
+                settings: settings, keystore: keystore, paths: $0, databaseWriter: dbMigrator,
+                fileManager: fileManager, lifecycleCoordinator: lifecycleCoordinator)
+        }
+        if let repair {
+            // First the database version 3.9.3 set aside on real iPhones
+            // without having read it, so the checks below run on the user's
+            // own database and not on the copy that version rebuilt.
+            WalletDatabaseSelfRepair.returnDatabaseSetAsideUnread(repair)
+            WalletDatabaseSelfRepair.restoreLostDatabase(repair)
+        }
+        var outcome = ordinaryChecks()
+        if outcome == .recoveryRequired, let repair {
+            outcome = WalletDatabaseSelfRepair.recover(repair, ordinaryChecks: ordinaryChecks)
         }
         if outcome == .recoveryRequired {
             do { try dbMigrator.preserveLegacyKeysDuringRecovery(lifecycleCoordinator: lifecycleCoordinator) }
@@ -608,6 +662,7 @@ enum WalletStartupVerificationRecovery {
         storeURL: URL, modelDirectory: String,
         keystore: KeystoreProtocol, settings: SettingsManagerProtocol,
         baseURL: URL? = nil,
+        availableCapacity: @escaping (URL) -> Int64? = UserStorageMigrator.availableCapacityForMigration(at:),
         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
         checkpoint: () throws -> Void = {}
     ) throws -> Bool {
@@ -646,6 +701,7 @@ enum WalletStartupVerificationRecovery {
                 let database = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
                     storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
                     settings: settings, fileManager: .default, recoveryGate: journalGate,
+                    availableCapacity: availableCapacity,
                     loadWalletNetworkSnapshot: { try journalStore.load() })
                 try database.resumeForStartupVerification(marker: marker)
             }
@@ -664,6 +720,7 @@ enum WalletStartupVerificationRecovery {
             let evidence = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
                 storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
                 settings: settings, fileManager: fileManager, recoveryGate: gate,
+                availableCapacity: availableCapacity,
                 loadWalletNetworkSnapshot: { try store.load() }).retainedWalletEvidenceKind()
             guard evidence != .durable else { throw UserStorageMigrationError.missingWalletStore }
             if try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(storeExists: false,
@@ -684,6 +741,7 @@ enum WalletStartupVerificationRecovery {
             let database = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
                 storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
                 settings: settings, fileManager: fileManager, recoveryGate: gate,
+                availableCapacity: availableCapacity,
                 loadWalletNetworkSnapshot: { try store.load() })
             try WalletStartupDiagnostic.check(.databaseMigration) {
                 try database.performMigration()
@@ -749,6 +807,7 @@ final class SplashInteractor: SplashInteractorProtocol {
     private let migrationStateLock = NSLock()
     private var didStartStorageMigration = false
     private var isAwaitingStorageRetry = false
+    private var didRepeatChecksAfterStartupFailure = false
     private var protectedDataObserver: NSObjectProtocol?
     private let storageMigrationQueue: OperationQueue = {
         let queue = OperationQueue()
@@ -915,10 +974,30 @@ final class SplashInteractor: SplashInteractorProtocol {
                 )
                 if let self {
                     WalletStartupDiagnostic.record(error, phase: .selectedAccount, settings: self.settings)
+                    if self.repeatChecksOnceAfterStartupFailure() { return }
                 }
                 self?.presenter.setupComplete()
             }
         }
+    }
+
+    /// A failure after the storage checks latched recovery. The checks repair
+    /// exactly that, so they run once more before routing shows anything.
+    /// Returns false when they already did, in this start.
+    private func repeatChecksOnceAfterStartupFailure() -> Bool {
+        migrationStateLock.lock()
+        guard !didRepeatChecksAfterStartupFailure else {
+            migrationStateLock.unlock()
+            return false
+        }
+        didRepeatChecksAfterStartupFailure = true
+        migrationStateLock.unlock()
+        storageMigrationQueue.addOperation { [weak self] in
+            // The checks may move the database: nothing may hold it open.
+            try? UserDataStorageFacade.shared.databaseService.close()
+            self?.runStorageChecks()
+        }
+        return true
     }
 
     private func completeSplashOnMain() {
@@ -983,6 +1062,7 @@ final class SplashInteractor: SplashInteractorProtocol {
                 Logger.shared.error(
                     "Wallet network bootstrap outcome: \(outcome)"
                 )
+                if self.repeatChecksOnceAfterStartupFailure() { return }
                 DispatchQueue.main.async {
                     self.presenter.setupComplete()
                 }

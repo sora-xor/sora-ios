@@ -17,39 +17,17 @@ final class SettingsScreenBehaviorTests: XCTestCase {
         let capture = SettingsCapture(); presenter.view = capture; presenter.reload(); return (presenter, capture)
     }
     private func rows(_ capture: SettingsCapture) -> [SoramitsuTableViewItemProtocol] { capture.model?.sections.flatMap(\.rows) ?? [] }
-    func testThemeChoicesPersistAndRebuildExactlyOneSelectedChoice() throws {
+    /// The classic SORA design is light only and draws no effects, so Settings offers neither a
+    /// theme choice nor "Reduce effects", and a stored dark choice no longer applies.
+    func testSettingsOfferNoThemeOrEffectsChoice() {
         let previous = SoramitsuUI.shared.themeMode
         defer { SoramitsuUI.shared.themeMode = previous }
+        SoramitsuUI.shared.themeMode = .manual(.dark)
         let (_, capture) = settings()
-        for index in 0..<3 {
-            let appearance = try XCTUnwrap(rows(capture).compactMap { $0 as? AppAppearanceItem }.first)
-            XCTAssertEqual(appearance.choices.count, 3)
-            appearance.onSelect(index)
-            XCTAssertEqual(rows(capture).compactMap { $0 as? AppAppearanceItem }.first?.selectedIndex, index)
-            switch (index, SoramitsuUI.shared.themeMode) {
-            case (0, .system), (1, .manual(.dark)), (2, .manual(.light)): break
-            default: XCTFail("Theme did not match selected choice")
-            }
-        }
-    }
-    func testInvalidThemeChoiceDoesNotChangePreferencesOrReload() throws {
-        let (_, capture) = settings(); let deliveries = capture.deliveries
-        let appearance = try XCTUnwrap(rows(capture).compactMap { $0 as? AppAppearanceItem }.first)
-        appearance.onSelect(-1); appearance.onSelect(3)
-        XCTAssertEqual(capture.deliveries, deliveries)
-        XCTAssertEqual(rows(capture).compactMap { $0 as? AppAppearanceItem }.first?.selectedIndex, appearance.selectedIndex)
-    }
-    func testReduceEffectsToggleIsReflectedInTheNextModel() throws {
-        let previous = FxPolicy.reduceEffects; defer { FxPolicy.reduceEffects = previous }
-        let (_, capture) = settings()
-        for enabled in [true, false] {
-            let card = try XCTUnwrap(rows(capture).compactMap { $0 as? AppSettingsCardItem }.first { $0.title == nil })
-            try XCTUnwrap(card.menuItems.first?.onSwitch)(enabled)
-            XCTAssertEqual(FxPolicy.reduceEffects, enabled)
-            let updated = try XCTUnwrap(rows(capture).compactMap { $0 as? AppSettingsCardItem }.first { $0.title == nil }?.menuItems.first)
-            guard case let .switcher(state) = updated.rightItem else { return XCTFail("Missing effects switch") }
-            XCTAssertEqual(state, enabled ? .on : .off)
-        }
+        XCTAssertFalse(rows(capture).contains { $0 is AppAppearanceItem })
+        let titles = rows(capture).compactMap { $0 as? AppSettingsCardItem }.flatMap(\.menuItems).map(\.title)
+        XCTAssertFalse(titles.contains("Reduce effects"))
+        XCTAssertEqual(SoramitsuUI.shared.theme, .light)
     }
     func testAppearanceCellForwardsTheCurrentSelection() throws {
         let cell = AppAppearanceCell(style: .default, reuseIdentifier: nil)
@@ -74,7 +52,7 @@ final class SettingsScreenBehaviorTests: XCTestCase {
         XCTAssertEqual(old, 0); XCTAssertEqual(current, 1)
         XCTAssertFalse(views(UILabel.self, in: cell).contains { $0.text == "Old" || $0.text == "NETWORKS" })
     }
-    func testSettingsScreenBuildsAndLanguageActionOpensTheLanguageList() throws {
+    func testSettingsScreenBuildsAndLanguageActionOpensTheLanguageList() async throws {
         let previous = LocalizationManager.shared.selectedLocalization
         defer { LocalizationManager.shared.selectedLocalization = previous }
         LocalizationManager.shared.selectedLocalization = "en"
@@ -87,6 +65,7 @@ final class SettingsScreenBehaviorTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(table.sora.sections.count, 2)
         let language = try XCTUnwrap(table.sora.sections.first?.rows.first as? AppSettingsItem)
         language.itemActionTap(with: nil)
+        await waitForNavigationUpdate()
         let languages = try XCTUnwrap(navigation.topViewController as? LanguageView)
         languages.loadViewIfNeeded()
         let languageTable = try XCTUnwrap(views(SoramitsuTableView.self, in: languages.view).first)

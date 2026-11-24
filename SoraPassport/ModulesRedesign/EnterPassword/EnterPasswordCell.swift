@@ -25,15 +25,6 @@ final class EnterPasswordCell: SoramitsuTableViewCell {
     private weak var item: EnterPasswordItem?
     private let generator = PolkadotIconGenerator()
 
-    private let descriptionLabel: SoramitsuLabel = {
-        let label = SoramitsuLabel()
-        label.sora.font = FontType.paragraphM
-        label.sora.textColor = .fgPrimary
-        label.sora.numberOfLines = 0
-        label.sora.text = R.string.localizable.enterPasswordDescription(preferredLanguages: .currentLocale)
-        return label
-    }()
-    
     private let accountView: AccountView = {
         let view = AccountView()
         view.sora.backgroundColor = .bgPage
@@ -49,7 +40,13 @@ final class EnterPasswordCell: SoramitsuTableViewCell {
         view.sora.state = .default
         view.sora.titleLabelText = R.string.localizable.enterPasswordTitle(preferredLanguages: .currentLocale)
         view.sora.textFieldPlaceholder = R.string.localizable.enterPasswordTitle(preferredLanguages: .currentLocale)
+        view.textField.accessibilityLabel = view.sora.titleLabelText
+        view.descriptionLabel.sora.dynamicTextStyle = .caption1
         view.textField.returnKeyType = .go
+        view.textField.sora.addHandler(for: .editingDidEndOnExit) { [weak self] in self?.submit() }
+        view.textField.sora.addHandler(for: .editingChanged) { [weak self] in
+            self?.resetValidation()
+        }
         view.textField.isSecureTextEntry = true
         return view
     }()
@@ -60,8 +57,7 @@ final class EnterPasswordCell: SoramitsuTableViewCell {
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .accentPrimary
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
-            guard let passwordText = self?.passwordInputField.textField.text else { return }
-            self?.item?.continueButtonHandler?(passwordText)
+            self?.submit()
         }
         return button
     }()
@@ -84,9 +80,23 @@ final class EnterPasswordCell: SoramitsuTableViewCell {
         fatalError("init(coder:) has not been implemented")
     }
     
+    private func submit() {
+        guard let password = passwordInputField.textField.text else { return }
+        item?.continueButtonHandler?(password)
+    }
+
+    /// Without an error, the line under the field names the Google account
+    /// the backup is read from.
+    private func resetValidation(for item: EnterPasswordItem? = nil) {
+        passwordInputField.sora.resetValidation()
+        if let account = (item ?? self.item)?.googleAccountText, !account.isEmpty {
+            passwordInputField.sora.descriptionLabelText = account
+        }
+    }
+
     private func setupView() {
         contentView.addSubview(containerView)
-        containerView.addSubviews([descriptionLabel, accountView, passwordInputField, continueButton])
+        containerView.addSubviews([accountView, passwordInputField, continueButton])
     }
     
     func setupConstraints() {
@@ -96,18 +106,13 @@ final class EnterPasswordCell: SoramitsuTableViewCell {
             containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
             containerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
 
-            descriptionLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            descriptionLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            descriptionLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
-            
             accountView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             accountView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            accountView.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 16),
+            accountView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 12),
             
             passwordInputField.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             passwordInputField.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             passwordInputField.topAnchor.constraint(equalTo: accountView.bottomAnchor, constant: 24),
-            passwordInputField.heightAnchor.constraint(equalToConstant: 76),
             
             continueButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             continueButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
@@ -129,13 +134,16 @@ extension EnterPasswordCell: SoramitsuTableViewCellProtocol {
             .imageWithFillColor(UIColor.white,
                                 size: CGSize(width: 40.0, height: 40.0),
                                 contentScale: UIScreen.main.scale)
-        passwordInputField.textField.becomeFirstResponder()
+        if self.item?.accountAddress != item.accountAddress {
+            passwordInputField.sora.text = nil
+            passwordInputField.textField.becomeFirstResponder()
+        }
 
         if !item.errorText.isEmpty {
-            passwordInputField.sora.descriptionLabelText = R.string.localizable.enterPasswordIncorectTitle(preferredLanguages: .currentLocale)
+            passwordInputField.sora.descriptionLabelText = item.errorText
             passwordInputField.sora.state = .fail
         } else {
-            passwordInputField.sora.resetValidation()
+            resetValidation(for: item)
         }
         
         self.item = item

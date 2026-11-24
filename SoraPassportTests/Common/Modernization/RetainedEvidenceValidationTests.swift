@@ -1,3 +1,6 @@
+// This fixture-driven suite runs with the Debug unit-test host.
+// Ordinary Release hosts exclude the sample or evidence helpers it exercises.
+#if DEBUG
 import CryptoKit
 import Darwin
 import Foundation
@@ -342,11 +345,6 @@ final class RetainedEvidenceValidationTests: XCTestCase {
         try write("UserDataModel.sqlite-wal", data: Data("wal".utf8))
         XCTAssertNotEqual(original, try RollbackStoreTreeRecord.sha256(storeURL: file))
     }
-    func testOnlyWalletRoutesCountAsSuccessfulApplicationRoutes() {
-        XCTAssertTrue(RetainedMigrationEvidenceApplicationRoute.localAuthentication.isSuccessfulWalletRoute)
-        XCTAssertTrue(RetainedMigrationEvidenceApplicationRoute.pincodeSetup.isSuccessfulWalletRoute)
-        XCTAssertFalse(RetainedMigrationEvidenceApplicationRoute.onboarding.isSuccessfulWalletRoute)
-        XCTAssertFalse(RetainedMigrationEvidenceApplicationRoute.legacyUpgradeReady.isSuccessfulWalletRoute)
-        XCTAssertFalse(RetainedMigrationEvidenceApplicationRoute.recovery.isSuccessfulWalletRoute)
-    }
 }
+
+#endif

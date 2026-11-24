@@ -100,18 +100,20 @@ class SwapMarketSourcerProtocolTests: XCTestCase {
         XCTAssertEqual(marketSourcer.getMarketSources(), [LiquiditySourceType.smart])
     }
 
-    func testNotAddSmartIfNotSwapXSTUSD() {
-        func testAddsSmartIfEmptySourcesFromSpecialAssetToXSTUSD() {
-            // given
-            marketSourcer = SwapMarketSourcer(fromAssetId: valId, toAssetId: pswapId)
-            XCTAssertTrue(marketSourcer.isEmpty())
+    func testEmptyServerSourcesUseSmartFallbackForNonXSTUSDSwap() {
+        // given
+        marketSourcer = SwapMarketSourcer(fromAssetId: valId, toAssetId: pswapId)
+        XCTAssertTrue(marketSourcer.isEmpty())
+        XCTAssertFalse(marketSourcer.isLoaded())
 
-            // when
-            marketSourcer.didLoad([])
+        // when
+        marketSourcer.didLoad([])
 
-            // then
-            XCTAssertEqual(marketSourcer.getMarketSources(), [])
-        }
+        // then
+        XCTAssertTrue(marketSourcer.isLoaded())
+        XCTAssertFalse(marketSourcer.isEmpty())
+        XCTAssertEqual(marketSourcer.getMarketSources(), [.smart])
+        XCTAssertTrue(marketSourcer.getServerMarketSources().isEmpty)
     }
 
     func testAddSmartIfNotEmptyWhenDidLoad() {

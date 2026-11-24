@@ -35,17 +35,15 @@ protocol InputAssetAmountViewProtocol: ControllerBackedProtocol, Warningable {
 final class InputAssetAmountViewController: SoramitsuViewController {
     
     private let generator = PolkadotIconGenerator()
-    private var spaceConstraint: NSLayoutConstraint?
-    
-    private let stackView: SoramitsuStackView = {
-        let stackView = SoramitsuStackView()
-        stackView.sora.alignment = .center
-        stackView.sora.axis = .vertical
-        stackView.sora.distribution = .fill
+
+    /// The screen's content column: the recipient, the amount, a warning and Review fill it.
+    private let stackView: LitColumnStackView = {
+        let stackView = LitColumnStackView()
+        stackView.backgroundColor = .clear
         stackView.spacing = 24
+        stackView.topInset = 16
+        stackView.bottomInset = 16
         stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 0, right: 16)
-        stackView.isLayoutMarginsRelativeArrangement = true
         return stackView
     }()
 
@@ -80,7 +78,7 @@ final class InputAssetAmountViewController: SoramitsuViewController {
     public lazy var assetView: InputAssetField = {
         let field = InputAssetField()
         field.sora.assetArrow = R.image.wallet.arrow()
-        field.sora.assetImage = R.image.wallet.emptyToken()
+        field.sora.assetImage = PortfolioGlyphs.emptyTokenImage()
         field.textField.sora.placeholder = "0"
         field.sora.inputedFiatAmountText = "$0"
         field.translatesAutoresizingMaskIntoConstraints = false
@@ -104,7 +102,7 @@ final class InputAssetAmountViewController: SoramitsuViewController {
 
     private lazy var reviewLiquidity: SoramitsuButton = {
         let button = SoramitsuButton()
-        button.sora.horizontalOffset = 0
+        button.sora.horizontalOffset = LayoutCanvas.pageMargin
         button.sora.title = R.string.localizable.review(preferredLanguages: .currentLocale)
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .additionalPolkaswap
@@ -140,11 +138,6 @@ final class InputAssetAmountViewController: SoramitsuViewController {
         viewModel.viewDidLoad()
     }
     
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        spaceConstraint?.constant = UIScreen.main.bounds.height - 300
-    }
-
     private func setupView() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubviews(scrollView)
@@ -154,36 +147,23 @@ final class InputAssetAmountViewController: SoramitsuViewController {
         stackView.addArrangedSubview(assetView)
         stackView.addArrangedSubview(warningView)
         stackView.addArrangedSubview(reviewLiquidity)
-        let spaceView = SoramitsuView()
-        spaceConstraint = spaceView.heightAnchor.constraint(equalToConstant: 0)
-        spaceConstraint?.isActive = true
-        stackView.addArrangedSubviews(spaceView)
     }
 
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            stackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            stackView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
-            stackView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            stackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.heightAnchor.constraint(equalTo: view.heightAnchor),
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            
-            recipientView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
-            recipientView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
-            
-            assetView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
-            assetView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
-            
-            warningView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
-            warningView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
-            
-            reviewLiquidity.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
-            reviewLiquidity.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
+            // The form ends where the keyboard begins, so Review can be scrolled into view above it. A
+            // spacer most of a screen tall once stood in for this, and the form scrolled away with no
+            // keyboard up.
+            scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+
+            scrollView.contentLayoutGuide.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
+            stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor)
         ])
     }
 }
@@ -192,6 +172,10 @@ extension InputAssetAmountViewController: InputAssetAmountViewProtocol {
     
     func updateFirstAsset(balance: String) {
         assetView.sora.fullFiatText = balance
+        // The balance is a button: all of it, less the fee when the token pays fees.
+        if assetView.sora.balanceTapHandler == nil {
+            assetView.sora.balanceTapHandler = { [weak self] in self?.viewModel.didSelect(variant: 1) }
+        }
     }
     
     func updateFirstAsset(symbol: String, image: UIImage?) {

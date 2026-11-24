@@ -21,10 +21,6 @@ import SSFUtils
 
 typealias RuntimeMetadataClosure = () throws -> RuntimeMetadata
 
-protocol RuntimeRegistryServiceProtocol: ApplicationServiceProtocol {
-    func update(to chain: Chain, forced: Bool)
-}
-
 protocol RuntimeCodingServiceProtocol {
     func fetchCoderFactoryOperation(with timeout: TimeInterval, closure: RuntimeMetadataClosure?)
     -> BaseOperation<RuntimeCoderFactoryProtocol>

@@ -16,7 +16,7 @@ final class PortfolioBalanceReadFlowTests: XCTestCase {
     private func rejected(_ run:() async throws -> Void,file:StaticString = #filePath,line:UInt = #line) async { do{ try await run(); XCTFail("Unverified balance was accepted",file:file,line:line) }catch{} }
     func testTokenBalanceDecodesFreeFrozenAndReservedInWireOrder() async throws { let f = try make(); let values = try await f.read(); equal(values[f.val],PortfolioRawBalance(free:1,reserved:0.3,frozen:0.2)); equal(values[f.val]?.total,1.3); equal(values[f.val]?.transferable,0.8) }
     func testNativeBalanceUsesRuntimeMetadataAndTheLockedFreePart() async throws { let f = try make(); let values = try await f.read([(f.xor,2)]); equal(values[f.xor],PortfolioRawBalance(free:1,reserved:0.3,frozen:0.2)); equal(f.runtime.calls,1) }
-    func testMixedNativeAndTokenReadRetainsBothAssets() async throws { let f = try make(); let values = try await f.read([(f.xor,2),(f.val,2)]); equal(Set(values.keys),Set([f.xor,f.val])); equal(f.engine.queries.count,2) }
+    func testMixedNativeAndTokenReadRetainsBothAssetsInOneRequest() async throws { let f = try make(); let values = try await f.read([(f.xor,2),(f.val,2)]); equal(Set(values.keys),Set([f.xor,f.val])); equal(values[f.xor],PortfolioRawBalance(free:1,reserved:0.3,frozen:0.2)); equal(values[f.val],PortfolioRawBalance(free:1,reserved:0.3,frozen:0.2)); equal(f.engine.queries.count,1); equal(Set(f.engine.queries[0]),Set([try StorageKeyFactory().accountInfoKeyForId(f.keyData).toHex(includePrefix:true),try f.key(f.val)])) }
     func testMultipleTokensAreQueriedAsOneExactKeyBatch() async throws { let f = try make(); let values = try await f.read([(f.val,2),(f.pswap,2)]); equal(values.count,2); equal(f.engine.queries.count,1); equal(Set(f.engine.queries[0]),Set([try f.key(f.val),try f.key(f.pswap)])) }
     func testTokenResponseOrderDoesNotChangeAssetIdentity() async throws { let f = try make(); f.engine.reverse = true; f.engine.values[try f.key(f.pswap)] = PortfolioReadFixture.token(200,30,40); let values = try await f.read([(f.val,2),(f.pswap,2)]); equal(values[f.val]?.free,1); equal(values[f.pswap]?.free,2) }
     func testExplicitNullTokenStorageIsAnAuthoritativeZero() async throws { let f = try make(); f.engine.nullValues = true; equal(try await f.read()[f.val],.zero) }
@@ -42,7 +42,7 @@ final class PortfolioBalanceReadFlowTests: XCTestCase {
     func testPrecisionConversionCannotSilentlyUnderflowToZero() async throws { let f = try make(); await rejected{ _ = try await f.read([(f.val,255)]) } }
     func testExactHighPrecisionTokenBalanceRetainsEveryDigit() async throws { let f = try make(); f.engine.values[try f.key(f.val)] = PortfolioReadFixture.token(123456789,2,3); let r = try await f.read([(f.val,23)]); equal(r[f.val]?.free,Decimal(string:"0.00000000000000123456789")) }
     func testFrozenAboveFreeClampsTransferableWithoutReducingTotal() async throws { let f = try make(); f.engine.values[try f.key(f.val)] = PortfolioReadFixture.token(100,200,30); let b = try await f.read()[f.val]; equal(b?.transferable,0); equal(b?.total,1.3) }
-    func testNativeMetadataFailureIsPropagated() async throws { let f = try make(); f.runtime.failure = PortfolioReadError.offline; await rejected{ _ = try await f.read([(f.xor,2)]) }; equal(f.engine.queries.count,0) }
+    func testNativeMetadataFailureIsPropagated() async throws { let f = try make(); f.runtime.failure = PortfolioReadError.offline; await rejected{ _ = try await f.read([(f.xor,2)]) }; await rejected{ _ = try await f.read([(f.xor,2),(f.val,2)]) } }
     func testMissingNativeResponseDoesNotPretendTheAccountIsEmpty() async throws { let f = try make(); f.engine.omitLast = true; await rejected{ _ = try await f.read([(f.xor,2)]) } }
     func testMalformedNativeStorageIsUnavailableInsteadOfZero() async throws { let f = try make(); f.engine.nativeBytes = "0xgg"; await rejected{ _ = try await f.read([(f.xor,2)]) } }
     func testTrailingNativeStorageBytesAreRejected() async throws { let f = try make(); f.engine.nativeBytes += "00"; await rejected{ _ = try await f.read([(f.xor,2)]) } }
@@ -57,9 +57,12 @@ final class PortfolioBalanceReadFlowTests: XCTestCase {
     func testMalformedResponseKeyIsRejected() async throws { let f = try make(); f.engine.malformedKey = true; await rejected{ _ = try await f.read() } }
     func testMaximumU128RetainsItsExactIntegerValue() async throws { let f = try make(); f.engine.values[try f.key(f.val)] = "0x"+String(repeating:"ff",count:16)+String(repeating:"00",count:32); let value = try await f.read([(f.val,0)])[f.val]; equal(value?.free.stringWithPointSeparator,"340282366920938463463374607431768211455") }
     func testZeroBalanceIsExactEvenAtLargeSupportedScale() async throws { let f = try make(); f.engine.values[try f.key(f.val)] = PortfolioReadFixture.token(0,0,0); equal(try await f.read([(f.val,255)])[f.val],.zero) }
+    func testNativeStorageAndRuntimeTypesAreFetchedSideBySide() async throws { let f = try make(); let reply = DispatchSemaphore(value:0), coder = DispatchSemaphore(value:0); f.engine.replyGate = reply; f.runtime.gate = coder; defer { reply.signal(); coder.signal() }; let read = Task { try await f.read([(f.xor,2),(f.val,2)]) }; var both = false; for _ in 0..<400 { if f.engine.queries.count == 1 && f.runtime.started { both = true; break }; try await Task.sleep(nanoseconds:5_000_000) }; XCTAssertTrue(both,"The storage request and the runtime types must both be under way before either answers"); reply.signal(); coder.signal(); let values = try await read.value; equal(values[f.xor],PortfolioRawBalance(free:1,reserved:0.3,frozen:0.2)) }
+    func testAnAbsentNativeAccountNeedsNoRuntimeTypes() async throws { let f = try make(); f.engine.nullValues = true; let coder = DispatchSemaphore(value:0); f.runtime.gate = coder; defer { coder.signal() }; let done = PortfolioReadDone(); let read = Task { defer { done.value = true }; return try await f.read([(f.xor,2),(f.val,2)]) }; for _ in 0..<400 where !done.value { try await Task.sleep(nanoseconds:5_000_000) }; XCTAssertTrue(done.value,"An absent account must not wait for the runtime types"); coder.signal(); let values = try await read.value; equal(values[f.xor],.zero); equal(values[f.val],.zero) }
     func testPreCancelledReadDoesNotIssueStorageRequests() async throws { let f = try make(); let task = Task { withUnsafeCurrentTask { $0?.cancel() }; return try await f.read() }; do { _ = try await task.value; XCTFail("Cancelled read succeeded") } catch {} ; equal(f.engine.queries.count,0) }
 }
 private enum PortfolioReadError: Error { case offline }
+@MainActor private final class PortfolioReadDone { var value = false }
 @MainActor
 private final class PortfolioReadFixture {
     let xor = WalletAssetId.xor.rawValue, val = WalletAssetId.val.rawValue, pswap = WalletAssetId.pswap.rawValue
@@ -82,14 +85,14 @@ private final class PortfolioReadFixture {
     nonisolated static func token(_ free:UInt64,_ frozen:UInt64,_ reserved:UInt64)->String { "0x"+u128(free)+u128(frozen)+u128(reserved) }
 }
 private final class PortfolioReadRuntime: SoraPassport.RuntimeCodingServiceProtocol {
-    let coder:RuntimeCoderFactoryProtocol; var calls = 0, failure:Error?
+    let coder:RuntimeCoderFactoryProtocol; var calls = 0, failure:Error?, gate:DispatchSemaphore?; private let lock = NSLock(); private var didStart = false; var started:Bool { lock.lock(); defer { lock.unlock() }; return didStart }
     init(coder:RuntimeCoderFactoryProtocol){self.coder = coder}
-    func fetchCoderFactoryOperation(with timeout:TimeInterval,closure:SoraPassport.RuntimeMetadataClosure?)->BaseOperation<RuntimeCoderFactoryProtocol>{ calls += 1; return ClosureOperation { if let failure = self.failure {throw failure}; return self.coder } }
+    func fetchCoderFactoryOperation(with timeout:TimeInterval,closure:SoraPassport.RuntimeMetadataClosure?)->BaseOperation<RuntimeCoderFactoryProtocol>{ calls += 1; let gate = gate; return ClosureOperation { self.lock.lock(); self.didStart = true; self.lock.unlock(); gate?.wait(); if let failure = self.failure {throw failure}; return self.coder } }
 }
 private final class PortfolioReadEngine: JSONRPCEngine {
     var url:URL?; var pendingEngineRequests:[JSONRPCRequest]{[]}
     var emptyUpdates = false, missingChanges = false, malformedKey = false
-    var values = [String:String](), nativeBytes = "", nullValues = false, reverse = false, omitLast = false, duplicate = false, extra = false, failure:Error?
+    var values = [String:String](), nativeBytes = "", nullValues = false, reverse = false, omitLast = false, duplicate = false, extra = false, failure:Error?, replyGate:DispatchSemaphore?
     private let lock = NSLock(); private var recorded = [[String]]()
     var queries:[[String]]{ lock.lock();defer{lock.unlock()};return recorded }
     func callMethod<P:Codable,T:Decodable>(_ method:String,params:P?,options:JSONRPCOptions,completion closure:((Result<T,Error>)->Void)?) throws -> UInt16 {
@@ -105,7 +108,7 @@ private final class PortfolioReadEngine: JSONRPCEngine {
             let body:[[String:Any]] = emptyUpdates ? [] : [update]
             return try JSONDecoder().decode(T.self,from:JSONSerialization.data(withJSONObject:body))
         }
-        DispatchQueue.global().async{closure?(result)};return 1
+        let gate = replyGate; DispatchQueue.global().async{ gate?.wait(); gate?.signal(); closure?(result) };return 1
     }
     func subscribe<P:Codable,T:Decodable>(_ method:String,params:P?,updateClosure:@escaping(T)->Void,failureClosure:@escaping(Error,Bool)->Void)throws->UInt16{throw PortfolioReadError.offline}
     func cancelForIdentifier(_ identifier:UInt16){};func generateRequestId()->UInt16{1};func addSubscription(_ subscription:JSONRPCSubscribing){};func connectIfNeeded(){};func disconnectIfNeeded(){};func unsubsribe(_ identifier:UInt16)throws{}

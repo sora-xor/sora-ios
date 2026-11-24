@@ -113,7 +113,9 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
             
             searchView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             searchView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            searchView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            // The results are only shown while the search field has the keyboard up: they end above it,
+            // or the last of them could never be reached.
+            searchView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             searchView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
         ])
         
@@ -141,38 +143,32 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
         stackView.topAnchor.constraint(equalTo: scrollView.topAnchor).isActive = true
         stackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor).isActive = true
         
-        for i in 0 ..< slides.count {
-            slides[i].viewModel = viewModels[i]
+        for index in 0 ..< slides.count {
+            slides[index].viewModel = viewModels[index]
             
-            stackView.addArrangedSubview(slides[i])
-            slides[i].heightAnchor.constraint(equalTo: scrollView.heightAnchor).isActive = true
-            slides[i].widthAnchor.constraint(equalTo: scrollView.widthAnchor).isActive = true
+            stackView.addArrangedSubview(slides[index])
+            slides[index].heightAnchor.constraint(equalTo: scrollView.heightAnchor).isActive = true
+            slides[index].widthAnchor.constraint(equalTo: scrollView.widthAnchor).isActive = true
         }
     }
     
     private func updateRightButtonItem() {
-        let cratePoolButton = UIBarButtonItem(title: R.string.localizable.exploreCreatePool(preferredLanguages: .currentLocale),
-                                              style: .plain,
-                                              target: self,
-                                              action: #selector(createPool))
-        // Styled by the bar appearance (`NeonChrome`), which follows the
-        // theme: no red text on bars.
-
-        navigationItem.rightBarButtonItem = cratePoolButton
-        if ProductSurfacePolicy.showsPolkamarkt,
-           SettingsManager.shared.polkamarktEnabled {
-            navigationItem.leftBarButtonItem = UIBarButtonItem(title: WalletUX.text("Prediction markets"), style: .plain,
-                target: self, action: #selector(openPredictionMarkets))
+        let create = UIBarButtonItem(image: PortfolioGlyphs.polkaswapMark, style: .plain,
+                                     target: self, action: #selector(createPool))
+        create.accessibilityLabel = R.string.localizable.exploreCreatePool(preferredLanguages: .currentLocale)
+        navigationItem.rightBarButtonItem = create
+        if SettingsManager.shared.polkamarktEnabled {
+            let markets = UIBarButtonItem(image: UIImage(systemName: "chart.bar"), style: .plain,
+                                          target: self, action: #selector(openPredictionMarkets))
+            markets.accessibilityLabel = R.string.localizable.predictionMarkets(preferredLanguages: .currentLocale)
+            navigationItem.leftBarButtonItem = markets
         } else {
             navigationItem.leftBarButtonItem = nil
         }
     }
     
     @objc private func openPredictionMarkets() {
-        guard
-            ProductSurfacePolicy.showsPolkamarkt,
-            SettingsManager.shared.polkamarktEnabled
-        else { return }
+        guard SettingsManager.shared.polkamarktEnabled else { return }
         showPredictionMarkets?()
     }
 
@@ -190,11 +186,11 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
         let color = SoramitsuUI.shared.theme == .light ? UIColor(hex: "#3C3C43", alpha: 0.6) : .white
         
         searchController.searchBar.searchTextField.attributedPlaceholder = NSAttributedString.init(
-            string: R.string.localizable.search(),
+            string: R.string.localizable.search(preferredLanguages: .currentLocale),
             attributes: [ NSAttributedString.Key.foregroundColor: color]
         )
         searchController.searchBar.setLeftImage(R.image.magnifyingglass()!, with: 8, tintColor: color)
-        searchController.searchBar.searchTextField.textColor = color
+        searchController.searchBar.searchTextField.textColor = Lit.ink
     }
 }
 
@@ -212,11 +208,9 @@ extension ExploreViewController: Localizable {
 extension ExploreViewController: TitleSegmentControlViewModelDelegate {
     func changeCurrentPage(to number: Int) {
         let pageWidth = scrollView.bounds.width
-        let offset = number * Int(pageWidth)
+        let offset = CGFloat(number) * pageWidth
         
-        UIView.animate(withDuration: 0.33, animations: { [weak self] in
-          self?.scrollView.contentOffset.x = CGFloat(offset)
-        })
+        scrollView.setContentOffset(CGPoint(x: offset, y: 0), animated: LitMotion.allowed)
     }
 }
 

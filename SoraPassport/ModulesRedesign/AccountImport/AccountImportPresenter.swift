@@ -20,12 +20,6 @@ import SoraFoundation
 import SSFUtils
 import RobinHood
 
-enum AccountImportContext: String {
-    case sourceType
-    case cryptoType
-    case addressType
-}
-
 final class AccountImportPresenter {
     static let maxMnemonicLength: Int = 250
     static let maxMnemonicSize: Int = 24
@@ -58,7 +52,18 @@ final class AccountImportPresenter {
     private func currentValidationReview() -> ValidationReview? {
         guard let sourceType = selectedSourceType, let cryptoType = selectedCryptoType,
               let networkType = selectedNetworkType, let sourceViewModel, let usernameViewModel else { return nil }
-        return ValidationReview(sourceType: sourceType, cryptoType: cryptoType, networkType: networkType,
+        // A keystore declares its signing scheme. Bind validation to that
+        // declaration before validateAccount updates the visible selection.
+        let reviewedCrypto: CryptoType
+        if sourceType == .keystore,
+           let data = sourceViewModel.inputHandler.value.data(using: .utf8),
+           let definition = try? JSONDecoder().decode(KeystoreDefinition.self, from: data),
+           let declared = try? AccountImportJsonFactory().createInfo(from: definition).cryptoType {
+            reviewedCrypto = declared
+        } else {
+            reviewedCrypto = cryptoType
+        }
+        return ValidationReview(sourceType: sourceType, cryptoType: reviewedCrypto, networkType: networkType,
                                 source: sourceViewModel.inputHandler.value, username: usernameViewModel.inputHandler.value,
                                 password: passwordViewModel?.inputHandler.value ?? "",
                                 derivationPath: derivationPathViewModel?.inputHandler.value ?? "", expectedAddress: expectedAddress)
@@ -184,28 +189,20 @@ final class AccountImportPresenter {
         }
 
         if preferredInfo.networkType == nil {
-            let locale = localizationManager?.selectedLocale
-            let message = "accountImportJsonNoNetwork"//R.string.localizable.accountImportJsonNoNetwork(preferredLanguages: locale?.rLanguages)
-            view?.setUploadWarning(message: message)
+            view?.setUploadWarning(message: WalletUX.text("This backup does not specify a network. Check that it belongs to SORA."))
             return
         }
 
         if let preferredNetwork = preferredInfo.networkType,
            !metadata.availableNetworks.contains(preferredNetwork) {
-            let locale = localizationManager?.selectedLocale ?? Locale.current
-            let message = "accountImportWrongNetwork"//R.string.localizable
-                //.accountImportWrongNetwork(preferredNetwork.titleForLocale(locale),
-                     //                      metadata.defaultNetwork.titleForLocale(locale))
-            view?.setUploadWarning(message: message)
+            view?.setUploadWarning(message: WalletUX.text("This backup specifies a different network. Check that it belongs to SORA."))
             return
         }
     }
 
     private func applyAdvanced(_ preferredInfo: AccountImportPreferredInfo?) {
         guard let selectedSourceType = selectedSourceType else {
-            let locale = localizationManager?.selectedLocale
-            let warning = "accountImportJsonNoNetwork"//R.string.localizable.accountImportJsonNoNetwork(preferredLanguages: locale?.rLanguages)
-            view?.setUploadWarning(message: warning)
+            view?.setUploadWarning(message: WalletUX.text("This backup does not specify a network. Check that it belongs to SORA."))
             return
         }
 
@@ -475,15 +472,15 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
                     }
                     return
                 }
-                self?.wireframe.proceed(from: self?.view,
-                                        sourceType: selectedSourceType,
-                                        cryptoType: self?.selectedCryptoType ?? selectedCryptoType,
-                                        networkType: selectedNetworkType,
-                                        sourceViewModel: sourceViewModel,
-                                        usernameViewModel: usernameViewModel,
-                                        passwordViewModel: self?.passwordViewModel,
-                                        derivationPathViewModel: self?.derivationPathViewModel,
-                                        expectedAddress: self?.expectedAddress)
+                self?.wireframe.proceed(from: self?.view, submission: AccountImportSubmission(
+                    sourceType: selectedSourceType,
+                    cryptoType: self?.selectedCryptoType ?? selectedCryptoType,
+                    networkType: selectedNetworkType,
+                    sourceViewModel: sourceViewModel,
+                    usernameViewModel: usernameViewModel,
+                    passwordViewModel: self?.passwordViewModel,
+                    derivationPathViewModel: self?.derivationPathViewModel,
+                    expectedAddress: self?.expectedAddress))
             case .failure(let error):
                 self?.didReceiveAccountImport(error: error)
             case .none:

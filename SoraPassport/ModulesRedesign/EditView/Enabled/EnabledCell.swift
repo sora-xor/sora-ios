@@ -133,6 +133,9 @@ extension EnabledCell: SoramitsuTableViewCellProtocol {
             view.titleLabel.sora.text = enabledModel.title
             view.checkmarkButton.sora.image = R.image.checkboxSelected()
             view.checkmarkButton.sora.isEnabled = enabledModel.state == .selected
+            view.tappableArea.isAccessibilityElement = true
+            view.tappableArea.accessibilityLabel = enabledModel.title
+            view.tappableArea.accessibilityTraits = enabledIds.contains(enabledModel.id) ? [.button, .selected] : [.button]
             view.tappableArea.sora.isHidden = false
             view.tappableArea.sora.addHandler(for: .touchUpInside) { [weak enabledItem] in
                 enabledItem?.onTap?(enabledModel.id)
@@ -144,6 +147,9 @@ extension EnabledCell: SoramitsuTableViewCellProtocol {
             let view = EnabledView()
             view.titleLabel.sora.text = enabledModel.title
             view.checkmarkButton.sora.image = R.image.checkboxDefault()?.tinted(with: SoramitsuUI.shared.theme.palette.color(.accentPrimary))
+            view.tappableArea.isAccessibilityElement = true
+            view.tappableArea.accessibilityLabel = enabledModel.title
+            view.tappableArea.accessibilityTraits = enabledIds.contains(enabledModel.id) ? [.button, .selected] : [.button]
             view.tappableArea.sora.isHidden = false
             view.tappableArea.sora.addHandler(for: .touchUpInside) { [weak enabledItem] in
                 enabledItem?.onTap?(enabledModel.id)

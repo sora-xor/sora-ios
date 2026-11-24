@@ -71,29 +71,6 @@ final class WelcomeViewController: SoramitsuViewController {
         return label
     }()
     
-    private lazy var googleButton: SoramitsuButton = {
-        let title = SoramitsuTextItem(text: R.string.localizable.onboardingContinueWithGoogle(preferredLanguages: .currentLocale),
-                                      fontData: FontType.buttonM,
-                                      textColor: .accentSecondary,
-                                      alignment: .center)
-        
-        let button = SoramitsuButton()
-        button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .custom(uiColor: .clear)
-        button.sora.attributedText = title
-        button.sora.imageSize = 37
-        button.sora.leftImage = R.image.googleIcon()
-        button.sora.borderColor = .accentSecondary
-        button.sora.borderWidth = 1
-        button.sora.isHidden = true
-        button.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.googleButton.isUserInteractionEnabled = false
-            self?.loadingView.isHidden = false
-            self?.presenter.activateCloudStorageConnection()
-        }
-        return button
-    }()
-    
     private lazy var createAccountButton = WalletUX.button(
         R.string.localizable.create_account_title(preferredLanguages: .currentLocale), primary: true
     ) { [weak self] in self?.presenter.activateSignup() }
@@ -124,6 +101,7 @@ final class WelcomeViewController: SoramitsuViewController {
     }
 
     private let scrollView = UIScrollView()
+    private var didEnter = false
 
     lazy var termDecorator: AttributedStringDecoratorProtocol = {
         CompoundAttributedStringDecorator.legalRedesign(for: Locale.current)
@@ -205,6 +183,14 @@ final class WelcomeViewController: SoramitsuViewController {
         presenter.viewWillAppear()
     }
     
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard !didEnter else { return }
+        didEnter = true
+        LitMotion.rise(logo, by: 8)
+        LitMotion.rise(actionsStack, by: 8, after: 0.05)
+    }
+
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         navigationController?.setNavigationBarHidden(false, animated: animated)
@@ -216,7 +202,7 @@ final class WelcomeViewController: SoramitsuViewController {
         scrollView.addSubview(containerView)
         createAccountButton.translatesAutoresizingMaskIntoConstraints = false
         importAccountButton.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubviews(titleLabel, subtitleLabel, googleButton, actionsStack, termsLabel)
+        containerView.addSubviews(titleLabel, subtitleLabel, actionsStack, termsLabel)
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let available = (try? WalletLocalStateSetAside.Paths.production()).map {
                 !WalletPreservedGeneration.available(paths: $0, settings: SettingsManager.shared).isEmpty
@@ -239,9 +225,6 @@ final class WelcomeViewController: SoramitsuViewController {
             scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 72),
             containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
-            containerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
-            containerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
-            containerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32),
             
             logo.topAnchor.constraint(equalTo: containerView.topAnchor, constant: -56),
             logo.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
@@ -267,6 +250,8 @@ final class WelcomeViewController: SoramitsuViewController {
             loadingView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             loadingView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
+        // 16 from each side on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(containerView, inScroll: scrollView, margin: 16)
     }
 }
 
@@ -282,7 +267,6 @@ extension WelcomeViewController: OnboardingMainViewProtocol {
     }
     
     func hideLoading() {
-        googleButton.isUserInteractionEnabled = true
         loadingView.isHidden = true
     }
 }

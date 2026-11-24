@@ -73,6 +73,20 @@ final class DetailView: SoramitsuControl {
         return view
     }()
     
+    /// A transaction's status as a seal. Hidden unless the row is given one.
+    let sealView: SacredSealView = {
+        let view = SacredSealView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.heightAnchor.constraint(equalToConstant: 18).isActive = true
+        view.widthAnchor.constraint(equalToConstant: 18).isActive = true
+        let palette = SoramitsuUI.shared.theme.palette
+        view.workingColor = palette.color(.fgSecondary)
+        view.settledColor = palette.color(.statusSuccess)
+        view.brokenColor = palette.color(.statusError)
+        view.isHidden = true
+        return view
+    }()
+
     let valueLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textS
@@ -119,7 +133,7 @@ final class DetailView: SoramitsuControl {
         addSubviews(leftInfoStackView, rightInfoStackView)
         
         leftInfoStackView.addArrangedSubviews(titleLabel, infoButton)
-        rightInfoStackView.addArrangedSubviews(progressView, assetImageView, valueLabel, fiatValueLabel)
+        rightInfoStackView.addArrangedSubviews(progressView, assetImageView, sealView, valueLabel, fiatValueLabel)
     }
 
     private func setupLayout() {

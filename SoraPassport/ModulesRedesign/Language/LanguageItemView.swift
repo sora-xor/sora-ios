@@ -38,7 +38,8 @@ final class LanguageItemView: SoramitsuView {
         let view = SoramitsuImageView()
         view.sora.isUserInteractionEnabled = false
         view.sora.backgroundColor = .custom(uiColor: .clear)
-        view.image = R.image.profile.checkmarkGreen()
+        view.image = UIImage(systemName: "checkmark")
+        view.tintColor = Lit.lacquerText
         return view
     }()
 
@@ -97,6 +98,8 @@ final class LanguageItemView: SoramitsuView {
         checkmarkImageView.leadingAnchor == self.leadingAnchor + 20
         checkmarkImageView.centerYAnchor == self.centerYAnchor
         
+        stack.centerYAnchor == centerYAnchor
+        stack.trailingAnchor == trailingAnchor
         stack.leadingAnchor == checkmarkImageView.trailingAnchor
     }
     

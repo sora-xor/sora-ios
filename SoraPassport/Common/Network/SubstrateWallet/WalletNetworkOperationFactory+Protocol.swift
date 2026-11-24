@@ -32,6 +32,8 @@ enum WalletNetworkOperationFactoryError: Error {
     case invalidContext
     case invalidFee
     case insufficientBalance
+    /// The node's answer to a storage read left this key out: nothing is known about it.
+    case storageNotAnswered
 }
 
 extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
@@ -643,9 +645,15 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
               }) else {
             throw WalletNetworkOperationFactoryError.invalidAsset
         }
+        // The signed amount is scaled by the asset's decimals. Predefined
+        // assets use the runtime's fixed value, never one a node reported.
+        let precision = WalletAssetPrecision.pinned(for: asset.identifier).map(Int16.init) ?? asset.precision
+        guard precision >= 0, WalletAssetPrecision.isPossible(UInt32(precision)) else {
+            throw WalletNetworkOperationFactoryError.invalidAsset
+        }
         guard info.amount.decimalValue > 0,
               let amount = info.amount.decimalValue.toSubstrateAmount(
-                  precision: asset.precision
+                  precision: precision
               ),
               amount > 0 else {
             throw WalletNetworkOperationFactoryError.invalidAmount
@@ -662,9 +670,12 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
     }
 
     private func swapOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
+        // Each signed amount is scaled by the decimals of its own asset.
+        // Predefined assets use the runtime's fixed value, never one a node
+        // reported.
         guard info.asset != info.destination,
             let asset = accountSettings.assets.first(where: { $0.identifier == info.asset }),
-            accountSettings.assets.first(where: { $0.identifier == info.destination }) != nil
+            let precisions = SwapAssetPrecisions(info: info, assets: accountSettings.assets)
         else {
             let error = WalletNetworkOperationFactoryError.invalidAsset
             return createCompoundOperation(result: .failure(error))
@@ -675,7 +686,10 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
             return createCompoundOperation(result: .failure(error))
         }
 
-        guard let amountCall = info.amountCall else {
+        guard let amountCall = info.amountCall(
+            sourcePrecision: precisions.source,
+            destinationPrecision: precisions.destination
+        ) else {
             let error = WalletNetworkOperationFactoryError.invalidContext
             return createCompoundOperation(result: .failure(error))
         }

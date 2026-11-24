@@ -9,13 +9,23 @@ import SoraKeystore
 /// Presentation evidence only. Every signing operation still performs its own
 /// authentication, lifecycle and production identity checks.
 enum WalletAccountCapability {
+    typealias SendPreflight = @MainActor (UIViewController?, String?, @escaping @MainActor () -> Void) -> Void
+
+    /// Shared default for the send-entry presenters. The asynchronous identity
+    /// and capability checks remain inside `preflightSend`.
+    static let liveSendPreflight: SendPreflight = { controller, expectedAddress, proceed in
+        preflightSend(from: controller, expectedAddress: expectedAddress, proceed: proceed)
+    }
+
     enum State: Equatable {
         case checking, signing, watchOnly, missingKeys, invalidKeys, repairPending, unavailable
 
+        /// Nothing while the check runs: almost every account can sign, so a
+        /// "checking" line would flash under every wallet at each launch and
+        /// read as a fault. Sending runs its own check before it opens.
         var badge: String? {
             switch self {
-            case .signing: return nil
-            case .checking: return WalletUX.text("Checking keys…")
+            case .signing, .checking: return nil
             case .watchOnly: return WalletUX.text("Watch-only")
             default: return WalletUX.text("Read-only")
             }
@@ -23,7 +33,7 @@ enum WalletAccountCapability {
 
         var reason: String? {
             switch self {
-            case .checking: return WalletUX.text("Checking this account’s signing keys…")
+            case .checking: return nil
             case .signing: return nil
             case .watchOnly: return WalletUX.text("This account was added as watch-only. Sending is disabled.")
             case .missingKeys: return WalletUX.text("Signing keys for this account are missing from this iPhone. Restore its backup to send.")

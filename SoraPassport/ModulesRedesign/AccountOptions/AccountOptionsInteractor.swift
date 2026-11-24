@@ -42,6 +42,9 @@ final class AccountOptionsInteractor {
     private let selectedSettings: SelectedWalletSettingsProtocol
     private let pendingJournals: WalletPendingDeletionJournals
     private let stopWalletServices: () -> Void
+    private let notificationCenter: NotificationCenter
+    private let localSignerProbe: AccountOptionsLocalSignerProbe?
+    private let backupAccountStore: WalletGoogleBackupAccountStore
 
     init(keystore: KeystoreProtocol,
          settings: SettingsManagerProtocol,
@@ -60,7 +63,10 @@ final class AccountOptionsInteractor {
          networkStore: @escaping () throws -> WalletNetworkStore = { try WalletNetworkStore() },
          selectedSettings: SelectedWalletSettingsProtocol = SelectedWalletSettings.shared,
          pendingJournals: WalletPendingDeletionJournals = WalletPendingDeletionJournals(),
-         stopWalletServices: @escaping () -> Void = { ServiceCoordinator.shared.throttle() }) {
+         stopWalletServices: @escaping () -> Void = { ServiceCoordinator.shared.throttle() },
+         notificationCenter: NotificationCenter = .default,
+         localSignerProbe: AccountOptionsLocalSignerProbe? = nil,
+         backupAccountStore: WalletGoogleBackupAccountStore = .shared) {
         self.keystore = keystore
         self.settings = settings
         self.cacheFacade = cacheFacade
@@ -79,7 +85,59 @@ final class AccountOptionsInteractor {
         self.selectedSettings = selectedSettings
         self.pendingJournals = pendingJournals
         self.stopWalletServices = stopWalletServices
+        self.notificationCenter = notificationCenter
+        self.localSignerProbe = localSignerProbe
+        self.backupAccountStore = backupAccountStore
         self.eventCenter.add(observer: self)
+    }
+
+    /// Admits one deletion of this wallet's Drive backup. Under the wallet
+    /// lease: the owner's authorization still holds, the keys on this iPhone
+    /// prove the wallet, the authorization is used, and the deletion is
+    /// marked as running (`WalletCloudBackupDeletions`), so that removing the
+    /// wallet, which takes the same lease, cannot erase the keys while the
+    /// backup is being deleted. The lease is released before Google is
+    /// contacted, as for a save. The caller ends the mark.
+    private func admitBackupDeletion(authorization: AccountOptionsCloudBackupAuthorization) async throws {
+        // A lapsed authorization waits for nothing and reads no key.
+        try authorization.require(for: account.address)
+        let lease: WalletLifecycleLease?
+        if localSignerProbe == nil {
+            do {
+                lease = try await lifecycleCoordinator.acquireForMutableWalletAccessAsync()
+            } catch {
+                throw AccountOptionsCloudBackupError.localSignerUnavailable(.unavailable)
+            }
+        } else {
+            lease = nil
+        }
+        defer { lease?.release() }
+        // Waiting for the lease can outlast the authorization (the app may
+        // have gone to the background). No key is read then.
+        try authorization.require(for: account.address)
+        let signer: WalletAccountCapability.State
+        if let localSignerProbe {
+            signer = await localSignerProbe(account)
+        } else {
+            let snapshot: WalletNetworkSnapshot?
+            do {
+                snapshot = try networkStore().load()
+            } catch {
+                throw AccountOptionsCloudBackupError.localSignerUnavailable(.unavailable)
+            }
+            // Loading the snapshot can wait for its lock, long enough for the
+            // app to go to the background. The keys are read only while the
+            // authorization still holds.
+            try authorization.require(for: account.address)
+            signer = WalletAccountCapability.evaluate(account: account, keystore: keystore, settings: settings,
+                                                     recoveryGate: recoveryGate, activeSnapshot: snapshot)
+        }
+        guard signer == .signing else {
+            throw AccountOptionsCloudBackupError.localSignerUnavailable(signer)
+        }
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        try authorization.redeem(for: account.address)
+        WalletCloudBackupDeletions.begin(account.address)
     }
     
     private func loadPhrase() throws -> IRMnemonicProtocol? {
@@ -136,7 +194,17 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
         }
     }
     
-    func deleteBackup(completion: @escaping (Error?) -> Void) {
+    func makeCloudBackupAuthorization() -> AccountOptionsCloudBackupAuthorization {
+        AccountOptionsCloudBackupAuthorization(
+            accountAddress: account.address,
+            selectedAddress: { [selectedSettings] in selectedSettings.currentAccount?.address },
+            eventCenter: eventCenter,
+            notificationCenter: notificationCenter
+        )
+    }
+
+    func deleteBackup(authorization: AccountOptionsCloudBackupAuthorization,
+                      completion: @escaping (Error?) -> Void) {
         let account = OpenBackupAccount(address: currentAccount.address)
         Task { [weak self] in
             guard let self else {
@@ -145,7 +213,24 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
             }
             do {
                 try recoveryGate.requireAuthorizedLifecycleContinuation()
-                try await cloudStorageService.deleteBackup(account: account)
+                // The Drive backup may be the only copy of this wallet's
+                // keys. It is deleted only while the keys on this iPhone
+                // prove the wallet, so the wallet stays recoverable from
+                // here. A refusal leaves the authorization unused.
+                try await admitBackupDeletion(authorization: authorization)
+                let googleAccount: CloudStorageAccountIdentity?
+                do {
+                    googleAccount = try await cloudStorageService.deleteBackupNamingAccount(account: account)
+                    WalletCloudBackupDeletions.end(account.address)
+                } catch {
+                    WalletCloudBackupDeletions.end(account.address)
+                    throw error
+                }
+                // The Google account that served the deletion no longer
+                // holds this wallet's backup.
+                if let googleAccount {
+                    backupAccountStore.remove(for: account.address, googleUserID: googleAccount.userID)
+                }
                 try recoveryGate.requireAuthorizedLifecycleContinuation()
                 await MainActor.run {
                     let addresses = ApplicationConfig.shared.backupedAccountAddresses
@@ -158,23 +243,32 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
         }
     }
 
-    func signInToGoogleIfNeeded(completion: ((OpenBackupAccount?) -> Void)?) {
+    func signInToGoogleIfNeeded(authorization: AccountOptionsCloudBackupAuthorization,
+                                completion: ((AccountOptionsCloudBackupPreparation) -> Void)?) {
         Task { [weak self] in
             guard let self else {
-                await MainActor.run { completion?(nil) }
+                await MainActor.run { completion?(.unavailable) }
                 return
             }
             do {
+                // A lapsed authorization does not even start Google sign-in.
+                try authorization.require(for: account.address)
                 guard try await cloudStorageService.signInIfNeeded() == .authorized else {
-                    await MainActor.run { completion?(nil) }
+                    await MainActor.run { completion?(.unavailable) }
                     return
                 }
+                // Google sign-in can take the owner out of the app, and an
+                // existing Google session is accepted without asking. The
+                // phrase is read only while the wallet authorization holds.
+                // The backup password screen reads the secret again to
+                // encrypt it, under the rest of the same authorization.
+                let passwordAuthorization = try authorization.redeemForBackupPassword(for: account.address)
                 var material = try WalletBackupMaterial.load(
                     for: account, keystore: keystore, recoveryGate: recoveryGate
                 )
                 defer { material.wipe() }
                 guard let entropy = material.entropy else {
-                    await MainActor.run { completion?(nil) }
+                    await MainActor.run { completion?(.unavailable) }
                     return
                 }
                 let mnemonic = try mnemonicCreator.mnemonic(fromEntropy: entropy)
@@ -186,9 +280,11 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                     substrateDerivationPath: material.derivationPath ?? ""
                 )
                 try recoveryGate.requireAuthorizedLifecycleContinuation()
-                await MainActor.run { completion?(backup) }
+                await MainActor.run { completion?(.ready(backup, passwordAuthorization)) }
+            } catch AccountOptionsCloudBackupError.authorizationRequired {
+                await MainActor.run { completion?(.authorizationRequired) }
             } catch {
-                await MainActor.run { completion?(nil) }
+                await MainActor.run { completion?(.unavailable) }
             }
         }
     }
@@ -230,6 +326,12 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                     .extractNoCancellableResultData()
                 try self.recoveryGate
                     .requireAuthorizedLifecycleContinuation()
+                // Checked under the lease the backup deletion marks itself
+                // under: while this wallet's Drive backup is being deleted,
+                // its keys stay on this iPhone.
+                guard !WalletCloudBackupDeletions.isRunning(for: self.account.address) else {
+                    throw WalletPendingDeletionPreflightError.cloudBackupDeletionRunning
+                }
                 let accounts = try inventoryOperation
                     .extractNoCancellableResultData()
                 return try self.verifyExplicitRemovalIdentity(
@@ -440,6 +542,197 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
 
 }
 
+/// A wallet authorization (PIN or biometrics) that has just succeeded for
+/// one Google Drive backup operation of Account Options: reading the
+/// account's recovery phrase for a new backup, or deleting its backup.
+/// Google sign-in and the backup password never stand in for it.
+///
+/// It holds only for the account it was given for, while the wallet selected
+/// then stays selected and the app stays in the foreground. Once the app
+/// goes to the background or the selected wallet changes, it has lapsed and
+/// the owner must authorize again. It allows one operation only.
+final class AccountOptionsCloudBackupAuthorization {
+    let accountAddress: String
+    private let selectedAddressWhenGiven: String?
+    private let selectedAddress: () -> String?
+    private let eventCenter: EventCenterProtocol
+    private let notificationCenter: NotificationCenter
+    private let lock = NSLock()
+    private var hasLapsed = false
+    private var backgroundObserver: NSObjectProtocol?
+
+    convenience init(accountAddress: String,
+                     selectedAddress: @escaping () -> String?,
+                     eventCenter: EventCenterProtocol,
+                     notificationCenter: NotificationCenter = .default) {
+        self.init(accountAddress: accountAddress,
+                  selectedAddressWhenGiven: selectedAddress(),
+                  selectedAddress: selectedAddress,
+                  eventCenter: eventCenter,
+                  notificationCenter: notificationCenter)
+    }
+
+    private init(accountAddress: String,
+                 selectedAddressWhenGiven: String?,
+                 selectedAddress: @escaping () -> String?,
+                 eventCenter: EventCenterProtocol,
+                 notificationCenter: NotificationCenter) {
+        self.accountAddress = accountAddress
+        self.selectedAddress = selectedAddress
+        self.selectedAddressWhenGiven = selectedAddressWhenGiven
+        self.eventCenter = eventCenter
+        self.notificationCenter = notificationCenter
+        // Not `willResignActive`: Face ID and system alerts resign the app
+        // without leaving it.
+        backgroundObserver = notificationCenter.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            self?.lapse()
+        }
+        eventCenter.add(observer: self)
+    }
+
+    deinit {
+        if let backgroundObserver {
+            notificationCenter.removeObserver(backgroundObserver)
+        }
+    }
+
+    func lapse() {
+        lock.lock()
+        hasLapsed = true
+        lock.unlock()
+    }
+
+    /// Throws `AccountOptionsCloudBackupError.authorizationRequired` unless
+    /// the authorization still holds for `accountAddress`.
+    func require(for accountAddress: String) throws {
+        try admit(accountAddress, redeeming: false)
+    }
+
+    /// Like `require(for:)`, and uses the authorization up.
+    func redeem(for accountAddress: String) throws {
+        try admit(accountAddress, redeeming: true)
+    }
+
+    /// Like `redeem(for:)`, and returns the authorization for the rest of the
+    /// same backup: the backup password screen reads the wallet secret once
+    /// more to encrypt it. The returned authorization holds under this one's
+    /// conditions (this account, the wallet selected when this one was given,
+    /// the same foreground session) and also allows one operation.
+    func redeemForBackupPassword(for accountAddress: String) throws -> AccountOptionsCloudBackupAuthorization {
+        // Bound before this one is used up, so a background or selection
+        // change that arrives in between lapses at least one of the two.
+        let next = AccountOptionsCloudBackupAuthorization(
+            accountAddress: self.accountAddress,
+            selectedAddressWhenGiven: selectedAddressWhenGiven,
+            selectedAddress: selectedAddress,
+            eventCenter: eventCenter,
+            notificationCenter: notificationCenter
+        )
+        try redeem(for: accountAddress)
+        return next
+    }
+
+    private func admit(_ accountAddress: String, redeeming: Bool) throws {
+        let currentSelection = self.selectedAddress()
+        lock.lock()
+        defer { lock.unlock() }
+        guard !hasLapsed,
+              accountAddress == self.accountAddress,
+              currentSelection == selectedAddressWhenGiven
+        else {
+            throw AccountOptionsCloudBackupError.authorizationRequired
+        }
+        if redeeming {
+            hasLapsed = true
+        }
+    }
+}
+
+extension AccountOptionsCloudBackupAuthorization: EventVisitorProtocol {
+    // Any change counts, even one that later selects the same wallet again.
+    func processSelectedAccountChanged(event _: SelectedAccountChanged) {
+        lapse()
+    }
+}
+
+enum AccountOptionsCloudBackupError: Error, Equatable {
+    /// The operation needs a new wallet authorization: the one given for it
+    /// lapsed, was already used, or was given for another account. Nothing
+    /// was read from the Keychain and nothing was changed in the cloud.
+    case authorizationRequired
+    /// The Drive backup was not deleted because the keys on this iPhone do
+    /// not prove the wallet (they are missing, unverified, watch-only, being
+    /// repaired, or could not be checked). The backup may be their only
+    /// copy. Nothing was changed in the cloud and the authorization was not
+    /// used.
+    case localSignerUnavailable(WalletAccountCapability.State)
+}
+
+extension AccountOptionsCloudBackupError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .authorizationRequired:
+            return nil
+        case .localSignerUnavailable(.unavailable), .localSignerUnavailable(.checking):
+            return WalletUX.text("This wallet’s keys could not be checked, so its Google Drive backup was kept. Unlock this iPhone and try again.")
+        case .localSignerUnavailable:
+            return WalletUX.text("This iPhone has no usable keys for this wallet, so its Google Drive backup may be the only copy. The backup was kept. Restore the wallet’s keys first.")
+        }
+    }
+}
+
+/// Reports whether an account can sign with the keys on this device.
+typealias AccountOptionsLocalSignerProbe = (AccountItem) async -> WalletAccountCapability.State
+
+/// The wallets whose Google Drive backup is being deleted right now. A
+/// deletion is admitted only while the keys on this iPhone prove the wallet;
+/// removing the wallet waits until the deletion has ended, so the two can
+/// never leave the wallet with neither its keys nor its backup. In memory
+/// only: a deletion does not outlive the process.
+enum WalletCloudBackupDeletions {
+    private static let lock = NSLock()
+    private static var running: [String: Int] = [:]
+
+    static func begin(_ address: String) {
+        lock.lock(); defer { lock.unlock() }
+        running[address, default: 0] += 1
+    }
+
+    static func end(_ address: String) {
+        lock.lock(); defer { lock.unlock() }
+        guard let count = running[address] else { return }
+        running[address] = count > 1 ? count - 1 : nil
+    }
+
+    static func isRunning(for address: String) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return running[address] != nil
+    }
+}
+
+/// What the Google Drive backup flow has for the backup password screen
+/// once Google sign-in is done.
+enum AccountOptionsCloudBackupPreparation {
+    /// The verified backup of the account, and the authorization the backup
+    /// password screen needs to read the wallet secret for it.
+    case ready(OpenBackupAccount, AccountOptionsCloudBackupAuthorization)
+    /// No backup can be made now: Google sign-in was refused or failed, or
+    /// the account has no verified recovery phrase.
+    case unavailable
+    /// The wallet authorization lapsed before the recovery phrase was read,
+    /// so it was not read. The owner has to authorize again.
+    case authorizationRequired
+}
+
+/// Asks the owner for the wallet authorization again and completes with a
+/// new one for the same account, or with nil when it is refused.
+typealias AccountOptionsCloudBackupReauthorization =
+    (@escaping (AccountOptionsCloudBackupAuthorization?) -> Void) -> Void
+
 enum WalletPendingDeletionPreflightError: LocalizedError, Equatable {
     case nexusJournalUnavailable
     case polkamarktJournalUnavailable
@@ -447,9 +740,16 @@ enum WalletPendingDeletionPreflightError: LocalizedError, Equatable {
     case unresolvedNexusTransaction
     case unresolvedPolkamarktTransaction
     case unresolvedSora2Submission
+    /// The wallet's Google Drive backup is being deleted; its keys stay
+    /// until that has ended.
+    case cloudBackupDeletionRunning
 
     var errorDescription: String? {
         switch self {
+        case .cloudBackupDeletionRunning:
+            return WalletUX.text(
+                "This account’s Google Drive backup is being deleted. Wait until that has finished, then try again. Nothing was removed."
+            )
         case .nexusJournalUnavailable:
             return "Account deletion is paused because the protected Nexus pending-transaction journal could not be verified. Recover the journal and try again. No wallet data was removed."
         case .polkamarktJournalUnavailable:
@@ -1068,6 +1368,9 @@ private extension AccountOptionsInteractor {
             backupedAddresses.filter {
                 $0 != account.address
             }
+        // The record of which Google accounts hold its backup goes with the
+        // wallet. The backups themselves stay in Drive.
+        backupAccountStore.remove(for: account.address)
 
         guard !accounts.isEmpty else {
             cleanData(lifecycleLease: lifecycleLease, plan: plan)

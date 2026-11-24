@@ -29,23 +29,17 @@ final class AccountImportWireframe: AccountImportWireframeProtocol {
         self.localizationManager = localizationManager
     }
     
-    func proceed(from view: AccountImportViewProtocol?, 
-                 sourceType: AccountImportSource,
-                 cryptoType: CryptoType,
-                 networkType: Chain,
-                 sourceViewModel: InputViewModelProtocol,
-                 usernameViewModel: InputViewModelProtocol,
-                 passwordViewModel: InputViewModelProtocol?,
-                 derivationPathViewModel: InputViewModelProtocol?,
-                 expectedAddress: String?) {
-        guard let setupNameView = SetupAccountNameViewFactory.createViewForAccountImport(sourceType: sourceType,
-                                                                                         cryptoType: cryptoType,
-                                                                                         networkType: networkType,
-                                                                                         sourceViewModel: sourceViewModel,
-                                                                                         usernameViewModel: usernameViewModel,
-                                                                                         passwordViewModel: passwordViewModel,
-                                                                                         derivationPathViewModel: derivationPathViewModel,
-                                                                                         expectedAddress: expectedAddress)?.controller else { return }
+    func proceed(from view: AccountImportViewProtocol?, submission: AccountImportSubmission) {
+        guard let setupNameView = SetupAccountNameViewFactory.createViewForAccountImport(
+            sourceType: submission.sourceType,
+            cryptoType: submission.cryptoType,
+            networkType: submission.networkType,
+            sourceViewModel: submission.sourceViewModel,
+            usernameViewModel: submission.usernameViewModel,
+            passwordViewModel: submission.passwordViewModel,
+            derivationPathViewModel: submission.derivationPathViewModel,
+            expectedAddress: submission.expectedAddress
+        )?.controller else { return }
         view?.controller.navigationController?.pushViewController(setupNameView, animated: true)
     }
 }

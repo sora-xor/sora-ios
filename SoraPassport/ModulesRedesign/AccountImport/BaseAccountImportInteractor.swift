@@ -96,7 +96,11 @@ class BaseAccountImportInteractor {
                         completion?(.success(account))
                     })
                 case .failure(let error):
-                    if !(error is CancellationError) { self?.presenter?.didReceiveAccountImport(error: error) }
+                    if error is CancellationError {
+                        self?.presenter?.didCancelAccountImport()
+                    } else {
+                        self?.presenter?.didReceiveAccountImport(error: error)
+                    }
                     completion?(.failure(error))
                 }
             }
@@ -161,7 +165,9 @@ class BaseAccountImportInteractor {
                WalletMnemonicWordPolicy.retainedShortWordCounts.contains(mnemonic.allWords().count) {
             let request = AccountCreationRequest(username: account.name ?? "", type: .sora,
                 derivationPath: account.substrateDerivationPath ?? "", cryptoType: cryptoType)
-            candidates.append(accountOperationFactory.prepareAccountOperation(request: request, mnemonic: mnemonic))
+            let operation = accountOperationFactory.prepareAccountOperation(request: request, mnemonic: mnemonic)
+            candidates.append(WalletMnemonicWordPolicy.retainedShortWordCounts.contains(mnemonic.allWords().count)
+                ? reportingShortPhrase(operation, proving: account.address) : operation)
         }
         if let seed = account.encryptedSeed?.substrateSeed, !seed.isEmpty {
             candidates.append(accountOperationFactory.prepareAccountOperation(request:
@@ -179,6 +185,20 @@ class BaseAccountImportInteractor {
                     networkType: .sora, cryptoType: jsonCrypto)))
         }
         importAccountUsingOperation(Self.firstMatchingAddress(account.address, candidates: candidates), completion: nil)
+    }
+
+    /// Tells the presenter when a short historical phrase is what proves the backup's address,
+    /// so the restore can warn that the wallet's keys are far easier to guess.
+    private func reportingShortPhrase(_ operation: BaseOperation<PreparedAccount>,
+                                      proving address: String) -> BaseOperation<PreparedAccount> {
+        ClosureOperation { [weak self] in
+            operation.start()
+            let prepared = try operation.extractNoCancellableResultData()
+            if prepared.account.address == address {
+                DispatchQueue.main.async { self?.presenter?.didRestoreShortPhraseWallet() }
+            }
+            return prepared
+        }
     }
 
     /// Try backup formats in order without writing. A stale phrase/seed cannot
@@ -309,10 +329,18 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
         Task { [weak self] in
             guard let cloudStorage = self?.cloudStorage else { return }
             do {
-                let account = try await cloudStorage.importBackup(account: request.account, password: request.password)
+                // Read only from the Google account that listed this backup.
+                // Another account signed in meanwhile is refused before any
+                // read, even if it holds a file for the same address.
+                let account = try await cloudStorage.importBackup(
+                    account: request.account,
+                    password: request.password,
+                    expectedAccountUserID: request.expectedGoogleUserID
+                )
                 self?.importAccount(account, password: request.password)
             } catch {
-                self?.presenter.didReceiveAccountImport(error: error)
+                // The presenter updates its screen with the failure.
+                await MainActor.run { self?.presenter.didReceiveAccountImport(error: error) }
             }
         }
     }

@@ -32,6 +32,10 @@ enum TransactionContextKeys {
     static let desire: String = "desiredOutput"
     static let marketType: String = "marketType"
     static let minMaxValue: String = "minMaxValue"
+    /// The decimals a swap's review scaled its source and destination
+    /// amounts by. The signer signs only when its own decimals agree.
+    static let sourcePrecision: String = "sourcePrecision"
+    static let destinationPrecision: String = "destinationPrecision"
     
     //pools
     static let dex: String = "dex"

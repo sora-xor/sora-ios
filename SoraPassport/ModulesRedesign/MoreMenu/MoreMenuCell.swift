@@ -38,8 +38,10 @@ final class MoreMenuCell: SoramitsuTableViewCell {
 
     let categoryItem: CategoryItem = {
         let view = CategoryItem(frame: .zero)
+        view.sora.backgroundColor = .bgSurface
         view.sora.cornerRadius = .max
-        view.sora.clipsToBounds = true
+        // Unclipped, so the row is a sheet with its shadow on the page.
+        view.sora.clipsToBounds = false
         return view
     }()
 
@@ -54,14 +56,17 @@ final class MoreMenuCell: SoramitsuTableViewCell {
     }
 
     func setupView() {
+        // A row's shadow falls beyond its own cell.
+        clipsToBounds = false
+        contentView.clipsToBounds = false
         contentView.addSubview(categoryItem)
     }
 
     func setupConstraints() {
         categoryItem.leadingAnchor == contentView.leadingAnchor + 16
         categoryItem.trailingAnchor == contentView.trailingAnchor - 16
-        categoryItem.topAnchor == contentView.topAnchor + 8
-        categoryItem.bottomAnchor == contentView.bottomAnchor - 8
+        categoryItem.topAnchor == contentView.topAnchor + 3
+        categoryItem.bottomAnchor == contentView.bottomAnchor - 3
     }
     
     func updateLayout() {
@@ -87,6 +92,7 @@ extension MoreMenuCell: SoramitsuTableViewCellProtocol {
         circleTask = nil
         categoryItem.titleLabel.sora.text = item.title
         categoryItem.subtitleLabel.sora.text = item.subtitle
+        categoryItem.subtitleView.isHidden = item.subtitle.isEmpty && item.subtitleStream == nil && item.circleColor == nil && item.circleColorStream == nil
         categoryItem.rightImageView.sora.picture = item.picture
 
         if let circleColor = item.circleColor {

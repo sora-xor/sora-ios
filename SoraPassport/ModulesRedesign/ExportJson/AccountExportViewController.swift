@@ -53,7 +53,7 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
     private lazy var passwordInputField: InputField = {
         let view = InputField()
         view.sora.titleLabelText = R.string.localizable.exportJsonInputLabel(preferredLanguages: languages)
-        view.sora.descriptionLabelText = R.string.localizable.backupPasswordRequirments(preferredLanguages: languages)
+        view.sora.descriptionLabelText = R.string.localizable.backupPasswordPolicyRequirements(preferredLanguages: languages)
         view.sora.textFieldPlaceholder = R.string.localizable.exportJsonInputLabel(preferredLanguages: languages)
         view.sora.keyboardType = .alphabet
         view.sora.textContentType = .newPassword
@@ -95,13 +95,42 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
         configure()
     }
 
+    // The card scrolls where it does not fit between the bar and the keyboard (an iPhone SE once both
+    // password notes show, a folded cover, an unfolded screen in landscape): its top never goes under the
+    // bar, and the field being typed in and Download can always be reached. Where there is room the card
+    // stays where it was and nothing scrolls.
+    private let scrollView: UIScrollView = {
+        let view = UIScrollView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.keyboardDismissMode = .interactive
+        view.showsVerticalScrollIndicator = false
+        return view
+    }()
+    private var shownHeight: CGFloat = 0
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // The keyboard came or went: the field being typed in stays on screen.
+        guard scrollView.bounds.height != shownHeight else { return }
+        shownHeight = scrollView.bounds.height
+        revealEditedField()
+    }
+
+    @objc private func revealEditedField() {
+        guard let field = [passwordInputField, confirmPasswordInputField].first(where: { $0.textField.isFirstResponder })
+        else { return }
+        scrollView.layoutIfNeeded()
+        scrollView.scrollRectToVisible(field.convert(field.bounds, to: scrollView).insetBy(dx: 0, dy: -8), animated: false)
+    }
+
     private func configure() {
         navigationItem.backButtonTitle = ""
         navigationItem.largeTitleDisplayMode = .never
         navigationItem.title = R.string.localizable.exportJsonDownloadJson(preferredLanguages: languages)
         titleLabel.sora.text = R.string.localizable.exportJsonDescription(preferredLanguages: languages)
 
-        view.addSubview(containerView)
+        view.addSubview(scrollView)
+        scrollView.addSubview(containerView)
 
         stackView.removeArrangedSubviews()
         containerView.addSubview(stackView)
@@ -114,10 +143,19 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
         stackView.setCustomSpacing(24, after: stackView.arrangedSubviews.last!)
         stackView.addArrangedSubview(downloadButton)
         stackView.setCustomSpacing(20, after: titleLabel)
-        containerView.do {
-            $0.horizontalAnchors == view.horizontalAnchors + 16
-            $0.topAnchor == view.soraSafeTopAnchor
-
+        // 16 from each side on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(containerView, inScroll: scrollView, margin: 16)
+        NSLayoutConstraint.activate([
+            // Under the bar by the scroll view's own safe-area inset, down to the keyboard.
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+            containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -8)
+        ])
+        [passwordInputField, confirmPasswordInputField].forEach {
+            $0.textField.addTarget(self, action: #selector(revealEditedField), for: .editingDidBegin)
         }
         stackView.do {
             $0.horizontalAnchors == containerView.horizontalAnchors + 24
@@ -127,13 +165,12 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
 
     private func updateState() {
 
-        let isPasswordValid = (passwordInputField.sora.text?.count ?? 0) >= 6
+        let violation = BackupPasswordPolicy.violation(for: passwordInputField.sora.text ?? "")
+        let isPasswordValid = violation == nil
         let isConfirmEmpty = confirmPasswordInputField.sora.text?.isEmpty ?? true
         let isMatching = passwordInputField.sora.text == confirmPasswordInputField.sora.text
 
-        passwordInputField.sora.descriptionLabelText = isPasswordValid
-            ? R.string.localizable.backupPasswordMandatoryReqsFulfilled(preferredLanguages: languages)
-            : R.string.localizable.backupPasswordRequirments(preferredLanguages: languages)
+        passwordInputField.sora.descriptionLabelText = BackupPasswordPolicy.guidance(for: violation, preferredLanguages: languages)
         passwordInputField.sora.state = isPasswordValid ? .success : .fail
 
         confirmPasswordInputField.sora.descriptionLabelText = isMatching ? "" : isConfirmEmpty ? "" :
@@ -146,7 +183,7 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
     @objc
     func downloadTapped(){
         guard let password = passwordInputField.sora.text,
-              password.count >= 6,
+              BackupPasswordPolicy.violation(for: password) == nil,
               password == confirmPasswordInputField.sora.text else { return }
         presenter.exportWith(password: password)
     }

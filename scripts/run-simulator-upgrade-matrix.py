@@ -23,7 +23,11 @@ parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--cases', nargs='+', default=['vector-9'])
 parser.add_argument('--bundle', choices=['co.jp.soramitsu.sora.dev','co.jp.soramitsu.sora'], default='co.jp.soramitsu.sora.dev')
 parser.add_argument('--stage', choices=['all', 'prepare', 'ui', 'verify'], default='all')
+parser.add_argument('--stage-timeout-seconds', type=int, default=240,
+                    help='Maximum runtime per Xcode test stage (default: 240).')
 args = parser.parse_args()
+if args.stage_timeout_seconds <= 0:
+    parser.error('--stage-timeout-seconds must be positive')
 if args.stage != 'all' and any(case in ['two-reinstalls', 'erase-restore'] for case in args.cases):
     sys.exit('The two-reinstalls and erase-restore scenarios require --stage all so their lifecycle evidence is complete.')
 if args.bundle != 'co.jp.soramitsu.sora.dev' and (args.stage != 'ui' or args.cases != ['fresh-import']):
@@ -44,7 +48,7 @@ def command(cmd, log):
     with open(log, 'w') as stream:
         process = subprocess.Popen(cmd, stdout=stream, stderr=subprocess.STDOUT)
         try:
-            code = process.wait(timeout=240)
+            code = process.wait(timeout=args.stage_timeout_seconds)
         except subprocess.TimeoutExpired:
             subprocess.run(['sample', str(process.pid), '2', '-file', str(log)+'.sample.txt'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             process.terminate()
@@ -53,14 +57,16 @@ def command(cmd, log):
                 process.kill()
                 process.wait()
             code = 124
-            stream.write('\nHARNESS_TIMEOUT: Xcode did not finish within 240 seconds. Not a pass.\n')
+            stream.write(f'\nHARNESS_TIMEOUT: Xcode did not finish within {args.stage_timeout_seconds} seconds. Not a pass.\n')
     return {'exitCode': code, 'seconds': round(time.time()-started,2), 'log': str(log)}
 
 def route(case):
-    if case in ['reinstall','bound-reinstall','two-reinstalls','missing-db']: return 'welcome'
+    # An in-place update asks nothing: missing-db, corrupt-db, empty-db,
+    # stuck-on-screen, pinless and the 1.x cases all reach the ordinary PIN pad.
+    if case in ['reinstall','bound-reinstall','two-reinstalls']: return 'welcome'
     if case in ['new-phone','fresh-import']: return 'onboarding'
     if case in ['one-x','entropy-only']: return 'legacy'
-    if case in ['corrupt-db','pinless','preserved-return']: return 'recovery'
+    if case in ['preserved-return']: return 'recovery'
     return 'wallet'
 
 def app_container():
@@ -76,6 +82,26 @@ def host_app():
 def assert_owned_marker(container):
     if (container/'Documents/simulator-public-fixtures-only.marker').read_text() != args.udid:
         raise RuntimeError('Fixture marker does not authorize this simulator')
+
+def legacy_preferences_persisted(container, receipt):
+    # XCTest can replace the app container between the writer and UI tests.
+    # On iOS 17, cfprefsd can still have the old domain on disk when the writer
+    # exits. Only hand off a 1.x installation once its actual inputs are durable.
+    assert_owned_marker(container)
+    expected_name = json.loads(receipt.read_text())['accounts'][0]['username']
+    if not expected_name:
+        raise ValueError('The public legacy fixture must have a display name')
+    path = container / 'Library/Preferences' / (args.bundle + '.plist')
+    deadline = time.monotonic() + args.stage_timeout_seconds
+    while time.monotonic() < deadline:
+        try:
+            values = plistlib.loads(path.read_bytes())
+            if values.get('userName') == expected_name and 'selectedAccount' not in values:
+                return True
+        except (FileNotFoundError, plistlib.InvalidFileException):
+            pass
+        time.sleep(0.1)
+    return False
 
 def reinstall_with_receipt(record):
     # A real app uninstall retains simulator Keychain, but no wallet filesystem
@@ -149,9 +175,15 @@ for case in args.cases:
     elif case in ['one-x','entropy-only']:
         fixture = json.loads((fixture_dir / 'ios-386-long-phrases.json').read_text())['vectors'][0]
     if fixture and len(fixture['phrase'].split()) >= 12:
-        env.update({'SORA_SIMULATOR_REVEAL_PHRASE':'1', 'SORA_SIMULATOR_PUBLIC_PHRASE':fixture['phrase'], 'SORA_SIMULATOR_ADDRESS':fixture['address']})
+        phrase = fixture['phrase']
+        env.update({'SORA_SIMULATOR_REVEAL_PHRASE': '1', 'SORA_SIMULATOR_ADDRESS': fixture['address'],
+                    'SORA_SIMULATOR_WORD_COUNT': str(len(phrase.split())),
+                    'SORA_SIMULATOR_PHRASE_SHA256': hashlib.sha256(' '.join(phrase.split()).encode()).hexdigest()})
+        if case in ('two-reinstalls', 'fresh-import'):
+            env['SORA_SIMULATOR_PUBLIC_PHRASE'] = phrase
     for key, value in run.items():
         if key.startswith('SoraPassport'):
+            value['SystemAttachmentLifetime'] = 'keepNever'
             value.setdefault('EnvironmentVariables',{}).update(env)
             # A build-for-testing command may have selected the unit target. Each
             # explicit command below chooses precisely one test from its target.
@@ -160,6 +192,7 @@ for case in args.cases:
     run_path = args.xctestrun.with_name('SimulatorMatrix-' + args.udid + '-' + case + '.xctestrun')
     run_path.write_bytes(plistlib.dumps(run))
     record = {'case':case,'udid':args.udid,'route':route(case),
+              'stageTimeoutSeconds':args.stage_timeout_seconds,
               'scope':'simulator-source-qualification','releaseAuthorized':False,'stages':{}}
     stages = [
         ('prepare','SoraPassportTests/WalletSimulatorUpgradeFixtureTests/testPreparePublicHistoricalState'),
@@ -186,7 +219,18 @@ for case in args.cases:
         outcome = command(cmd, args.output / (case+'-'+stage+'.log'))
         outcome['resultBundle'] = str(result_bundle)
         record['stages'][stage] = outcome
-        receipt = app_container() / 'Documents/simulator-upgrade-fixture.json'
+        results_path.write_text(json.dumps(results+[record],indent=2)+'\n')
+        if outcome['exitCode'] != 0:
+            print(json.dumps(record,indent=2),flush=True)
+            sys.exit(outcome['exitCode'])
+        container = app_container()
+        receipt = container / 'Documents/simulator-upgrade-fixture.json'
+        if stage == 'prepare' and case in ('one-x', 'entropy-only'):
+            outcome['legacyPreferencesPersisted'] = legacy_preferences_persisted(container, receipt)
+            if not outcome['legacyPreferencesPersisted']:
+                outcome['exitCode'] = 1
+                results_path.write_text(json.dumps(results + [record], indent=2) + '\n')
+                sys.exit('Fixture preparation failed: the released 1.x preferences were not persisted.')
         if receipt.exists():
             # Public synthetic identity and byte hashes only. Keep each phase
             # before the next real erase/uninstall replaces the app container.
@@ -194,9 +238,6 @@ for case in args.cases:
             shutil.copy2(receipt, copied_receipt)
             outcome['publicFixtureReceipt'] = str(copied_receipt)
         results_path.write_text(json.dumps(results+[record],indent=2)+'\n')
-        if outcome['exitCode'] != 0:
-            print(json.dumps(record,indent=2),flush=True)
-            sys.exit(outcome['exitCode'])
         if (stage == 'prepare' and case in ['reinstall','bound-reinstall','two-reinstalls']) or (stage == 'verify-first' and case == 'two-reinstalls'):
             reinstall_with_receipt(record)
         if stage == 'prepare' and case == 'erase-restore':

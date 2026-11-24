@@ -122,8 +122,8 @@ final class ContactsViewModel: NSObject {
                 switch change {
                 case .insert(let items), .update(let items):
                     self?.handleContacts(with: items)
-                default:
-                    break
+                case .delete:
+                    self?.handleContacts(with: [])
                 }
             } else {
                 self?.handleContacts(with: nil)
@@ -133,16 +133,27 @@ final class ContactsViewModel: NSObject {
         dataProvider.addObserver(self,
                                  deliverOn: .main,
                                  executing: changesBlock,
-                                 failing: { _ in },
+                                 failing: { [weak self] _ in
+                                     guard let self, recentContantsItems.isEmpty else { return }
+                                     recentContantsItems = [ContactHeaderCellItem(title: WalletUX.text("Recent recipients unavailable"),
+                                                                                symbol: "exclamationmark.circle")]
+                                     if searchPattern.isEmpty { setupItems?(recentContantsItems) }
+                                 },
                                  options: DataProviderObserverOptions(alwaysNotifyOnRefresh: true))
     }
     
     private func handleContacts(with updatedContacts: [SearchData]?) {
-        guard let contacts = updatedContacts else {
+        // The provider can deliver an empty change set on its first refresh.
+        // A later no-change notification must retain the last known recipients.
+        guard updatedContacts != nil || recentContantsItems.isEmpty else { return }
+        let contacts = updatedContacts ?? []
+
+        if contacts.isEmpty {
+            recentContantsItems = [ContactHeaderCellItem(title: WalletUX.text("No recent recipients"), symbol: "clock")]
+            if searchPattern.isEmpty { setupItems?(recentContantsItems) }
             return
         }
-        
-        recentContantsItems = [ ContactHeaderCellItem(title: R.string.localizable.recentRecipients(preferredLanguages: .currentLocale).uppercased()) ]
+        recentContantsItems = [ ContactHeaderCellItem(title: R.string.localizable.recentRecipients(preferredLanguages: .currentLocale)) ]
         recentContantsItems.append(contentsOf:
                                     contacts.map { contact in
             ContactCellItem(title: contact.firstName, onTap: { [weak self] in
@@ -157,20 +168,18 @@ final class ContactsViewModel: NSObject {
         })
         recentContantsItems.append(ContactFooterItem())
         
-        setupItems?(recentContantsItems)
+        if searchPattern.isEmpty { setupItems?(recentContantsItems) }
     }
 
     private func handleSearch(with foundData: [SearchData]) {
-        let filtered: [SearchData]
-
-        filtered = foundData.filter { $0.accountId != settingsManager.currentAccount?.address }
+        let filtered = foundData.filter { $0.accountId != settingsManager.currentAccount?.address }
 
         if filtered.isEmpty {
-            setupItems?(recentContantsItems)
+            showNoResults()
             return
         }
         
-        let headerTitle = R.string.localizable.contactsSearchResults(preferredLanguages: .currentLocale).uppercased()
+        let headerTitle = R.string.localizable.contactsSearchResults(preferredLanguages: .currentLocale)
         var cellItems: [SoramitsuTableViewItemProtocol] = [ ContactHeaderCellItem(title: headerTitle) ]
         cellItems.append(contentsOf:
                             filtered.map { contact in
@@ -218,7 +227,11 @@ final class ContactsViewModel: NSObject {
                 cancelSearch()
             }
 
-            let headerTitle = R.string.localizable.contactsSearchResults(preferredLanguages: .currentLocale).uppercased()
+            guard !localSearchResults.isEmpty else {
+                showNoResults()
+                return
+            }
+            let headerTitle = R.string.localizable.contactsSearchResults(preferredLanguages: .currentLocale)
             var cellItems: [SoramitsuTableViewItemProtocol] = [ ContactHeaderCellItem(title: headerTitle) ]
             cellItems.append(contentsOf:
                                 localSearchResults.map { contact in
@@ -253,16 +266,27 @@ final class ContactsViewModel: NSObject {
                 guard let self, searchRequestID == requestID, searchPattern == pattern else { return }
                 searchRequestID = nil
                 searchOperation = nil
-                guard let result else { return }
+                guard let result else { showSearchUnavailable(); return }
                 switch result {
                 case .success(let contacts): handleSearch(with: contacts ?? [])
-                case .failure(let error): handleSearchError(error)
+                case .failure: showSearchUnavailable()
                 }
             }
         }
     }
 
-    private func handleSearchError(_ error: Error) {
+    private func showNoResults() {
+        setupItems?([ContactHeaderCellItem(title: R.string.localizable.searchEmptyState(preferredLanguages: .currentLocale),
+                                          symbol: "magnifyingglass")])
+    }
+
+    private func showSearchUnavailable() {
+        let query = searchPattern
+        let retry = ContactHeaderCellItem(title: WalletUX.text("Search unavailable"), symbol: "arrow.clockwise") { [weak self] in
+            guard let self, searchPattern == query else { return }
+            search(query)
+        }
+        setupItems?([retry])
     }
 }
 
@@ -282,6 +306,7 @@ extension ContactsViewModel: ContactsViewModelProtocol {
             return
         }
 
+        setupItems?([])
         scheduleSearch()
     }
     

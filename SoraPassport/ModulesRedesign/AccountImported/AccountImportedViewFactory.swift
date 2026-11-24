@@ -25,6 +25,7 @@ final class AccountImportedViewFactory {
     static func createView(
         with importedAccountAddress: String,
         accounts: [OpenBackupAccount],
+        googleAccount: CloudStorageAccountIdentity,
         endAddingBlock: (() -> Void)? = nil
     ) -> AccountImportedViewProtocol? {
         let view = AccountImportedViewController()
@@ -32,6 +33,7 @@ final class AccountImportedViewFactory {
         let viewModel = AccountImportedViewModel(
             importedAccountAddress: importedAccountAddress,
             backedUpAccounts: accounts,
+            googleAccount: googleAccount,
             wireframe: wireframe,
             endAddingBlock: endAddingBlock
         )

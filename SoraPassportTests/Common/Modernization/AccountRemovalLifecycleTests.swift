@@ -31,6 +31,8 @@ final class AccountRemovalLifecycleTests: XCTestCase {
         let target: AccountItem
         let stop: RemovalStop
         let original: WalletNetworkSnapshot
+        let cloud: RemovalCloud
+        let storeHook: RemovalStoreHook
     }
     private func make(count: Int = 1, selectedIndex: Int = 0, watchOnly: Bool = false,
                       configureJournals: (RemovalJournalState) -> Void = { _ in }) throws -> Fixture {
@@ -60,14 +62,14 @@ final class AccountRemovalLifecycleTests: XCTestCase {
         let accounts = RemovalAccounts(items: items), selected = RemovalSelection(), presenter = RemovalPresenter(), stop = RemovalStop()
         let journals = RemovalJournalState(); configureJournals(journals)
         let readers = WalletPendingDeletionJournals(nexus: { try journals.readNexus() }, polkamarkt: { try journals.readPolkamarkt() }, sora2: { try journals.readSora2() }, sora2PredatesSubmissionWindow: { journals.staleSora2 })
-        let facade = UserDataStorageTestFacade()
+        let facade = UserDataStorageTestFacade(), cloud = RemovalCloud(), storeHook = RemovalStoreHook()
         let model = AccountOptionsInteractor(keystore: keys, settings: settings,
             chain: ChainModel(chainId: Chain.sora.genesisHash(), name: "SORA", nodes: [], addressPrefix: 69, icon: nil, customNodes: [], iosMinAppVersion: nil),
             cacheFacade: CoreDataCacheTestFacade(), substrateDataFacade: facade, userDataFacade: facade,
-            account: items[0], accountRepository: AnyDataProviderRepository(accounts), operationManager: OperationManager(), eventCenter: EventCenter(), mnemonicCreator: IRMnemonicCreator(language: .english), cloudStorageService: RemovalCloud(), recoveryGate: gate,
-            lifecycleCoordinator: lifecycle, networkStore: { store }, selectedSettings: selected, pendingJournals: readers, stopWalletServices: { stop.count += 1 })
+            account: items[0], accountRepository: AnyDataProviderRepository(accounts), operationManager: OperationManager(), eventCenter: EventCenter(), mnemonicCreator: IRMnemonicCreator(language: .english), cloudStorageService: cloud, recoveryGate: gate,
+            lifecycleCoordinator: lifecycle, networkStore: { storeHook.beforeStore?(); return store }, selectedSettings: selected, pendingJournals: readers, stopWalletServices: { stop.count += 1 })
         model.presenter = presenter
-        return Fixture(model: model, accounts: accounts, keys: keys, settings: settings, store: store, selected: selected, presenter: presenter, lifecycle: lifecycle, journals: journals, target: items[0], stop: stop, original: original)
+        return Fixture(model: model, accounts: accounts, keys: keys, settings: settings, store: store, selected: selected, presenter: presenter, lifecycle: lifecycle, journals: journals, target: items[0], stop: stop, original: original, cloud: cloud, storeHook: storeHook)
     }
     private func remove(_ f: Fixture, expected: RemovalPresenter.Result, file: StaticString = #filePath, line: UInt = #line) async {
         let done = expectation(description: "removal completes")
@@ -124,6 +126,90 @@ final class AccountRemovalLifecycleTests: XCTestCase {
         let f = try make(); try f.keys.deleteWalletMaterial(for: f.target.address)
         await remove(f, expected: .restart)
         XCTAssertTrue(f.accounts.items.isEmpty); XCTAssertTrue(try f.keys.checkKey(for: KeystoreTag.pincode.rawValue))
+    }
+    // MARK: Deleting the Drive backup: the production key check, under the wallet lease
+    /// The owner's authorization for a backup deletion of `f.target`, as Account Options makes it.
+    private func deletionAuthorization(_ f: Fixture) -> AccountOptionsCloudBackupAuthorization {
+        f.selected.currentAccount = f.target
+        return f.model.makeCloudBackupAuthorization()
+    }
+    private func deleteBackup(_ f: Fixture, _ authorization: AccountOptionsCloudBackupAuthorization) async -> Error? {
+        let done = expectation(description: "backup deletion ends"); var result: Error?
+        f.model.deleteBackup(authorization: authorization) { result = $0; done.fulfill() }
+        await fulfillment(of: [done], timeout: 5); return result
+    }
+    func testBackupDeletionProvesTheKeysWithTheProductionCheckAndReleasesTheLease() async throws {
+        let f = try make(); f.cloud.deletion = {}
+        let error = await deleteBackup(f, deletionAuthorization(f))
+        XCTAssertNil(error); XCTAssertEqual(f.cloud.deleted, [f.target.address])
+        XCTAssertFalse(WalletCloudBackupDeletions.isRunning(for: f.target.address))
+        let lease = f.lifecycle.tryAcquire(); XCTAssertNotNil(lease, "The key check must release the wallet lease"); lease?.release()
+    }
+    func testBackupIsKeptWhenTheProductionCheckFindsNoKeys() async throws {
+        let f = try make(); f.cloud.deletion = {}; try f.keys.deleteWalletMaterial(for: f.target.address)
+        let authorization = deletionAuthorization(f)
+        let error = await deleteBackup(f, authorization)
+        XCTAssertEqual(error as? AccountOptionsCloudBackupError, .localSignerUnavailable(.missingKeys))
+        XCTAssertTrue(f.cloud.deleted.isEmpty); XCTAssertFalse(WalletCloudBackupDeletions.isRunning(for: f.target.address))
+        XCTAssertNoThrow(try authorization.require(for: f.target.address), "A refusal leaves the authorization unused")
+        let lease = f.lifecycle.tryAcquire(); XCTAssertNotNil(lease); lease?.release()
+    }
+    func testBackupOfAWatchOnlyWalletIsKeptByTheProductionCheck() async throws {
+        let f = try make(watchOnly: true); f.cloud.deletion = {}
+        let error = await deleteBackup(f, deletionAuthorization(f))
+        XCTAssertEqual(error as? AccountOptionsCloudBackupError, .localSignerUnavailable(.watchOnly)); XCTAssertTrue(f.cloud.deleted.isEmpty)
+    }
+    /// The authorization lapses while the deletion waits for the wallet lease. The keys are missing here, so reaching
+    /// the key check would report missing keys; asking for the PIN again shows that no key was looked at.
+    func testAuthorizationThatLapsesWhileWaitingForTheLeaseReadsNoKey() async throws {
+        let f = try make(count: 2); f.cloud.deletion = {}; try f.keys.deleteWalletMaterial(for: f.target.address)
+        let authorization = deletionAuthorization(f)
+        let held = f.lifecycle.acquire()
+        let done = expectation(description: "backup deletion ends"); var result: Error?
+        f.model.deleteBackup(authorization: authorization) { result = $0; done.fulfill() }
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        f.selected.currentAccount = f.accounts.items[1]
+        held.release()
+        await fulfillment(of: [done], timeout: 5)
+        XCTAssertEqual(result as? AccountOptionsCloudBackupError, .authorizationRequired); XCTAssertTrue(f.cloud.deleted.isEmpty)
+        let lease = f.lifecycle.tryAcquire(); XCTAssertNotNil(lease); lease?.release()
+    }
+    /// The authorization lapses while the key check opens the network store, which can wait for its lock. The keys
+    /// are missing here, so reaching the key check would report missing keys; asking for the PIN again shows that no
+    /// key was looked at.
+    func testAuthorizationThatLapsesWhileTheNetworkStoreOpensReadsNoKey() async throws {
+        let f = try make(count: 2); f.cloud.deletion = {}; try f.keys.deleteWalletMaterial(for: f.target.address)
+        let authorization = deletionAuthorization(f)
+        f.storeHook.beforeStore = { [selected = f.selected, other = f.accounts.items[1]] in selected.currentAccount = other }
+        let error = await deleteBackup(f, authorization)
+        XCTAssertEqual(error as? AccountOptionsCloudBackupError, .authorizationRequired); XCTAssertTrue(f.cloud.deleted.isEmpty)
+        XCTAssertFalse(WalletCloudBackupDeletions.isRunning(for: f.target.address))
+        let lease = f.lifecycle.tryAcquire(); XCTAssertNotNil(lease); lease?.release()
+    }
+    /// While the Drive backup is being deleted, removing the wallet is refused and nothing is removed, so the keys
+    /// cannot go while the backup goes. Once the deletion has ended, removal is possible again.
+    func testWalletIsNotRemovedWhileItsDriveBackupIsBeingDeleted() async throws {
+        let f = try make(); let started = expectation(description: "Drive deletion started")
+        var finishDeletion: CheckedContinuation<Void, Never>?
+        f.cloud.deletion = { await withCheckedContinuation { finishDeletion = $0; started.fulfill() } }
+        let done = expectation(description: "backup deletion ends"); var result: Error? = RemovalFailure.unavailable
+        f.model.deleteBackup(authorization: deletionAuthorization(f)) { result = $0; done.fulfill() }
+        await fulfillment(of: [started], timeout: 5)
+        XCTAssertTrue(WalletCloudBackupDeletions.isRunning(for: f.target.address))
+        await remove(f, expected: .blocked); try unchanged(f)
+        XCTAssertEqual(f.presenter.messages, [WalletPendingDeletionPreflightError.cloudBackupDeletionRunning.localizedDescription])
+        XCTAssertTrue(try f.keys.checkKey(for: KeystoreTag.secretKeyTagForAddress(f.target.address)))
+        finishDeletion?.resume()
+        await fulfillment(of: [done], timeout: 5)
+        XCTAssertNil(result); XCTAssertEqual(f.cloud.deleted, [f.target.address])
+        XCTAssertFalse(WalletCloudBackupDeletions.isRunning(for: f.target.address))
+        f.presenter.results = []; f.presenter.messages = []
+        await remove(f, expected: .restart); XCTAssertTrue(f.accounts.items.isEmpty)
+    }
+    func testFailedBackupDeletionEndsItsMark() async throws {
+        let f = try make(); f.cloud.deletion = { throw RemovalFailure.unavailable }
+        let error = await deleteBackup(f, deletionAuthorization(f))
+        XCTAssertTrue(error is RemovalFailure); XCTAssertFalse(WalletCloudBackupDeletions.isRunning(for: f.target.address))
     }
     func testUnreadableNexusJournalBlocksBeforeAnyMutation() async throws {
         let f = try make { $0.nexusError = RemovalFailure.unavailable }
@@ -266,8 +352,17 @@ private final class RemovalCloud: CloudStorageServiceProtocol {
     var isUserAuthorized: Bool { false }
     func signInIfNeeded() async throws -> CloudStorageAccountState { XCTFail("Unexpected cloud access"); return .notAuthorized }
     func getBackupAccounts() async throws -> [OpenBackupAccount] { XCTFail("Unexpected cloud access"); return [] }
-    func deleteBackup(account: OpenBackupAccount) async throws { XCTFail("Unexpected cloud mutation") }
+    /// What deleting a backup does in Drive; without it a deletion is unexpected.
+    var deletion: (() async throws -> Void)?
+    var deleted: [String] = []
+    func deleteBackup(account: OpenBackupAccount) async throws {
+        guard let deletion else { return XCTFail("Unexpected cloud mutation") }
+        try await deletion(); deleted.append(account.address)
+    }
     func saveBackup(account: OpenBackupAccount, password: String) async throws { XCTFail("Unexpected cloud mutation") }
     func importBackup(account: OpenBackupAccount, password: String) async throws -> OpenBackupAccount { XCTFail("Unexpected cloud import"); throw RemovalFailure.unavailable }
+    func importBackup(account: OpenBackupAccount, password: String, expectedAccountUserID: String) async throws -> OpenBackupAccount { XCTFail("Unexpected cloud import"); throw RemovalFailure.unavailable }
     func disconnect() {}
 }
+/// Runs before the interactor opens the network store.
+private final class RemovalStoreHook { var beforeStore: (() -> Void)? }

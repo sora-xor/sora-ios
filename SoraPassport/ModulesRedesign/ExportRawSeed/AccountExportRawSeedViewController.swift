@@ -77,10 +77,11 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
         }
     }()
 
-    private var copyButton: SoramitsuButton = {
+    /// Only where no raw seed is on this iPhone. The seed itself is never put on the clipboard:
+    /// malware on a compromised phone reads it (see `WalletSecretCopy`).
+    private var exportJSONButton: SoramitsuButton = {
         SoramitsuButton(size: .large, type: .tonal(.tertiary)).then {
-            $0.sora.leftImage = R.image.copyNeu()
-            $0.addTarget(nil, action: #selector(copyTapped), for: .touchUpInside)
+            $0.addTarget(nil, action: #selector(exportJSONTapped), for: .touchUpInside)
             $0.sora.cornerRadius = .circle
         }
     }()
@@ -89,8 +90,9 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
         super.viewDidLoad()
         soramitsuView.sora.backgroundColor = .bgPage
         configure()
+        // Also when the scene moves to another screen (a phone folded or unfolded).
         [UIApplication.willResignActiveNotification, UIScreen.capturedDidChangeNotification,
-         UIApplication.userDidTakeScreenshotNotification].forEach {
+         UIApplication.userDidTakeScreenshotNotification, WalletDisplay.screenDidChangeNotification].forEach {
             NotificationCenter.default.addObserver(self, selector: #selector(hideSeed), name: $0, object: nil)
         }
         presenter.exportRawSeed()
@@ -134,9 +136,9 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
         descriptionLabel.isHidden = hasSeed && !revealed
         pathLabel.text = revealed ? WalletUX.text("Also save this derivation path:") + "\n" + backupPath : nil
         pathLabel.isHidden = !revealed || backupPath.isEmpty
-        copyPathButton.isHidden = !revealed || backupPath.isEmpty
-        copyButton.isEnabled = !hasSeed || revealed
-        copyButton.sora.title = hasSeed ? R.string.localizable.copyToClipboard(preferredLanguages: languages) : WalletUX.text("Export JSON")
+        copyPathButton.isHidden = !revealed || !WalletSecretCopy.allowsCopying(derivationPath: backupPath)
+        exportJSONButton.isHidden = hasSeed
+        exportJSONButton.sora.title = WalletUX.text("Export JSON")
         revealButton.isHidden = !hasSeed
         revealButton.setTitle(revealed ? R.string.localizable.commonHide(preferredLanguages: .currentLocale) : R.string.localizable.commonShow(preferredLanguages: .currentLocale), for: .normal)
     }
@@ -155,7 +157,7 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
         pathLabel.textColor = .label
         pathLabel.font = .preferredFont(forTextStyle: .body)
         pathLabel.adjustsFontForContentSizeCategory = true
-        copyPathButton.tintColor = WalletUX.tokens.cyan
+        copyPathButton.tintColor = Lit.lacquerText
         pathLabel.isHidden = true
         copyPathButton.setTitle(WalletUX.text("Copy derivation path"), for: .normal)
         copyPathButton.addTarget(self, action: #selector(copyPath), for: .touchUpInside)
@@ -166,7 +168,7 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
             titleLabel,
             revealButton,
             descriptionLabel,
-            copyButton,
+            exportJSONButton,
             pathLabel,
             copyPathButton
         ])
@@ -175,12 +177,11 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            containerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
-            containerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
             containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
-            containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
-            containerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32)
+            containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16)
         ])
+        // 16 from each side on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(containerView, inScroll: scrollView, margin: 16)
         stackView.do {
             $0.horizontalAnchors == containerView.horizontalAnchors + 24
             $0.verticalAnchors == containerView.verticalAnchors + 24
@@ -188,17 +189,15 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
     }
 
     @objc private func copyPath() {
-        guard revealed, !backupPath.isEmpty else { return }
+        guard revealed, WalletSecretCopy.allowsCopying(derivationPath: backupPath) else { return }
         UIPasteboard.general.setItems([["public.utf8-plain-text": backupPath]],
             options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(45)])
     }
 
     @objc
-    private func copyTapped(){
-        guard hasSeed else { presenter.exportJSON(); return }
-        guard revealed else { return }
-        copyButton.sora.title = R.string.localizable.commonCopied(preferredLanguages: .currentLocale)
-        presenter.copyRawSeed()
+    private func exportJSONTapped() {
+        guard !hasSeed else { return }
+        presenter.exportJSON()
     }
 }
 

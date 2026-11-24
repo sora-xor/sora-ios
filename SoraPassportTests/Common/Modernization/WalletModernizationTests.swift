@@ -36,6 +36,9 @@ private final class PreservedBackupDriveFixture: GoogleService {
     var head = "original"
     var version: Int64 = 1
     var revisions: [String: Data] = [:]
+    /// Revisions in the order Drive lists them, oldest first.
+    var revisionOrder = ["original"]
+    var deletedRevisions: [String] = []
     var pinned = Set<String>()
     var queries: [GTLRQueryProtocol] = []
     var failure: String?
@@ -105,18 +108,33 @@ private final class PreservedBackupDriveFixture: GoogleService {
             if let upload = create.uploadParameters {
                 try fail("create")
                 XCTAssertTrue(create.keepRevisionForever)
-                head = "created"; version += 1; revisions[head] = try XCTUnwrap(upload.data)
+                head = "created"; version += 1; revisionOrder.append(head); revisions[head] = try XCTUnwrap(upload.data)
                 pinned.insert(head); result = file()
             } else {
                 folderExists = true
                 let folder = GTLRDrive_File(); folder.identifier = "synthetic-folder"; result = folder
             }
+        } else if let list = query as? GTLRDriveQuery_RevisionsList {
+            XCTAssertEqual(list.fileId, "synthetic-wallet-file")
+            let value = GTLRDrive_RevisionList()
+            value.revisions = revisionOrder.enumerated().filter { revisions[$0.element] != nil }.map { index, identifier in
+                let revision = GTLRDrive_Revision(); revision.identifier = identifier
+                revision.modifiedTime = GTLRDateTime(date: Date(timeIntervalSince1970: TimeInterval(1_800_000_000 + index)))
+                return revision
+            }
+            result = value
+        } else if let delete = query as? GTLRDriveQuery_RevisionsDelete {
+            let revision = try XCTUnwrap(delete.revisionId)
+            XCTAssertEqual(delete.fileId, "synthetic-wallet-file")
+            XCTAssertNotEqual(revision, head, "The verified backup is never deleted")
+            revisions[revision] = nil; pinned.remove(revision); deletedRevisions.append(revision)
+            result = NSNull()
         } else if let update = query as? GTLRDriveQuery_FilesUpdate {
             try fail("update")
             XCTAssertTrue(pinned.contains(head), "Existing head must be pinned before replacement")
             XCTAssertTrue(update.keepRevisionForever)
             XCTAssertEqual(update.fileId, "synthetic-wallet-file")
-            head = "updated-\(version)"; version += 1
+            head = "updated-\(version)"; version += 1; revisionOrder.append(head)
             revisions[head] = try XCTUnwrap(update.uploadParameters?.data)
             pinned.insert(head)
             try fail("lost-update-response")
@@ -139,6 +157,9 @@ private final class BackupSavingCloudFixture: CloudStorageServiceProtocol {
     func deleteBackup(account: OpenBackupAccount) async throws { XCTFail("Saving must never delete an existing backup") }
     func disconnect() { XCTFail("Saving must not disconnect Google") }
     func importBackup(account: OpenBackupAccount, password: String) async throws -> OpenBackupAccount {
+        XCTFail("Saving must not import a wallet"); return account
+    }
+    func importBackup(account: OpenBackupAccount, password: String, expectedAccountUserID: String) async throws -> OpenBackupAccount {
         XCTFail("Saving must not import a wallet"); return account
     }
     func saveBackup(account: OpenBackupAccount, password: String) async throws {
@@ -7285,6 +7306,14 @@ final class WalletModernizationTests: XCTestCase {
             wordCount: 15, entropyBytes: 20, corruptCommitJournal: false,
             retainsIrohaPrivateKey: true
         )
+        // SORA 1.x kept its PIN beside `seedEntropy`. The upgrade asks nothing
+        // and keeps that PIN as the wallet's PIN: the PIN screen asks for it
+        // next, so whoever holds the iPhone cannot choose a new PIN and read
+        // the phrase.
+        try exerciseFullLegacyWalletUpgrade(wordCount: 12, entropyBytes: 16, corruptCommitJournal: false,
+                                            legacyPIN: "1234")
+        try exerciseFullLegacyWalletUpgrade(wordCount: 24, entropyBytes: 32, corruptCommitJournal: false,
+                                            legacyPIN: "123456")
     }
 
     func testRetainedVersionOneCoreDataMigratesCopyOnWriteWithoutLosingWallet() throws {
@@ -9380,7 +9409,7 @@ final class WalletModernizationTests: XCTestCase {
             )
             XCTAssertEqual(WalletStorageStartup.run(settings: settings) {
                 try databaseMigrator.performMigration()
-            }, .needsStorageSpace)
+            }, version == .version2 ? .ready : .needsStorageSpace)
             XCTAssertEqual(try Data(contentsOf: storeURL), originalStoreBytes)
             XCTAssertFalse(settings.walletMigrationRecoveryRequired)
             for (tag, bytes) in originalKeys {
@@ -11356,8 +11385,11 @@ final class WalletModernizationTests: XCTestCase {
             // already have installed the new head; preserve it and verify the retry.
             drive.failure = nil
             _ = try await WalletBackupPreservingGoogleService(base: drive).executeQuery(upload())
-            XCTAssertEqual(drive.revisions["original"], original)
-            XCTAssertTrue(drive.pinned.contains("original"))
+            // Once the replacement is verified, the earlier versions (the old
+            // password's ciphertext) are removed and only the new one stays.
+            XCTAssertNil(drive.revisions["original"])
+            XCTAssertTrue(drive.deletedRevisions.contains("original"))
+            XCTAssertEqual(Array(drive.revisions.keys), [drive.head])
             XCTAssertEqual(drive.revisions[drive.head], replacement)
             XCTAssertTrue(drive.pinned.contains(drive.head))
         }
@@ -11439,6 +11471,8 @@ final class WalletModernizationTests: XCTestCase {
                 passphrase: scenario == "wrong-phrase" ? otherPhrase : phrase, cryptoType: "sr25519",
                 substrateDerivationPath: scenario == "wrong-path" ? "//other" : ""), cloudStorageService: cloud,
                 entryPoint: .profile, keystore: keys,
+                cloudBackupAuthorization: AccountOptionsCloudBackupAuthorization(accountAddress: account.address,
+                    selectedAddress: { account.address }, eventCenter: EventCenter(), notificationCenter: NotificationCenter()),
                 currentAccount: { scenario == "switched-account" ? otherAccount : account },
                 lifecycleCoordinator: coordinator, recoveryGate: gate)
             presenter.view = view; presenter.wireframe = wireframe
@@ -11492,7 +11526,10 @@ final class WalletModernizationTests: XCTestCase {
             defer { cloud.complete(.failure(WalletCloudBackupWriteError.verificationFailed)) }
             let presenter = SetupPasswordPresenter(account: OpenBackupAccount(address: edAccount.address,
                 cryptoType: "ed25519", substrateDerivationPath: ""), cloudStorageService: cloud,
-                entryPoint: .profile, keystore: retainedKeys, currentAccount: { edAccount },
+                entryPoint: .profile, keystore: retainedKeys,
+                cloudBackupAuthorization: AccountOptionsCloudBackupAuthorization(accountAddress: edAccount.address,
+                    selectedAddress: { edAccount.address }, eventCenter: EventCenter(), notificationCenter: NotificationCenter()),
+                currentAccount: { edAccount },
                 lifecycleCoordinator: coordinator, recoveryGate: gate)
             presenter.view = view; presenter.wireframe = wireframe
             let ended = expectation(description: "retained Ed25519 backup completes")
@@ -12549,24 +12586,23 @@ final class WalletModernizationTests: XCTestCase {
         let raw = "123456789012345678901234567890.123456789"
         let quantity = try PIQuantity(raw)
         let fiat = PIExactFiatData(id: "xor", priceUsd: quantity)
-        let apy = PIExactApyInfo(id: "pool", sbApy: quantity)
 
+        // The APY adapter (SubqueryApyInfoOperation) had no caller and was
+        // removed; APY values reach the app as the same PIQuantity.
         XCTAssertEqual(fiat.priceUsd?.rawValue, raw)
-        XCTAssertEqual(apy.sbApy?.rawValue, raw)
+        XCTAssertEqual(quantity.rawValue, raw)
     }
 
     func testProductionMutationFlagsFailClosedWhenUnset() {
         let settings = InMemorySettingsManager()
 
-        // Mutations always fail closed. Visibility without a stored value
-        // follows the line's policy: on for the Nexus line's testers, off
-        // until PI publishes it on the 3.9.x App Store line.
-        let visibleByDefault = ProductSurfacePolicy.optionalSurfacesDefaultOn
-        XCTAssertEqual(settings.nexusEnabled, visibleByDefault && ProductSurfacePolicy.showsNexusPortfolio)
+        // Mutations always fail closed. Visibility without a stored value is
+        // on (the App Store line's off-by-default switch was removed).
+        XCTAssertTrue(settings.nexusEnabled)
         XCTAssertFalse(settings.nexusSendsEnabled)
-        XCTAssertEqual(settings.polkamarktEnabled, visibleByDefault && ProductSurfacePolicy.showsPolkamarkt)
+        XCTAssertTrue(settings.polkamarktEnabled)
         XCTAssertFalse(settings.polkamarktMutationsEnabled)
-        XCTAssertEqual(settings.isTairaEnabled, visibleByDefault && ProductSurfacePolicy.showsTairaSettings)
+        XCTAssertTrue(settings.isTairaEnabled)
     }
 
     func testNexusSendAvailabilityRequiresAnAdmittedQualifiedPipeline() {
@@ -12711,17 +12747,10 @@ final class WalletModernizationTests: XCTestCase {
                 ProductionRemoteCapabilitySession.shared.beginLiveRefresh()
         )
 
-        // Tester builds follow PI. An App Store build ships none of these
-        // surfaces, so there the flags stay off whatever PI sends.
-        XCTAssertEqual(
-            settings.nexusEnabled,
-            ProductSurfacePolicy.showsNexusPortfolio
-        )
+        // Every build follows PI.
+        XCTAssertTrue(settings.nexusEnabled)
         XCTAssertFalse(settings.nexusSendsEnabled)
-        XCTAssertEqual(
-            settings.polkamarktEnabled,
-            ProductSurfacePolicy.showsPolkamarkt
-        )
+        XCTAssertTrue(settings.polkamarktEnabled)
         XCTAssertFalse(settings.polkamarktMutationsEnabled)
         XCTAssertFalse(config.typedAccountBalancesAvailable)
         XCTAssertFalse(settings.isTairaEnabled)
@@ -12742,10 +12771,7 @@ final class WalletModernizationTests: XCTestCase {
             refreshToken:
                 ProductionRemoteCapabilitySession.shared.beginLiveRefresh()
         )
-        XCTAssertEqual(
-            settings.isTairaEnabled,
-            ProductSurfacePolicy.showsTairaSettings
-        )
+        XCTAssertTrue(settings.isTairaEnabled)
 
         settings.isTairaEnabled = false
         settings.set(
@@ -14678,7 +14704,9 @@ final class WalletModernizationTests: XCTestCase {
             ]
         )
 
-        let amount = try XCTUnwrap(info.amountCall?[.desiredOutput])
+        let amount = try XCTUnwrap(
+            info.amountCall(sourcePrecision: 18, destinationPrecision: 18)?[.desiredOutput]
+        )
         XCTAssertEqual(
             amount.desired,
             try XCTUnwrap(BigUInt("2000000000000000000"))
@@ -14699,7 +14727,7 @@ final class WalletModernizationTests: XCTestCase {
             fees: info.fees,
             context: malformedContext
         )
-        XCTAssertNil(malformed.amountCall)
+        XCTAssertNil(malformed.amountCall(sourcePrecision: 18, destinationPrecision: 18))
 
         var weakenedContext = try XCTUnwrap(info.context)
         weakenedContext[TransactionContextKeys.minMaxValue] = quotedInput
@@ -14712,7 +14740,7 @@ final class WalletModernizationTests: XCTestCase {
             fees: info.fees,
             context: weakenedContext
         )
-        XCTAssertNil(weakened.amountCall)
+        XCTAssertNil(weakened.amountCall(sourcePrecision: 18, destinationPrecision: 18))
     }
 
     func testPolkaswapDesiredInputSignsExactMinimumOutput() throws {
@@ -14734,7 +14762,9 @@ final class WalletModernizationTests: XCTestCase {
             ]
         )
 
-        let amount = try XCTUnwrap(info.amountCall?[.desiredInput])
+        let amount = try XCTUnwrap(
+            info.amountCall(sourcePrecision: 18, destinationPrecision: 18)?[.desiredInput]
+        )
         XCTAssertEqual(
             amount.desired,
             try XCTUnwrap(BigUInt("1000000000000000000"))
@@ -20063,37 +20093,11 @@ final class WalletModernizationTests: XCTestCase {
             )
         }
 
-        // The Nexus line keeps its Release verifier (now run by CI, not as a
-        // build phase); it must keep the Polkamarkt parity gate.
-        let releaseVerifierURL = fixtureURL
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent(
-                "SoraPassport/Scripts/verify-modernization-dependencies.sh"
-            )
-        let releaseVerifier = try XCTUnwrap(
-            String(
-                data: Data(contentsOf: releaseVerifierURL),
-                encoding: .utf8
-            )
-        )
-        for requiredParityGate in [
-            "POLKAMARKT_ANDROID_SOURCE_ROOT",
-            "POLKAMARKT_ANDROID_SOURCE_REVISION",
-            "POLKAMARKT_ANDROID_FIXTURE_PATH",
-            "POLKAMARKT_NODE_BINARY",
-            "POLKAMARKT_NODE_BINARY_SHA256",
-            "--validate-qualified",
-            "POLKAMARKT_QUALIFIED_FIXTURE_VALID",
-            "/usr/bin/git -C",
-            "/usr/bin/cmp -s"
-        ] {
-            XCTAssertTrue(
-                releaseVerifier.contains(requiredParityGate),
-                "missing iOS Release parity gate: \(requiredParityGate)"
-            )
-        }
+        // The Android/iOS Polkamarkt extrinsic parity check lived in the
+        // never-run part of the build gate, with the production-promotion
+        // framework removed on 2026-11-18. Polkamarkt mutations stay hard
+        // denied (ProductionMutationQualification.polkamarktMutations), so
+        // re-qualifying them needs that parity check written again.
 
         let translationKeys = try XCTUnwrap(
             fixture["translationKeys"] as? [String: String]
@@ -20130,9 +20134,10 @@ final class WalletModernizationTests: XCTestCase {
                 options: [.skipsHiddenFiles]
             )
             .filter { $0.pathExtension == "lproj" }
-        // 33 catalogs in the source tree: the Nexus line keeps akk and
-        // egy-Egyp, which the 3.9.x App Store line removed (31 there).
-        XCTAssertEqual(localeDirectories.count, 33)
+        // 30 catalogs in the source tree: the 28 shipped by the 3.9.x App
+        // Store line plus akk and egy-Egyp, which the Nexus line keeps. (The
+        // unbuilt de, it and nn-NO copies were deleted on 2026-11-18.)
+        XCTAssertEqual(localeDirectories.count, 30)
         for localeDirectory in localeDirectories {
             let strings = try String(
                 contentsOf: localeDirectory.appendingPathComponent(
@@ -20426,7 +20431,8 @@ final class WalletModernizationTests: XCTestCase {
         wordCount: Int,
         entropyBytes: Int,
         corruptCommitJournal: Bool,
-        retainsIrohaPrivateKey: Bool = false
+        retainsIrohaPrivateKey: Bool = false,
+        legacyPIN: String? = nil
     ) throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -20472,6 +20478,9 @@ final class WalletModernizationTests: XCTestCase {
             try keychain.addKey(try Data(hexStringSSF:
                 "e6ede78853ee2a5ede2d25f51d624e46270a9cb4d492a95c4742a3ca52f65f84"),
                 with: "privateKey")
+        }
+        if let legacyPIN {
+            try keychain.addKey(Data(legacyPIN.utf8), with: KeystoreTag.pincode.rawValue)
         }
         try keychain.addKey(
             Data(displayName.utf8),
@@ -20626,6 +20635,14 @@ final class WalletModernizationTests: XCTestCase {
                                 recoveryGate: recoveryGate
                             )
                     },
+                    beforeInsert: { prepared in
+                        // As AccountImportViewFactory.createLegacyUpgradeInteractor:
+                        // nobody typed a PIN for this account, so while a 1.x PIN
+                        // exists the upgrade grants no PIN setup.
+                        if (try? retainedKeystore.checkKey(for: KeystoreTag.pincode.rawValue)) != false {
+                            prepared.restrictToRetainedOwnership(nil)
+                        }
+                    },
                     lifecycleCoordinator: lifecycleCoordinator
                 )
             },
@@ -20639,7 +20656,8 @@ final class WalletModernizationTests: XCTestCase {
                 "retained \(wordCount)-word async upgrade terminal decision"
         )
         presenter.onDecision = { decision in
-            if decision == .pincodeSetup || decision == .broken {
+            if decision == .pincodeSetup || decision == .broken ||
+                (legacyPIN != nil && decision == .localAuthentication) {
                 terminalDecision.fulfill()
             }
         }
@@ -20647,9 +20665,20 @@ final class WalletModernizationTests: XCTestCase {
 
         root.decideModuleSynchroniously()
         XCTAssertEqual(presenter.decisions, [.legacyWalletUpgrade])
-        root.performLegacyWalletUpgrade()
+        XCTAssertFalse(importFactoryCalled.value, "Routing alone imports nothing")
+        // An update asks nothing: the presenter runs the upgrade with no screen
+        // (RootPresenter.didDecideLegacyWalletUpgrade), then routing runs again.
+        root.performAutomaticLegacyWalletUpgrade()
+        root.performAutomaticLegacyWalletUpgrade()
         wait(for: [terminalDecision], timeout: 5)
         XCTAssertTrue(importFactoryCalled.value)
+        if let legacyPIN {
+            // The 1.x PIN is not asked for before the upgrade, nor replaced by
+            // it: the ordinary PIN screen asks for it next.
+            XCTAssertFalse(presenter.decisions.contains(.broken))
+            XCTAssertEqual(try keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data(legacyPIN.utf8))
+            XCTAssertFalse(try keychain.checkKey(for: WalletOwnerPIN.appThrottleTag), "No PIN was tried")
+        }
 
         let storedAccounts = try fetchAll(
             from: AnyDataProviderRepository(accountRepository),
@@ -20696,9 +20725,11 @@ final class WalletModernizationTests: XCTestCase {
                 .coreDataCommitted
             )
         } else {
+            // Without a 1.x PIN a new one is set up; with one, the PIN
+            // screen asks for that PIN.
             XCTAssertEqual(
                 presenter.decisions,
-                [.legacyWalletUpgrade, .pincodeSetup]
+                [.legacyWalletUpgrade, legacyPIN == nil ? .pincodeSetup : .localAuthentication]
             )
             XCTAssertFalse(legacySettings.walletMigrationRecoveryRequired)
             XCTAssertEqual(storedAccounts.count, 1)
@@ -20853,24 +20884,31 @@ final class WalletModernizationTests: XCTestCase {
         // importer. This isolated fixture must do so too: the exact import
         // journal grants initial PIN setup before any account row is inserted.
         let setupTag = WalletOwnerPIN.setupPrefix + expectedAddress
-        let setupIntent = try JSONDecoder().decode(WalletOwnerPIN.SetupIntent.self,
-            from: keychain.fetchKey(for: setupTag))
-        XCTAssertEqual(setupIntent.account.address, expectedAddress)
-        XCTAssertEqual(setupIntent.account.publicKeyData, expectedPublicKey)
-        let commitURL = try XCTUnwrap(FileManager.default.contentsOfDirectory(
-            at: directory.appendingPathComponent("SORA/WalletAccountCommits"),
-            includingPropertiesForKeys: nil).first { $0.lastPathComponent.hasPrefix("wallet-account-") })
-        let commitDecoder = JSONDecoder()
-        commitDecoder.dateDecodingStrategy = .iso8601
-        let setupCommit = try commitDecoder.decode(WalletAccountCommitJournal.self,
-            from: Data(contentsOf: commitURL))
-        XCTAssertEqual(setupIntent.operationID, setupCommit.id)
-        XCTAssertEqual(setupIntent.account.address, setupCommit.walletId)
-        XCTAssertFalse(try keychain.checkKey(for: KeystoreTag.pincode.rawValue))
+        if legacyPIN != nil {
+            // Nobody typed a PIN for the upgrade, so it grants no PIN setup in
+            // which someone holding the iPhone could choose a new PIN.
+            XCTAssertFalse(try keychain.checkKey(for: setupTag))
+        } else {
+            let setupIntent = try JSONDecoder().decode(WalletOwnerPIN.SetupIntent.self,
+                from: keychain.fetchKey(for: setupTag))
+            XCTAssertEqual(setupIntent.account.address, expectedAddress)
+            XCTAssertEqual(setupIntent.account.publicKeyData, expectedPublicKey)
+            let commitURL = try XCTUnwrap(FileManager.default.contentsOfDirectory(
+                at: directory.appendingPathComponent("SORA/WalletAccountCommits"),
+                includingPropertiesForKeys: nil).first { $0.lastPathComponent.hasPrefix("wallet-account-") })
+            let commitDecoder = JSONDecoder()
+            commitDecoder.dateDecodingStrategy = .iso8601
+            let setupCommit = try commitDecoder.decode(WalletAccountCommitJournal.self,
+                from: Data(contentsOf: commitURL))
+            XCTAssertEqual(setupIntent.operationID, setupCommit.id)
+            XCTAssertEqual(setupIntent.account.address, setupCommit.walletId)
+        }
+        XCTAssertEqual(try keychain.checkKey(for: KeystoreTag.pincode.rawValue), legacyPIN != nil,
+                       "A 1.x PIN stays the wallet's PIN")
         XCTAssertFalse(try keychain.checkKey(for: expectedAddress + WalletOwnerPIN.bindingSuffix))
         XCTAssertEqual(
             Set(try keychain.allKeyIdentifiers()),
-            originalIdentifiers.union(scopedCopies).union([setupTag])
+            originalIdentifiers.union(scopedCopies).union(legacyPIN == nil ? [setupTag] : [])
         )
         for (identifier, expectedValue) in originalValues {
             XCTAssertEqual(

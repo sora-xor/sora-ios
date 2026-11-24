@@ -5,6 +5,7 @@ import RobinHood
 import SSFUtils
 import SoraFoundation
 import SoraKeystore
+import UIKit
 import XCTest
 
 @testable import SoraPassport
@@ -307,4 +308,53 @@ private final class ContextAssemblyEngine: JSONRPCEngine {
   func connectIfNeeded() {}
   func disconnectIfNeeded() {}
   func unsubsribe(_ identifier: UInt16) throws {}
+}
+
+/// The screen between the PIN and the home is on show only while the wallet opens. With nothing to
+/// act on yet it stays empty, or "Try again" and "Change node" flash through the fade after every PIN.
+@MainActor
+final class WalletOpeningFirstFrameTests: XCTestCase {
+  private func buttons(_ view: UIView) -> [String: UIButton] {
+    var found = [String: UIButton]()
+    var pending = [view]
+    while let next = pending.popLast() {
+      pending += next.subviews
+      if let button = next as? UIButton, let id = button.accessibilityIdentifier { found[id] = button }
+    }
+    return found
+  }
+
+  func testNothingShowsUntilAnAttemptFails() throws {
+    let opening = WalletOpeningViewController(
+      makeWallet: { throw WalletOpeningError.connectionNotReady }, refresh: {}, makeNodes: { nil },
+      recheckWallet: {}, opened: { _ in }, retryInterval: 0, maximumAttempts: 1)
+    opening.loadViewIfNeeded()
+    let all = buttons(opening.view)
+    XCTAssertEqual(all.count, 4)
+    XCTAssertTrue(all.values.allSatisfy(\.isHidden))
+    XCTAssertNil(opening.title)
+
+    opening.viewDidAppear(false)
+
+    XCTAssertEqual(opening.title, WalletUX.text("Opening wallet"))
+    XCTAssertFalse(try XCTUnwrap(all["wallet-opening-retry"]).isHidden)
+    XCTAssertFalse(try XCTUnwrap(all["wallet-opening-nodes"]).isHidden)
+    XCTAssertTrue(try XCTUnwrap(all["wallet-opening-recheck"]).isHidden)
+    XCTAssertTrue(try XCTUnwrap(all["wallet-opening-networks"]).isHidden)
+  }
+
+  func testAWalletThatOpensAtOnceNeverShowsThem() {
+    let wallet = UIViewController()
+    var opened: UIViewController?
+    let opening = WalletOpeningViewController(
+      makeWallet: { wallet }, refresh: {}, makeNodes: { nil }, recheckWallet: {},
+      opened: { opened = $0 })
+    opening.loadViewIfNeeded()
+
+    opening.viewDidAppear(false)
+
+    XCTAssertTrue(opened === wallet)
+    XCTAssertNil(opening.title)
+    XCTAssertTrue(buttons(opening.view).values.allSatisfy(\.isHidden))
+  }
 }

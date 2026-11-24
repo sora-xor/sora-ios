@@ -105,6 +105,14 @@ final class InputSendInfoViewModel {
         self.marketCapService = marketCapService
     }
     
+    var canCreateRequest: Bool {
+        guard assetManager != nil, fiatService != nil, let asset,
+              let address, !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              inputedAmount > 0, let precision = Int16(exactly: asset.precision),
+              let atomic = inputedAmount.toSubstrateAmount(precision: precision) else { return false }
+        return atomic > 0
+    }
+
     func transform(input: AnyPublisher<Input, Never>) -> AnyPublisher<Output, Never> {
         input.compactMap { [weak self] event -> Output? in
             self?.handle(event)
@@ -129,11 +137,7 @@ final class InputSendInfoViewModel {
                 self?.asset = assetManager.assetInfo(for: selected)
             }
         case .createQr:
-            guard let asset,
-                  let address, !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  inputedAmount > 0,
-                  let precision = Int16(exactly: asset.precision),
-                  let atomic = inputedAmount.toSubstrateAmount(precision: precision), atomic > 0 else { return }
+            guard canCreateRequest, let asset, let address else { return }
             wireframe?.showReceive(selectedAsset: asset, accountId: accountId, address: address,
                                    amount: AmountDecimal(value: inputedAmount), qrEncoder: qrEncoder,
                                    sharingFactory: sharingFactory, fiatService: fiatService,
@@ -155,7 +159,7 @@ final class InputSendInfoViewModel {
     }
 
     private func loadFiat() {
-        Task { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self else { return }
             self.fiatData = await self.fiatService?.getFiat() ?? []
         }
@@ -191,12 +195,20 @@ final class InputSendInfoViewModel {
 
 extension InputSendInfoViewModel: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        setupBalanceDataProvider()
+        if Thread.isMainThread {
+            setupBalanceDataProvider()
+        } else {
+            DispatchQueue.main.async { [weak self] in self?.setupBalanceDataProvider() }
+        }
     }
 }
 
 extension InputSendInfoViewModel: FiatServiceObserverProtocol {
     func processFiat(data: [PIExactFiatData]) {
-        fiatData = data
+        if Thread.isMainThread {
+            fiatData = data
+        } else {
+            DispatchQueue.main.async { [weak self] in self?.fiatData = data }
+        }
     }
 }

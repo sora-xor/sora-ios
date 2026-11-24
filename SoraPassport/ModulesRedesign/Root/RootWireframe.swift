@@ -57,23 +57,6 @@ final class RootWireframe: RootWireframeProtocol {
         }
     }
 
-    func showLegacyWalletUpgrade(
-        on view: UIWindow,
-        onConfirm: @escaping () -> Void
-    ) {
-        RetainedMigrationEvidenceHarness.shared.observeApplicationRoute(
-            .legacyUpgradeReady
-        )
-        let controller = LegacyWalletUpgradeViewController(
-            onConfirm: onConfirm
-        )
-        let navigation = UINavigationController(
-            rootViewController: controller
-        )
-        navigation.navigationBar.isHidden = true
-        view.rootViewController = navigation
-    }
-
     @MainActor
     func showLocalAuthentication(on view: UIWindow) {
         RetainedMigrationEvidenceHarness.shared.observeApplicationRoute(
@@ -81,10 +64,11 @@ final class RootWireframe: RootWireframeProtocol {
         )
         let pinView = PinViewFactory.createRedesignSecuredPinView()?.controller ?? UIViewController()
         
-        let containerView = BlurViewController()
-        containerView.backgroundColor = .bgPage
-        containerView.isClosable = false
-        containerView.modalPresentationStyle = .overFullScreen
+        // This is the root screen, so there is no content behind it to blur.
+        // A half-complete blur animator otherwise stays active throughout PIN
+        // entry, keeping the screen in an unfinished animation state.
+        let containerView = SoramitsuViewController()
+        containerView.soramitsuView.sora.backgroundColor = .bgPage
         containerView.add(pinView)
 
         view.rootViewController = containerView
@@ -170,129 +154,47 @@ final class RootWireframe: RootWireframeProtocol {
     }
 }
 
-/// An explicit confirmation replaces the historical silent-import path. The
-/// old entropy remains in its original Keychain tag throughout the journaled
-/// account commit and is retained after success for dual-read recovery.
-final class LegacyWalletUpgradeViewController: UIViewController {
-    private let onConfirm: () -> Void
-    private let continueButton = WalletSafeMode.button(.safe, title: WalletUX.text("Upgrade wallet"))
-    private let statusLabel = UILabel()
-    private let progress = UIActivityIndicatorView(style: .medium)
-    private var didConfirm = false
-
-    init(onConfirm: @escaping () -> Void) {
-        self.onConfirm = onConfirm
-        super.init(nibName: nil, bundle: nil)
+/// Device boundaries for recovery presentation. Each screen keeps its own services;
+/// the live operations continue to enforce account identity and recovery authority.
+struct WalletRecoveryScreenActions {
+    var accounts: () throws -> [AccountItem] = { try Self.migrator().accountsForCredentialRecovery() }
+    var inventory: () throws -> [AccountItem] = { try Self.migrator().preservedAccountInventory() }
+    var prepareKeys: (AccountItem) throws -> (WalletCredentialRepair, Bool) = { account in
+        let gate = try Self.migrator().credentialRecoveryGate()
+        let keys = Keychain()
+        let missing = try [KeystoreTag.entropyTagForAddress(account.address),
+            KeystoreTag.seedTagForAddress(account.address), KeystoreTag.secretKeyTagForAddress(account.address)]
+            .allSatisfy { try !keys.checkKey(for: $0) }
+        return (WalletCredentialRepair(keystore: keys, settings: SettingsManager.shared,
+                                      recoveryGate: gate), missing)
     }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        nil
+    var protectedDataAvailable: () -> Bool = { UIApplication.shared.isProtectedDataAvailable }
+    var readBackup: (UIViewController, String) async throws -> Data = { controller, address in
+        try await WalletCloudBackupRecoveryService(viewController: controller).readBackup(for: address)
     }
-
-    /// Safe Mode (spec §9.2 U3): calm copy, verified assurances only, one
-    /// Safe action. The technical description moved behind
-    /// "What happens during the upgrade?".
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        WalletSafeMode.installBackdrop(in: view)
-
-        let titleLabel = UILabel()
-        WalletSafeMode.title(titleLabel, WalletUX.text("Upgrade your wallet"))
-
-        let bodyLabel = UILabel()
-        WalletSafeMode.body(bodyLabel)
-        bodyLabel.text = WalletUX.text("This version moves your wallet to a safer storage format. It only takes a moment.")
-
-        // Both facts hold for this flow: the 1.x entropy stays in its
-        // original Keychain item, and any failed check routes to recovery.
-        let assurances = UIStackView(arrangedSubviews: [
-            Self.assurance(WalletUX.text("Your original keys are not deleted or replaced")),
-            Self.assurance(WalletUX.text("If a check fails, SORA stops safely and shows your options"))
-        ])
-        assurances.axis = .vertical
-        assurances.spacing = 12
-
-        continueButton.accessibilityIdentifier =
-            RetainedMigrationEvidenceHarness
-                .continueUpgradeAccessibilityIdentifier
-        continueButton.addTarget(
-            self,
-            action: #selector(confirmUpgrade),
-            for: .touchUpInside
-        )
-
-        let detailsButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("What happens during the upgrade?"))
-        detailsButton.addTarget(self, action: #selector(showUpgradeDetails), for: .touchUpInside)
-
-        WalletSafeMode.detail(statusLabel)
-        progress.hidesWhenStopped = true
-        progress.color = WalletUX.tokens.cyan
-
-        let stack = UIStackView(
-            arrangedSubviews: [
-                WalletSafeMode.centered(WalletSafeMode.shieldEmblem()),
-                titleLabel,
-                bodyLabel,
-                assurances,
-                continueButton,
-                progress,
-                statusLabel,
-                detailsButton,
-            ]
-        )
-        stack.axis = .vertical
-        stack.spacing = 20
-        stack.setCustomSpacing(28, after: assurances)
-        // Centred when it fits; scrolls at large text sizes so "Upgrade
-        // wallet" and the details are always reachable (spec §9.4).
-        WalletSafeMode.installScrollingContent(stack, in: view)
+    var restoreBackup: (Data, String, AccountItem) throws -> Void = { data, password, account in
+        try WalletCloudBackupRecoveryService.restore(data: data, password: password,
+                                                    account: account, migrator: Self.migrator())
     }
-
-    /// A row with a cyan check and `text.primary` copy (spec §7.17).
-    static func assurance(_ text: String) -> UIView {
-        let icon = UIImageView(image: UIImage(systemName: "checkmark.circle"))
-        icon.tintColor = WalletUX.tokens.cyan
-        icon.contentMode = .scaleAspectFit
-        icon.setContentHuggingPriority(.required, for: .horizontal)
-        icon.setContentCompressionResistancePriority(.required, for: .horizontal)
-        icon.widthAnchor.constraint(equalToConstant: 22).isActive = true
-        icon.isAccessibilityElement = false
-        let label = UILabel()
-        label.text = text
-        label.numberOfLines = 0
-        label.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: FontType.textM.font)
-        label.adjustsFontForContentSizeCategory = true
-        label.textColor = WalletUX.tokens.textPrimary
-        let row = UIStackView(arrangedSubviews: [icon, label])
-        row.spacing = 12
-        row.alignment = .firstBaseline
-        return row
+    var restorePhrase: (AccountItem, String, String) throws -> Void = { account, phrase, path in
+        try Self.migrator().restoreMissingEntropy(address: account.address, mnemonic: phrase, derivationPath: path)
     }
-
-    @objc private func showUpgradeDetails() {
-        let alert = UIAlertController(
-            title: WalletUX.text("What happens during the upgrade?"),
-            message: [
-                WalletUX.text("SORA found a wallet created by an older app version."),
-                WalletUX.text("SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions."),
-                WalletUX.text("The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet.")
-            ].joined(separator: "\n\n"),
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: WalletUX.text("OK"), style: .default))
-        present(alert, animated: true)
+    var revealPhrases: (String) throws -> [WalletRecoveryPhraseReveal.Entry] = { pin in
+        let settings = SettingsManager.shared
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        return try WalletRecoveryPhraseReveal.reveal(
+            pin: pin, accounts: Self.migrator().recoveryInventory(), keystore: Keychain(), settings: settings,
+            recoveryGate: WalletRecoveryCapabilityGate(settings: settings,
+                unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false },
+                startupVerificationMarker: marker.isRetryableStartupFailure ? marker : nil))
     }
+    var exportPackage: () throws -> URL = { try WalletRecoveryExporter().createRecoveryPackage().packageURL }
+    var openSupport: (URL) -> Void = { UIApplication.shared.open($0) }
 
-    @objc private func confirmUpgrade() {
-        guard !didConfirm else {
-            return
-        }
-        didConfirm = true
-        continueButton.isEnabled = false
-        progress.startAnimating()
-        statusLabel.text = WalletUX.text("Updating your wallet. Keep SORA open until this finishes.")
-        onConfirm()
+    private static func migrator() -> UserStorageMigrator {
+        UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
+            storeURL: UserStorageParams.storageURL, modelDirectory: UserStorageParams.modelDirectory,
+            keystore: Keychain(), settings: SettingsManager.shared, fileManager: .default)
     }
 }
 
@@ -303,6 +205,7 @@ final class LegacyWalletUpgradeViewController: UIViewController {
 /// iPhone again" moves this install's wallet files aside and never touches
 /// the Keychain.
 final class WalletRecoveryViewController: UIViewController {
+    var actions = WalletRecoveryScreenActions()
     private let optionsLoader: (() -> WalletRecoveryOptions)?
     private let reason: String?
     private let diagnostic: WalletStartupDiagnostic?
@@ -510,14 +413,6 @@ final class WalletRecoveryViewController: UIViewController {
             scrollView.bottomAnchor.constraint(
                 equalTo: view.safeAreaLayoutGuide.bottomAnchor
             ),
-            stack.leadingAnchor.constraint(
-                equalTo: scrollView.contentLayoutGuide.leadingAnchor,
-                constant: 24
-            ),
-            stack.trailingAnchor.constraint(
-                equalTo: scrollView.contentLayoutGuide.trailingAnchor,
-                constant: -24
-            ),
             stack.topAnchor.constraint(
                 equalTo: scrollView.contentLayoutGuide.topAnchor,
                 constant: 24
@@ -525,12 +420,10 @@ final class WalletRecoveryViewController: UIViewController {
             stack.bottomAnchor.constraint(
                 equalTo: scrollView.contentLayoutGuide.bottomAnchor,
                 constant: -24
-            ),
-            stack.widthAnchor.constraint(
-                equalTo: scrollView.frameLayoutGuide.widthAnchor,
-                constant: -48
             )
         ])
+        // 24 from each side on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(stack, inScroll: scrollView, margin: 24)
         refreshOptions()
     }
 
@@ -701,7 +594,7 @@ final class WalletRecoveryViewController: UIViewController {
         setKeyRecoveryBusy(true)
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
-            let result = Result { try self.keyRecoveryMigrator().accountsForCredentialRecovery() }
+            let result = Result { try self.actions.accounts() }
             DispatchQueue.main.async {
                 self.setKeyRecoveryBusy(false)
                 guard !self.didRetry else { return }
@@ -733,6 +626,7 @@ final class WalletRecoveryViewController: UIViewController {
             self.setKeyRecoveryBusy(true)
             DispatchQueue.global(qos: .userInitiated).async {
                 let result = Result {
+                    WalletDatabaseSelfRepair.recordSetUpAgainChoice(SettingsManager.shared)
                     try WalletLocalStateSetAside.setAside(settings: SettingsManager.shared,
                         expectedMarker: WalletMigrationRecoveryMarker.capture(SettingsManager.shared),
                         paths: .production(), closeDatabase: { try? UserDataStorageFacade.shared.databaseService.close() })
@@ -763,18 +657,9 @@ final class WalletRecoveryViewController: UIViewController {
     }
 
     private func beginKeyRecovery(for account: AccountItem, useCloudBackup: Bool) {
-        let migrator = keyRecoveryMigrator()
         setKeyRecoveryBusy(true)
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = Result { () -> (WalletCredentialRepair, Bool) in
-                let gate = try migrator.credentialRecoveryGate()
-                let keys = Keychain()
-                let missing = try [KeystoreTag.entropyTagForAddress(account.address),
-                    KeystoreTag.seedTagForAddress(account.address), KeystoreTag.secretKeyTagForAddress(account.address)]
-                    .allSatisfy { try !keys.checkKey(for: $0) }
-                return (WalletCredentialRepair(keystore: keys, settings: SettingsManager.shared,
-                                                recoveryGate: gate), missing)
-            }
+            let result = Result { try self.actions.prepareKeys(account) }
             DispatchQueue.main.async {
                 self.setKeyRecoveryBusy(false)
                 switch result {
@@ -785,8 +670,9 @@ final class WalletRecoveryViewController: UIViewController {
                     if useCloudBackup { self.readCloudBackup(for: account) }
                     else { self.presentKeyRecovery(for: account) }
                 case let .success((service, false)):
+                    let inventory = self.actions.inventory
                     let controller = WalletCredentialRepairViewController(account: account, service: service,
-                        currentAccounts: { try migrator.preservedAccountInventory() },
+                        currentAccounts: inventory,
                         onSuccess: { [weak self] _ in
                             self?.dismiss(animated: true) { self?.retryWalletVerification() }
                         }, startWithDrive: useCloudBackup)
@@ -800,7 +686,7 @@ final class WalletRecoveryViewController: UIViewController {
 
     private func readCloudBackup(for account: AccountItem) {
         guard !didRetry, !isExporting, !isRestoringKeys else { return }
-        guard UIApplication.shared.isProtectedDataAvailable else {
+        guard actions.protectedDataAvailable() else {
             showKeyRecoveryError(WalletUX.text("Unlock this iPhone, then try again."))
             return
         }
@@ -809,8 +695,7 @@ final class WalletRecoveryViewController: UIViewController {
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                let reader = WalletCloudBackupRecoveryService(viewController: self)
-                let encryptedBackup = try await reader.readBackup(for: account.address)
+                let encryptedBackup = try await self.actions.readBackup(self, account.address)
                 self.setKeyRecoveryBusy(false)
                 self.setCloudRecoveryStatus(WalletUX.text("Encrypted backup found. Enter its backup password to verify and restore the saved account."))
                 self.presentCloudBackupPassword(for: account, encryptedBackup: encryptedBackup)
@@ -847,8 +732,7 @@ final class WalletRecoveryViewController: UIViewController {
             DispatchQueue.global(qos: .userInitiated).async {
                 defer { password.removeAll(keepingCapacity: false) }
                 let result = Result {
-                    try WalletCloudBackupRecoveryService.restore(data: encryptedBackup, password: password,
-                        account: account, migrator: self.keyRecoveryMigrator())
+                    try self.actions.restoreBackup(encryptedBackup, password, account)
                 }
                 DispatchQueue.main.async {
                     self.setKeyRecoveryBusy(false)
@@ -902,8 +786,7 @@ final class WalletRecoveryViewController: UIViewController {
             DispatchQueue.global(qos: .userInitiated).async {
                 defer { phrase.removeAll(keepingCapacity: false); path.removeAll(keepingCapacity: false) }
                 let result = Result {
-                    try self.keyRecoveryMigrator().restoreMissingEntropy(address: account.address,
-                        mnemonic: phrase, derivationPath: path)
+                    try self.actions.restorePhrase(account, phrase, path)
                 }
                 DispatchQueue.main.async {
                     self.setKeyRecoveryBusy(false)
@@ -938,26 +821,10 @@ final class WalletRecoveryViewController: UIViewController {
         )) { [weak self] pin in
             guard let self else { return }
             self.setKeyRecoveryBusy(true)
-            let migrator = self.keyRecoveryMigrator()
             DispatchQueue.global(qos: .userInitiated).async {
                 var pin = pin
                 defer { pin.removeAll(keepingCapacity: false) }
-                let settings = SettingsManager.shared
-                let marker = WalletMigrationRecoveryMarker.capture(settings)
-                let result = Result {
-                    try WalletRecoveryPhraseReveal.reveal(
-                        pin: pin,
-                        accounts: migrator.recoveryInventory(),
-                        keystore: Keychain(),
-                        settings: settings,
-                        recoveryGate: WalletRecoveryCapabilityGate(
-                            settings: settings,
-                            unresolvedMigrationJournal: { false },
-                            unresolvedWalletCommitJournal: { false },
-                            startupVerificationMarker: marker.isRetryableStartupFailure ? marker : nil
-                        )
-                    )
-                }
+                let result = Result { try self.actions.revealPhrases(pin) }
                 DispatchQueue.main.async {
                     self.setKeyRecoveryBusy(false)
                     switch result {
@@ -981,7 +848,8 @@ final class WalletRecoveryViewController: UIViewController {
             self.setKeyRecoveryBusy(true)
             DispatchQueue.global(qos: .userInitiated).async {
                 let result = Result {
-                    try WalletLocalStateSetAside.setAside(
+                    WalletDatabaseSelfRepair.recordSetUpAgainChoice(SettingsManager.shared)
+                    return try WalletLocalStateSetAside.setAside(
                         settings: SettingsManager.shared,
                         expectedMarker: marker,
                         paths: .production(),
@@ -1017,7 +885,7 @@ final class WalletRecoveryViewController: UIViewController {
     }
 
     @objc private func openSupport() {
-        UIApplication.shared.open(ApplicationConfig.shared.supportURL)
+        actions.openSupport(ApplicationConfig.shared.supportURL)
     }
 
     @objc private func copyRecoveryDetails() {
@@ -1082,10 +950,8 @@ final class WalletRecoveryViewController: UIViewController {
             UIAlertAction(
                 title: WalletUX.text("Open SORA support"),
                 style: .default
-            ) { _ in
-                UIApplication.shared.open(
-                    ApplicationConfig.shared.supportURL
-                )
+            ) { [weak self] _ in
+                self?.actions.openSupport(ApplicationConfig.shared.supportURL)
             }
         )
         alert.addAction(
@@ -1135,12 +1001,12 @@ final class WalletRecoveryViewController: UIViewController {
             WalletUX.text("Verifying preserved files. Wallet data and Keychain will not be changed.")
         exportStatusLabel.isHidden = false
 
-        let exporter = WalletRecoveryExporter()
+        let exportPackage = actions.exportPackage
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             do {
-                let result = try exporter.createRecoveryPackage()
+                let packageURL = try exportPackage()
                 DispatchQueue.main.async {
-                    self?.presentRecoveryExport(result.packageURL)
+                    self?.presentRecoveryExport(packageURL)
                 }
             } catch {
                 DispatchQueue.main.async {
@@ -1351,12 +1217,11 @@ final class WalletRecoveryPhraseViewController: UIViewController {
             scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            stack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -24),
             stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 32),
             stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
-            stack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -48),
         ])
+        // 24 from each side on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(stack, inScroll: scrollView, margin: 24)
 
         let center = NotificationCenter.default
         observers = [
@@ -1367,6 +1232,10 @@ final class WalletRecoveryPhraseViewController: UIViewController {
                 [weak self] _ in self?.hideWords()
             },
             center.addObserver(forName: UIScreen.capturedDidChangeNotification, object: nil, queue: .main) {
+                [weak self] _ in self?.hideWords()
+            },
+            // The scene moved to another screen (a phone folded or unfolded).
+            center.addObserver(forName: WalletDisplay.screenDidChangeNotification, object: nil, queue: .main) {
                 [weak self] _ in self?.hideWords()
             },
             center.addObserver(forName: UIApplication.userDidTakeScreenshotNotification, object: nil, queue: .main) {
@@ -1429,7 +1298,10 @@ final class WalletRecoveryPhraseViewController: UIViewController {
                         options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(60)])
                 }, for: .touchUpInside)
                 derivationStack.addArrangedSubview(label)
-                derivationStack.addArrangedSubview(button)
+                // A path that carries a password stays off the clipboard (`WalletSecretCopy`).
+                if WalletSecretCopy.allowsCopying(derivationPath: path) {
+                    derivationStack.addArrangedSubview(button)
+                }
             }
         } else {
             wordsLabel.text = nil
@@ -1488,6 +1360,21 @@ enum WalletSetUpAgainConfirmation {
     }
 }
 
+struct WalletRetainedRestoreEnvironment {
+    let keystore: KeystoreProtocol
+    let settings: SettingsManagerProtocol
+    let accounts: () throws -> [AccountItem]
+    let selectedWalletSettings: SelectedWalletSettingsProtocol
+    var recoveryGate: WalletRecoveryCapabilityGate = .shared
+    var lifecycleCoordinator: WalletLifecycleCoordinator = .shared
+
+    static var app: WalletRetainedRestoreEnvironment {
+        .init(keystore: Keychain(), settings: SettingsManager.shared,
+              accounts: { try WalletAccountAddresses.accounts() },
+              selectedWalletSettings: SelectedWalletSettings.shared)
+    }
+}
+
 /// "Restore wallets found on this iPhone": the PIN of the earlier install,
 /// then every proven retained wallet that is not in the wallet yet is
 /// restored on its own (`RetainedKeychainWalletDiscovery.restore`). Used by
@@ -1513,6 +1400,17 @@ enum WalletRetainedWalletRestoreFlow {
         setBusy: @escaping (Bool) -> Void,
         completion: @escaping (Outcome) -> Void
     ) {
+        run(on: controller, scope: scope, setBusy: setBusy, completion: completion,
+            environment: .app)
+    }
+
+    static func run(
+        on controller: UIViewController,
+        scope: WalletRetainedPinGate.Scope,
+        setBusy: @escaping (Bool) -> Void,
+        completion: @escaping (Outcome) -> Void,
+        environment: WalletRetainedRestoreEnvironment
+    ) {
         let message = scope == .welcomeBack
             ? WalletUX.text("Enter the PIN that protected these wallets. Only wallets owned by that PIN will be restored, and this app will use that PIN.")
             : WalletUX.text("Enter the PIN that protected the wallets you want to restore.")
@@ -1520,16 +1418,16 @@ enum WalletRetainedWalletRestoreFlow {
             setBusy(true)
             DispatchQueue.global(qos: .userInitiated).async {
                 let result = Result { () -> WalletOwnerPIN.RetainedAuthorization in
-                    let keychain = Keychain()
-                    let service = WalletOwnerPIN(keystore: keychain, settings: SettingsManager.shared)
-                    let accounts = try service.prepareRetainedAuthentication { try WalletAccountAddresses.accounts() }
+                    let keychain = environment.keystore
+                    let service = WalletOwnerPIN(keystore: keychain, settings: environment.settings, recoveryGate: environment.recoveryGate)
+                    let accounts = try service.prepareRetainedAuthentication { try environment.accounts() }
                     if scope == .welcomeBack, !accounts.isEmpty {
                         guard try service.requiresInitialSetup(accounts: accounts) else {
                             throw WalletOwnerPIN.Failure.authenticationRequired
                         }
                     }
                     let existing = scope == .welcomeBack ? Set<String>() : Set(accounts.map(\.address))
-                    let inventory = try RetainedKeychainWalletDiscovery.inventory(keystore: keychain, excluding: existing)
+                    let inventory = try RetainedKeychainWalletDiscovery.inventory(keystore: keychain, excluding: existing, recoveryGate: environment.recoveryGate)
                     return try service.authorizeRetained(ownerPIN, addresses: Set(inventory.adoptable.map(\.address)))
                 }
                 DispatchQueue.main.async {
@@ -1539,13 +1437,13 @@ enum WalletRetainedWalletRestoreFlow {
                     case let .success(grant):
                         if scope == .welcomeBack {
                             restore(grant: grant, appPIN: ownerPIN, scope: scope,
-                                    setBusy: setBusy, completion: completion)
+                                    setBusy: setBusy, completion: completion, environment: environment)
                         } else {
                             WalletPinPrompt.present(on: controller, message: WalletUX.text(
                                 "Enter this app's PIN. The restored wallets will from now on be protected by this app's PIN."
                             )) { currentPIN in
                                 restore(grant: grant, appPIN: currentPIN, scope: scope,
-                                        setBusy: setBusy, completion: completion)
+                                        setBusy: setBusy, completion: completion, environment: environment)
                             }
                         }
                     }
@@ -1556,17 +1454,18 @@ enum WalletRetainedWalletRestoreFlow {
 
     private static func restore(grant: WalletOwnerPIN.RetainedAuthorization, appPIN: String,
                                 scope: WalletRetainedPinGate.Scope, setBusy: @escaping (Bool) -> Void,
-                                completion: @escaping (Outcome) -> Void) {
+                                completion: @escaping (Outcome) -> Void,
+                                environment: WalletRetainedRestoreEnvironment) {
         setBusy(true)
         DispatchQueue.global(qos: .userInitiated).async {
-            let keychain = Keychain(), settings = SettingsManager.shared
-            let service = WalletOwnerPIN(keystore: keychain, settings: settings)
+            let keychain = environment.keystore, settings = environment.settings
+            let service = WalletOwnerPIN(keystore: keychain, settings: settings, recoveryGate: environment.recoveryGate)
             let outcome: Outcome
             var existing = Set<String>()
             do {
-                let accounts = try service.prepareRetainedAuthentication { try WalletAccountAddresses.accounts() }
+                let accounts = try service.prepareRetainedAuthentication { try environment.accounts() }
                 if scope == .afterSetup {
-                    _ = try service.authenticateCurrent(appPIN, currentAccounts: { try WalletAccountAddresses.accounts() })
+                    _ = try service.authenticateCurrent(appPIN, currentAccounts: { try environment.accounts() })
                 } else if !accounts.isEmpty {
                     guard Set(accounts.map(\.address)).isSubset(of: grant.addresses),
                           try service.requiresInitialSetup(accounts: accounts) else {
@@ -1574,17 +1473,18 @@ enum WalletRetainedWalletRestoreFlow {
                     }
                 }
                 existing = Set(accounts.map(\.address))
-                let inventory = try RetainedKeychainWalletDiscovery.inventory(keystore: keychain, excluding: existing)
+                let inventory = try RetainedKeychainWalletDiscovery.inventory(keystore: keychain, excluding: existing, recoveryGate: environment.recoveryGate)
                 let attempted = inventory.adoptable.filter { grant.addresses.contains($0.address) }
                 let result = RetainedKeychainWalletDiscovery.restore(
                     attempted, existing: existing, keystore: keychain,
-                    selectedWalletSettings: SelectedWalletSettings.shared,
+                    selectedWalletSettings: environment.selectedWalletSettings,
+                    lifecycleCoordinator: environment.lifecycleCoordinator, recoveryGate: environment.recoveryGate,
                     prepareOwnership: { wallet in try service.prepareRebinding(address: wallet.address, to: appPIN,
                                                                              consumeSetupIntent: scope == .afterSetup) },
                     ownershipAuthorization: grant)
-                let lease = WalletLifecycleCoordinator.shared.acquire()
+                let lease = environment.lifecycleCoordinator.acquire()
                 defer { lease.release() }
-                let current = try WalletAccountAddresses.accounts()
+                let current = try environment.accounts()
                 try service.settleRebindings(currentAddresses: Set(current.map(\.address)))
                 let committed = committedAddresses(current: current, authorized: grant.addresses,
                     existingBefore: existing, welcomeBack: scope == .welcomeBack)
@@ -1597,7 +1497,7 @@ enum WalletRetainedWalletRestoreFlow {
                         "No wallet on this iPhone could be verified. Use your recovery phrase or Google Drive backup."))
                 }
             } catch {
-                let current = (try? WalletAccountAddresses.accounts()) ?? []
+                let current = (try? environment.accounts()) ?? []
                 let committed = committedAddresses(current: current, authorized: grant.addresses,
                     existingBefore: existing, welcomeBack: scope == .welcomeBack)
                 if scope == .welcomeBack, !committed.isEmpty {
@@ -1627,9 +1527,41 @@ enum WalletRetainedWalletRestoreFlow {
 
 // MARK: - Welcome back (reinstall)
 
+struct WalletWelcomeScreenActions {
+    var loadOptions: (KeystoreProtocol, SettingsManagerProtocol) -> (WalletRecoveryOptions, Bool) = { keys, settings in
+        let state = WalletRecoveryStateProbe.welcomeBack(keystore: keys, settings: settings)
+        let earlier = (try? WalletLocalStateSetAside.Paths.production()).map {
+            !WalletPreservedGeneration.available(paths: $0, settings: settings).isEmpty
+        } ?? false
+        return (state.options, earlier)
+    }
+    var leaveForSetup: (KeystoreProtocol, SettingsManagerProtocol) throws -> Void = {
+        try WalletPendingPinSetup.leaveWelcomeBack(keystore: $0, settings: $1)
+    }
+    var restoreWallets: (UIViewController, @escaping (Bool) -> Void,
+                        @escaping (WalletRetainedWalletRestoreFlow.Outcome) -> Void) -> Void = { controller, busy, completion in
+        WalletRetainedWalletRestoreFlow.run(on: controller, scope: .welcomeBack, setBusy: busy, completion: completion)
+    }
+    var revealPhrases: (String, KeystoreProtocol, SettingsManagerProtocol) throws -> [WalletRecoveryPhraseReveal.Entry] = { pin, keychain, settings in
+        let wallets = try RetainedKeychainWalletDiscovery.inventory(keystore: keychain).adoptable
+        let accounts = wallets.map {
+            AccountItem(address: $0.address, cryptoType: $0.cryptoType, networkType: $0.networkType,
+                        username: "", publicKeyData: $0.publicKey,
+                        settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+                        order: 0, isSelected: false)
+        }
+        return try WalletRecoveryPhraseReveal.reveal(pin: pin, accounts: accounts, keystore: keychain, settings: settings)
+    }
+    var restoreEarlierData: (UIViewController, @escaping () -> Void) -> Void = {
+        WalletPreservedDataRestoration.present(on: $0, onRestored: $1)
+    }
+    var openSupport: (URL) -> Void = { UIApplication.shared.open($0) }
+}
+
 /// Shown when only Keychain items from an earlier install are left (iOS keeps
 /// them when the app is deleted). Nothing is deleted or changed by showing it.
 final class WalletWelcomeBackViewController: UIViewController {
+    var actions = WalletWelcomeScreenActions()
     private let keystore: KeystoreProtocol
     private let settings: SettingsManagerProtocol
     private let onContinueToOnboarding: () -> Void
@@ -1720,12 +1652,11 @@ final class WalletWelcomeBackViewController: UIViewController {
             scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            stack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -24),
             stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 32),
             stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
-            stack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -48),
         ])
+        // 24 from each side on a phone; a readable column in the middle of a wider window.
+        WalletDisplay.pinReadable(stack, inScroll: scrollView, margin: 24)
         refreshOptions()
     }
 
@@ -1741,13 +1672,11 @@ final class WalletWelcomeBackViewController: UIViewController {
     private func refreshOptions() {
         let keystore = self.keystore
         let settings = self.settings
+        let loadOptions = actions.loadOptions
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let state = WalletRecoveryStateProbe.welcomeBack(keystore: keystore, settings: settings)
-            let earlier = (try? WalletLocalStateSetAside.Paths.production()).map {
-                !WalletPreservedGeneration.available(paths: $0, settings: settings).isEmpty
-            } ?? false
+            let (options, earlier) = loadOptions(keystore, settings)
             DispatchQueue.main.async {
-                self?.apply(state.options)
+                self?.apply(options)
                 self?.earlierDataButton.isHidden = !earlier
             }
         }
@@ -1771,7 +1700,7 @@ final class WalletWelcomeBackViewController: UIViewController {
 
     @objc private func restoreEarlierData() {
         guard !isBusy else { return }
-        WalletPreservedDataRestoration.present(on: self, onRestored: onWalletsRestored)
+        actions.restoreEarlierData(self, onWalletsRestored)
     }
     @objc private func restorePhrase() { leaveForOnboarding(restoreFromDrive: false) }
     @objc private func restoreDrive() { leaveForOnboarding(restoreFromDrive: true) }
@@ -1786,7 +1715,9 @@ final class WalletWelcomeBackViewController: UIViewController {
         WalletSetUpAgainConfirmation.present(on: self, movesWalletData: false) { [weak self] in
             // Nothing is moved here: there is no wallet database. The Keychain
             // items stay.
-            self?.leaveForOnboarding()
+            guard let self else { return }
+            WalletDatabaseSelfRepair.recordSetUpAgainChoice(self.settings)
+            self.leaveForOnboarding()
         }
     }
 
@@ -1802,7 +1733,7 @@ final class WalletWelcomeBackViewController: UIViewController {
             let settings = self.settings
             DispatchQueue.global(qos: .userInitiated).async {
                 let result = Result {
-                    try WalletPendingPinSetup.leaveWelcomeBack(keystore: keystore, settings: settings)
+                    try self.actions.leaveForSetup(keystore, settings)
                 }
                 DispatchQueue.main.async {
                     self.setBusy(false)
@@ -1855,12 +1786,12 @@ final class WalletWelcomeBackViewController: UIViewController {
     }
 
     @objc private func openSupport() {
-        UIApplication.shared.open(ApplicationConfig.shared.supportURL)
+        actions.openSupport(ApplicationConfig.shared.supportURL)
     }
 
     @objc private func restoreFoundWallets() {
         guard !isBusy, options.canRestoreExistingKeys else { return }
-        WalletRetainedWalletRestoreFlow.run(on: self, scope: .welcomeBack, setBusy: { [weak self] busy in
+        actions.restoreWallets(self, { [weak self] busy in
             self?.setBusy(busy, status: busy ? WalletUX.text("Checking the keys saved on this iPhone…") : nil)
         }) { [weak self] outcome in
             guard let self else { return }
@@ -1899,17 +1830,7 @@ final class WalletWelcomeBackViewController: UIViewController {
                 var pin = pin
                 defer { pin.removeAll(keepingCapacity: false) }
                 let keychain = self.keystore
-                let result = Result { () -> [WalletRecoveryPhraseReveal.Entry] in
-                    let wallets = try RetainedKeychainWalletDiscovery.inventory(keystore: keychain).adoptable
-                    let accounts = wallets.map {
-                        AccountItem(address: $0.address, cryptoType: $0.cryptoType, networkType: $0.networkType,
-                                    username: "", publicKeyData: $0.publicKey,
-                                    settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
-                                    order: 0, isSelected: false)
-                    }
-                    return try WalletRecoveryPhraseReveal.reveal(
-                        pin: pin, accounts: accounts, keystore: keychain, settings: self.settings)
-                }
+                let result = Result { try self.actions.revealPhrases(pin, keychain, self.settings) }
                 DispatchQueue.main.async {
                     self.setBusy(false)
                     switch result {
@@ -1931,14 +1852,30 @@ final class WalletWelcomeBackViewController: UIViewController {
     }
 }
 
+struct WalletPreservedRestoreEnvironment {
+    var paths: () throws -> WalletLocalStateSetAside.Paths
+    var settings: SettingsManagerProtocol
+    var keystore: KeystoreProtocol
+    var recoveryGate: WalletRecoveryCapabilityGate = .shared
+    var lifecycleCoordinator: WalletLifecycleCoordinator = .shared
+
+    static var app: WalletPreservedRestoreEnvironment {
+        .init(paths: { try .production() }, settings: SettingsManager.shared, keystore: Keychain())
+    }
+}
+
 /// Shared by Welcome back and onboarding. File return always ends in the
 /// normal startup verifier; it never opens a wallet directly.
 enum WalletPreservedDataRestoration {
     static func present(on controller: UIViewController, onRestored: @escaping () -> Void) {
+        present(on: controller, onRestored: onRestored, environment: .app)
+    }
+
+    static func present(on controller: UIViewController, onRestored: @escaping () -> Void,
+                        environment: WalletPreservedRestoreEnvironment) {
         let paths: WalletLocalStateSetAside.Paths
-        do { paths = try .production() } catch { return }
-        let settings = SettingsManager.shared
-        let keys = Keychain()
+        do { paths = try environment.paths() } catch { return }
+        let settings = environment.settings
         controller.view.isUserInteractionEnabled = false
         DispatchQueue.global(qos: .userInitiated).async {
             let folders = WalletPreservedGeneration.available(paths: paths, settings: settings)
@@ -1946,14 +1883,14 @@ enum WalletPreservedDataRestoration {
                 controller.view.isUserInteractionEnabled = true
                 guard !folders.isEmpty else { return }
                 if folders.count == 1 {
-                    begin(folder: folders[0], paths: paths, controller: controller, onRestored: onRestored)
+                    begin(folder: folders[0], paths: paths, controller: controller, onRestored: onRestored, environment: environment)
                 } else {
                     let alert = UIAlertController(title: WalletUX.text("Use the earlier wallet data again"),
                         message: WalletUX.text("Choose the saved wallet data to check. Your current wallet must be empty."),
                         preferredStyle: .actionSheet)
                     for (index, folder) in folders.enumerated() {
                         alert.addAction(UIAlertAction(title: WalletUX.format("Saved wallet data %d", index + 1), style: .default) { _ in
-                            begin(folder: folder, paths: paths, controller: controller, onRestored: onRestored)
+                            begin(folder: folder, paths: paths, controller: controller, onRestored: onRestored, environment: environment)
                         })
                     }
                     alert.addAction(UIAlertAction(title: WalletUX.text("Cancel"), style: .cancel))
@@ -1965,13 +1902,14 @@ enum WalletPreservedDataRestoration {
     }
 
     private static func begin(folder: URL, paths: WalletLocalStateSetAside.Paths,
-                              controller: UIViewController, onRestored: @escaping () -> Void) {
+                              controller: UIViewController, onRestored: @escaping () -> Void,
+                              environment: WalletPreservedRestoreEnvironment) {
         controller.view.isUserInteractionEnabled = false
         DispatchQueue.global(qos: .userInitiated).async {
             let result = Result { () -> Set<String> in
-                let keys = Keychain()
+                let keys = environment.keystore
                 let rows = try WalletPreservedGeneration.accounts(folder: folder, paths: paths,
-                    settings: SettingsManager.shared, keystore: keys)
+                    settings: environment.settings, keystore: keys)
                 var required = Set<String>()
                 let legacy = try keys.checkKey(for: KeystoreTag.legacyEntropy.rawValue)
                 for row in rows {
@@ -1989,7 +1927,7 @@ enum WalletPreservedDataRestoration {
                 switch result {
                 case .success(let required):
                     authorize(remaining: required, grants: [], folder: folder, paths: paths,
-                              controller: controller, onRestored: onRestored)
+                              controller: controller, onRestored: onRestored, environment: environment)
                 case .failure(let error): show(error, on: controller)
                 }
             }
@@ -1998,23 +1936,25 @@ enum WalletPreservedDataRestoration {
 
     private static func authorize(remaining: Set<String>, grants: [WalletOwnerPIN.RetainedAuthorization],
                                   folder: URL, paths: WalletLocalStateSetAside.Paths,
-                                  controller: UIViewController, onRestored: @escaping () -> Void) {
+                                  controller: UIViewController, onRestored: @escaping () -> Void,
+                              environment: WalletPreservedRestoreEnvironment) {
         guard !remaining.isEmpty else {
-            choosePIN(grants: grants, folder: folder, paths: paths, controller: controller, onRestored: onRestored)
+            choosePIN(grants: grants, folder: folder, paths: paths, controller: controller, onRestored: onRestored, environment: environment)
             return
         }
         WalletPinPrompt.present(on: controller,
             message: WalletUX.text("Enter the PIN that protected these wallets. If they used different PINs, you will be asked for each one.")) { pin in
             controller.view.isUserInteractionEnabled = false
             DispatchQueue.global(qos: .userInitiated).async {
-                let result = Result { try WalletOwnerPIN(keystore: Keychain(), settings: SettingsManager.shared)
+                let result = Result { try WalletOwnerPIN(keystore: environment.keystore, settings: environment.settings,
+                                                   recoveryGate: environment.recoveryGate)
                     .authorizeRetained(pin, addresses: remaining) }
                 DispatchQueue.main.async {
                     controller.view.isUserInteractionEnabled = true
                     switch result {
                     case .success(let grant):
                         authorize(remaining: remaining.subtracting(grant.addresses), grants: grants + [grant],
-                            folder: folder, paths: paths, controller: controller, onRestored: onRestored)
+                            folder: folder, paths: paths, controller: controller, onRestored: onRestored, environment: environment)
                     case .failure(let error): show(error, on: controller)
                     }
                 }
@@ -2024,7 +1964,7 @@ enum WalletPreservedDataRestoration {
 
     private static func choosePIN(grants: [WalletOwnerPIN.RetainedAuthorization], folder: URL,
                                   paths: WalletLocalStateSetAside.Paths, controller: UIViewController,
-                                  onRestored: @escaping () -> Void) {
+                                  onRestored: @escaping () -> Void, environment: WalletPreservedRestoreEnvironment) {
         let alert = UIAlertController(title: WalletUX.text("Protect the returned wallets"),
             message: WalletUX.text("Choose the app PIN for the returned wallets. Their files will move back, their keys will stay on this iPhone, and SORA will check them before opening. From now on, these wallets will use this PIN."),
             preferredStyle: .alert)
@@ -2042,7 +1982,8 @@ enum WalletPreservedDataRestoration {
             controller.view.isUserInteractionEnabled = false
             DispatchQueue.global(qos: .userInitiated).async {
                 let result = Result { try WalletPreservedGeneration.restore(folder: folder, paths: paths,
-                    settings: SettingsManager.shared, keystore: Keychain(), grants: grants, newPIN: pin) }
+                    settings: environment.settings, keystore: environment.keystore, grants: grants, newPIN: pin,
+                    lifecycleCoordinator: environment.lifecycleCoordinator) }
                 DispatchQueue.main.async {
                     controller.view.isUserInteractionEnabled = true
                     switch result {

@@ -19,6 +19,7 @@ import SoraUI
 import IrohaCrypto
 import SoraKeystore
 import CoreGraphics
+import SSFUtils
 
 
 protocol ReferralViewFactoryProtocol {
@@ -32,6 +33,23 @@ protocol ReferralViewFactoryProtocol {
     static func createActivityDetailsView(assetManager: AssetManagerProtocol, model: Transaction, completion: (() -> Void)?) -> UIViewController?
 }
 
+struct ReferralAssemblyDependencies {
+    var settings: SettingsManagerProtocol
+    var keystore: KeystoreProtocol
+    var connection: () -> JSONRPCEngine?
+    var runtime: () -> RuntimeProviderProtocol?
+    var selectedAccount: () -> AccountItem?
+    var assetManager: () -> AssetManagerProtocol
+
+    static var app: ReferralAssemblyDependencies {
+        .init(settings: SettingsManager.shared, keystore: Keychain(),
+              connection: { ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) },
+              runtime: { ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) },
+              selectedAccount: { SelectedWalletSettings.shared.currentAccount },
+              assetManager: { ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash()) })
+    }
+}
+
 final class ReferralViewFactory: ReferralViewFactoryProtocol {
     static func createReferrerView(with referrer: String) -> UIViewController {
         let presenter = YourReferrerPresenter(referrer: referrer)
@@ -41,12 +59,16 @@ final class ReferralViewFactory: ReferralViewFactoryProtocol {
     }
 
     static func createInputLinkView(with delegate: InputLinkPresenterOutput) -> UIViewController? {
-        let settings = SettingsManager.shared
-        let keychain = Keychain()
-        let chainId = Chain.sora.genesisHash()
-        guard let engine = ChainRegistryFacade.sharedRegistry.getConnection(for: chainId),
-              let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: chainId),
-              let selectedAccount = SelectedWalletSettings.shared.currentAccount else { return nil }
+        createInputLinkView(with: delegate, dependencies: .app)
+    }
+
+    static func createInputLinkView(with delegate: InputLinkPresenterOutput,
+                                    dependencies: ReferralAssemblyDependencies) -> UIViewController? {
+        let settings = dependencies.settings
+        let keychain = dependencies.keystore
+        guard let engine = dependencies.connection(),
+              let runtimeRegistry = dependencies.runtime(),
+              let selectedAccount = dependencies.selectedAccount() else { return nil }
 
 
         let operationFactory = ReferralsOperationFactory(settings: settings,
@@ -76,14 +98,23 @@ final class ReferralViewFactory: ReferralViewFactoryProtocol {
                                             type: InputRewardAmountType,
                                             walletContext: CommonWalletContextProtocol,
                                             delegate: InputRewardAmountPresenterOutput) -> UIViewController? {
-        let settings = SettingsManager.shared
-        let keychain = Keychain()
-        let chainId = Chain.sora.genesisHash()
-        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: chainId)
+        createInputRewardAmountView(with: fee, bondedAmount: bondedAmount, type: type,
+                                   walletContext: walletContext, delegate: delegate, dependencies: .app)
+    }
 
-        guard let engine = ChainRegistryFacade.sharedRegistry.getConnection(for: chainId),
-              let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: chainId),
-              let selectedAccount =  SelectedWalletSettings.shared.currentAccount,
+    static func createInputRewardAmountView(with fee: Decimal,
+                                            bondedAmount: Decimal,
+                                            type: InputRewardAmountType,
+                                            walletContext: CommonWalletContextProtocol,
+                                            delegate: InputRewardAmountPresenterOutput,
+                                            dependencies: ReferralAssemblyDependencies) -> UIViewController? {
+        let settings = dependencies.settings
+        let keychain = dependencies.keystore
+        let assetManager = dependencies.assetManager()
+
+        guard let engine = dependencies.connection(),
+              let runtimeRegistry = dependencies.runtime(),
+              let selectedAccount = dependencies.selectedAccount(),
               let feeAsset = assetManager.getAssetList()?.first(where: { $0.isFeeAsset }) else { return nil }
         let operationFactory = ReferralsOperationFactory(settings: settings,
                                                          keychain: keychain,

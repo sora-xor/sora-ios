@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import Combine
+import IrohaCrypto
+import SSFCloudStorage
+import SoraKeystore
 import SoraUIKit
 import UIKit
 import XCTest
@@ -8,6 +11,15 @@ import XCTest
 
 @MainActor
 final class BackupPasswordScreenFlowTests: XCTestCase {
+  private var previousBackups: [String] = []
+  override func setUp() {
+    super.setUp()
+    previousBackups = ApplicationConfig.shared.backupedAccountAddresses
+  }
+  override func tearDown() {
+    ApplicationConfig.shared.backupedAccountAddresses = previousBackups
+    super.tearDown()
+  }
   private func make(_ model: PasswordScreenModel) -> SetupPasswordViewController {
     let view = SetupPasswordViewController()
     view.viewModel = model
@@ -125,6 +137,277 @@ final class BackupPasswordScreenFlowTests: XCTestCase {
     await settle()
     XCTAssertNil(reference)
   }
+  func testPresenterRefusesAWeakPasswordBeforeCreatingOrEncryptingAWallet() async throws {
+    let mnemonic = try IRMnemonicCreator(language: .english)
+      .mnemonic(fromEntropy: Data(repeating: 33, count: 16))
+    let gate = WalletRecoveryCapabilityGate(
+      settings: InMemorySettingsManager(),
+      unresolvedMigrationJournal: { false },
+      unresolvedWalletCommitJournal: { false })
+    // The screen already refuses these. The presenter must too: before the
+    // onboarding wallet is created or the profile account is read, so before
+    // anything is encrypted or uploaded.
+    let refused: [(String, EntryPoint, BackupPasswordPolicy.Violation)] = [
+      ("123456", .onboarding, .tooShort),
+      ("aaaaaaaaaaaa", .onboarding, .repeatedCharacter),
+      ("123456789012", .profile, .sequence),
+      ("password1234", .profile, .commonPassword),
+    ]
+    for (password, entryPoint, violation) in refused {
+      let cloud = BackupPasswordCloudSpy()
+      let creator = BackupPasswordCreatorSpy()
+      let view = BackupPasswordViewSpy()
+      let route = BackupPasswordRouteSpy()
+      var accountReads = 0
+      let presenter = SetupPasswordPresenter(
+        account: OpenBackupAccount(address: ""),
+        cloudStorageService: cloud,
+        createAccountRequest: AccountCreationRequest(
+          username: "Public fixture", type: .sora, derivationPath: "", cryptoType: .sr25519),
+        createAccountService: creator,
+        mnemonic: mnemonic,
+        entryPoint: entryPoint,
+        keystore: InMemoryKeychain(),
+        currentAccount: {
+          accountReads += 1
+          return nil
+        },
+        lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate),
+        recoveryGate: gate)
+      presenter.view = view
+      presenter.wireframe = route
+      let ended = expectation(description: password)
+      view.onHide = { ended.fulfill() }
+      presenter.backupAccount(with: password)
+      await fulfillment(of: [ended], timeout: 10)
+      withExtendedLifetime(presenter) {}
+      XCTAssertEqual(view.shows, 1, password)
+      XCTAssertEqual(creator.calls, 0, password)
+      XCTAssertEqual(accountReads, 0, password)
+      XCTAssertEqual(cloud.saves, 0, password)
+      XCTAssertEqual(route.pinSetups, 0, password)
+      XCTAssertEqual(
+        route.messages,
+        [BackupPasswordPolicy.guidance(for: violation, preferredLanguages: .currentLocale)],
+        password)
+    }
+  }
+  // MARK: - The wallet secret of an existing wallet needs a holding authorization
+  private let strongPassword = "public fixture backup password"
+  private func profileWallet() throws -> (AccountItem, BackupPasswordKeystore, WalletRecoveryCapabilityGate) {
+    let keys = InMemoryKeychain()
+    let gate = WalletRecoveryCapabilityGate(
+      settings: InMemorySettingsManager(),
+      unresolvedMigrationJournal: { false },
+      unresolvedWalletCommitJournal: { false })
+    let factory = AccountOperationFactory(keystore: keys, recoveryGate: gate)
+    let mnemonic = try IRMnemonicCreator(language: .english)
+      .mnemonic(fromEntropy: Data(repeating: 34, count: 16))
+    let operation = factory.prepareAccountOperation(
+      request: AccountCreationRequest(
+        username: "Public fixture", type: .sora, derivationPath: "", cryptoType: .sr25519),
+      mnemonic: mnemonic)
+    operation.main()
+    let prepared = try XCTUnwrap(operation.result).get()
+    try factory.persistPreparedAccount(prepared)
+    return (prepared.account, BackupPasswordKeystore(keys), gate)
+  }
+  private func authorization(
+    for address: String, notifications: NotificationCenter = NotificationCenter()
+  ) -> AccountOptionsCloudBackupAuthorization {
+    AccountOptionsCloudBackupAuthorization(
+      accountAddress: address, selectedAddress: { address }, eventCenter: EventCenter(),
+      notificationCenter: notifications)
+  }
+  private func profilePresenter(
+    _ account: AccountItem, _ keystore: BackupPasswordKeystore, _ gate: WalletRecoveryCapabilityGate,
+    _ cloud: BackupPasswordCloudSpy, authorization: AccountOptionsCloudBackupAuthorization?,
+    reauthorize: AccountOptionsCloudBackupReauthorization?,
+    store: WalletGoogleBackupAccountStore = .shared
+  ) -> (SetupPasswordPresenter, BackupPasswordViewSpy, BackupPasswordRouteSpy) {
+    let presenter = SetupPasswordPresenter(
+      account: OpenBackupAccount(address: account.address, cryptoType: "sr25519", substrateDerivationPath: ""),
+      cloudStorageService: cloud,
+      entryPoint: .profile,
+      keystore: keystore,
+      cloudBackupAuthorization: authorization,
+      reauthorizeCloudBackup: reauthorize,
+      currentAccount: { account },
+      lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate),
+      recoveryGate: gate,
+      backupAccountStore: store)
+    let view = BackupPasswordViewSpy(), route = BackupPasswordRouteSpy()
+    presenter.view = view
+    presenter.wireframe = route
+    return (presenter, view, route)
+  }
+  private func save(_ presenter: SetupPasswordPresenter, _ view: BackupPasswordViewSpy) async {
+    let ended = expectation(description: "save ended")
+    view.onHide = { ended.fulfill() }
+    presenter.backupAccount(with: strongPassword)
+    await fulfillment(of: [ended], timeout: 10)
+  }
+  /// A verified save is recorded for the Google account that served it; a
+  /// failed one, or one whose account cannot be named, records nothing.
+  func testVerifiedSaveRecordsTheGoogleAccountThatServedIt() async throws {
+    let suite = "BackupPasswordScreenFlowTests." + UUID().uuidString
+    defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
+    let store = WalletGoogleBackupAccountStore(userDefaults: UserDefaults(suiteName: suite)!)
+    let cases: [(CloudStorageAccountIdentity?, Error?, [String])] = [
+      (CloudStorageAccountIdentity(userID: "save-google-user", email: "save@example.com"), nil, ["save-google-user"]),
+      (CloudStorageAccountIdentity(userID: "failed-google-user"), NSError(domain: "save-fixture", code: 1), []),
+      (nil, nil, []),
+    ]
+    for (identity, failure, expected) in cases {
+      let (account, keystore, gate) = try profileWallet()
+      let cloud = BackupPasswordCloudSpy()
+      cloud.currentAccountIdentity = identity
+      cloud.saveError = failure
+      let (presenter, view, _) = profilePresenter(
+        account, keystore, gate, cloud, authorization: authorization(for: account.address),
+        reauthorize: nil, store: store)
+      await save(presenter, view)
+      XCTAssertEqual(cloud.saves, 1)
+      XCTAssertEqual(store.accounts(for: account.address).map(\.googleUserID), expected)
+      store.remove(for: account.address)
+    }
+  }
+  func testProfileBackupReadsTheSecretUnderTheHandedOverAuthorizationAndUsesItUp() async throws {
+    let (account, keystore, gate) = try profileWallet()
+    let cloud = BackupPasswordCloudSpy(), handedOver = authorization(for: account.address)
+    var asked = 0
+    let (presenter, view, route) = profilePresenter(
+      account, keystore, gate, cloud, authorization: handedOver,
+      reauthorize: { asked += 1; $0(nil) })
+    await save(presenter, view)
+    XCTAssertEqual(asked, 0)
+    XCTAssertGreaterThan(keystore.reads, 0)
+    XCTAssertEqual(cloud.saves, 1)
+    XCTAssertEqual(route.pinSetups, 1)
+    XCTAssertEqual(route.messages, [])
+    XCTAssertThrowsError(try handedOver.require(for: account.address), "One authorization covers one read")
+  }
+  func testLapsedAuthorizationAsksOnceAndARefusedPINReadsAndSavesNothing() async throws {
+    let (account, keystore, gate) = try profileWallet()
+    let notifications = NotificationCenter(), cloud = BackupPasswordCloudSpy()
+    let handedOver = authorization(for: account.address, notifications: notifications)
+    // The owner left the app, for example to copy a password.
+    notifications.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+    var asked = 0
+    let (presenter, view, route) = profilePresenter(
+      account, keystore, gate, cloud, authorization: handedOver,
+      reauthorize: { asked += 1; $0(nil) })
+    await save(presenter, view)
+    XCTAssertEqual(asked, 1)
+    XCTAssertEqual(keystore.reads, 0)
+    XCTAssertEqual(cloud.saves, 0)
+    XCTAssertEqual(route.pinSetups, 0)
+    XCTAssertEqual(route.messages, [], "Cancelling the PIN is not an error")
+    XCTAssertFalse(ApplicationConfig.shared.backupedAccountAddresses.contains(account.address))
+  }
+  func testLapsedAuthorizationAsksOnceAndContinuesUnderTheNewOne() async throws {
+    let (account, keystore, gate) = try profileWallet()
+    let notifications = NotificationCenter(), cloud = BackupPasswordCloudSpy()
+    let handedOver = authorization(for: account.address, notifications: notifications)
+    notifications.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+    let renewed = authorization(for: account.address)
+    var asked = 0
+    let (presenter, view, route) = profilePresenter(
+      account, keystore, gate, cloud, authorization: handedOver,
+      reauthorize: { asked += 1; $0(renewed) })
+    await save(presenter, view)
+    XCTAssertEqual(asked, 1)
+    XCTAssertGreaterThan(keystore.reads, 0)
+    XCTAssertEqual(cloud.saves, 1)
+    XCTAssertEqual(route.pinSetups, 1)
+    XCTAssertThrowsError(try renewed.require(for: account.address))
+  }
+  func testSavingAgainAfterAFailedUploadAsksForANewAuthorization() async throws {
+    let (account, keystore, gate) = try profileWallet()
+    let cloud = BackupPasswordCloudSpy(), handedOver = authorization(for: account.address)
+    cloud.saveError = WalletCloudBackupWriteError.verificationFailed
+    var asked = 0
+    let (presenter, view, route) = profilePresenter(
+      account, keystore, gate, cloud, authorization: handedOver,
+      reauthorize: { completion in
+        asked += 1
+        completion(self.authorization(for: account.address))
+      })
+    await save(presenter, view)
+    XCTAssertEqual(asked, 0)
+    XCTAssertEqual(cloud.saves, 1)
+    XCTAssertEqual(route.messages.count, 1)
+    let firstReads = keystore.reads
+    XCTAssertGreaterThan(firstReads, 0)
+    cloud.saveError = nil
+    await save(presenter, view)
+    XCTAssertEqual(asked, 1, "The first read used the handed-over authorization up")
+    XCTAssertGreaterThan(keystore.reads, firstReads)
+    XCTAssertEqual(cloud.saves, 2)
+    XCTAssertEqual(route.pinSetups, 1)
+  }
+  func testNoHoldingAuthorizationAndNoWayToAskReadsNothing() async throws {
+    let (account, keystore, gate) = try profileWallet()
+    for handedOver in [nil, authorization(for: "another-wallet")] {
+      let cloud = BackupPasswordCloudSpy()
+      let (presenter, view, route) = profilePresenter(
+        account, keystore, gate, cloud, authorization: handedOver, reauthorize: nil)
+      await save(presenter, view)
+      XCTAssertEqual(keystore.reads, 0)
+      XCTAssertEqual(cloud.saves, 0)
+      XCTAssertEqual(route.pinSetups, 0)
+      XCTAssertEqual(route.messages, [])
+    }
+  }
+}
+private final class BackupPasswordCloudSpy: CloudStorageServiceProtocol {
+  var currentAccountIdentity: CloudStorageAccountIdentity?
+  var isUserAuthorized = true
+  var saves = 0
+  var saveError: Error?
+  func signInIfNeeded() async throws -> CloudStorageAccountState { .authorized }
+  func getBackupAccounts() async throws -> [OpenBackupAccount] { [] }
+  func saveBackup(account: OpenBackupAccount, password: String) async throws {
+    saves += 1
+    if let saveError { throw saveError }
+  }
+  func saveBackupNamingAccount(account: OpenBackupAccount, password: String) async throws -> CloudStorageAccountIdentity? {
+    try await saveBackup(account: account, password: password)
+    return currentAccountIdentity
+  }
+  func importBackup(account: OpenBackupAccount, password: String) async throws -> OpenBackupAccount { account }
+  func importBackup(account: OpenBackupAccount, password: String, expectedAccountUserID: String) async throws -> OpenBackupAccount {
+    XCTFail("Saving must not import a wallet")
+    return account
+  }
+  func deleteBackup(account: OpenBackupAccount) async throws {}
+  func disconnect() {}
+}
+private final class BackupPasswordCreatorSpy: CreateAccountServiceProtocol {
+  var calls = 0
+  func createAccount(
+    request: AccountCreationRequest, mnemonic: IRMnemonicProtocol,
+    completion: @escaping (Result<AccountItem, Error>?) -> Void
+  ) {
+    calls += 1
+    completion(nil)
+  }
+}
+private final class BackupPasswordViewSpy: UIViewController, SetupPasswordViewProtocol {
+  var viewModel: SetupPasswordPresenterProtocol?
+  var shows = 0
+  var onHide: (() -> Void)?
+  func showLoading() { shows += 1 }
+  func hideLoading() { onHide?() }
+}
+private final class BackupPasswordRouteSpy: SetupPasswordWireframeProtocol {
+  var activityIndicatorWindow: UIWindow?
+  var messages: [String] = []
+  var pinSetups = 0
+  func showSetupPinCode() { pinSetups += 1 }
+  func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) {
+    messages.append(message ?? "")
+  }
 }
 private final class PasswordScreenModel: SetupPasswordPresenterProtocol {
   @Published var title = "Password"
@@ -141,4 +424,19 @@ private final class PasswordScreenModel: SetupPasswordPresenterProtocol {
     next.appendItems(items, toSection: section)
     snapshot = next
   }
+}
+// Counts secret reads; the material itself lives in the wrapped keychain.
+private final class BackupPasswordKeystore: KeystoreProtocol {
+  let base: InMemoryKeychain
+  var reads = 0
+  init(_ base: InMemoryKeychain) { self.base = base }
+  func addKey(_ key: Data, with identifier: String) throws { try base.addKey(key, with: identifier) }
+  func updateKey(_ key: Data, with identifier: String) throws { try base.updateKey(key, with: identifier) }
+  func fetchKey(for identifier: String) throws -> Data {
+    reads += 1
+    return try base.fetchKey(for: identifier)
+  }
+  func checkKey(for identifier: String) throws -> Bool { try base.checkKey(for: identifier) }
+  func allKeyIdentifiers() throws -> [String] { try base.allKeyIdentifiers() }
+  func deleteKey(for identifier: String) throws { try base.deleteKey(for: identifier) }
 }

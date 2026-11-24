@@ -8,15 +8,11 @@ public final class InputAssetField: UIControl, Molecule {
 
     public let sora: InputAssetFieldConfiguration<InputAssetField>
 
-    /// The amount card. A plain view on purpose, like the chrome host of
-    /// `InputField` and `InputTextView`: the field's configuration is the
-    /// only writer of its fill, border and focus glow (`NeonInputStyle`).
-    /// As a Soramitsu view it had a configuration of its own that answered
-    /// the same style updates in no defined order, and when it came second
-    /// it put back the palette fill, cleared the border colour and removed
-    /// the focus glow.
-    let containerView: UIView = {
-        let view = UIView()
+    let containerView: SoramitsuView = {
+        let view = SoramitsuView()
+        view.sora.cornerRadius = .max
+        view.sora.backgroundColor = .bgSurface
+        view.sora.borderWidth = 1
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
@@ -39,6 +35,19 @@ public final class InputAssetField: UIControl, Molecule {
         return button
     }()
     
+    /// A small wallet before the balance: the number is what you hold. Shown once tapping it does something.
+    let balanceGlyph: UIImageView = {
+        let view = UIImageView(image: UIImage(systemName: "wallet.bifold.fill")
+            ?? UIImage(systemName: "creditcard.fill"))
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.contentMode = .scaleAspectFit
+        view.tintColor = SoramitsuUI.shared.theme.palette.color(.fgSecondary)
+        view.isHidden = true
+        return view
+    }()
+
+    var balanceGlyphWidth: NSLayoutConstraint?
+
     let fullFiatAmountLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -46,6 +55,9 @@ public final class InputAssetField: UIControl, Molecule {
         label.sora.font = FontType.textBoldXS
         label.setContentHuggingPriority(.required, for: .horizontal)
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // A long balance beside a long fiat value gets smaller before it is cut: what is held matters.
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.75
         return label
     }()
     
@@ -86,20 +98,11 @@ public final class InputAssetField: UIControl, Molecule {
 
     @available(*, unavailable)
     public override init(frame: CGRect) { fatalError("init(coder:) has not been implemented") }
-
-    public override func layoutSubviews() {
-        super.layoutSubviews()
-        NeonInputStyle.layout(containerView)
-    }
 }
 
 private extension InputAssetField {
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        // The focus glow is a shadow around the card, which fills this
-        // control. Clipping here left only the four corners of the glow.
-        // The content sits 16 pt inside the card, so nothing overflows.
-        sora.clipsToBounds = false
         
         sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.textField.becomeFirstResponder()
@@ -108,9 +111,20 @@ private extension InputAssetField {
         addSubview(containerView)
         containerView.addSubview(assetImageView)
         containerView.addSubview(choiceButton)
+        containerView.addSubview(balanceGlyph)
         containerView.addSubview(fullFiatAmountLabel)
         containerView.addSubview(textField)
         containerView.addSubview(inputedFiatAmountLabel)
+
+        let glyphWidth = balanceGlyph.widthAnchor.constraint(equalToConstant: 0)
+        balanceGlyphWidth = glyphWidth
+        glyphWidth.isActive = true
+
+        // The amount keeps room to be typed and read whatever stands beside it: a long token name gets
+        // smaller, then is cut, before the amount is squeezed to a lone digit.
+        let amountRoom = textField.widthAnchor.constraint(greaterThanOrEqualToConstant: LayoutCanvas.minimumFieldWidth)
+        amountRoom.priority = UILayoutPriority(995)
+        amountRoom.isActive = true
 
         NSLayoutConstraint.activate([
             containerView.topAnchor.constraint(equalTo: topAnchor),
@@ -128,7 +142,11 @@ private extension InputAssetField {
             choiceButton.topAnchor.constraint(equalTo: assetImageView.topAnchor),
             choiceButton.heightAnchor.constraint(equalToConstant: 24),
             
-            fullFiatAmountLabel.leadingAnchor.constraint(equalTo: assetImageView.trailingAnchor, constant: 8),
+            balanceGlyph.leadingAnchor.constraint(equalTo: assetImageView.trailingAnchor, constant: 8),
+            balanceGlyph.centerYAnchor.constraint(equalTo: fullFiatAmountLabel.centerYAnchor),
+            balanceGlyph.heightAnchor.constraint(equalToConstant: 12),
+
+            fullFiatAmountLabel.leadingAnchor.constraint(equalTo: balanceGlyph.trailingAnchor),
             fullFiatAmountLabel.bottomAnchor.constraint(equalTo: assetImageView.bottomAnchor),
             
             textField.leadingAnchor.constraint(equalTo: choiceButton.trailingAnchor, constant: 8),
@@ -139,10 +157,6 @@ private extension InputAssetField {
             inputedFiatAmountLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
             inputedFiatAmountLabel.bottomAnchor.constraint(equalTo: assetImageView.bottomAnchor),
         ])
-
-        // The input chrome from the first display on, not only after the
-        // first focus.
-        sora.updateView()
     }
 }
 

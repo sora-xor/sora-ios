@@ -663,8 +663,9 @@ public final class SubqueryHistoryOperation<ResultType>:
     private let count: Int
     private let page: Int
     private let client: PIIndexerClient
-    private let filter: ((TxHistoryItem) -> KotlinBoolean)?
+    private let filter: ((TxHistoryItem) -> Bool)?
     private let canonicalBlockHash: PIHistoryBlockHashResolver
+    private let validatedHistoryCache: PIValidatedHistoryCache
     private let coverageLock = NSLock()
     private var resultCoverage: PIHistoryCoverage = .allRoles
 
@@ -705,7 +706,7 @@ public final class SubqueryHistoryOperation<ResultType>:
         address: String,
         count: Int,
         page: Int,
-        filter: ((TxHistoryItem) -> KotlinBoolean)? = nil
+        filter: ((TxHistoryItem) -> Bool)? = nil
     ) {
         self.init(
             address: address,
@@ -722,9 +723,10 @@ public final class SubqueryHistoryOperation<ResultType>:
         address: String,
         count: Int,
         page: Int,
-        filter: ((TxHistoryItem) -> KotlinBoolean)?,
+        filter: ((TxHistoryItem) -> Bool)?,
         client: PIIndexerClient,
-        canonicalBlockHash: @escaping PIHistoryBlockHashResolver
+        canonicalBlockHash: @escaping PIHistoryBlockHashResolver,
+        validatedHistoryCache: PIValidatedHistoryCache = .shared
     ) {
         self.address = address
         self.count = count
@@ -732,6 +734,7 @@ public final class SubqueryHistoryOperation<ResultType>:
         self.filter = filter
         self.client = client
         self.canonicalBlockHash = canonicalBlockHash
+        self.validatedHistoryCache = validatedHistoryCache
 
         super.init()
     }
@@ -777,7 +780,7 @@ public final class SubqueryHistoryOperation<ResultType>:
                 canonicalBlockHash: canonicalBlockHash
             )
             try Task.checkCancellation()
-            await PIValidatedHistoryCache.shared.save(
+            await validatedHistoryCache.save(
                 address: address,
                 count: count,
                 page: page,
@@ -799,7 +802,7 @@ public final class SubqueryHistoryOperation<ResultType>:
         } catch {
             guard
                 Self.allowsValidatedOfflineFallback(error),
-                let cached = await PIValidatedHistoryCache.shared.load(
+                let cached = await validatedHistoryCache.load(
                     address: address,
                     count: count,
                     page: page
@@ -826,7 +829,7 @@ public final class SubqueryHistoryOperation<ResultType>:
         let mapped = try values
             .map(Self.makeLegacyItem)
             .filter { item in
-                filter?(item).boolValue ?? true
+                filter?(item) ?? true
             }
         let legacy = TxHistoryResult<TxHistoryItem>(
             endCursor: endCursor,

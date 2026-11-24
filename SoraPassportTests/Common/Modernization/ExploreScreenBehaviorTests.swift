@@ -149,6 +149,15 @@ final class ExploreScreenBehaviorTests: XCTestCase {
         await settle()
         XCTAssertNotEqual(page.tableView.sectionHeaderHeight, 0)
     }
+    func testReusedAssetCellClearsThePreviousMarketCap() {
+        let cell = ExploreAssetCell(style: .default, reuseIdentifier: nil)
+        cell.set(item: ExploreAssetItem(serialNumber: "1", assetViewModel: xor))
+        XCTAssertTrue(texts(cell).contains("$200"))
+        cell.set(item: ExploreAssetItem(serialNumber: "2", assetViewModel: val))
+        XCTAssertFalse(texts(cell).contains("$200"))
+        XCTAssertTrue(texts(cell).contains("Validator"))
+    }
+
     func testLoadingToUnavailableAssetStateHasDifferentDiffableIdentity() {
         var loading = xor; loading.marketCap = .loading
         var unavailable = loading; unavailable.marketCap = .error

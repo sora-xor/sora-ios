@@ -2604,156 +2604,34 @@ final class PIMarketCapFromCatalogTests: XCTestCase {
     }
 }
 
-// MARK: - Remote feature flags in App Store builds
+// MARK: - Remote feature flags
 
-final class PIRemoteFlagMaskingTests: XCTestCase {
-    private func liveConfig() throws -> PIMobileConfig {
-        struct Payload: Decodable { let mobileConfig: PIMobileConfig }
-        return try PIIndexerClient.decodeResponse(
-            Payload.self,
-            from: PIIndexerFixture.data("mobile-config")
-        ).mobileConfig
-    }
-
-    func testAppStoreBuildMasksEveryOptionalFlagThePISends() throws {
-        let live = try liveConfig()
-
-        let admitted = ProductSurfacePolicy.admitted(
-            live,
-            isAppStoreBuild: true
-        )
-
-        XCTAssertFalse(admitted.nexusAvailable)
-        XCTAssertFalse(admitted.nexusSendsAvailable)
-        XCTAssertFalse(admitted.polkamarktVisible)
-        XCTAssertFalse(admitted.polkamarktMutationsAvailable)
-        XCTAssertFalse(admitted.tairaDefaultVisible)
-        // Nodes, the explorer and the type registry are not feature flags.
-        XCTAssertEqual(admitted.nodes, live.nodes)
-        XCTAssertEqual(admitted.blockExplorerUrl, live.blockExplorerUrl)
-        XCTAssertEqual(admitted.substrateTypesUrl, live.substrateTypesUrl)
-
-        // A tester build still follows PI.
-        XCTAssertEqual(
-            ProductSurfacePolicy.admitted(live, isAppStoreBuild: false),
-            live
-        )
-    }
-
-    func testAppStoreBuildStoresTheLiveFlagsAsOff() throws {
-        let everythingOn = PIMobileConfig(
-            blockExplorerUrl: try liveConfig().blockExplorerUrl,
-            substrateTypesUrl: nil,
-            nodes: try liveConfig().nodes,
-            nexusAvailable: true,
-            nexusSendsAvailable: true,
-            polkamarktVisible: true,
-            polkamarktMutationsAvailable: true,
-            tairaDefaultVisible: true
-        )
-        for config in [try liveConfig(), everythingOn] {
-            let settings = InMemorySettingsManager()
-            let session = ProductionRemoteCapabilitySession.shared
-            defer { session.invalidate() }
-
-            XCTAssertTrue(
-                settings.applyPIMobileConfig(
-                    config,
-                    refreshToken: session.beginLiveRefresh(),
-                    isAppStoreBuild: true
-                )
-            )
-
-            // The stored values themselves, not only what the getters say.
-            XCTAssertEqual(
-                settings.bool(for: SettingsKey.nexusEnabled.rawValue),
-                false
-            )
-            XCTAssertEqual(
-                settings.bool(for: SettingsKey.polkamarktEnabled.rawValue),
-                false
-            )
-            XCTAssertEqual(
-                settings.bool(for: SettingsKey.tairaRemoteDefault.rawValue),
-                false
-            )
-            XCTAssertEqual(
-                settings.bool(for: SettingsKey.nexusSendsEnabled.rawValue),
-                false
-            )
-            XCTAssertEqual(
-                settings.bool(
-                    for: SettingsKey.polkamarktMutationsEnabled.rawValue
-                ),
-                false
-            )
-            XCTAssertFalse(settings.nexusEnabled)
-            XCTAssertFalse(settings.polkamarktEnabled)
-            XCTAssertFalse(settings.isTairaEnabled)
-            // No mutation authority is published either.
-            XCTAssertFalse(
-                session.permitsMutation(
-                    localQualification: true,
-                    capability: .nexusSends
-                )
-            )
-            XCTAssertFalse(
-                session.permitsMutation(
-                    localQualification: true,
-                    capability: .polkamarktMutations
-                )
-            )
-        }
-    }
-
-    /// Values an earlier (tester or pre-fix) build stored as on are read as
-    /// off by a build that does not ship the surface, and are not erased.
-    func testStoredFlagsAreReadThroughTheBuildsSurfacePolicy() {
+final class PIRemoteFlagStorageTests: XCTestCase {
+    /// Values PI (or the user) stored are read as stored: there is no build
+    /// line that hides the optional surfaces any more (2026-11-18).
+    func testStoredFlagsAreReadAsStored() {
         let settings = InMemorySettingsManager()
         settings.set(value: true, for: SettingsKey.nexusEnabled.rawValue)
         settings.set(value: true, for: SettingsKey.polkamarktEnabled.rawValue)
         settings.set(value: true, for: SettingsKey.tairaRemoteDefault.rawValue)
+        XCTAssertTrue(settings.nexusEnabled)
+        XCTAssertTrue(settings.polkamarktEnabled)
+        XCTAssertTrue(settings.isTairaEnabled)
 
-        XCTAssertEqual(
-            settings.nexusEnabled,
-            ProductSurfacePolicy.showsNexusPortfolio
-        )
-        XCTAssertEqual(
-            settings.polkamarktEnabled,
-            ProductSurfacePolicy.showsPolkamarkt
-        )
-        XCTAssertEqual(
-            settings.isTairaEnabled,
-            ProductSurfacePolicy.showsTairaSettings
-        )
+        let off = InMemorySettingsManager()
+        off.set(value: false, for: SettingsKey.nexusEnabled.rawValue)
+        off.set(value: false, for: SettingsKey.polkamarktEnabled.rawValue)
+        off.set(value: false, for: SettingsKey.tairaRemoteDefault.rawValue)
+        XCTAssertFalse(off.nexusEnabled)
+        XCTAssertFalse(off.polkamarktEnabled)
+        XCTAssertFalse(off.isTairaEnabled)
 
         let explicit = InMemorySettingsManager()
         explicit.isTairaEnabled = true
-        XCTAssertEqual(
-            explicit.isTairaEnabled,
-            ProductSurfacePolicy.showsTairaSettings
-        )
+        XCTAssertTrue(explicit.isTairaEnabled)
         XCTAssertEqual(
             explicit.string(for: SettingsKey.tairaExplicitPreference.rawValue),
             "enabled"
-        )
-    }
-
-    func testSurfacePolicyMatchesTheBuildConfiguration() {
-        // The Nexus line ships the optional surfaces in Release too
-        // (`shipsOptionalSurfacesInRelease`); only a line that does not
-        // is an App Store build in this sense.
-        let isAppStoreConfiguration =
-            Bundle.main.object(forInfoDictionaryKey: "AppConfigName")
-                as? String == "Release" &&
-                !ProductSurfacePolicy.shipsOptionalSurfacesInRelease
-        XCTAssertEqual(
-            ProductSurfacePolicy.isAppStoreBuild,
-            isAppStoreConfiguration
-        )
-        XCTAssertEqual(
-            ProductSurfacePolicy.isAppStoreBuild,
-            !ProductSurfacePolicy.showsNexusPortfolio
         )
     }
 }
@@ -2966,15 +2844,6 @@ final class PIIndexerLiveTests: XCTestCase {
                 "polkamarktVisible \(config.value.polkamarktVisible), " +
                 "tairaDefaultVisible \(config.value.tairaDefaultVisible)"
         )
-        // Whatever PI sends, an App Store build stores them as off.
-        let admitted = ProductSurfacePolicy.admitted(
-            config.value,
-            isAppStoreBuild: true
-        )
-        XCTAssertFalse(admitted.nexusAvailable)
-        XCTAssertFalse(admitted.polkamarktVisible)
-        XCTAssertFalse(admitted.tairaDefaultVisible)
-
         // Accounts with public on-chain activity on 11 October 2026.
         let rewards = try await client.allReferrerRewards(
             address: "cnXFF4GNDVnynZsCYD95p3Nj3G52LkiPyPikSz1JAxcV5xu8c"
@@ -3956,9 +3825,9 @@ final class PIActionsDoNotWaitForPricesTests: XCTestCase {
         }
 
         viewModel.viewDidLoad()
-        await wait("the code, without prices") { !shown.all.isEmpty }
+        await wait("the code, without prices") { shown.all.contains { $0.qrImage != nil } }
 
-        let first = try XCTUnwrap(shown.all.first)
+        let first = try XCTUnwrap(shown.all.first(where: { $0.qrImage != nil }))
         XCTAssertNotNil(first.qrImage)
         XCTAssertEqual(first.sendAssetViewModel?.amount, "2")
         XCTAssertEqual(first.sendAssetViewModel?.fiat, "")
@@ -3998,9 +3867,9 @@ final class PIActionsDoNotWaitForPricesTests: XCTestCase {
         }
 
         viewModel.viewDidLoad()
-        await wait("the code") { !shown.all.isEmpty }
+        await wait("the code") { shown.all.last?.qrImage != nil }
 
-        XCTAssertNotNil(shown.all.first?.qrImage)
+        XCTAssertNotNil(shown.all.last?.qrImage)
         XCTAssertNil(shown.all.first?.sendAssetViewModel)
         try await Task.sleep(nanoseconds: 100_000_000)
         let calls = await fiat.calls
@@ -5153,7 +5022,7 @@ final class PIRound4PriceTests: XCTestCase {
     private static let eth =
         "0x0200070000000000000000000000000000000000000000000000000000000000"
 
-    private func wait(
+    @MainActor private func wait(
         _ what: String,
         until condition: @escaping () -> Bool
     ) async {
@@ -5522,6 +5391,7 @@ final class PIRound4PriceTests: XCTestCase {
     }
 
     /// The same for "request an amount".
+    @MainActor
     func testRequestAmountFollowsThePricesWhenTheLiveCatalogArrives()
         async throws
     {
@@ -5543,6 +5413,13 @@ final class PIRound4PriceTests: XCTestCase {
             marketCapService: PriceTestMarketCap()
         )
 
+        let offMain = Counter()
+        let balanceObservation = viewModel.$balanceFiatText.dropFirst().sink { _ in
+            if !Thread.isMainThread { offMain.increment() }
+        }
+        let amountObservation = viewModel.$inputedFiatAmountText.dropFirst().sink { _ in
+            if !Thread.isMainThread { offMain.increment() }
+        }
         viewModel.viewDidLoad()
         viewModel.inputedAmount = 2
         await wait("the value at the first price") {
@@ -5562,7 +5439,18 @@ final class PIRound4PriceTests: XCTestCase {
         XCTAssertEqual(viewModel.balanceFiatText, "100 ($300)")
         let calls = await fiat.calls
         XCTAssertEqual(calls, 2)
-        withExtendedLifetime((fiat, manager, provider)) {}
+
+        // Provider notifications arrive on background queues. Both published
+        // values must still change together on the UI thread.
+        let refreshed = try xor(at: "4")
+        DispatchQueue.global().async { viewModel.processFiat(data: refreshed) }
+        await wait("the callback price") { viewModel.inputedFiatAmountText == "$8" }
+        XCTAssertEqual(viewModel.balanceFiatText, "100 ($400)")
+        provider.balances = [BalanceData(identifier: priceTestXor, balance: AmountDecimal(value: 50))]
+        DispatchQueue.global().async { viewModel.processBalance(data: []) }
+        await wait("the callback balance") { viewModel.balanceFiatText == "50 ($200)" }
+        XCTAssertEqual(offMain.value, 0)
+        withExtendedLifetime((fiat, manager, provider, balanceObservation, amountObservation)) {}
     }
 
     /// The observation ends with the screen that holds it.
@@ -7231,10 +7119,10 @@ final class PIActivityRefreshTests: XCTestCase {
                 .first { $0.superview === controller.view }
         )
         await wait("the error") { !errorView.isHidden }
-        let spinner = try XCTUnwrap(
-            descendants(of: table, as: UIActivityIndicatorView.self).first
-        )
-        await wait("the spinner stopped") { !spinner.isAnimating }
+        // Nothing under the error keeps spinning (the list may hold no spinner at all once its rows are gone).
+        for spinner in descendants(of: table, as: UIActivityIndicatorView.self) {
+            await wait("the spinner stopped") { !spinner.isAnimating }
+        }
         XCTAssertTrue(viewModel.isBehind)
         XCTAssertEqual(
             texts(in: errorView),

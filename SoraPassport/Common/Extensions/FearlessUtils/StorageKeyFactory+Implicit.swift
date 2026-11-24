@@ -26,7 +26,7 @@ enum PalleteName: String {
 //    case Referrals
 //    case Staking
 //    case Tokens
-    case Assets
+    case assets = "Assets"
 }
 
 extension StorageKeyFactoryProtocol {
@@ -41,7 +41,7 @@ extension StorageKeyFactoryProtocol {
     }
 
     func assetsInfoKeysPaged() throws -> Data {
-        try createStorageKey(moduleName: PalleteName.Assets.rawValue,
+        try createStorageKey(moduleName: PalleteName.assets.rawValue,
                              storageName: "AssetInfos")
     }
 
@@ -89,13 +89,6 @@ extension StorageKeyFactoryProtocol {
 
     func poolProvidersKey(reservesAccountId: Data, accountId: Data) throws -> Data {
         try createStorageKey(moduleName: "PoolXYK", storageName: "PoolProviders") + reservesAccountId + accountId
-    }
-
-    func bondedKeyForId(_ identifier: Data) throws -> Data {
-        try createStorageKey(moduleName: "Staking",
-                             storageName: "Bonded",
-                             key: identifier,
-                             hasher: .twox64Concat)
     }
 
     func stakingInfoForControllerId(_ identifier: Data) throws -> Data {
@@ -170,12 +163,6 @@ extension StorageKeyFactoryProtocol {
                              hasher: .blake128Concat)
     }
 
-    func referralsKeyForId(_ identifier: Data) throws -> Data {
-        try createStorageKey(moduleName: "Referrals",
-                             storageName: "Referrals",
-                             key: identifier,
-                             hasher: .blake128Concat)
-    }
     
     func xstPoolBaseFee() throws -> Data {
         try createStorageKey(moduleName: "XstPool",

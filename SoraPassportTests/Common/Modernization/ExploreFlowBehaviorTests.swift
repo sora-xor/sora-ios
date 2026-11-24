@@ -80,6 +80,8 @@ final class ExploreFlowBehaviorTests: XCTestCase {
     }
     func testCreatePoolButtonRoutesFromTheCurrentScreen() throws {
         let (screen, _, _, route) = screen()
+        XCTAssertNotNil(screen.navigationItem.rightBarButtonItem?.image)
+        XCTAssertEqual(screen.navigationItem.rightBarButtonItem?.accessibilityLabel, R.string.localizable.exploreCreatePool(preferredLanguages: .currentLocale))
         try trigger(screen.navigationItem.rightBarButtonItem)
         XCTAssertTrue(route.liquidityController === screen)
     }
@@ -89,6 +91,8 @@ final class ExploreFlowBehaviorTests: XCTestCase {
         var opened = 0
         screen.showPredictionMarkets = { opened += 1 }
         let retained = try XCTUnwrap(screen.navigationItem.leftBarButtonItem)
+        XCTAssertNotNil(retained.image)
+        XCTAssertEqual(retained.accessibilityLabel, WalletUX.text("Prediction markets"))
         try trigger(retained)
         XCTAssertEqual(opened, 1)
         SettingsManager.shared.polkamarktEnabled = false

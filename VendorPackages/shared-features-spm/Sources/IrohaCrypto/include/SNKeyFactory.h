@@ -10,7 +10,12 @@
 
 typedef NS_ENUM(NSUInteger, SNKeyFactoryError) {
     SNKeyFactoryErrorInvalidSeed,
-    SNKeyFactoryErrorInvalidChaincode
+    SNKeyFactoryErrorInvalidChaincode,
+    /// The parent keypair's secret is not a canonical scalar or its public key
+    /// is not a Ristretto point (the C library would end the process).
+    SNKeyFactoryErrorInvalidKeypair,
+    /// The parent public key is not a Ristretto point.
+    SNKeyFactoryErrorInvalidPublicKey
 };
 
 @protocol SNKeyFactoryProtocol

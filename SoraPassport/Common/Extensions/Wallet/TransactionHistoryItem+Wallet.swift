@@ -83,12 +83,16 @@ extension TransactionHistoryItem {
         )
     }
 
+    /// `swapPrecisions` are the decimals the signer used for a swap's two
+    /// assets, so the saved call holds the amounts that were signed. A swap
+    /// without them is refused; other types do not use them.
     static func createFromTransferInfo(
         _ info: TransferInfo,
         transactionHash: Data,
         senderAddress: String,
         networkType: SNAddressType,
-        addressFactory: SS58AddressFactoryProtocol
+        addressFactory: SS58AddressFactoryProtocol,
+        swapPrecisions: SwapAssetPrecisions? = nil
     ) throws -> TransactionHistoryItem {
 
         let transactionFee: String = String(info.fees.first(where: { $0.feeDescription.type == "fee" })?.value.decimalValue.toSubstrateAmount(precision: 18) ?? BigUInt(0))
@@ -102,7 +106,11 @@ extension TransactionHistoryItem {
             let sender = info.asset
             let receiver = info.destination
             guard let context = info.context,
-                  let amountCall = info.amountCall,
+                  let swapPrecisions,
+                  let amountCall = info.amountCall(
+                    sourcePrecision: swapPrecisions.source,
+                    destinationPrecision: swapPrecisions.destination
+                  ),
                   let sourceType = context[TransactionContextKeys.marketType],
                   let marketType = LiquiditySourceType(rawValue: sourceType),
                   let dexId = context[TransactionContextKeys.dex] else {

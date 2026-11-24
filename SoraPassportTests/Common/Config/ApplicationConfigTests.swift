@@ -2,6 +2,7 @@ import CoreData
 import XCTest
 import Foundation
 import SSFUtils
+import SSFStorageQueryKitFixed
 import RobinHood
 @testable import SoraPassport
 
@@ -81,6 +82,42 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertFalse(project.contains("pod install"))
     }
 
+    func testUnusedFirebaseMessagingIsNotLinked() throws {
+        // Nothing receives push: no push entitlement and no remote-notification
+        // background mode, so FirebaseMessaging had nothing to do but fetch an
+        // FCM token at launch.
+        let root = try repositoryRoot()
+        let entitlements = try String(contentsOf: root.appendingPathComponent("SoraPassport/SoraPassport.entitlements"))
+        XCTAssertFalse(entitlements.contains("aps-environment"))
+        let backgroundModes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
+        XCTAssertFalse(backgroundModes.contains("remote-notification"))
+
+        let project = try String(contentsOf: root.appendingPathComponent("SoraPassport.xcodeproj/project.pbxproj"))
+        XCTAssertFalse(project.contains("FirebaseMessaging"))
+        XCTAssertNil(NSClassFromString("FIRMessaging"), "The app links no FirebaseMessaging code")
+        XCTAssertNil(Bundle.main.url(forResource: "Firebase_FirebaseMessaging", withExtension: "bundle"))
+    }
+
+    func testNoClosedSourceSDKIsLinked() throws {
+        // Firebase Analytics ships Google's closed GoogleAppMeasurement binary,
+        // and Crashlytics needs Google's closed symbol-upload tool, so the app
+        // uses neither. Crash reports come from Apple (Xcode Organizer).
+        let root = try repositoryRoot()
+        let project = try String(contentsOf: root.appendingPathComponent("SoraPassport.xcodeproj/project.pbxproj"))
+        XCTAssertFalse(project.contains("firebase-ios-sdk"))
+        XCTAssertFalse(project.contains("productName = Firebase"))
+        let resolved = try String(contentsOf: root.appendingPathComponent(
+            "SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"))
+        for closed in ["googleappmeasurement", "google-ads-on-device-conversion-ios-sdk", "firebase-ios-sdk"] {
+            XCTAssertFalse(resolved.contains("\"\(closed)\""), closed)
+        }
+        for name in ["FIRApp", "FIRAnalytics", "FIRCrashlytics", "APMMeasurement", "MPQRParser"] {
+            XCTAssertNil(NSClassFromString(name), name)
+        }
+        XCTAssertNil(Bundle.main.object(forInfoDictionaryKey: "FIREBASE_ANALYTICS_COLLECTION_ENABLED"))
+        XCTAssertNil(Bundle.main.url(forResource: "GoogleService-Info", withExtension: "plist"))
+    }
+
     func testNodeFailoverTriesEveryCandidateBeforeOneOutageAlert() throws {
         let mainnet = configuredChain(custom: [additionalNode])
         let nodes = SoraNodeConnectionPolicy.candidates(for: mainnet)
@@ -136,6 +173,44 @@ class ApplicationConfigTests: XCTestCase {
         let ignored = try pool.setupConnection(for: chain, ignoredUrl: SoraNodeConnectionPolicy.bundledMainnetNodes[0].url)
         XCTAssertEqual(ignored.url, additionalNode.url)
         XCTAssertThrowsError(try pool.setupConnection(for: configuredChain(chainId: "other-genesis")))
+    }
+
+    func testLogRedactionDropsCredentialsQueryFragmentAndPath() {
+        XCTAssertEqual(Logger.redacted(URL(string: "wss://alice:s3cret@node.example.com/ws")), "wss://node.example.com")
+        XCTAssertEqual(Logger.redacted(URL(string: "https://alice@sora.org")), "https://sora.org")
+        XCTAssertEqual(Logger.redacted(URL(string: "wss://node.example.com/ws?apikey=0123456789abcdef")), "wss://node.example.com")
+        XCTAssertEqual(Logger.redacted(URL(string: "https://app.sora.org/#/send?to=cnTQ1kbv&amount=10")), "https://app.sora.org")
+        XCTAssertEqual(Logger.redacted(URL(string: "https://sora.org/join/12345678")), "https://sora.org")
+    }
+
+    func testLogRedactionKeepsPortAndIPv6Host() {
+        XCTAssertEqual(Logger.redacted(URL(string: "wss://node.example.com:9944/ws")), "wss://node.example.com:9944")
+        XCTAssertEqual(Logger.redacted(URL(string: "ws://user:pass@10.0.0.2:9944/?token=t#frag")), "ws://10.0.0.2:9944")
+        XCTAssertEqual(Logger.redacted(URL(string: "ws://[::1]:9944/rpc?apikey=k")), "ws://[::1]:9944")
+        XCTAssertEqual(Logger.redacted(URL(string: "wss://[2001:db8::1]/ws#seed")), "wss://[2001:db8::1]")
+    }
+
+    func testLogRedactionOfMissingOrInvalidURL() {
+        XCTAssertEqual(Logger.redacted(nil), "<redacted>")
+        XCTAssertEqual(Logger.redacted(URL(string: "")), "<redacted>")
+        // A URL without a scheme or a host keeps nothing.
+        XCTAssertEqual(Logger.redacted(URL(string: "join/12345678?seed=abandon")), "<redacted>")
+        XCTAssertEqual(Logger.redacted(URL(string: "mailto:alice@example.com")), "<redacted>")
+        XCTAssertEqual(Logger.redacted(URL(string: "file:///var/mobile/wallet.json")), "<redacted>")
+    }
+
+    func testReleaseBuildsLogWarningsAndErrorsOnly() {
+        // The test bundle has no F_* flags; the host app's configuration
+        // name tells which flags the app's logger was built with.
+        let levels = Logger.shared.log.destinations.map(\.minLevel)
+        let configuration = Bundle.main.object(forInfoDictionaryKey: "AppConfigName") as? String
+        if configuration == "Release" {
+            XCTAssertEqual(levels, [.warning], "Release logs carry no info, debug or verbose messages")
+        } else if configuration == "Dev" {
+            XCTAssertEqual(levels, [.verbose])
+        } else {
+            XCTAssertEqual(levels, [.info])
+        }
     }
 
     func testChainSyncKeepsNodesAndSavedChoiceWithoutRemoteWhitelist() throws {
@@ -201,21 +276,83 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertNil(different.customNodes)
 
         // PI lists mof2 under another name. The store allows one node per
-        // URL, so the chain must keep exactly one entry per URL, with the
-        // bundled name, plus genuinely new PI nodes.
+        // URL, so the chain keeps exactly one entry per URL, with the bundled
+        // name. Other mainnet nodes from remote configuration are not kept.
         let renamedMof2 = ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil)
         let extra = ChainNodeModel(url: URL(string: "wss://extra.sora.example")!, name: "Extra", apikey: nil)
         let merged = ChainSyncService.preparedChain(
             chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [renamedMof2, extra],
             typesURL: nil, local: nil, assets: [.xor], whitelist: .empty
         )
-        XCTAssertEqual(merged.nodes.count, 2)
-        XCTAssertEqual(Set(merged.nodes.map(\.url)).count, merged.nodes.count)
+        XCTAssertEqual(merged.nodes.count, 1)
         XCTAssertEqual(
             merged.nodes.first { $0.url == renamedMof2.url }?.name,
             "SORA Ministry of Finance 2"
         )
-        XCTAssertTrue(merged.nodes.contains(extra))
+        XCTAssertFalse(merged.nodes.contains(extra))
+    }
+
+    /// Remote configuration is unsigned. On mainnet only the bundled nodes and
+    /// nodes the user added are connected to, including after an earlier
+    /// build saved a remote node or selected it.
+    func testMainnetNeverConnectsToNodesFromRemoteConfiguration() throws {
+        let remote = ChainNodeModel(url: URL(string: "wss://remote.sora.example")!, name: "Remote", apikey: nil)
+        let saved = ChainModel(chainId: SoraNodeConnectionPolicy.mainnetGenesis, name: "SORA", nodes: [remote],
+                               addressPrefix: 69, icon: nil, selectedNode: remote, customNodes: nil, iosMinAppVersion: nil)
+        XCTAssertEqual(SoraNodeConnectionPolicy.candidates(for: saved).map(\.url),
+                       SoraNodeConnectionPolicy.bundledMainnetNodes.map(\.url))
+        let synced = ChainSyncService.preparedChain(
+            chainId: saved.chainId, addressPrefix: 69, name: "SORA", nodes: [remote],
+            typesURL: nil, local: saved, assets: [], whitelist: .empty
+        )
+        XCTAssertNil(synced.selectedNode, "A remote node that an earlier build selected is dropped")
+        XCTAssertEqual(Set(synced.nodes.map(\.url)), Set(SoraNodeConnectionPolicy.bundledMainnetNodes.map(\.url)))
+        let chosen = configuredChain(selected: remote, custom: [remote])
+        XCTAssertEqual(SoraNodeConnectionPolicy.candidates(for: chosen).first, remote,
+                       "A node the user added stays their choice")
+        let testnet = ChainModel(chainId: "other-genesis", name: "Other", nodes: [remote], addressPrefix: 42,
+                                 icon: nil, selectedNode: remote, customNodes: nil, iosMinAppVersion: nil)
+        XCTAssertEqual(SoraNodeConnectionPolicy.candidates(for: testnet), [remote])
+    }
+
+    /// The signed amount is scaled by the asset's decimals. Predefined SORA2
+    /// assets always use 18, whatever a node or a cache says.
+    func testPredefinedAssetDecimalsCannotComeFromANode() throws {
+        let predefined = [WalletAssetId.xor.rawValue, WalletAssetId.val.rawValue, WalletAssetId.pswap.rawValue,
+                          WalletAssetId.xst.rawValue, WalletAssetId.xstusd.rawValue, WalletAssetId.tbcd.rawValue,
+                          WalletAssetId.kusd.rawValue, WalletAssetId.eth, WalletAssetId.kxor]
+        func nodeChange(_ id: String, precision: UInt8) throws -> StorageUpdateData.StorageUpdateChangeData {
+            let encoder = ScaleEncoder()
+            try "X".encode(scaleEncoder: encoder); try "X".encode(scaleEncoder: encoder)
+            try precision.encode(scaleEncoder: encoder); try true.encode(scaleEncoder: encoder)
+            let key = "0x" + String(repeating: "ab", count: 32) + id.dropFirst(2)
+            return try XCTUnwrap(StorageUpdateData.StorageUpdateChangeData(
+                change: [key, encoder.encode().toHex(includePrefix: true)]))
+        }
+        for id in predefined {
+            let fromNode = AssetsInfoProvider.assetInfo(from: try nodeChange(id, precision: 6), chainId: "")
+            XCTAssertEqual(fromNode?.precision, 18, id)
+            let cached = try JSONDecoder().decode(AssetInfo.self, from: Data(
+                #"{"symbol":"X","name":"X","asset_id":"\#(id.uppercased().replacingOccurrences(of: "0X", with: "0x"))","precision":"9"}"#.utf8))
+            XCTAssertEqual(cached.precision, 18, id)
+            XCTAssertNil(AssetsInfoProvider.assetInfo(from: try nodeChange(id, precision: 19), chainId: ""))
+        }
+        let other = "0x0003b1dbee890acfb1b3bc12d1bb3b4295f52755423f84d1751b2545cebf000b"
+        XCTAssertEqual(AssetsInfoProvider.assetInfo(from: try nodeChange(other, precision: 6), chainId: "")?.precision, 6,
+                       "Other assets keep their decimals")
+        XCTAssertNil(AssetsInfoProvider.assetInfo(from: try nodeChange(other, precision: 19), chainId: ""),
+                     "SORA2 cannot store more than 18 decimals, so the asset is left out")
+        XCTAssertTrue(WalletAssetPrecision.isPossible(18))
+        XCTAssertFalse(WalletAssetPrecision.isPossible(19))
+        // A chain an earlier build saved with a node's decimals reads back pinned.
+        let store = try ChainTestStore()
+        defer { store.remove() }
+        let saved = configuredChain()
+        let val = AssetInfo(id: WalletAssetId.val.rawValue, symbol: "VAL", chainId: saved.chainId, precision: 6,
+                            icon: nil, displayName: nil, visible: true)
+        saved.assets = [ChainAssetModel(assetId: val.assetId, type: .normal, asset: val, chain: saved)]
+        try store.save(saved)
+        XCTAssertEqual(try store.stored().assets.first?.asset?.precision, 18)
     }
 
     /// Node rows have a store-wide unique URL. Chains saved by older releases
@@ -263,7 +400,9 @@ class ApplicationConfigTests: XCTestCase {
         try store.save(store.legacyChain(nodes: [piMof2], selected: standalone, custom: nil))
 
         let resynced = store.sync(try store.stored(), piNodes: [piMof2])
-        XCTAssertEqual(Set(resynced.nodes), [bundledMof, bundledMof2])
+        // Mainnet keeps only its bundled nodes; the one PI listed is dropped.
+        XCTAssertEqual(Set(resynced.nodes), [bundledMof])
+        XCTAssertFalse(resynced.nodes.contains(bundledMof2))
         XCTAssertEqual(resynced.selectedNode, bundledMof)
         XCTAssertNoThrow(try store.save(resynced))
         let afterResync = try store.stored()
@@ -371,7 +510,7 @@ class ApplicationConfigTests: XCTestCase {
     }
 
     func testCompromisedNodesCannotReturnThroughSavedOrRemoteConfiguration() throws {
-        for host in ["ws.mof.sora.org", "MOF.SORA.ORG", "mof3.sora.org.", "207.254.29.218"] {
+        for host in ["ws.mof.sora.org", "MOF.SORA.ORG", "mof3.sora.org.", "207.254.29.218", "141.94.30.127"] {
             let url = try XCTUnwrap(URL(string: "wss://\(host)"))
             let node = ChainNodeModel(url: url, name: "Rejected", apikey: nil)
             XCTAssertFalse(SoraNodeConnectionPolicy.isAllowedEndpoint(url))

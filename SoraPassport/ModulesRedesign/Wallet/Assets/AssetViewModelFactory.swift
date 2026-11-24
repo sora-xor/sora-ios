@@ -81,6 +81,26 @@ extension AssetViewModelFactory {
         return viewModel
     }
 
+    /// The row of an asset whose balance is still being read: the token's
+    /// name, icon and symbol, which are known before any read, and no
+    /// amount or value yet.
+    func createBalanceLoadingViewModel(assetId: String, mode: WalletViewMode) -> AssetViewModel? {
+        guard let asset = walletAssets.first(where: { $0.identifier == assetId }),
+              let assetInfo = assetManager.assetInfo(for: asset.identifier) else {
+            return nil
+        }
+        var viewModel = AssetViewModel(identifier: asset.identifier,
+                                       title: asset.name,
+                                       subtitle: asset.symbol,
+                                       fiatText: "",
+                                       icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
+                                       mode: mode,
+                                       isFavorite: assetInfo.visible,
+                                       deltaPriceText: nil)
+        viewModel.balanceIsLoading = true
+        return viewModel
+    }
+
     /// The rows of an asset list, in the order of `assetIds`: one for each
     /// balance that was read, and one saying "Balance unavailable" for each
     /// asset whose balance could not be read. Such an asset is neither left
@@ -120,7 +140,8 @@ extension AssetViewModelFactory {
               let viewModel = build(balance, assetInfo) else {
             return nil
         }
-        return AssetListItem(assetInfo: assetInfo, assetViewModel: viewModel, balance: balance.balance.decimalValue)
+        return AssetListItem(assetInfo: assetInfo, assetViewModel: viewModel,
+                             balance: balance.balance.decimalValue, owned: balance.owned)
     }
 
     func createAssetViewModel(with balanceData: BalanceData, assetInfo: AssetInfo, fiatData: [PIExactFiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {

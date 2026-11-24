@@ -9,20 +9,22 @@ import SoraFoundation
 import SSFModels
 import SSFUtils
 import SSFStorageQueryKitFixed
+import SoraUIKit
 import XCTest
 @testable import SoraPassport
 
 extension WalletNetworkOperationFactoryCoverageTests {
-    private func pendingHistory(_ info: TransferInfo, sender: String = "bound-history-owner") throws -> TransactionHistoryItem {
+    private func pendingHistory(_ info: TransferInfo, sender: String = "bound-history-owner",
+                                swapPrecisions: SwapAssetPrecisions? = SwapAssetPrecisions(source: 18, destination: 18)) throws -> TransactionHistoryItem {
         try TransactionHistoryItem.createFromTransferInfo(info, transactionHash: Data([1, 2, 3]), senderAddress: sender,
-            networkType: 69, addressFactory: SS58AddressFactory())
+            networkType: 69, addressFactory: SS58AddressFactory(), swapPrecisions: swapPrecisions)
     }
     private func pendingCall<T: Decodable>(_ item: TransactionHistoryItem, as type: T.Type) throws -> T {
         try JSONDecoder.scaleCompatible(snakeCase: false).decode(type, from: XCTUnwrap(item.call))
     }
     func testPendingSwapHistoryKeepsTheReviewedAmountsAndMarket() throws {
         let history = try pendingHistory(product(.swap))
-        let call = try pendingCall(history, as: RuntimeCall<SwapCall>.self)
+        let call = try JSONDecoder.scaleCompatible(snakeCase: true).decode(RuntimeCall<SwapCall>.self, from: XCTUnwrap(history.call))
         XCTAssertEqual(call.args.inputAssetId.value, xor); XCTAssertEqual(call.args.outputAssetId.value, val)
         XCTAssertEqual(call.args.amount[.desiredInput]?.desired, BigUInt("1000000000000000000"))
         XCTAssertEqual(call.args.amount[.desiredInput]?.slip, BigUInt("1990000000000000000"))
@@ -99,6 +101,9 @@ extension WalletNetworkOperationFactoryCoverageTests {
 final class WalletNetworkOperationFactoryCoverageTests: XCTestCase {
     private let xor = WalletAssetId.xor.rawValue
     private let val = WalletAssetId.val.rawValue
+    /// A listed but not predefined token with 6 decimals. Predefined assets
+    /// always sign with the runtime's 18 decimals, whatever their settings say.
+    private let token6 = "0x0003b1dbee890acfb1b3bc12d1bb3b4295f52755423f84d1751b2545cebf000b"
     private let receiver = String(repeating: "03", count: 32)
     private let queue = OperationQueue()
     private var previousSelectedAccount: AccountItem?
@@ -108,16 +113,16 @@ final class WalletNetworkOperationFactoryCoverageTests: XCTestCase {
     private func asset(_ id: String, precision: Int16 = 18) -> WalletAsset {
         WalletAsset(identifier: id, name: LocalizableResource { _ in id }, symbol: id, precision: precision)
     }
-    private func make(assets: [WalletAsset]? = nil, accountSigner: SigningWrapperProtocol? = nil) throws -> (WalletNetworkOperationFactory, FactoryExtrinsics) {
+    private func make(assets: [WalletAsset]? = nil, accountSigner: SigningWrapperProtocol? = nil, engine: JSONRPCEngine? = nil, runtime: SoraPassport.RuntimeCodingServiceProtocol? = nil, storage: AnyDataProviderRepository<ChainStorageItem>? = nil) throws -> (WalletNetworkOperationFactory, FactoryExtrinsics) {
         let service = FactoryExtrinsics()
         let signer = accountSigner ?? FactoryNoSigner()
         return (WalletNetworkOperationFactory(
-            engine: FactoryNoEngine(),
+            engine: engine ?? FactoryNoEngine(),
             requestFactory: StorageRequestFactory(remoteFactory: StorageKeyFactory(), operationManager: OperationManager()),
-            runtimeService: FactoryNoRuntime(),
+            runtimeService: runtime ?? FactoryNoRuntime(),
             accountSettings: WalletAccountSettings(accountId: receiver, assets: assets ?? [asset(xor), asset(val, precision: 6)]),
             cryptoType: .sr25519, accountSigner: signer, extrinsicService: service, dummySigner: signer,
-            chainStorage: AnyDataProviderRepository(FactoryEmptyStorage()),
+            chainStorage: storage ?? AnyDataProviderRepository(FactoryEmptyStorage()),
             localStorageIdFactory: try ChainStorageIdFactory(chain: .sora)), service)
     }
     private func transfer(amount: Decimal = 1, asset: String? = nil, destination: String? = nil,
@@ -154,20 +159,29 @@ final class WalletNetworkOperationFactoryCoverageTests: XCTestCase {
     }
 
     func testTransferFeeUsesTheAssetPrecisionAndCanonicalXorFee() async throws {
-        let (factory, service) = try make()
-        let fee = try await factory.estimateTransferFee(for: transfer(amount: Decimal(string: "1.234567")!))
+        let (factory, service) = try make(assets: [asset(xor), asset(token6, precision: 6)])
+        let fee = try await factory.estimateTransferFee(for: transfer(amount: Decimal(string: "1.234567")!, asset: token6))
         XCTAssertEqual(fee, Decimal(string: "0.000000000000000007"))
         let call = try XCTUnwrap(service.builders.first?.calls.first).map(to: RuntimeCall<SoraTransferCall>.self)
         XCTAssertEqual(call.callName, "transfer")
         XCTAssertEqual(call.args.amount, 1_234_567)
         XCTAssertEqual(call.args.receiver, Data(repeating: 3, count: 32))
-        XCTAssertEqual(call.args.assetId.value, val)
+        XCTAssertEqual(call.args.assetId.value, token6)
         XCTAssertEqual(service.estimateCount, 1)
+    }
+    /// VAL's settings below claim 6 decimals, as a node could make them. The
+    /// signed amount still uses the runtime's 18.
+    func testPredefinedAssetsSignWithTheRuntimeDecimalsWhateverTheirSettingsSay() async throws {
+        let (factory, service) = try make()
+        _ = try await factory.estimateTransferFee(for: transfer(amount: Decimal(string: "1.234567")!))
+        let call = try XCTUnwrap(service.builders.first?.calls.first).map(to: RuntimeCall<SoraTransferCall>.self)
+        XCTAssertEqual(call.args.amount, 1_234_567_000_000_000_000)
+        XCTAssertEqual(call.args.assetId.value, val)
     }
     func testTransferFeeRejectsZeroNegativeAndSubAtomicAmountsBeforeService() async throws {
         for amount in [Decimal.zero, Decimal(-1), Decimal(string: "0.0000001")!] {
-            let (factory, service) = try make()
-            await expectFailure(.invalidAmount) { try await factory.estimateTransferFee(for: transfer(amount: amount)) }
+            let (factory, service) = try make(assets: [asset(xor), asset(token6, precision: 6)])
+            await expectFailure(.invalidAmount) { try await factory.estimateTransferFee(for: transfer(amount: amount, asset: token6)) }
             XCTAssertEqual(service.estimateCount, 0)
         }
     }
@@ -325,8 +339,8 @@ final class WalletNetworkOperationFactoryCoverageTests: XCTestCase {
     }
 
     func testPrepareTransferPreservesExactFeeHashAndCall() async throws {
-        let (factory, service) = try make(); var validations = 0
-        let prepared = try await factory.prepareTransferSubmission(for: transfer(amount: 2)) { validations += 1 }
+        let (factory, service) = try make(assets: [asset(xor), asset(token6, precision: 6)]); var validations = 0
+        let prepared = try await factory.prepareTransferSubmission(for: transfer(amount: 2, asset: token6)) { validations += 1 }
         XCTAssertEqual(validations, 1); XCTAssertEqual(service.prepareCount, 1)
         XCTAssertEqual(prepared.rawFee, "7"); XCTAssertEqual(prepared.transactionHash, service.prepared?.hash)
         XCTAssertEqual(prepared.fee, Decimal(string: "0.000000000000000007"))
@@ -432,6 +446,8 @@ final class WalletNetworkOperationFactoryCoverageTests: XCTestCase {
                        TransactionContextKeys.isFarm: "1", TransactionContextKeys.dex: "0",
                        TransactionContextKeys.desire: SwapVariant.desiredInput.rawValue,
                        TransactionContextKeys.estimatedAmount: "2", TransactionContextKeys.minMaxValue: "1.99",
+                       // A swap's review scaled both amounts by 18 decimals unless a test says otherwise.
+                       TransactionContextKeys.sourcePrecision: "18", TransactionContextKeys.destinationPrecision: "18",
                        TransactionContextKeys.slippage: "0.5", TransactionContextKeys.marketType: LiquiditySourceType.xyk.rawValue]
         context.merge(changes) { _, new in new }
         return TransferInfo(source: source ?? xor, destination: destination ?? val, amount: AmountDecimal(value: amount),
@@ -822,4 +838,493 @@ private final class FactoryLifecycleSigner: LifecycleSigningWrapperProtocol {
     init(account: AccountItem) { signingAccount = account }
     func sign(_ originalData: Data) throws -> IRSignatureProtocol { XCTFail("No real signing in factory transport tests"); throw FactoryBoundaryError.unexpected }
     func sign(_ originalData: Data, lifecycleLease: WalletLifecycleLease) throws -> IRSignatureProtocol { XCTFail("No real signing in factory transport tests"); throw FactoryBoundaryError.unexpected }
+}
+
+extension WalletNetworkOperationFactoryCoverageTests {
+    func testGenesisReadRequestsTheCanonicalZeroBlock() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        engine.response = #""0xgenesis-fixture""#
+        let result = try await run(CompoundOperationWrapper(targetOperation: factory.createGenesisHashOperation()))
+        XCTAssertEqual(result, "0xgenesis-fixture")
+        XCTAssertEqual(engine.methods, [SoraPassport.RPCMethod.getBlockHash])
+        XCTAssertEqual(engine.parameters, [["0x00000000"]])
+    }
+    func testBlockHashReadPreservesEveryBigEndianHeightByte() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        engine.response = #""0xblock-fixture""#
+        for height: UInt32 in [0x01020304, UInt32.max] {
+            _ = try await run(CompoundOperationWrapper(targetOperation: factory.createBlockHashOperation(height)))
+        }
+        XCTAssertEqual(engine.parameters, [["0x01020304"], ["0xffffffff"]])
+    }
+    func testFreeBalanceReadPreservesValuesAboveFloatingPointPrecision() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        engine.response = #"{"balance":"900719925474099312345678901"}"#
+        let result = try await run(CompoundOperationWrapper(targetOperation: factory.createFreeBalanceOperation(accountId: "bound-account", assetId: val)))
+        XCTAssertEqual(result.balance, BigUInt("900719925474099312345678901"))
+        XCTAssertEqual(engine.methods, [SoraPassport.RPCMethod.freeBalance])
+        XCTAssertEqual(engine.parameters, [["bound-account", val]])
+    }
+    func testFreeBalanceReadFailureDoesNotBecomeAZeroBalance() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        engine.failure = FactoryBoundaryError.offline
+        do {
+            _ = try await run(CompoundOperationWrapper(targetOperation: factory.createFreeBalanceOperation(accountId: "account", assetId: xor)))
+            XCTFail("A failed read must remain unavailable")
+        } catch { guard case FactoryBoundaryError.offline = error else { return XCTFail("Unexpected error: \(error)") } }
+    }
+    func testNonceReadUsesTheBoundAccountWhenNoOverrideIsProvided() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        engine.response = "4294967295"
+        let result = try await run(CompoundOperationWrapper(targetOperation: factory.createExtrinsicNonceFetchOperation(.sora)))
+        XCTAssertEqual(result, UInt32.max)
+        XCTAssertEqual(engine.methods, [SoraPassport.RPCMethod.getExtrinsicNonce])
+        XCTAssertEqual(engine.parameters, [[try SS58AddressFactory().address(fromAccountId: Data(repeating: 3, count: 32), type: SNAddressType(chain: .sora))]])
+    }
+    func testNonceOverrideUsesTheExplicitPublicAccountInsteadOfTheBoundOne() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        engine.response = "17"
+        let key = Data(repeating: 7, count: 32)
+        let result = try await run(CompoundOperationWrapper(targetOperation: factory.createExtrinsicNonceFetchOperation(.sora, accountId: key)))
+        XCTAssertEqual(result, 17)
+        XCTAssertEqual(engine.parameters, [[try SS58AddressFactory().address(fromAccountId: key, type: SNAddressType(chain: .sora))]])
+    }
+    func testInvalidNonceAccountFailsBeforeAnyRPCRequest() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        for count in [0, 1, 3, 20, 31, 33] {
+            do {
+                _ = try await run(CompoundOperationWrapper(targetOperation:
+                    factory.createExtrinsicNonceFetchOperation(.sora, accountId: Data(repeating: 1, count: count))))
+                XCTFail("Malformed account bytes must not reach the node")
+            } catch {
+                guard case WalletNetworkOperationFactoryError.invalidContext = error else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+                XCTAssertTrue(engine.methods.isEmpty)
+            }
+        }
+    }
+    func testCachedUpgradedFlagPreservesBothBooleanValues() async throws {
+        let repository = InMemoryDataProviderRepository<ChainStorageItem>()
+        let key = try ChainStorageIdFactory(chain: .sora).createIdentifier(for: StorageKeyFactory().updatedDualRefCount())
+        let (factory, _) = try make(storage: AnyDataProviderRepository(repository))
+        for value in [true, false] {
+            let item = ChainStorageItem(identifier: key, data: Data([value ? 1 : 0]))
+            _ = try await run(CompoundOperationWrapper(targetOperation: repository.saveOperation({ [item] }, { [] })))
+            let result = try await run(factory.createUpgradedInfoFetchOperation())
+            XCTAssertEqual(result, value)
+        }
+    }
+    func testMissingCachedUpgradeFlagRemainsUnknown() async throws {
+        let (factory, _) = try make()
+        let result = try await run(factory.createUpgradedInfoFetchOperation())
+        XCTAssertNil(result)
+    }
+    func testUnreadableCachedUpgradeFlagCannotBecomeTrue() async throws {
+        let repository = InMemoryDataProviderRepository<ChainStorageItem>()
+        let key = try ChainStorageIdFactory(chain: .sora).createIdentifier(for: StorageKeyFactory().updatedDualRefCount())
+        let item = ChainStorageItem(identifier: key, data: Data())
+        _ = try await run(CompoundOperationWrapper(targetOperation: repository.saveOperation({ [item] }, { [] })))
+        let (factory, _) = try make(storage: AnyDataProviderRepository(repository))
+        do { _ = try await run(factory.createUpgradedInfoFetchOperation()); XCTFail("Truncated SCALE storage is not an upgraded flag") }
+        catch { XCTAssertNotNil(error) }
+    }
+    func testAccountInfoRuntimeFailureCannotStartAnUnqualifiedStorageRead() async throws {
+        let engine = FactoryReadEngine(), runtime = FactoryFailedRuntime()
+        let (factory, _) = try make(engine: engine, runtime: runtime)
+        do { _ = try await run(factory.createAccountInfoFetchOperation(Data(repeating: 3, count: 32))); XCTFail("No coder factory means no account decoding") }
+        catch { XCTAssertTrue(engine.methods.isEmpty); XCTAssertEqual(runtime.reads, 1) }
+    }
+    func testDirectFeeOperationBuildsTheReviewedTransferWithoutSigningOrSubmitting() async throws {
+        let (factory, service) = try make()
+        service.rawFee = "123456789012345678901"
+        let operation = factory.createExtrinsicFeeServiceOperation(asset: val, amount: 9007199254740993, receiver: receiver, chain: .sora)
+        let fee = try await run(CompoundOperationWrapper(targetOperation: operation))
+        XCTAssertEqual(fee, service.rawFee)
+        XCTAssertEqual(service.estimateCount, 1); XCTAssertEqual(service.submitCount, 0)
+        XCTAssertEqual(service.builders.first?.calls.count, 1)
+    }
+    func testDirectFeeOperationPropagatesTheEstimatorFailureWithoutSubmitting() async throws {
+        let (factory, service) = try make()
+        service.failure = FactoryBoundaryError.offline
+        let operation = factory.createExtrinsicFeeServiceOperation(asset: val, amount: 1, receiver: receiver, chain: .sora)
+        do { _ = try await run(CompoundOperationWrapper(targetOperation: operation)); XCTFail("Failed estimate must not report a fee") }
+        catch { guard case FactoryBoundaryError.offline = error else { return XCTFail("Unexpected error: \(error)") } }
+        XCTAssertEqual(service.submitCount, 0)
+    }
+    func testDirectFeeOperationRejectsMalformedReceiverWithoutSigning() async throws {
+        let (factory, service) = try make()
+        let operation = factory.createExtrinsicFeeServiceOperation(asset: val, amount: 1, receiver: "not hex", chain: .sora)
+        do { _ = try await run(CompoundOperationWrapper(targetOperation: operation)); XCTFail("Malformed receiver cannot produce a fee") }
+        catch { XCTAssertTrue(service.builders.isEmpty); XCTAssertEqual(service.submitCount, 0) }
+    }
+    func testTokenStorageRejectsInvalidAccountTextWithoutCrashingOrSendingRPC() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        for address in ["", "not an ss58 address", "0x03"] {
+            let outcomes = try await run(factory.createTokenStorageOperation(accountId: address, assetIds: [xor, val]))
+            XCTAssertEqual(Set(outcomes.keys), [xor, val])
+            for id in [xor, val] {
+                guard case .failure? = outcomes[id] else { return XCTFail("Invalid account accepted") }
+            }
+            XCTAssertTrue(engine.methods.isEmpty)
+        }
+    }
+    func testTokenStorageReadsTheValidAssetsOfARequestThatAlsoNamesMalformedOnes() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        let account = Data(repeating: 3, count: 32)
+        let address = try SS58AddressFactory().address(fromAccountId: account, type: 69)
+        let key = try StorageKeyFactory().accountsKey(account: account, asset: Data.sora(hex: token6)).toHex(includePrefix: true)
+        let block = "0x" + String(repeating: "ab", count: 32)
+        engine.response = "[{\"block\":\"\(block)\",\"changes\":[[\"\(key)\",null]]}]"
+        // The same id in upper case is the same key: one request key, the same outcome for both.
+        let upper = "0x" + token6.dropFirst(2).uppercased()
+        XCTAssertNotEqual(upper, token6)
+        // 64 digits that are not plain hex digits (fullwidth zeroes) are not an asset id either.
+        let fullwidth = "0x" + String(repeating: "\u{FF10}", count: 64)
+        let malformed = ["0xzz", "0x01", fullwidth]
+        let outcomes = try await run(factory.createTokenStorageOperation(accountId: address, assetIds: [token6] + malformed + [upper]))
+        XCTAssertEqual(engine.methods, [SoraPassport.RPCMethod.queryStorageAt])
+        XCTAssertEqual(engine.nested, [[[key]]], "exactly the one valid key reaches the node, once")
+        XCTAssertEqual(Set(outcomes.keys), Set([token6, upper] + malformed))
+        for id in [token6, upper] {
+            guard case let .success(storage)? = outcomes[id] else { return XCTFail("The valid asset was not read: \(id)") }
+            XCTAssertNil(storage.hex)
+        }
+        for id in malformed {
+            guard case .failure? = outcomes[id] else { return XCTFail("Invalid asset accepted: \(id)") }
+        }
+    }
+    func testANullTokenValueIsOnlyZeroInAnAnswerThatNamesItsBlock() async throws {
+        let account = Data(repeating: 3, count: 32)
+        let address = try SS58AddressFactory().address(fromAccountId: account, type: 69)
+        let key = try StorageKeyFactory().accountsKey(account: account, asset: Data.sora(hex: token6)).toHex(includePrefix: true)
+        let changes = "\"changes\":[[\"\(key)\",null]]"
+        let answers = ["[{\(changes)}]", "[{\"block\":null,\(changes)}]", "[{\"block\":\"0x00\",\(changes)}]",
+                       "[{\"block\":\"\(String(repeating: "ab", count: 32))\",\(changes)}]"]
+        for answer in answers {
+            let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+            engine.response = answer
+            let outcomes = try await run(factory.createTokenStorageOperation(accountId: address, assetIds: [token6]))
+            guard case let .failure(error)? = outcomes[token6] else { return XCTFail("An answer without a block hash was read: \(answer)") }
+            XCTAssertTrue(error is DecodingError, "the node answered, and not with the read that was asked for")
+        }
+    }
+    func testTokenStorageRejectsMalformedAssetsWithoutAnEmptyMethodRPC() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        let address = try SS58AddressFactory().address(fromAccountId: Data(repeating: 3, count: 32), type: 69)
+        // Not hex, and hex of the wrong length (a short id would otherwise be a key of its own, and
+        // the node's "no such storage" a balance of zero for it).
+        let malformed = ["0xzz", "0x01", String(val.dropLast(2))]
+        let outcomes = try await run(factory.createTokenStorageOperation(accountId: address, assetIds: malformed))
+        XCTAssertEqual(Set(outcomes.keys), Set(malformed))
+        for id in malformed {
+            guard case .failure? = outcomes[id] else { return XCTFail("Invalid asset accepted: \(id)") }
+        }
+        XCTAssertTrue(engine.methods.isEmpty)
+    }
+}
+
+private final class FactoryReadEngine: JSONRPCEngine {
+    var url: URL? = URL(string: "wss://factory-read.test")
+    var pendingEngineRequests: [JSONRPCRequest] { [] }
+    var response = "null", failure: Error?
+    private(set) var methods: [String] = [], parameters: [[String]] = [], nested: [[[String]]] = []
+    func callMethod<P: Codable, T: Decodable>(_ method: String, params: P?, options: JSONRPCOptions, completion closure: ((Result<T, Error>) -> Void)?) throws -> UInt16 {
+        methods.append(method); parameters.append(params as? [String] ?? [])
+        if let keys = params as? [[String]] { nested.append(keys) }
+        let result = Result<T, Error> { if let failure { throw failure }; return try JSONDecoder.scaleCompatible(snakeCase: false).decode(T.self, from: Data(response.utf8)) }
+        closure?(result)
+        return UInt16(methods.count)
+    }
+    func subscribe<P: Codable, T: Decodable>(_ method: String, params: P?, updateClosure: @escaping (T) -> Void, failureClosure: @escaping (Error, Bool) -> Void) throws -> UInt16 { XCTFail("Read operations cannot subscribe"); throw FactoryBoundaryError.unexpected }
+    func cancelForIdentifier(_ identifier: UInt16) {}
+    func generateRequestId() -> UInt16 { 1 }
+    func addSubscription(_ subscription: JSONRPCSubscribing) { XCTFail("Read operations cannot subscribe") }
+    func connectIfNeeded() {}; func disconnectIfNeeded() {}; func unsubsribe(_ identifier: UInt16) throws {}
+}
+private final class FactoryFailedRuntime: SoraPassport.RuntimeCodingServiceProtocol {
+    private(set) var reads = 0
+    func fetchCoderFactoryOperation(with timeout: TimeInterval, closure: SoraPassport.RuntimeMetadataClosure?) -> BaseOperation<RuntimeCoderFactoryProtocol> {
+        reads += 1
+        return ClosureOperation { throw FactoryBoundaryError.offline }
+    }
+}
+
+/// Swaps between two assets with different decimals. `tokenA` has 2 and
+/// `tokenB` has 4, so an amount scaled by the other asset's decimals, or by
+/// an assumed 18, cannot pass. Nothing is signed and no node is contacted.
+extension WalletNetworkOperationFactoryCoverageTests {
+    private var tokenA: String { "0x" + String(repeating: "0a", count: 32) }
+    private var tokenB: String { "0x" + String(repeating: "0b", count: 32) }
+    private func mixedAssets(tokenBPrecision: Int16 = 4) -> [WalletAsset] {
+        [asset(xor), asset(tokenA, precision: 2), asset(tokenB, precision: tokenBPrecision)]
+    }
+    /// A swap as its review submits it: `tokenA` reviewed with 2 decimals, `tokenB` with 4, and the limit in whole units.
+    private func mixedSwap(_ variant: SwapVariant, amount: String = "10.01", estimated: String = "2.5",
+                           reviewed: (source: String, destination: String)? = ("2", "4")) -> TransferInfo {
+        let slippage = PolkaswapSlippage.defaultValue
+        let limit = variant == .desiredInput
+            ? slippage.minimumAmount(for: Decimal(string: estimated)!, precision: 4)
+            : slippage.maximumAmount(for: Decimal(string: amount)!, precision: 2)
+        var info = product(.swap, amount: Decimal(string: amount)!, changes: [
+            TransactionContextKeys.desire: variant.rawValue, TransactionContextKeys.estimatedAmount: estimated,
+            TransactionContextKeys.minMaxValue: AmountDecimal(value: limit).stringValue,
+            TransactionContextKeys.sourcePrecision: reviewed?.source ?? "", TransactionContextKeys.destinationPrecision: reviewed?.destination ?? ""
+        ], source: tokenA, destination: tokenB)
+        if reviewed == nil {
+            var context = info.context ?? [:]
+            context[TransactionContextKeys.sourcePrecision] = nil; context[TransactionContextKeys.destinationPrecision] = nil
+            info = TransferInfo(source: info.source, destination: info.destination, amount: info.amount, asset: info.asset,
+                                details: info.details, fees: info.fees, context: context)
+        }
+        return info
+    }
+    private func signedSwap(_ service: FactoryExtrinsics) throws -> SwapCall {
+        try XCTUnwrap(service.builders.first?.calls.first).map(to: RuntimeCall<SwapCall>.self).args
+    }
+
+    func testFixedInputSwapSignsEachAmountInTheUnitsOfItsOwnAsset() async throws {
+        let (factory, service) = try make(assets: mixedAssets())
+        _ = try await run(factory.transferOperation(mixedSwap(.desiredInput)))
+        let call = try signedSwap(service)
+        XCTAssertEqual(call.inputAssetId.value, tokenA); XCTAssertEqual(call.outputAssetId.value, tokenB)
+        XCTAssertEqual(call.amount.count, 1)
+        // 10.01 of the source (2 decimals); at least 2.4875 of the destination (4 decimals).
+        XCTAssertEqual(call.amount[.desiredInput]?.desired, 1001)
+        XCTAssertEqual(call.amount[.desiredInput]?.slip, 24875)
+    }
+    func testFixedOutputSwapSignsEachAmountInTheUnitsOfItsOwnAsset() async throws {
+        let (factory, service) = try make(assets: mixedAssets())
+        _ = try await run(factory.transferOperation(mixedSwap(.desiredOutput)))
+        let call = try signedSwap(service)
+        XCTAssertEqual(call.inputAssetId.value, tokenA); XCTAssertEqual(call.outputAssetId.value, tokenB)
+        XCTAssertEqual(call.amount.count, 1)
+        // 2.5 of the destination (4 decimals); at most 10.06005 of the source,
+        // which 2 decimals hold only rounded up.
+        XCTAssertEqual(call.amount[.desiredOutput]?.desired, 25000)
+        XCTAssertEqual(call.amount[.desiredOutput]?.slip, 1007)
+    }
+    /// VAL's settings claim 6 decimals, as a node could make them. Both sides
+    /// of a swap still sign with the runtime's 18.
+    func testSwapOfPredefinedAssetsSignsWithTheRuntimeDecimalsOnBothSides() async throws {
+        let unit = BigUInt(10).power(18)
+        let (factory, service) = try make()
+        _ = try await run(factory.transferOperation(product(.swap, changes: [
+            TransactionContextKeys.desire: SwapVariant.desiredOutput.rawValue, TransactionContextKeys.minMaxValue: "1.005"
+        ], source: val, destination: xor)))
+        let call = try signedSwap(service)
+        XCTAssertEqual(call.inputAssetId.value, val); XCTAssertEqual(call.outputAssetId.value, xor)
+        XCTAssertEqual(call.amount[.desiredOutput]?.desired, unit * 2)
+        XCTAssertEqual(call.amount[.desiredOutput]?.slip, unit * 1005 / 1000)
+    }
+    func testSwapDoesNotSignAnAmountItsAssetCannotHoldExactly() async throws {
+        for info in [mixedSwap(.desiredInput, amount: "10.015"), mixedSwap(.desiredOutput, estimated: "2.50001")] {
+            let (factory, service) = try make(assets: mixedAssets())
+            await expectFailure(.invalidContext) { try await run(factory.transferOperation(info)) }
+            XCTAssertEqual(service.submitCount, 0)
+        }
+    }
+    /// The signer's assets are a snapshot. The screens later read 2 decimals for `tokenA` where the snapshot has 4:
+    /// 10.01 reviewed with 2 decimals would be signed as 100100 units of 4, a hundred times the reviewed amount.
+    func testSwapIsNotSignedWhenTheSignerScalesByOtherDecimalsThanTheReview() async throws {
+        for (signer, reviewed) in [([asset(xor), asset(tokenA, precision: 4), asset(tokenB, precision: 4)], ("2", "4")),
+                                   (mixedAssets(), ("2", "6")), (mixedAssets(), ("18", "18"))] {
+            for variant in [SwapVariant.desiredInput, .desiredOutput] {
+                let (factory, service) = try make(assets: signer)
+                await expectFailure(.invalidAsset) { try await run(factory.transferOperation(mixedSwap(variant, reviewed: reviewed))) }
+                XCTAssertEqual(service.submitCount, 0)
+            }
+        }
+    }
+    func testSwapWithoutItsReviewedDecimalsIsNotSigned() async throws {
+        let (factory, service) = try make(assets: mixedAssets())
+        await expectFailure(.invalidAsset) { try await run(factory.transferOperation(mixedSwap(.desiredOutput, reviewed: nil))) }
+        XCTAssertEqual(service.submitCount, 0)
+        XCTAssertThrowsError(try pendingHistory(mixedSwap(.desiredOutput, reviewed: nil), swapPrecisions: SwapAssetPrecisions(info: mixedSwap(.desiredOutput, reviewed: nil), assets: mixedAssets())))
+    }
+    func testSwapDoesNotSignWithDecimalsTheRuntimeCannotHold() async throws {
+        let (factory, service) = try make(assets: mixedAssets(tokenBPrecision: 19))
+        await expectFailure(.invalidAsset) { try await run(factory.transferOperation(mixedSwap(.desiredInput))) }
+        XCTAssertEqual(service.submitCount, 0)
+    }
+    func testPendingSwapHistoryHoldsTheAmountsThatWereSigned() async throws {
+        for variant in [SwapVariant.desiredInput, .desiredOutput] {
+            let info = mixedSwap(variant)
+            let (factory, service) = try make(assets: mixedAssets())
+            _ = try await run(factory.transferOperation(info))
+            let signed = try XCTUnwrap(signedSwap(service).amount[variant])
+            let history = try pendingHistory(info, swapPrecisions: SwapAssetPrecisions(info: info, assets: mixedAssets()))
+            let saved = try JSONDecoder.scaleCompatible(snakeCase: true)
+                .decode(RuntimeCall<SwapCall>.self, from: XCTUnwrap(history.call)).args
+            XCTAssertEqual(saved.inputAssetId.value, tokenA); XCTAssertEqual(saved.outputAssetId.value, tokenB)
+            XCTAssertEqual(saved.amount[variant]?.desired, signed.desired, variant.rawValue)
+            XCTAssertEqual(saved.amount[variant]?.slip, signed.slip, variant.rawValue)
+            // A swap whose decimals are unknown is not saved with assumed ones.
+            XCTAssertThrowsError(try pendingHistory(info, swapPrecisions: nil))
+        }
+    }
+
+    /// The whole path of a fixed-output swap: the node's raw quote, the review
+    /// screen's model, the wallet service and the factory. The call holds the
+    /// raw output the quote was asked for and the raw input it answered, plus
+    /// slippage.
+    func testReviewedFixedOutputQuoteReachesTheSignedCallUnchanged() async throws {
+        let (factory, service) = try make(assets: mixedAssets())
+        let review = try SwapSigningReview(.desiredOutput, entered: "25000", quoted: "1001", source: tokenA,
+                                           destination: tokenB, factory: factory)
+        XCTAssertEqual(review.model.firstAssetAmount, Decimal(string: "10.01"))
+        XCTAssertEqual(review.model.secondAssetAmount, Decimal(string: "2.5"))
+        // 10.01 with 0.5 % slippage is 10.06005; two decimals hold it only rounded up, and that is what is shown and signed.
+        XCTAssertEqual(review.model.minMaxValue, Decimal(string: "10.07"))
+        XCTAssertEqual(review.model.details.first?.assetAmountText.text, "10.07 AAA")
+
+        let published = expectation(description: "pending swap published")
+        review.events.published = { published.fulfill() }
+        review.model.submit()
+        await fulfillment(of: [published], timeout: 5)
+
+        let call = try signedSwap(service)
+        XCTAssertEqual(service.submitCount, 1)
+        XCTAssertEqual(call.inputAssetId.value, tokenA); XCTAssertEqual(call.outputAssetId.value, tokenB)
+        XCTAssertEqual(call.amount[.desiredOutput]?.desired, BigUInt("25000"))
+        XCTAssertEqual(call.amount[.desiredOutput]?.slip, 1007)
+        XCTAssertEqual(Decimal.fromSubstrateAmount(try XCTUnwrap(call.amount[.desiredOutput]?.slip), precision: 2), review.model.minMaxValue,
+                       "The limit on the review screen is the limit in the call")
+        let pending = try XCTUnwrap(review.events.transactions.first as? Swap)
+        XCTAssertEqual(pending.base.status, .pending)
+        XCTAssertEqual(pending.fromTokenId, tokenA); XCTAssertEqual(pending.fromAmount.decimalValue, Decimal(string: "10.01"))
+        XCTAssertEqual(pending.toTokenId, tokenB); XCTAssertEqual(pending.toAmount.decimalValue, Decimal(string: "2.5"))
+    }
+    /// After the quote was decoded, the asset list the screens read gives the
+    /// source asset other decimals. The review still writes each amount with
+    /// the decimals the quote was decoded with, the ones it is signed with.
+    func testReviewWritesEachAmountWithTheDecimalsOfItsQuote() async throws {
+        let (factory, _) = try make(assets: mixedAssets())
+        let review = try SwapSigningReview(.desiredOutput, entered: "25000", quoted: "1001", source: tokenA,
+                                           destination: tokenB, factory: factory)
+        var rows: [SoramitsuTableViewItemProtocol] = []
+        review.model.setupItems = { rows = $0 }
+        review.relist(tokenA, precision: 1)
+        review.model.setupContent()
+        let pair = try XCTUnwrap(rows.compactMap { $0 as? ConfirmAssetsItem }.first)
+        // Written in the phone's locale, with the quote's two and four decimals.
+        func written(_ value: String, decimals: UInt32) -> String? {
+            NumberFormatter.inputedAmoutFormatter(with: decimals).string(from: Decimal(string: value)! as NSNumber)
+        }
+        XCTAssertEqual(pair.firstAssetImageModel.amountText, written("10.01", decimals: 2))
+        XCTAssertEqual(pair.secondAssetImageModel.amountText, written("2.5", decimals: 4))
+        XCTAssertNotEqual(written("10.01", decimals: 2), written("10.01", decimals: 1))
+    }
+    func testReviewedFixedInputQuoteReachesTheSignedCallUnchanged() async throws {
+        let (factory, service) = try make(assets: mixedAssets())
+        let review = try SwapSigningReview(.desiredInput, entered: "1001", quoted: "25000", source: tokenA,
+                                           destination: tokenB, factory: factory)
+        XCTAssertEqual(review.model.firstAssetAmount, Decimal(string: "10.01"))
+        XCTAssertEqual(review.model.secondAssetAmount, Decimal(string: "2.5"))
+        XCTAssertEqual(review.model.minMaxValue, Decimal(string: "2.4875"))
+
+        let published = expectation(description: "pending swap published")
+        review.events.published = { published.fulfill() }
+        review.model.submit()
+        await fulfillment(of: [published], timeout: 5)
+
+        let call = try signedSwap(service)
+        XCTAssertEqual(service.submitCount, 1)
+        XCTAssertEqual(call.amount[.desiredInput]?.desired, BigUInt("1001"))
+        XCTAssertEqual(call.amount[.desiredInput]?.slip, 24875)
+        let pending = try XCTUnwrap(review.events.transactions.first as? Swap)
+        XCTAssertEqual(pending.fromAmount.decimalValue, Decimal(string: "10.01"))
+        XCTAssertEqual(pending.toAmount.decimalValue, Decimal(string: "2.5"))
+    }
+}
+
+/// The review screen's model over the production quote decoding, wallet
+/// service and operation factory. It starts as the swap screen opens it, and
+/// then takes the same raw quote again as each new block delivers it.
+@MainActor private final class SwapSigningReview {
+    let model: ConfirmSwapViewModel
+    let events = SwapSigningEvents()
+    private let interactor = SwapSigningInteractor()
+    private let balances: SwapSigningBalances
+    private let manager: SwapSigningAssets
+
+    init(_ variant: SwapVariant, entered: String, quoted: String, source: String, destination: String,
+         factory: WalletNetworkOperationFactory) throws {
+        let xor = WalletAssetId.xor.rawValue
+        manager = SwapSigningAssets(assets: [
+            AssetInfo(id: xor, symbol: "XOR", chainId: "", precision: 18, icon: nil, displayName: "XOR", visible: true),
+            AssetInfo(id: source, symbol: "AAA", chainId: "", precision: 2, icon: nil, displayName: "AAA", visible: true),
+            AssetInfo(id: destination, symbol: "BBB", chainId: "", precision: 4, icon: nil, displayName: "BBB", visible: true)
+        ])
+        balances = SwapSigningBalances(values: [xor: 5, source: 100, destination: 0])
+        let params = PolkaswapMainInteractorQuoteParams(fromAssetId: source, toAssetId: destination, amount: entered,
+            swapVariant: variant, liquiditySources: [], filterMode: .disabled)
+        let quote = SwapValues(amount: quoted, route: [source, destination])
+        let amounts = try XCTUnwrap(SwapQuoteAmountsFactory().createAmounts(
+            fromAsset: try XCTUnwrap(manager.assetInfo(for: source)), toAsset: try XCTUnwrap(manager.assetInfo(for: destination)),
+            params: params, quote: quote))
+        let slippage = PolkaswapSlippage.defaultValue
+        model = ConfirmSwapViewModel(wireframe: nil, firstAssetId: source, secondAssetId: destination, assetManager: manager,
+            eventCenter: events,
+            firstAssetAmount: variant == .desiredInput ? amounts.fromAmount : amounts.toAmount,
+            secondAssetAmount: variant == .desiredInput ? amounts.toAmount : amounts.fromAmount,
+            slippageTolerance: slippage, details: [], market: .smart, amounts: amounts,
+            walletService: WalletService(operationFactory: factory), fee: 1, swapVariant: variant,
+            minMaxValue: variant == .desiredInput ? slippage.minimumAmount(for: amounts.toAmount) : slippage.maximumAmount(for: amounts.toAmount),
+            dexId: 0, interactor: interactor, quoteParams: params, assetsProvider: balances, fiatData: [])
+        model.viewDidLoad()
+        model.didLoadQuote(quote, dexId: 0, params: params)
+    }
+
+    /// The asset list gives an asset other decimals, as a list refresh can.
+    func relist(_ id: String, precision: UInt32) {
+        manager.assets = manager.assets.map {
+            $0.identifier == id
+                ? AssetInfo(id: id, symbol: $0.symbol, chainId: "", precision: precision, icon: nil,
+                            displayName: $0.symbol, visible: true)
+                : $0
+        }
+    }
+}
+private final class SwapSigningEvents: EventCenterProtocol {
+    var transactions = [Transaction](), published: (() -> Void)?
+    func notify(with event: EventProtocol) {
+        guard let value = event as? NewTransactionCreatedEvent else { return }
+        transactions.append(value.item); published?()
+    }
+    func notify(with event: EventProtocol, completionOnMain: @escaping () -> Void) { notify(with: event); completionOnMain() }
+    func add(observer: EventVisitorProtocol, dispatchIn queue: DispatchQueue?) {}
+    func remove(observer: EventVisitorProtocol) {}
+}
+private final class SwapSigningBalances: AssetProviderProtocol {
+    let values: [String: Decimal]; init(values: [String: Decimal]) { self.values = values }
+    func getBalances(with assetIds: [String]) -> [BalanceData] {
+        assetIds.compactMap { id in values[id].map { BalanceData(identifier: id, balance: AmountDecimal(value: $0)) } }
+    }
+    func add(observer: AssetProviderObserverProtocol) {}
+    func remove(observer: AssetProviderObserverProtocol) {}
+}
+private final class SwapSigningAssets: AssetManagerProtocol {
+    static var networkAssets: [AssetInfo] = []
+    var assets: [AssetInfo]; init(assets: [AssetInfo]) { self.assets = assets }
+    func assetInfo(for identifier: String) -> AssetInfo? { assets.first { $0.identifier == identifier } }
+    func getAssetList() -> [AssetInfo]? { assets }
+    func updateAssetList(_ list: [AssetInfo]) {}
+    func saveAssetList(_ list: [AssetInfo]) {}
+    func sortedAssets(_ list: [WalletAsset], onlyVisible: Bool) -> [WalletAsset] { list }
+    func visibleCount() -> UInt { UInt(assets.count) }
+    func setup(for accountSettings: SelectedWalletSettings) {}
+}
+private final class SwapSigningInteractor: PolkaswapMainInteractorInputProtocol {
+    func networkFeeValue(completion: @escaping (Decimal) -> Void) { completion(1) }
+    func checkIsPathAvailable(fromAssetId: String, toAssetId: String) {}
+    func loadMarketSources(fromAssetId: String, toAssetId: String) {}
+    func quote(params: PolkaswapMainInteractorQuoteParams) {}
+    func loadBalance(asset: AssetInfo) {}
+    func unsubscribePoolXYK() {}
+    func unsubscribePoolTBC() {}
+    func subscribePoolXYK(assetId1: String, assetId2: String) {}
+    func subscribePoolTBC(assetId: String) {}
+    func setup() {}
+    func stop() {}
 }

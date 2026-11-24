@@ -21,11 +21,16 @@ import Foundation
 public final class SubqueryReferralRewardsOperation<ResultType>: PIAsyncOperation<ResultType> {
     private let address: String
     private let count: Int
-    private let client = PIIndexerClient()
+    private let client: PIIndexerClient
 
-    public init(address: String, count: Int = 1000, baseUrl: URL) {
+    public convenience init(address: String, count: Int = 1000, baseUrl: URL) {
+        self.init(address: address, count: count, client: PIIndexerClient())
+    }
+
+    init(address: String, count: Int = 1000, client: PIIndexerClient) {
         self.address = address
         self.count = count
+        self.client = client
         super.init()
     }
 

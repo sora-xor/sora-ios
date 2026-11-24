@@ -22,9 +22,9 @@ import UIKit
 final class WalletHeaderView: SoramitsuControl {
     private let titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.sora.font = FontType.eyebrow
+        label.sora.font = FontType.headline2
         label.sora.numberOfLines = 0
-        label.sora.textColor = .fgSecondary
+        label.sora.textColor = .fgPrimary
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         return label
     }()
@@ -69,7 +69,7 @@ final class WalletHeaderView: SoramitsuControl {
     }
 
     func configure(title: String, isExpand: Bool) {
-        titleLabel.sora.text = title.uppercased()
+        titleLabel.sora.text = title
         isAccessibilityElement = true
         accessibilityLabel = title
         accessibilityTraits = .button

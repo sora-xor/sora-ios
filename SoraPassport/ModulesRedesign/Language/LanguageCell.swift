@@ -65,6 +65,8 @@ extension LanguageCell: SoramitsuTableViewCellProtocol {
         
         itemView.titleLabel.sora.text = item.title
         itemView.subtitleLabel.sora.text = item.subtitle
+        itemView.subtitleLabel.isHidden = item.subtitle.isEmpty || item.title == item.subtitle
+        accessibilityTraits = item.selected ? [.button, .selected] : [.button]
         itemView.isSelectedLanguage = item.selected
         itemView.onTap = item.onTap
         

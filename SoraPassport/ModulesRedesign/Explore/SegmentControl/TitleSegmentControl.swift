@@ -70,10 +70,11 @@ class TitleSegmentControl: SoramitsuView {
         addSubview(collectionView)
         
         NSLayoutConstraint.activate([
-            collectionView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            // The segments start where the list under them starts: the content column.
+            collectionView.leadingAnchor.constraint(equalTo: litColumnGuide.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: litColumnGuide.trailingAnchor),
             collectionView.topAnchor.constraint(equalTo: topAnchor),
             collectionView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            collectionView.centerXAnchor.constraint(equalTo: centerXAnchor),
         ])
     }
     

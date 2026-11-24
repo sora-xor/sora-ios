@@ -77,8 +77,9 @@ final class PortfolioTiltMathTests: XCTestCase {
             case "viewer-tilt":
                 for (index, input) in (item["inputs"] as? [[Any]] ?? []).enumerated() {
                     let from = numbers(input[0]), to = numbers(input[1])
-                    let output = PortfolioTilt.viewerTilt(from: (from[0], from[1], from[2], from[3]),
-                                                          to: (to[0], to[1], to[2], to[3]))
+                    let output = PortfolioTilt.viewerTilt(
+                        from: PortfolioTilt.Quaternion(x: from[0], y: from[1], z: from[2], w: from[3]),
+                        to: PortfolioTilt.Quaternion(x: to[0], y: to[1], z: to[2], w: to[3]))
                     let expected = numbers(expect[index])
                     XCTAssertEqual(output.xDeg, expected[0], accuracy: eps, "\(id)[\(index)].x")
                     XCTAssertEqual(output.yDeg, expected[1], accuracy: eps, "\(id)[\(index)].y")

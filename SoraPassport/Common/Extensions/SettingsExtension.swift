@@ -592,18 +592,11 @@ extension SettingsManagerProtocol {
         set { set(value: newValue, for: SettingsKey.walletNetworkStoreVersion.rawValue) }
     }
 
-    /// Without a choice or a PI remote default, Taira follows
-    /// `ProductSurfacePolicy.optionalSurfacesDefaultOn` (on for the Nexus
-    /// line's testers, off on the 3.9.x App Store line). Once the user changes
-    /// this value, future remote defaults must not override their choice.
+    /// Without a choice or a PI remote default, Taira is on. Once the user
+    /// changes this value, future remote defaults must not override their
+    /// choice.
     var isTairaEnabled: Bool {
         get {
-            // An App Store build does not ship Taira. Neither a remote
-            // default nor a choice made in a tester build turns it on there;
-            // the stored choice is kept for a build that does ship it.
-            guard ProductSurfacePolicy.showsTairaSettings else {
-                return false
-            }
             switch atomicTairaExplicitPreference {
             case .enabled:
                 return true
@@ -623,7 +616,7 @@ extension SettingsManagerProtocol {
                 case let .value(remoteDefault):
                     return remoteDefault
                 case .absent:
-                    return ProductSurfacePolicy.optionalSurfacesDefaultOn
+                    return true
                 case .malformed:
                     return false
                 }
@@ -647,16 +640,9 @@ extension SettingsManagerProtocol {
         }
     }
 
-    /// Follows PI's `nexusAvailable` once stored, otherwise
-    /// `ProductSurfacePolicy.optionalSurfacesDefaultOn`, and is always off in
-    /// a build that does not ship the Nexus portfolio, whatever an earlier
-    /// build stored.
+    /// Follows PI's `nexusAvailable` once stored, otherwise on.
     var nexusEnabled: Bool {
-        get {
-            ProductSurfacePolicy.showsNexusPortfolio &&
-                (bool(for: SettingsKey.nexusEnabled.rawValue)
-                    ?? ProductSurfacePolicy.optionalSurfacesDefaultOn)
-        }
+        get { bool(for: SettingsKey.nexusEnabled.rawValue) ?? true }
         set { set(value: newValue, for: SettingsKey.nexusEnabled.rawValue) }
     }
 
@@ -681,16 +667,9 @@ extension SettingsManagerProtocol {
         return nexusSendsEnabled
     }
 
-    /// Follows PI's `polkamarktVisible` once stored, otherwise
-    /// `ProductSurfacePolicy.optionalSurfacesDefaultOn`, and is always off in
-    /// a build that does not ship Polkamarkt, whatever an earlier build
-    /// stored.
+    /// Follows PI's `polkamarktVisible` once stored, otherwise on.
     var polkamarktEnabled: Bool {
-        get {
-            ProductSurfacePolicy.showsPolkamarkt &&
-                (bool(for: SettingsKey.polkamarktEnabled.rawValue)
-                    ?? ProductSurfacePolicy.optionalSurfacesDefaultOn)
-        }
+        get { bool(for: SettingsKey.polkamarktEnabled.rawValue) ?? true }
         set { set(value: newValue, for: SettingsKey.polkamarktEnabled.rawValue) }
     }
 
@@ -709,20 +688,11 @@ extension SettingsManagerProtocol {
     }
 
     /// Stores what PI's `mobileConfig` says about optional features.
-    ///
-    /// In an App Store build the flags for Taira, Polkamarkt and Nexus are
-    /// first masked to off (`ProductSurfacePolicy.admitted`), so nothing PI
-    /// sends can store them as on or publish their mutation authority.
     @discardableResult
     func applyPIMobileConfig(
-        _ remoteConfig: PIMobileConfig,
-        refreshToken: ProductionRemoteCapabilitySession.RefreshToken,
-        isAppStoreBuild: Bool = ProductSurfacePolicy.isAppStoreBuild
+        _ config: PIMobileConfig,
+        refreshToken: ProductionRemoteCapabilitySession.RefreshToken
     ) -> Bool {
-        let config = ProductSurfacePolicy.admitted(
-            remoteConfig,
-            isAppStoreBuild: isAppStoreBuild
-        )
         let capabilitySession = ProductionRemoteCapabilitySession.shared
         return capabilitySession.publishFreshConfig(
             refreshToken,
@@ -850,66 +820,6 @@ final class ProductionRemoteCapabilitySession: @unchecked Sendable {
     }
 }
 
-/// Which optional product surfaces a build may show at all. On the App Store
-/// line (3.9.x) Release (`F_RELEASE`) builds hide the Taira testnet switch,
-/// Polkamarkt prediction markets and the Nexus network portfolio, and do not
-/// accept IrohaConnect links, whatever PI or stored settings say. Other
-/// builds keep them for testers; PI and stored settings still decide there.
-///
-/// It applies at UI entry points and to the feature flags themselves: a build
-/// that hides the surfaces masks PI's flags before storing them (`admitted`)
-/// and reads the stored ones as off. It must not change runtime, key,
-/// migration or network-admission policy (`NexusNetworkAdmissionPolicy`):
-/// hiding a surface never touches Nexus or Taira journals or keys.
-enum ProductSurfacePolicy {
-    /// This is the SORA Nexus (`modernize`) line. Its Release builds go to
-    /// Nexus testers through TestFlight and ship Taira, Polkamarkt, the Nexus
-    /// portfolio and IrohaConnect in every configuration, as this line did
-    /// before the 3.9.x App Store line was merged into it. Set this to false
-    /// to get the App Store line's behaviour (and remove the IrohaConnect URL
-    /// type from Info.plist, which `register-irohaconnect-url-schemes.sh`
-    /// then adds back for non-Release builds only).
-    static let shipsOptionalSurfacesInRelease = true
-
-    #if F_RELEASE
-    static let isAppStoreBuild = !shipsOptionalSurfacesInRelease
-    #else
-    static let isAppStoreBuild = false
-    #endif
-    static let showsTairaSettings = !isAppStoreBuild
-    static let showsPolkamarkt = !isAppStoreBuild
-    static let showsNexusPortfolio = !isAppStoreBuild
-    static let acceptsIrohaConnect = !isAppStoreBuild
-
-    /// What an install shows before it has a stored choice or a PI value.
-    /// The Nexus line keeps its tester default (Taira, Nexus and Polkamarkt
-    /// on); the App Store line starts with them off until PI publishes them.
-    static let optionalSurfacesDefaultOn = shipsOptionalSurfacesInRelease
-
-    /// PI's `mobileConfig` as this build may act on it. The production PI
-    /// can publish `nexusAvailable`, `polkamarktVisible` and
-    /// `tairaDefaultVisible` as true; an App Store build ships none of those
-    /// surfaces, so there every optional flag is off. Node, explorer and
-    /// type-registry fields are not feature flags and pass through.
-    static func admitted(
-        _ config: PIMobileConfig,
-        isAppStoreBuild: Bool = Self.isAppStoreBuild
-    ) -> PIMobileConfig {
-        guard isAppStoreBuild else {
-            return config
-        }
-        return PIMobileConfig(
-            blockExplorerUrl: config.blockExplorerUrl,
-            substrateTypesUrl: config.substrateTypesUrl,
-            nodes: config.nodes,
-            nexusAvailable: false,
-            nexusSendsAvailable: false,
-            polkamarktVisible: false,
-            polkamarktMutationsAvailable: false,
-            tairaDefaultVisible: false
-        )
-    }
-}
 
 enum ProductionMutationQualification {
     // Promote only after the retained migration matrix, pinned native signer,

@@ -596,22 +596,15 @@ protocol IrohaConnectAuthenticating: AnyObject {
     func authenticate(reason: String, completion: @escaping (Result<Void, Error>) -> Void)
 }
 
-final class IrohaConnectAuthenticator: IrohaConnectAuthenticating {
+/// Approves a dApp connection or signature with the app PIN, or with Face ID
+/// or Touch ID for the faces or fingers the owner approved with that PIN. The
+/// iPhone passcode alone is not enough: whoever has seen it could otherwise
+/// approve signatures on a stolen phone.
+final class IrohaConnectAuthenticator: IrohaConnectAuthenticating, AuthorizationPresentable {
     func authenticate(reason: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        let context = LAContext()
-        context.localizedCancelTitle = "Cancel"
-        var error: NSError?
-        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-            completion(.failure(error ?? IrohaConnectError.authenticationFailed))
-            return
-        }
-        context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, error in
-            DispatchQueue.main.async {
-                if success {
-                    completion(.success(()))
-                } else {
-                    completion(.failure(error ?? IrohaConnectError.authenticationFailed))
-                }
+        Task { @MainActor in
+            self.authorize(animated: true, cancellable: true, inView: nil) { authorized in
+                completion(authorized ? .success(()) : .failure(IrohaConnectError.authenticationFailed))
             }
         }
     }

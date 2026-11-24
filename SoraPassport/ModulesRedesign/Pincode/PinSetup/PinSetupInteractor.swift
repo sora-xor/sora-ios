@@ -106,6 +106,12 @@ class PinSetupInteractor {
     }
 
     private func completeSetup() {
+        // A first PIN: the owner just answered the Face ID or Touch ID question, so
+        // the faces or fingers enrolled now are the ones it accepts. Replacing a PIN
+        // approves nothing: checking the old PIN already settled them.
+        if settingsManager.biometryEnabled == true, authorization == nil {
+            biometryAuth.approveCurrentEnrollment()
+        }
         state = .submitedPincode
         pincode = nil
         self.presenter?.didSavePin()

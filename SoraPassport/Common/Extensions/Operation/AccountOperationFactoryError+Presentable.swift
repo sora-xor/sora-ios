@@ -34,8 +34,8 @@ extension AccountOperationFactoryError: ErrorContentConvertible {
         default:
             title = R.string.localizable
                 .commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
-            message = "Undefined error"//R.string.localizable.
-                //.commonUndefinedErrorMessage(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable
+                .commonErrorGeneralMessage(preferredLanguages: locale?.rLanguages)
         }
 
         return ErrorContent(title: title, message: message)

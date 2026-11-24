@@ -29,29 +29,23 @@ final class AddImportedWireframe: AccountImportWireframeProtocol {
         self.localizationManager = localizationManager
     }
 
-    func proceed(from view: AccountImportViewProtocol?,
-                 sourceType: AccountImportSource,
-                 cryptoType: CryptoType,
-                 networkType: Chain,
-                 sourceViewModel: InputViewModelProtocol,
-                 usernameViewModel: InputViewModelProtocol,
-                 passwordViewModel: InputViewModelProtocol?,
-                 derivationPathViewModel: InputViewModelProtocol?,
-                 expectedAddress: String?) {
+    func proceed(from view: AccountImportViewProtocol?, submission: AccountImportSubmission) {
         guard let navigationController = view?.controller.navigationController else {
             return
         }
         
         guard let endAddingBlock = endAddingBlock,
-              let setupNameView = SetupAccountNameViewFactory.createViewForAddImport(sourceType: sourceType,
-                                                                                     cryptoType: cryptoType,
-                                                                                     networkType: networkType,
-                                                                                     sourceViewModel: sourceViewModel,
-                                                                                     usernameViewModel: usernameViewModel,
-                                                                                     passwordViewModel: passwordViewModel,
-                                                                                     derivationPathViewModel: derivationPathViewModel,
-                                                                                         expectedAddress: expectedAddress,
-                                                                                     endAddingBlock: endAddingBlock)?.controller
+              let setupNameView = SetupAccountNameViewFactory.createViewForAddImport(
+                sourceType: submission.sourceType,
+                cryptoType: submission.cryptoType,
+                networkType: submission.networkType,
+                sourceViewModel: submission.sourceViewModel,
+                usernameViewModel: submission.usernameViewModel,
+                passwordViewModel: submission.passwordViewModel,
+                derivationPathViewModel: submission.derivationPathViewModel,
+                expectedAddress: submission.expectedAddress,
+                endAddingBlock: endAddingBlock
+              )?.controller
         else {
             MainTransitionHelper.transitToMainTabBarController(closing: navigationController, animated: true)
             return

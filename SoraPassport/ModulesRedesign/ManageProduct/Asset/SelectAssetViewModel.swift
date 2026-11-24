@@ -90,6 +90,16 @@ final class SelectAssetViewModel {
     private var marketCapService: MarketCapServiceProtocol
     var assetIds: [String] = []
     private let priceInfoService: PriceInfoServiceProtocol
+    /// Every token chooser leaves out tokens on the Polkaswap blacklist, also when the list
+    /// changes while it is open.
+    var assetBlacklist: AssetBlacklistStoring = AssetBlacklistStore.shared
+    private var blacklistObserver: NSObjectProtocol?
+
+    deinit {
+        if let blacklistObserver {
+            NotificationCenter.default.removeObserver(blacklistObserver)
+        }
+    }
 
     init(assetViewModelFactory: AssetViewModelFactory,
          fiatService: FiatServiceProtocol,
@@ -119,25 +129,41 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
     
     func viewDidLoad() {
         setupNavigationBar?(mode)
+        if blacklistObserver == nil {
+            blacklistObserver = NotificationCenter.default.addObserver(
+                forName: AssetBlacklistStore.didChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadItems()
+            }
+        }
+        loadItems()
+    }
+}
+
+private extension SelectAssetViewModel {
+    func loadItems() {
         if let balanceData = assetsProvider?.getBalances(with: assetIds) {
             Task { @MainActor [weak self] in
                 await self?.items(with: balanceData)
             }
         }
     }
-}
 
-private extension SelectAssetViewModel {
     @MainActor
     func items(with balanceItems: [BalanceData]) async {
         let mode = self.mode
         let factory = assetViewModelFactory
+        // Keep the full candidate list for the lifetime of the picker. A refresh can also allow an asset again.
+        let pickable = assetBlacklist.current().pickable(assetIds)
+        let offered = Set(pickable)
         // An asset whose balance could not be read can still be chosen;
         // its row says "Balance unavailable".
         let items = factory.assetListItems(
-            assetIds: assetIds,
-            balances: balanceItems,
-            unavailable: assetsProvider?.unavailableBalanceAssetIds(among: assetIds) ?? [],
+            assetIds: pickable,
+            balances: balanceItems.filter { offered.contains($0.identifier) },
+            unavailable: assetsProvider?.unavailableBalanceAssetIds(among: pickable) ?? [],
             mode: mode
         ) { balance, assetInfo in
             factory.createAssetViewModel(with: balance,
@@ -147,8 +173,9 @@ private extension SelectAssetViewModel {
         }
         items.forEach { item in
             item.assetHandler = { [weak self] identifier in
-                self?.dismiss?(true)
-                self?.selectionCompletion?(identifier)
+                guard let self, !self.assetBlacklist.current().hides(assetId: identifier) else { return }
+                self.dismiss?(true)
+                self.selectionCompletion?(identifier)
             }
             
             item.favoriteHandle = { item in

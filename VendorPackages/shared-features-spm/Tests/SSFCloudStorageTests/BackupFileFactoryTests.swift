@@ -1,4 +1,3 @@
-import MocksBasket
 import XCTest
 
 @testable import SSFCloudStorage
@@ -6,7 +5,7 @@ import XCTest
 final class BackupFileFactoryTests: XCTestCase {
     func testBackupFileFactoryInit() {
         // arrange
-        let service = EncryptionServiceProtocolMock()
+        let service = EncryptionServiceMock()
 
         // act
         let factory = BackupFileFactory(service: service)
@@ -17,9 +16,8 @@ final class BackupFileFactoryTests: XCTestCase {
 
     func testCreateFileWithMock() throws {
         // arrange
-        let service = EncryptionServiceProtocolMock()
-        service
-            .createEncryptedDataWithMessageReturnValue = try Data(hexStringSSF: TestData.hexString)
+        let service = EncryptionServiceMock()
+        service.createEncryptedDataReturnValue = try Data(hexStringSSF: TestData.hexString)
 
         // act
         let factory = BackupFileFactory(service: service)

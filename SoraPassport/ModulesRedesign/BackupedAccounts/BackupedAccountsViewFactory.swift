@@ -22,10 +22,13 @@ import SSFCloudStorage
 import RobinHood
 
 final class BackupedAccountsViewFactory {
-    static func createView(with accounts: [OpenBackupAccount], endAddingBlock: (() -> Void)? = nil) -> BackupedAccountsViewProtocol? {
+    /// `googleAccount` is the Google account the list was read from.
+    static func createView(with accounts: [OpenBackupAccount], googleAccount: CloudStorageAccountIdentity,
+                           endAddingBlock: (() -> Void)? = nil) -> BackupedAccountsViewProtocol? {
         let view = BackupedAccountsViewController()
         let wireframe = BackupedAccountsWireframe(currentController: view, endAddingBlock: endAddingBlock)
-        let viewModel = BackupedAccountsViewModel(backedUpAccounts: accounts, wireframe: wireframe)
+        let viewModel = BackupedAccountsViewModel(backedUpAccounts: accounts, googleAccount: googleAccount,
+                                                  wireframe: wireframe)
         
         view.viewModel = viewModel
 

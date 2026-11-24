@@ -114,6 +114,14 @@ enum PortfolioAllocation {
         return assigned
     }
 
+    /// One group of the fan before its rays are counted.
+    private struct FanEntry {
+        let key: String
+        let value: Decimal
+        let slot: PortfolioSlot
+        let members: [String]
+    }
+
     /// The fan for groups sorted largest first. At most five groups keep a slot; the rest fold
     /// into Other, which is always the last segment.
     static func fan(values: [(key: String, value: Decimal)], previousSlots: [String: Int])
@@ -125,11 +133,13 @@ enum PortfolioAllocation {
         let tail = Array(counted.dropFirst(slotCount))
         let slots = assignSlots(topKeys: head.map(\.key), previous: previousSlots)
 
-        var entries: [(key: String, value: Decimal, slot: PortfolioSlot, members: [String])] = head.map {
-            ($0.key, $0.value, slots[$0.key].map { PortfolioSlot.slot($0) } ?? .other, [])
+        var entries: [FanEntry] = head.map {
+            FanEntry(key: $0.key, value: $0.value, slot: slots[$0.key].map { PortfolioSlot.slot($0) } ?? .other,
+                     members: [])
         }
         if !tail.isEmpty {
-            entries.append((otherKey, tail.reduce(Decimal(0)) { $0 + $1.value }, .other, tail.map(\.key)))
+            entries.append(FanEntry(key: otherKey, value: tail.reduce(Decimal(0)) { $0 + $1.value }, slot: .other,
+                                    members: tail.map(\.key)))
         }
 
         let total = entries.reduce(Decimal(0)) { $0 + $1.value }

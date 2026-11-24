@@ -47,29 +47,18 @@ final class ExplorePoolCell: SoramitsuTableViewCell {
     }
     
     private func updateContent(with viewModel: ExplorePoolViewModel) {
-        if let baseAssetIcon = viewModel.baseAssetIcon {
-            poolView.firstCurrencyImageView.sora.picture = .logo(image: baseAssetIcon)
-            poolView.firstCurrencyImageView.sora.loadingPlaceholder.type = .none
-        }
-
-        if let targetAssetIcon = viewModel.targetAssetIcon {
-            poolView.secondCurrencyImageView.sora.picture = .logo(image: targetAssetIcon)
-            poolView.secondCurrencyImageView.sora.loadingPlaceholder.type = .none
-        }
-        
-        // Cells are reused: a value that is still loading (`nil`) clears
-        // what the previous pool left behind and shows the placeholder.
-        poolView.titleLabel.sora.text = viewModel.title ?? ""
-        poolView.titleLabel.sora.loadingPlaceholder.type = viewModel.title == nil ? .shimmer : .none
-
-        poolView.subtitleLabel.sora.text = viewModel.tvl ?? ""
-        poolView.subtitleLabel.sora.loadingPlaceholder.type = viewModel.tvl == nil ? .shimmer : .none
-
-        poolView.amountUpLabel.sora.text = viewModel.apy ?? ""
-        poolView.amountUpLabel.sora.loadingPlaceholder.type = viewModel.apy == nil ? .shimmer : .none
-        // An empty rate means the APY read finished with nothing to show:
-        // no empty pill. The label keeps its place in the layout.
-        poolView.amountUpLabel.alpha = viewModel.apy?.isEmpty == true ? 0 : 1
+        let placeholder: SoramitsuLoadingPlaceholderType = viewModel.poolId == nil && LitMotion.allowed ? .shimmer : .none
+        poolView.firstCurrencyImageView.sora.picture = viewModel.baseAssetIcon.map { .logo(image: $0) }
+        poolView.firstCurrencyImageView.sora.loadingPlaceholder.type = placeholder
+        poolView.secondCurrencyImageView.sora.picture = viewModel.targetAssetIcon.map { .logo(image: $0) }
+        poolView.secondCurrencyImageView.sora.loadingPlaceholder.type = placeholder
+        poolView.titleLabel.sora.text = viewModel.title
+        poolView.titleLabel.sora.loadingPlaceholder.type = placeholder
+        poolView.subtitleLabel.sora.text = viewModel.tvl
+        poolView.subtitleLabel.sora.loadingPlaceholder.type = placeholder
+        poolView.amountUpLabel.sora.text = viewModel.apy
+        poolView.amountUpLabel.sora.loadingPlaceholder.type = placeholder
+        poolView.amountUpLabel.alpha = viewModel.poolId != nil && (viewModel.apy ?? "").isEmpty ? 0 : 1
     }
 }
 

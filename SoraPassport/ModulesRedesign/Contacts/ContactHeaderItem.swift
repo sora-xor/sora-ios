@@ -20,15 +20,19 @@ import SoraUIKit
 final class ContactHeaderCellItem: NSObject {
 
     let title: String
+    let symbol: String?
     let onTap: (()->())?
 
-    init(title: String, onTap: (()->())? = nil) {
+    init(title: String, symbol: String? = nil, onTap: (()->())? = nil) {
         self.title = title
+        self.symbol = symbol
         self.onTap = onTap
     }
 }
 
 extension ContactHeaderCellItem: SoramitsuTableViewItemProtocol {
+    func itemActionTap(with context: SoramitsuTableViewContext?) { onTap?() }
+
     var cellType: AnyClass {
         ContactHeaderCell.self
     }

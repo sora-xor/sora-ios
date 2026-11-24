@@ -51,7 +51,7 @@ final class ConfirmPassphraseViewController: SoramitsuViewController, Controller
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        navigationController?.navigationBar.prefersLargeTitles = true
+        navigationItem.largeTitleDisplayMode = .never
         navigationItem.title = R.string.localizable.accountConfirmationTitleV2(preferredLanguages: .currentLocale)
 
         setupView()

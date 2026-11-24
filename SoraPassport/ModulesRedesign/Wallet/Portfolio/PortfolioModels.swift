@@ -72,8 +72,10 @@ struct PortfolioHolding: Hashable {
     let amount: Decimal
     /// The part that can move now.
     let transferable: Decimal
-    /// Hidden by the wallet's own asset visibility settings.
+    /// Hidden by the wallet's own asset visibility settings, or by the Polkaswap token blacklist.
     let isHidden: Bool
+    /// Hidden because the token is on the Polkaswap token blacklist (`isHidden` is set too).
+    var isBlacklisted = false
 
     var id: String { "\(walletId)|\(network.rawValue)|\(token.id)" }
 
@@ -142,6 +144,8 @@ struct PortfolioSnapshot: Equatable {
     let liveNetworks: Set<PortfolioNetwork>
     /// The first read of the wallets is still running: neither the empty state nor OFFLINE applies yet.
     var isLoading = false
+    /// Set while the prices are not fresh: the time of the app's "Prices as of" note.
+    var pricesAsOf: Date?
 
     /// The app's network directory with this snapshot's live networks (the debug sample shows every
     /// network as live).

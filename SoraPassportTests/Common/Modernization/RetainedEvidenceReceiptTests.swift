@@ -1,3 +1,6 @@
+// This fixture-driven suite runs with the Debug unit-test host.
+// Ordinary Release hosts exclude the sample or evidence helpers it exercises.
+#if DEBUG
 import CryptoKit
 import Foundation
 import Security
@@ -57,11 +60,12 @@ final class RetainedEvidenceReceiptTests: XCTestCase {
     private func receipt(_ kind: Harness.EvidenceCase, state: Harness.HarnessState? = nil,
                          comparison: Harness.KeychainComparison? = nil, behavior: Bool = true, recovery: Bool = false) throws -> [String: Any] {
         try Harness.makeReceipt(request: request(kind), requestSha256: digest,
-            state: try state ?? load(self.state(kind), kind), finishedAtEpochSeconds: now + 20,
-            stateSha256: String(repeating: "b", count: 64), route: recovery ? .recovery : .localAuthentication,
-            outcome: kind.kind == .keychain ? "passed" : "observed",
-            comparison: comparison ?? .init(identifierSetUnchanged: true, valuesByteForByteUnchanged: true, accessibilityUnchanged: true, credentialRewriteObserved: false),
-            behaviorPassed: behavior, recoveryEntered: recovery)
+            state: try state ?? load(self.state(kind), kind),
+            stateSha256: String(repeating: "b", count: 64),
+            terminal: .init(finishedAtEpochSeconds: now + 20, route: recovery ? .recovery : .localAuthentication,
+                outcome: kind.kind == .keychain ? "passed" : "observed",
+                comparison: comparison ?? .init(identifierSetUnchanged: true, valuesByteForByteUnchanged: true, accessibilityUnchanged: true, credentialRewriteObserved: false),
+                behaviorPassed: behavior, recoveryEntered: recovery))
     }
     private var unchanged: Harness.KeychainComparison { .init(identifierSetUnchanged: true, valuesByteForByteUnchanged: true, accessibilityUnchanged: true, credentialRewriteObserved: false) }
     private func observation(_ kind: Harness.EvidenceCase, state value: Harness.HarnessState, route: RetainedMigrationEvidenceApplicationRoute = .localAuthentication, comparison: Harness.KeychainComparison? = nil) throws -> (outcome: String, behaviorPassed: Bool, recoveryEntered: Bool) {
@@ -108,7 +112,7 @@ final class RetainedEvidenceReceiptTests: XCTestCase {
     func testOrdinaryCredentialAndReinstallRoutesMustReachAWalletAuthenticationScreen() throws {
         for kind in [Harness.EvidenceCase.mnemonic12, .reinstallUpgrade] {
             var value = try load(state(kind), kind); value.credentialBehaviorProbePassed = true; value.signingExpectedObserved = true; value.signingSucceededObserved = true
-            for route in [RetainedMigrationEvidenceApplicationRoute.onboarding, .legacyUpgradeReady, .localAuthentication, .pincodeSetup, .recovery] {
+            for route in [RetainedMigrationEvidenceApplicationRoute.onboarding, .localAuthentication, .pincodeSetup, .recovery] {
                 let result = try observation(kind, state: value, route: route)
                 let expected = route == .localAuthentication || route == .pincodeSetup
                 XCTAssertEqual(result.outcome, expected ? (kind == .mnemonic12 ? "passed" : "observed") : "failed")
@@ -304,3 +308,5 @@ final class RetainedEvidenceReceiptTests: XCTestCase {
         XCTAssertTrue(original.compare(with: Harness.KeychainSnapshot(records: [])).credentialRewriteObserved)
     }
 }
+
+#endif

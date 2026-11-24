@@ -31,10 +31,17 @@ protocol OnboardingMainPresenterProtocol: AlertPresentable {
     func activateCloudStorageConnection()
 }
 
+/// A list of Google Drive backups and the Google account it was read from.
+/// A backup chosen from the list is read only from that account.
+struct WalletDriveBackupListing {
+    let accounts: [OpenBackupAccount]
+    let googleAccount: CloudStorageAccountIdentity
+}
+
 protocol OnboardingMainInteractorInputProtocol: AnyObject {
     func setup()
     func resetGoogleState()
-    func getBackupedAccounts() async throws -> [OpenBackupAccount]
+    func getBackupedAccounts() async throws -> WalletDriveBackupListing
 }
 
 protocol OnboardingMainInteractorOutputProtocol: AnyObject {
@@ -42,11 +49,13 @@ protocol OnboardingMainInteractorOutputProtocol: AnyObject {
 }
 
 protocol OnboardingMainWireframeProtocol: WebPresentable, ErrorPresentable, AlertPresentable, Loadable {
+    func showImportMethods(from view: OnboardingMainViewProtocol?, select: @escaping (OnboardingImportMethod) -> Void)
     func showSignup(from view: OnboardingMainViewProtocol?, isGoogleBackupSelected: Bool)
     func showAccountRestore(from view: OnboardingMainViewProtocol?)
     func showAccountRestoreRedesign(from view: OnboardingMainViewProtocol?, sourceType: AccountImportSource)
     func showKeystoreImport(from view: OnboardingMainViewProtocol?)
-    func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount])
+    func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount],
+                              googleAccount: CloudStorageAccountIdentity)
 }
 
 extension OnboardingMainWireframeProtocol {

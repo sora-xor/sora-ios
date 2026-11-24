@@ -10,9 +10,18 @@ import NexusTransferCodec
 /// checked, scoped wallet signing provider.
 actor TairaTransactionSigner: NexusTransactionSigning {
     private let client: TairaClient
+    private let signMessage: (Data, IrohaConnectWalletContext) throws -> Data
     private var cached: [(request: NexusTransferRequest, draft: TairaClient.Draft, quote: TairaClient.Quote?)] = []
 
-    init(client: TairaClient = TairaClient()) { self.client = client }
+    init(
+        client: TairaClient = TairaClient(),
+        signMessage: @escaping (Data, IrohaConnectWalletContext) throws -> Data = {
+            try IrohaConnectWalletProvider().sign($0, context: $1)
+        }
+    ) {
+        self.client = client
+        self.signMessage = signMessage
+    }
 
     nonisolated func isQualified(for configuration: NexusNetworkConfiguration) -> Bool {
         configuration.networkId == .taira && configuration.isLive && configuration.satisfiesCurrentTairaContract
@@ -38,8 +47,7 @@ actor TairaTransactionSigner: NexusTransactionSigning {
             if cached.count >= 8 { cached.removeFirst() }
             cached.append((request, draft, nil))
         }
-        let provider = try IrohaConnectWalletProvider()
-        let result = try await client.quote(draft) { try provider.sign($0, context: context) }
+        let result = try await client.quote(draft) { try signMessage($0, context) }
         guard let index = cached.firstIndex(where: { $0.request == request && $0.draft.createdAt == draft.createdAt && $0.draft.nonce == draft.nonce }) else {
             throw NexusToriiError.quoteChanged
         }
@@ -55,10 +63,9 @@ actor TairaTransactionSigner: NexusTransactionSigning {
             throw NexusToriiError.quoteChanged
         }
         try entry.draft.requireFresh()
-        let provider = try IrohaConnectWalletProvider()
         let context = IrohaConnectWalletContext(walletId: request.walletId, networkId: request.networkId,
             accountId: request.sender, publicKey: entry.draft.authorityKey)
-        let signature = try provider.sign(NexusTransferCodec.signingMessage(result.payload), context: context)
+        let signature = try signMessage(NexusTransferCodec.signingMessage(result.payload), context)
         let signed = try NexusTransferCodec.envelope(payload: result.payload, signature: signature, publicKey: entry.draft.authorityKey)
         cached.removeAll { $0.request == request }
         return NexusSignedTransaction(payload: signed, pipelineHash: NexusTransferCodec.transactionHash(result.payload).map { String(format: "%02x", $0) }.joined())

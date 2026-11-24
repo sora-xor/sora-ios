@@ -9,8 +9,6 @@
 import Foundation
 
 
-private let kDefaultsKeyName = "l10n_lang"
-
 
 public enum WalletLanguage: CaseIterable {
     public static var allCases: [Self] {

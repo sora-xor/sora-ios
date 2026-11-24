@@ -50,6 +50,13 @@ protocol MainTabBarInteractorOutputProtocol: AnyObject {
     /// The wallet's first asset list has arrived, or may have arrived while
     /// nobody was listening.
     func didReceiveWalletAssetList()
+    /// Wallets on this iPhone made from a 3-, 6- or 9-word phrase that were
+    /// never warned (`WalletShortPhraseWarning`). Sent on the main queue.
+    func didFindUnwarnedShortPhraseWallets(_ wallets: [AccountItem])
+}
+
+extension MainTabBarInteractorOutputProtocol {
+    func didFindUnwarnedShortPhraseWallets(_ wallets: [AccountItem]) {}
 }
 
 protocol MainTabBarWireframeProtocol: AlertPresentable, AuthorizationAccessible {
@@ -65,6 +72,13 @@ protocol MainTabBarWireframeProtocol: AlertPresentable, AuthorizationAccessible 
     func showTransactionSuccess(on view: MainTabBarViewProtocol?)
     func recreateWalletViewController(on view: MainTabBarViewProtocol?)
     func rebuildWalletForArrivedAssetListIfNeeded(on view: MainTabBarViewProtocol?)
+    func presentShortPhraseWarnings(for wallets: [AccountItem], on view: MainTabBarViewProtocol?)
+}
+
+extension MainTabBarWireframeProtocol {
+    func presentShortPhraseWarnings(for wallets: [AccountItem], on view: MainTabBarViewProtocol?) {
+        WalletShortPhraseWarning.presentInTurn(wallets, from: view?.controller)
+    }
 }
 
 protocol MainTabBarViewFactoryProtocol: AnyObject {

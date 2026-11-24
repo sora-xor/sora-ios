@@ -60,7 +60,7 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
     private func createSnapshot() -> MoreMenuSnapshot {
         var snapshot = MoreMenuSnapshot()
         
-        let sections = [firstSection(), secondSection(), thirdSection()]
+        let sections = [MoreMenuSection(items: firstSection().items + secondSection().items + thirdSection().items)]
         snapshot.appendSections(sections)
         sections.forEach { snapshot.appendItems($0.items, toSection: $0) }
         
@@ -70,9 +70,9 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
     private func firstSection() -> MoreMenuSection {
         var items: [MoreMenuItem] = []
         let accounts = MoreMenuItem(title: R.string.localizable.settingsCryptoAccounts(preferredLanguages: languages),
-                                    subtitle: R.string.localizable.settingsAccountsSubtitle(preferredLanguages: languages),
+                                    subtitle: "",
                                     picture: .icon(image: R.image.iconStar2()!,
-                                                   color: .accentTertiary),
+                                                   color: .custom(uiColor: Lit.lacquerText)),
                                     onTap: { self.showAccounts() })
         items.append(accounts)
         
@@ -84,20 +84,20 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
         let nodes = MoreMenuItem(title: R.string.localizable.settingsNodes(preferredLanguages: languages),
                                  subtitle: nodeName(),
                                  picture: .icon(image: R.image.iconNode()!,
-                                                color: .accentTertiary),
-                                 circleColor: .statusSuccess,
+                                                color: .custom(uiColor: Lit.lacquerText)),
                                  onTap: { self.showNodes()}
         )
+        // "Language" alone: the classic design is light only, so there is no Appearance row.
         let appSettings = MoreMenuItem(title: R.string.localizable.settingsHeaderApp(preferredLanguages: languages),
-                                       subtitle: R.string.localizable.settingsAppSubtitle(preferredLanguages: languages),
+                                       subtitle: "",
                                        picture: .icon(image: R.image.iconSettingsAltFill()!,
-                                                      color: .accentTertiary),
+                                                      color: .custom(uiColor: Lit.lacquerText)),
                                        onTap: { self.showAppSettings() }
         )
         let login = MoreMenuItem(title: R.string.localizable.settingsLoginTitle(preferredLanguages: languages),
-                                 subtitle: R.string.localizable.settingsLoginSubtitle(preferredLanguages: languages),
+                                 subtitle: "",
                                  picture: .icon(image: R.image.iconBiometric()!,
-                                                color: .accentTertiary),
+                                                color: .custom(uiColor: Lit.lacquerText)),
                                  onTap: { self.showLoginAndSecurity() }
         )
         items.append(nodes)
@@ -109,21 +109,21 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
 
     private func nodeName() -> String {
         let node = ChainRegistryFacade.sharedRegistry.getActiveNode(for: Chain.sora.genesisHash())
-        return node?.name ?? " "
+        return node?.name ?? ""
     }
 
     private func thirdSection() -> MoreMenuSection {
         var items: [MoreMenuItem] = []
         let inviteFriends = MoreMenuItem(title: R.string.localizable.settingsInviteTitle(preferredLanguages: .currentLocale) ,
-                                         subtitle: R.string.localizable.settingsInviteSubtitle(preferredLanguages: .currentLocale),
+                                         subtitle: "",
                                          picture: .icon(image: R.image.about.support()! ,
-                                                        color: .accentTertiary),
+                                                        color: .custom(uiColor: Lit.lacquerText)),
                                          onTap: { self.showInviteFriends() }
         )
         let information = MoreMenuItem(title: R.string.localizable.settingsInformationTitle(preferredLanguages: languages),
-                                       subtitle: R.string.localizable.settingsInformationSubtitle(preferredLanguages: languages),
+                                       subtitle: "",
                                        picture: .icon(image: R.image.iconInfo()!,
-                                                      color: .accentTertiary),
+                                                      color: .custom(uiColor: Lit.lacquerText)),
                                        onTap: { self.showInformation() }
         )
         
@@ -139,10 +139,6 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
 
     func showAccounts() {
         wireframe.showChangeAccountView(from: view)
-    }
-
-    func showNexusPortfolio() {
-        wireframe.showNexusPortfolio(from: view)
     }
 
     func showPolkamarkt() {

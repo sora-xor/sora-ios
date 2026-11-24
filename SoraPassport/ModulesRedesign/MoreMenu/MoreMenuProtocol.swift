@@ -39,7 +39,6 @@ protocol MoreMenuPresenterProtocol: AnyObject {
 
 protocol MoreMenuWireframeProtocol: ErrorPresentable, AlertPresentable, HelpPresentable, WebPresentable {
     func showChangeAccountView(from view: MoreMenuViewProtocol?)
-    func showNexusPortfolio(from view: MoreMenuViewProtocol?)
     func showPolkamarkt(from view: MoreMenuViewProtocol?)
     func showFriendsView(from view: MoreMenuViewProtocol?)
     func showNodes(from view: MoreMenuViewProtocol?)

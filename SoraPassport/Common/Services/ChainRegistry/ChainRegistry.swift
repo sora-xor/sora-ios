@@ -87,6 +87,9 @@ final class ChainRegistry {
 
     private let maxAttemptCount = 2
     private var nodeFailover: [ChainModel.Id: NodeConnectionFailover] = [:]
+    private var chainChangeGeneration: UInt64 = 0
+    private var localChainReadPending = false
+    private var localChainReadRequestedAgain = false
 
     init(
         snapshotHotBootBuilder: SnapshotHotBootBuilderProtocol,
@@ -120,41 +123,41 @@ final class ChainRegistry {
         self.nodeDidConnect = nodeDidConnect
 
         connectionPool.setDelegate(self)
+        eventCenter.add(observer: self, dispatchIn: processingQueue)
 
     }
 
-    private func handle(changes: [DataProviderChange<ChainModel>]) {
+    @discardableResult
+    private func handle(changes: [DataProviderChange<ChainModel>],
+                        onlyMissing: Bool = false, expectedGeneration: UInt64? = nil) -> Bool {
         mutex.lock()
 
         defer {
             mutex.unlock()
         }
 
-        guard !changes.isEmpty else {
-            return
+        guard expectedGeneration == nil || expectedGeneration == chainChangeGeneration else {
+            return false
         }
+        guard !changes.isEmpty else { return true }
+        chainChangeGeneration &+= 1
 
         changes.forEach { change in
             do {
                 switch change {
-                case let .insert(newChain):
-                    let connection = try connectionPool.setupConnection(for: newChain)
-                    runtimeProviderPool.setupRuntimeProvider(for: newChain)
-
-                    runtimeSyncService.register(chain: newChain, with: connection)
-
-                    setupRuntimeVersionSubscription(for: newChain, connection: connection)
-                    setupAssetManager(for: newChain)
-                    chains.append(newChain)
-                case let .update(updatedChain):
-                    clearRuntimeSubscription(for: updatedChain.chainId)
-
-                    let connection = try connectionPool.setupConnection(for: updatedChain)
-                    runtimeProviderPool.setupRuntimeProvider(for: updatedChain)
-                    setupRuntimeVersionSubscription(for: updatedChain, connection: connection)
-                    setupAssetManager(for: updatedChain)
-                    chains = chains.filter { $0.chainId != updatedChain.chainId }
-                    chains.append(updatedChain)
+                case let .insert(chain), let .update(chain):
+                    let existing = chains.first { $0.chainId == chain.chainId }
+                    // A delayed initial notification can follow local hydration.
+                    // It must not duplicate the chain or restart its subscriptions.
+                    guard !(onlyMissing && existing != nil), existing != chain else { return }
+                    if existing != nil { clearRuntimeSubscription(for: chain.chainId) }
+                    let connection = try connectionPool.setupConnection(for: chain)
+                    runtimeProviderPool.setupRuntimeProvider(for: chain)
+                    if existing == nil { runtimeSyncService.register(chain: chain, with: connection) }
+                    setupRuntimeVersionSubscription(for: chain, connection: connection)
+                    setupAssetManager(for: chain)
+                    chains.removeAll { $0.chainId == chain.chainId }
+                    chains.append(chain)
 
                 case let .delete(chainId):
                     runtimeProviderPool.destroyRuntimeProvider(for: chainId)
@@ -168,30 +171,11 @@ final class ChainRegistry {
                 logger?.error("Chain update handling failed")
             }
         }
+        return true
     }
     
     func subscribeToChians() {
-        let updateClosure: ([DataProviderChange<ChainModel>]) -> Void = { [weak self] changes in
-            self?.handle(changes: changes)
-        }
-
-        let failureClosure: (Error) -> Void = { [weak self] error in
-            self?.logger?.error("Chain listener setup failed: \(error)")
-        }
-
-        let options = StreamableProviderObserverOptions(
-            alwaysNotifyOnRefresh: false,
-            waitsInProgressSyncOnAdd: false,
-            refreshWhenEmpty: false
-        )
-
-        chainProvider.addObserver(
-            self,
-            deliverOn: DispatchQueue.global(qos: .userInitiated),
-            executing: updateClosure,
-            failing: failureClosure,
-            options: options
-        )
+        subscribeToChains()
     }
 
     private func setupAssetManager(for chain: ChainModel) {
@@ -230,9 +214,49 @@ final class ChainRegistry {
         runtimeVersionSubscriptions[chainId] = nil
     }
 
+    /// The provider reads its initial rows before registering for changes.
+    /// A chain saved in that gap has no notification, and an unchanged sync
+    /// has nothing to publish. Read local rows after sync and on startup/retry
+    /// so that opening the wallet never depends on that notification winning.
+    private func recoverMissingLocalChains() {
+        mutex.lock()
+        guard !localChainReadPending else {
+            localChainReadRequestedAgain = true
+            mutex.unlock()
+            return
+        }
+        localChainReadPending = true
+        let generation = chainChangeGeneration
+        mutex.unlock()
+
+        let operation = chainRepository.fetchAllOperation(with: RepositoryFetchOptions())
+        operation.completionBlock = { [weak self, weak operation] in
+            guard let self, let operation else { return }
+            self.processingQueue.async {
+                var invalidatedByNewerChange = false
+                if case let .success(chains) = operation.result {
+                    // Never overwrite a newer notification or reinsert a row
+                    // whose deletion arrived while this read was in flight.
+                    invalidatedByNewerChange = !self.handle(changes: chains.map { .insert(newItem: $0) },
+                                                           onlyMissing: true, expectedGeneration: generation)
+                } else {
+                    self.logger?.warning("Local chain startup read deferred")
+                }
+                self.mutex.lock()
+                self.localChainReadPending = false
+                let repeatRead = self.localChainReadRequestedAgain || invalidatedByNewerChange
+                self.localChainReadRequestedAgain = false
+                self.mutex.unlock()
+                if repeatRead { self.recoverMissingLocalChains() }
+            }
+        }
+        operationManager.enqueue(operations: [operation], in: .transient)
+    }
+
     private func syncUpServices() {
         chainSyncService.syncUp()
         commonTypesSyncService.syncUp()
+        recoverMissingLocalChains()
     }
 }
 
@@ -273,7 +297,7 @@ extension ChainRegistry: ChainRegistryProtocol {
 
         chainProvider.addObserver(
             self,
-            deliverOn: DispatchQueue.global(qos: .userInitiated),
+            deliverOn: processingQueue,
             executing: updateClosure,
             failing: failureClosure,
             options: options
@@ -390,6 +414,14 @@ extension ChainRegistry: ChainRegistryProtocol {
 
     func syncUp() {
         syncUpServices()
+    }
+}
+
+extension ChainRegistry: EventVisitorProtocol {
+    func processChainSyncDidComplete(event _: ChainSyncDidComplete) {
+        // The sync has committed even when the chain was unchanged and its
+        // repository consequently emitted no insert/update notification.
+        recoverMissingLocalChains()
     }
 }
 

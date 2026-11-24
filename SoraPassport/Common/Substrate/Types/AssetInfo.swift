@@ -50,6 +50,10 @@ struct AssetInfo: Codable {
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
         visible = try container.decodeIfPresent(Bool.self, forKey: .visible) ?? false
         fiatPrice = nil
+        // Saved copies may come from a node an earlier build trusted.
+        if let pinned = WalletAssetPrecision.pinned(for: assetId) {
+            precision = pinned
+        }
         normalizeNativeAssetMetadata()
     }
 
@@ -76,6 +80,73 @@ struct AssetInfo: Codable {
         guard assetId == WalletAssetId.xor.rawValue else { return }
         name = "XOR"
         symbol = "XOR"
+    }
+}
+
+/// Asset decimals that no node can change. SORA2 registers its predefined
+/// assets with `DEFAULT_BALANCE_PRECISION` (18) at genesis, and its assets
+/// pallet refuses any precision above `MAX_ALLOWED_PRECISION` (18). A node
+/// that reported more decimals for XOR would turn a confirmed 1 XOR into 100
+/// signed, so the app never takes these values from a node.
+enum WalletAssetPrecision {
+    static let maximum: UInt32 = 18
+
+    private static let predefined: [String: UInt32] = Dictionary(uniqueKeysWithValues: [
+        WalletAssetId.xor.rawValue, WalletAssetId.val.rawValue, WalletAssetId.pswap.rawValue,
+        WalletAssetId.xst.rawValue, WalletAssetId.xstusd.rawValue, WalletAssetId.tbcd.rawValue,
+        WalletAssetId.kusd.rawValue, WalletAssetId.eth, WalletAssetId.kxor
+    ].map { ($0, 18) })
+
+    static func pinned(for assetId: String) -> UInt32? {
+        predefined[assetId.lowercased()]
+    }
+
+    /// False for a precision the runtime cannot hold, so the node lied.
+    static func isPossible(_ precision: UInt32) -> Bool {
+        precision <= maximum
+    }
+
+    /// The decimals a signed amount of this asset is scaled by: the runtime's
+    /// fixed value for a predefined asset, the asset's own otherwise. Nil when
+    /// the runtime could not hold them.
+    static func signing(for asset: WalletAsset) -> Int16? {
+        let precision = pinned(for: asset.identifier).map(Int16.init) ?? asset.precision
+        guard precision >= 0, isPossible(UInt32(precision)) else { return nil }
+        return precision
+    }
+}
+
+/// The decimals of the two assets of a swap, as the signer scales them.
+struct SwapAssetPrecisions: Equatable {
+    let source: Int16
+    let destination: Int16
+
+    /// Nil unless both assets are among the account's assets, differ, have
+    /// decimals the runtime can hold, and those decimals are the ones the
+    /// review scaled its amounts by. The account's assets are a snapshot;
+    /// if the asset list the screens read has since given a token other
+    /// decimals, 10.01 reviewed with 2 decimals must not be signed as
+    /// 100100 units of 4.
+    init?(info: TransferInfo, assets: [WalletAsset]) {
+        guard info.asset != info.destination,
+              let sourceAsset = assets.first(where: { $0.identifier == info.asset }),
+              let destinationAsset = assets.first(where: { $0.identifier == info.destination }),
+              let source = WalletAssetPrecision.signing(for: sourceAsset),
+              let destination = WalletAssetPrecision.signing(for: destinationAsset),
+              let context = info.context,
+              let reviewedSource = context[TransactionContextKeys.sourcePrecision].flatMap({ Int16($0) }),
+              let reviewedDestination = context[TransactionContextKeys.destinationPrecision].flatMap({ Int16($0) }),
+              reviewedSource == source,
+              reviewedDestination == destination else {
+            return nil
+        }
+        self.source = source
+        self.destination = destination
+    }
+
+    init(source: Int16, destination: Int16) {
+        self.source = source
+        self.destination = destination
     }
 }
 

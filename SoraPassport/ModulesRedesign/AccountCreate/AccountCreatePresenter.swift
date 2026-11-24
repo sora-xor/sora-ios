@@ -100,12 +100,6 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
                           from: view)
     }
 
-    func share() {
-        guard let phrase = metadata?.mnemonic.joined(separator: " ") else { return }
-        UIPasteboard.general.setItems([["public.utf8-plain-text": phrase]],
-            options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(45)])
-    }
-
     func proceed() {
         guard
             let networkType = selectedNetworkType,

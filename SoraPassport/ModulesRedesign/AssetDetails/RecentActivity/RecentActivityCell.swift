@@ -105,12 +105,18 @@ final class RecentActivityCell: SoramitsuTableViewCell {
             containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             
             fullStackView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            fullStackView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             fullStackView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            fullStackView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
 
             openFullActivityButton.heightAnchor.constraint(equalToConstant: 32)
         ])
+        // The card is as tall as its content, unless there is no history: then it has no height at all
+        // and is not shown. Required, these fought the empty card's zero height, and what was left of the
+        // card showed "Show more" alone.
+        let top = fullStackView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24)
+        let middle = fullStackView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor)
+        top.priority = UILayoutPriority(999)
+        middle.priority = UILayoutPriority(999)
+        NSLayoutConstraint.activate([top, middle])
     }
     
     private func updateSemantics() {
@@ -185,6 +191,7 @@ final class RecentActivityCell: SoramitsuTableViewCell {
         fullStackView.addArrangedSubviews(openFullActivityButton)
         heightConstraint?.isActive = viewModels.isEmpty
         offsetConstraint?.constant = viewModels.isEmpty ? 1 : 16
+        containerView.isHidden = viewModels.isEmpty
         setNeedsLayout()
     }
 }

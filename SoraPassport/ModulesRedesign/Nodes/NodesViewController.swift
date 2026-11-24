@@ -148,17 +148,18 @@ extension NodesViewController: NodesViewProtocol {
 
         let indexPaths = updatedIndexs.map { IndexPath(row: $0, section: 0) }
 
+        guard let lastInserted = indexPaths.last else { return }
         if isExpanding {
-            tableView.insertRows(at: indexPaths, with: .fade)
-            tableView.scrollToRow(at: IndexPath(row: models.count - 1, section: 0), at: .bottom, animated: true)
+            tableView.insertRows(at: indexPaths, with: LitMotion.allowed ? .fade : .none)
+            tableView.scrollToRow(at: lastInserted, at: .none, animated: LitMotion.allowed)
         } else {
-            tableView.deleteRows(at: indexPaths, with: .fade)
+            tableView.deleteRows(at: indexPaths, with: LitMotion.allowed ? .fade : .none)
         }
     }
 
     @objc
     func editTapped() {
-        (presenter as! ButtonCellDelegate).buttonTapped()
+        presenter.buttonTapped()
     }
 }
 

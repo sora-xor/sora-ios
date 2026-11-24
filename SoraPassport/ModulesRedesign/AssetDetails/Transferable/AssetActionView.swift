@@ -33,7 +33,8 @@ public final class AssetActionView: SoramitsuControl {
 
     public let button: SoramitsuButton = {
         let button = SoramitsuButton()
-        button.sora.tintColor = .accentTertiary
+        // Red glyphs on a white pad, as on the home's pads.
+        button.sora.tintColor = .custom(uiColor: Lit.lacquerText)
         button.sora.backgroundColor = .bgSurface
         button.sora.cornerRadius = .circle
         button.sora.shadow = .small

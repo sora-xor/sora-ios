@@ -16,7 +16,7 @@
 // limitations under the License.
 
 import SoraUIKit
-import SSFUtils
+import UIKit
 
 struct SendAssetViewModel {
     let symbol: String
@@ -27,120 +27,83 @@ struct SendAssetViewModel {
 }
 
 final class SendAssetView: SoramitsuView {
-    
-    private let containerView: SoramitsuView = {
-        let view = SoramitsuView()
-        view.sora.shadow = .small
-        view.sora.backgroundColor = .bgSurface
-        view.sora.cornerRadius = .max
-        return view
-    }()
-    
-    let titleLabel: SoramitsuLabel = {
-        let label = SoramitsuLabel()
-        label.sora.textColor = .fgSecondary
-        label.sora.font = FontType.headline4
-        label.sora.text = R.string.localizable.sendAsset(preferredLanguages: .currentLocale).uppercased()
-        return label
-    }()
-    
-    let assetImageView: SoramitsuImageView = {
-        let imageView = SoramitsuImageView()
-        return imageView
-    }()
-    
-    let symbolLabel: SoramitsuLabel = {
-        var label = SoramitsuLabel()
-        label.sora.textColor = .fgPrimary
-        label.sora.font = FontType.displayS
-        label.setContentCompressionResistancePriority(.required, for: .horizontal)
-        return label
-    }()
-    
-    let amountLabel: SoramitsuLabel = {
-        var label = SoramitsuLabel()
-        label.sora.textColor = .fgPrimary
-        label.sora.font = FontType.displayS
-        return label
-    }()
-    
-    let balanceLabel: SoramitsuLabel = {
-        var label = SoramitsuLabel()
-        label.sora.textColor = .fgSecondary
-        label.sora.font = FontType.textBoldXS
-        return label
-    }()
-    
-    let fiatLabel: SoramitsuLabel = {
-        var label = SoramitsuLabel()
-        label.sora.textColor = .fgSecondary
-        label.sora.font = FontType.textBoldXS
-        label.sora.alignment = .right
-        label.setContentCompressionResistancePriority(.required, for: .horizontal)
-        return label
-    }()
-    
+    let assetImageView = SoramitsuImageView()
+    let symbolLabel = SoramitsuLabel()
+    let amountLabel = SoramitsuLabel()
+    let balanceLabel = SoramitsuLabel()
+    let fiatLabel = SoramitsuLabel()
+    private let balanceTitle = SoramitsuLabel()
+    private let balanceRow = UIStackView()
+
     override init(frame: CGRect = .zero) {
         super.init(frame: frame)
-        setupView()
-        setupConstraints()
-    }
-    
-    private func setupView() {
-        sora.clipsToBounds = false
-        sora.backgroundColor = .custom(uiColor: .clear)
-        addSubviews(containerView)
-        
-        containerView.addSubview(titleLabel)
-        containerView.addSubview(assetImageView)
-        containerView.addSubview(symbolLabel)
-        containerView.addSubview(amountLabel)
-        containerView.addSubview(balanceLabel)
-        containerView.addSubview(fiatLabel)
-    }
-    
-    private func setupConstraints() {
+        sora.cornerRadius = .max
+        sora.backgroundColor = .bgSurface
+        sora.shadow = .small
+        symbolLabel.sora.font = FontType.textBoldM
+        symbolLabel.sora.textColor = .fgPrimary
+        symbolLabel.sora.dynamicTextStyle = .headline
+        amountLabel.sora.font = FontType.displayS
+        amountLabel.sora.textColor = .fgPrimary
+        amountLabel.sora.dynamicTextStyle = .title2
+        for label in [amountLabel, symbolLabel, balanceLabel, fiatLabel] {
+            label.sora.numberOfLines = 0
+            label.sora.lineBreakMode = .byCharWrapping
+        }
+        for label in [fiatLabel, balanceLabel, balanceTitle] {
+            label.sora.font = FontType.textS
+            label.sora.textColor = .fgSecondary
+            label.sora.dynamicTextStyle = .footnote
+        }
+        balanceTitle.sora.text = R.string.localizable.commonBalance(preferredLanguages: .currentLocale)
+        balanceTitle.sora.numberOfLines = 0
+        balanceLabel.sora.alignment = .right
+        assetImageView.contentMode = .scaleAspectFit
+
+        let identity = UIStackView(arrangedSubviews: [assetImageView, symbolLabel])
+        identity.alignment = .center
+        identity.spacing = 8
+        balanceRow.addArrangedSubview(balanceTitle)
+        balanceRow.addArrangedSubview(balanceLabel)
+        balanceRow.alignment = .firstBaseline
+        balanceRow.spacing = 12
+        balanceTitle.setContentHuggingPriority(.required, for: .horizontal)
+        let stack = UIStackView(arrangedSubviews: [identity, amountLabel, fiatLabel, balanceRow])
+        stack.axis = .vertical
+        stack.spacing = 4
+        stack.setCustomSpacing(10, after: identity)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        let bottom = stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18)
+        bottom.priority = UILayoutPriority(999)
+        let iconWidth = assetImageView.widthAnchor.constraint(equalToConstant: 28)
+        iconWidth.priority = UILayoutPriority(999)
         NSLayoutConstraint.activate([
-            containerView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            containerView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            containerView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            containerView.topAnchor.constraint(equalTo: topAnchor),
-            
-            titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            titleLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
-            
-            assetImageView.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            assetImageView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
-            assetImageView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -32),
-            assetImageView.widthAnchor.constraint(equalToConstant: 40),
-            assetImageView.heightAnchor.constraint(equalToConstant: 40),
-            
-            symbolLabel.leadingAnchor.constraint(equalTo: assetImageView.trailingAnchor, constant: 8),
-            symbolLabel.topAnchor.constraint(equalTo: assetImageView.topAnchor),
-            
-            balanceLabel.leadingAnchor.constraint(equalTo: assetImageView.trailingAnchor, constant: 8),
-            balanceLabel.bottomAnchor.constraint(equalTo: assetImageView.bottomAnchor),
-            
-            amountLabel.leadingAnchor.constraint(equalTo: symbolLabel.trailingAnchor, constant: 8),
-            amountLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -24),
-            amountLabel.topAnchor.constraint(equalTo: assetImageView.topAnchor),
-            
-            fiatLabel.leadingAnchor.constraint(equalTo: balanceLabel.trailingAnchor, constant: 8),
-            fiatLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -24),
-            fiatLabel.bottomAnchor.constraint(equalTo: assetImageView.bottomAnchor),
-            
+            iconWidth, assetImageView.heightAnchor.constraint(equalTo: assetImageView.widthAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: 18), bottom,
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20)
         ])
     }
-}
 
-extension SendAssetView {
-    func setupView(with viewModel: SendAssetViewModel?) {
-        guard let viewModel = viewModel else { return }
-        assetImageView.image = RemoteSerializer.shared.image(with: viewModel.svgString ?? "")
-        symbolLabel.sora.text = viewModel.symbol
-        balanceLabel.sora.text = viewModel.balance
-        amountLabel.sora.text = viewModel.amount
-        fiatLabel.sora.text = viewModel.fiat
+    func setImage(_ image: UIImage?) {
+        assetImageView.image = image
+        assetImageView.isHidden = image == nil
+    }
+
+    func setValues(symbol: String, amount: String?, balance: String?, fiat: String?) {
+        symbolLabel.sora.text = symbol
+        amountLabel.sora.text = amount
+        balanceLabel.sora.text = balance
+        balanceRow.isHidden = balance?.isEmpty ?? true
+        balanceTitle.isHidden = balance == WalletUX.balanceUnavailableText
+        fiatLabel.sora.text = fiat
+        fiatLabel.isHidden = fiat?.isEmpty ?? true
+    }
+
+    func setupView(with model: SendAssetViewModel?) {
+        guard let model else { return }
+        setImage(model.svgString.flatMap { RemoteSerializer.shared.image(with: $0) })
+        setValues(symbol: model.symbol, amount: model.amount, balance: model.balance, fiat: model.fiat)
     }
 }

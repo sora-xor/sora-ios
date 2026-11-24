@@ -38,6 +38,7 @@ final class InputAccessoryView: SoramitsuView {
                 stackView.removeArrangedSubview($0)
                 $0.removeFromSuperview()
             }
+            var first: SoramitsuButton?
             variants.enumerated().forEach { (index, variant) in
                 let button = SoramitsuButton()
                 button.translatesAutoresizingMaskIntoConstraints = false
@@ -51,6 +52,12 @@ final class InputAccessoryView: SoramitsuView {
                     self?.delegate?.didSelect(variant: variant.value)
                 }
                 stackView.addArrangedSubviews(button)
+                // Each choice gets the same share of the bar, whatever the width of the keyboard under it.
+                if let first {
+                    button.widthAnchor.constraint(equalTo: first.widthAnchor).isActive = true
+                } else {
+                    first = button
+                }
                 
                 if index != variants.count - 1 {
                     let separatorView = SoramitsuView()
@@ -68,7 +75,7 @@ final class InputAccessoryView: SoramitsuView {
         view.sora.backgroundColor = .custom(uiColor: .clear)
         view.sora.axis = .horizontal
         view.sora.alignment = .center
-        view.sora.distribution = .fillProportionally
+        view.sora.distribution = .fill
         view.clipsToBounds = false
         return view
     }()

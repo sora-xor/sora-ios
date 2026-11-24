@@ -24,13 +24,11 @@ protocol AccountExportRawSeedViewProtocol: ControllerBackedProtocol {
 
 protocol AccountExportRawSeedPresenterProtocol: AnyObject {
     func exportRawSeed()
-    func copyRawSeed()
     func exportJSON()
 }
 
 protocol AccountExportRawSeedInteractorInputProtocol: AnyObject {
     func exportRawSeed()
-    func copyRawSeedToClipboard()
 }
 
 protocol AccountExportRawSeedInteractorOutputProtocol: AnyObject {

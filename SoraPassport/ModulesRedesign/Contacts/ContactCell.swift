@@ -57,10 +57,14 @@ extension ContactCell: SoramitsuTableViewCellProtocol {
         guard let item = item as? ContactCellItem else {
             return
         }
+        accessibilityLabel = item.title
+        isAccessibilityElement = true
+        accessibilityTraits = item.onTap == nil ? .staticText : .button
+        contactView.usernameTitle.isHidden = true
         contactView.accountTitle.sora.text = item.title
-        contactView.accountImageView.image = try? generator.generateFromAddress(item.title)
+        contactView.accountImageView.image = item.image ?? (try? generator.generateFromAddress(item.title)
             .imageWithFillColor(UIColor.white,
                                 size: CGSize(width: 40.0, height: 40.0),
-                                contentScale: UIScreen.main.scale)
+                                contentScale: UIScreen.main.scale))
     }
 }

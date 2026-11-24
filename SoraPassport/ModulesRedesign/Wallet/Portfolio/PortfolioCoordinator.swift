@@ -90,19 +90,20 @@ final class PortfolioCoordinator {
         let snapshot = viewModel.snapshot
         let now = Date()
         let all = PortfolioAggregator.summary(snapshot, scope: .allWallets)
-        var entries: [PortfolioWalletsSheet.Entry] = [
-            .init(scope: .allWallets, icon: .allWallets, title: PortfolioStrings.allWallets,
-                  subtitle: PortfolioStrings.format("%d wallets together", snapshot.wallets.count),
-                  value: PortfolioFormat.fiat(all.total),
-                  detail: all.changePercent.map { PortfolioFormat.signedPercent($0) + " " + PortfolioStrings.hours24 } ?? "")
-        ]
+        var entries: [PortfolioWalletsSheet.Entry] = []
+        if snapshot.wallets.count >= 2 {
+            entries.append(.init(scope: .allWallets, icon: .allWallets, title: PortfolioStrings.allWallets,
+                                 subtitle: PortfolioStrings.format("%d wallets together", snapshot.wallets.count),
+                                 value: PortfolioPresenter.totalText(snapshot, scope: .allWallets),
+                                 detail: all.changePercent.map { PortfolioFormat.signedPercent($0) + " " + PortfolioStrings.hours24 } ?? ""))
+        }
         for wallet in snapshot.wallets.sorted(by: { $0.order < $1.order }) {
             let summary = PortfolioAggregator.summary(snapshot, scope: .wallet(wallet.id))
             let freshness = PortfolioPresenter.chip(wallet.freshness, now: now).text
             entries.append(.init(scope: .wallet(wallet.id), icon: .wallet(id: wallet.id, name: wallet.name),
                                  title: wallet.name,
                                  subtitle: PortfolioStrings.networksCount(wallet.networks.count) + " · " + freshness,
-                                 value: PortfolioFormat.fiat(summary.total),
+                                 value: PortfolioPresenter.totalText(snapshot, scope: .wallet(wallet.id)),
                                  detail: summary.changePercent.map {
                                      PortfolioFormat.signedPercent($0) + " " + PortfolioStrings.hours24
                                  } ?? ""))
@@ -190,8 +191,14 @@ final class PortfolioCoordinator {
             PortfolioStrings.text("All wallets adds each wallet's own total. The rows always add up to the total.")
         ]
         var bullets: [String] = []
-        if summary.hiddenCount > 0 {
-            bullets.append(PortfolioStrings.format("%d hidden: tokens you hid in a wallet's asset list.", summary.hiddenCount))
+        let hiddenByUser = summary.hiddenCount - summary.blacklistedCount
+        if hiddenByUser > 0 {
+            bullets.append(PortfolioStrings.format("%d hidden: tokens you hid in a wallet's asset list.", hiddenByUser))
+        }
+        if summary.blacklistedCount > 0 {
+            bullets.append(PortfolioStrings.format(
+                "%d hidden by Polkaswap: tokens on the official Polkaswap blacklist. They stay in the wallet's full asset list, marked hidden.",
+                summary.blacklistedCount))
         }
         if summary.unpricedCount > 0 {
             bullets.append(PortfolioStrings.format("%d unpriced: there is no price for them, so they cannot be counted.",
@@ -238,21 +245,30 @@ final class PortfolioCoordinator {
             }
             showWalletPicker(for: action, wallets: wallets)
         case .move:
-            pickHolding(viewModel.movableHoldings, title: PortfolioStrings.move) { [weak self] id in self?.showMove(holdingId: id) }
+            pickHolding(viewModel.movableHoldings, title: PortfolioStrings.move,
+                        emptyNote: PortfolioStrings.text("Move needs a second wallet.")) { [weak self] id in
+                self?.showMove(holdingId: id)
+            }
         case .swap:
+            // Nothing here to swap from (a new wallet, or only test tokens): open Polkaswap itself, as its tab
+            // does, rather than a sheet saying nothing can be done.
+            if viewModel.swappableHoldings.isEmpty, let presenter {
+                router.showSwap(from: presenter, fromAssetId: WalletAssetId.xor.rawValue, toAssetId: "")
+                return
+            }
             pickHolding(viewModel.swappableHoldings, title: PortfolioStrings.swap) { [weak self] id in self?.showSwap(holdingId: id) }
         }
     }
 
     private func showWalletPicker(for action: PortfolioQuickAction, wallets: [PortfolioWallet]) {
         guard let presenter else { return }
-        let title = action == .send ? PortfolioStrings.send : PortfolioStrings.receive
-        let sheet = PortfolioPickerSheet(title: PortfolioStrings.whichWallet(for: title))
+        let sheet = PortfolioPickerSheet(title: action == .send ? PortfolioStrings.sendFromWhichWallet
+                                                                : PortfolioStrings.receiveToWhichWallet)
         let snapshot = viewModel.snapshot
         sheet.options = wallets.map { wallet in
-            let total = PortfolioAggregator.walletTotal(wallet.id, in: snapshot)
             return .init(id: wallet.id, icon: .wallet(id: wallet.id, name: wallet.name), title: wallet.name,
-                         subtitle: PortfolioFormat.shortAddress(wallet.id), value: PortfolioFormat.fiat(total), detail: nil)
+                         subtitle: PortfolioFormat.shortAddress(wallet.id),
+                         value: PortfolioPresenter.totalText(snapshot, scope: .wallet(wallet.id)), detail: nil)
         }
         sheet.onPick = { [weak self, weak sheet] walletId in
             sheet?.dismiss(animated: true) {
@@ -263,7 +279,9 @@ final class PortfolioCoordinator {
         sheet.present(from: presenter)
     }
 
-    private func pickHolding(_ holdings: [PortfolioHolding], title: String, open: @escaping (String) -> Void) {
+    private func pickHolding(_ holdings: [PortfolioHolding], title: String,
+                             emptyNote: String = PortfolioStrings.text("Nothing here can do that right now."),
+                             open: @escaping (String) -> Void) {
         guard let presenter else { return }
         if holdings.count == 1, let holding = holdings.first {
             open(holding.id)
@@ -272,15 +290,15 @@ final class PortfolioCoordinator {
         let snapshot = viewModel.snapshot
         let sheet = PortfolioPickerSheet(title: title)
         if holdings.isEmpty {
-            sheet.note = PortfolioStrings.text("Nothing here can do that right now.")
+            sheet.note = emptyNote
         }
-        sheet.options = holdings.prefix(12).map { holding in
+        sheet.options = holdings.map { holding in
             let wallet = snapshot.wallet(holding.walletId)?.name ?? ""
             return .init(id: holding.id,
                          icon: .token(id: holding.token.id, symbol: holding.token.symbol, icon: holding.token.icon),
                          title: holding.token.symbol,
                          subtitle: PortfolioStrings.networkName(holding.network) + " · " + wallet,
-                         value: PortfolioPresenter.holdingValueText(holding),
+                         value: PortfolioPresenter.pickerValue(holding),
                          detail: PortfolioFormat.amount(holding.transferable, symbol: holding.token.symbol))
         }
         sheet.onPick = { [weak sheet] id in
@@ -337,7 +355,8 @@ final class PortfolioCoordinator {
         sheet.holding = holding
         sheet.walletName = walletName
         sheet.isSelectedWallet = holding.walletId == effectiveSelectedWalletId
-        sheet.targets = Self.swapTargets.filter { $0 != holding.token.id }.compactMap { id in
+        let blacklist = AssetBlacklistStore.shared.current()
+        sheet.targets = Self.swapTargets.filter { $0 != holding.token.id && !blacklist.hides(assetId: $0) }.compactMap { id in
             if let token = snapshot.holdings.first(where: { $0.token.id == id })?.token {
                 return .init(id: id, symbol: token.symbol, icon: token.icon)
             }

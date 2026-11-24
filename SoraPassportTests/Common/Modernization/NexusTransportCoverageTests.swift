@@ -141,6 +141,51 @@ final class NexusTransportCoverageTests: XCTestCase {
         XCTAssertEqual(page.items.first?.transactionHash, txHash)
         XCTAssertEqual(page.nextCursor, "next_cursor")
     }
+    /// 2026-11-08: Taira answers a hash lookup by walking every block range
+    /// (28 pages for one account), so a send's proof asks for its block only.
+    func testCommittedLookupAsksForTheCommittedBlockOnly() async throws {
+        answer(["items": [movement()], "next_cursor": NSNull()])
+        let transfers = try await reader.committedXorTransfers(
+            account: account, configuration: configuration, assetDefinitionID: asset,
+            transactionHash: txHash, committedBlockHeight: 42)
+        XCTAssertEqual(transfers.map(\.transactionHash), [txHash])
+        XCTAssertEqual(NexusTransportFixture.requests.filter { $0.method == "tools/call" }.count, 1)
+        let filter = try XCTUnwrap(NexusTransportFixture.requests.last?.arguments?["filter"] as? String)
+        XCTAssertTrue(filter.hasSuffix("and tx_hash = \"\(txHash)\" and block_height = 42"), filter)
+        XCTAssertThrowsError(try NexusTairaMCPToolContract.accountHistoryRequest(
+            id: "narrowed", account: account, assetDefinitionID: asset, cursor: nil, committedBlockHeight: 42))
+        XCTAssertThrowsError(try NexusTairaMCPToolContract.accountHistoryRequest(
+            id: "narrowed", account: account, assetDefinitionID: asset, cursor: nil,
+            transactionHash: txHash, committedBlockHeight: 0))
+    }
+    /// Discovery is reused only within the `ttlMs` server/discover granted.
+    func testTairaDiscoveryIsReusedOnlyWithinTheLifetimeTheServerGranted() async throws {
+        var now = Date(timeIntervalSince1970: 1_000)
+        transport = NexusToriiClient(session: session, discoveryCache: NexusTairaToolDiscoveryCache(now: { now }))
+        reader = NexusToriiReadClient(transport: transport)
+        NexusTransportFixture.discoveryResult = [
+            "supportedVersions": ["2026-07-28"], "ttlMs": 30000,
+            "capabilities": ["extensions": ["org.hyperledger.iroha/tools": ["toolsetVersion": String(repeating: "f", count: 64)]]]]
+        answer(["id": asset])
+        _ = try await reader.xorAssetDefinition(configuration: configuration)
+        _ = try await reader.xorAssetDefinition(configuration: configuration)
+        XCTAssertEqual(NexusTransportFixture.requests.map(\.method), ["server/discover", "tools/list", "tools/call", "tools/call"])
+        now = now.addingTimeInterval(31)
+        _ = try await reader.xorAssetDefinition(configuration: configuration)
+        XCTAssertEqual(Array(NexusTransportFixture.requests.map(\.method).suffix(3)), ["server/discover", "tools/list", "tools/call"])
+    }
+    func testTairaDiscoveryWithoutALifetimeIsRepeated() async throws {
+        transport = NexusToriiClient(session: session, discoveryCache: NexusTairaToolDiscoveryCache())
+        reader = NexusToriiReadClient(transport: transport)
+        answer(["id": asset])
+        _ = try await reader.xorAssetDefinition(configuration: configuration)
+        _ = try await reader.xorAssetDefinition(configuration: configuration)
+        XCTAssertEqual(NexusTransportFixture.requests.map(\.method),
+                       ["server/discover", "tools/list", "tools/call", "server/discover", "tools/list", "tools/call"])
+        XCTAssertEqual(NexusTairaMCPToolContract.discoveryLifetime(initialize: .object(["ttlMs": .number("30000")])), 30)
+        XCTAssertEqual(NexusTairaMCPToolContract.discoveryLifetime(initialize: .object(["ttlMs": .string("30000")])), 0)
+        XCTAssertEqual(NexusTairaMCPToolContract.discoveryLifetime(initialize: .object(["ttlMs": .number("-1")])), 0)
+    }
     func testHistorySendsTheRequestedCursor() async throws {
         answer(["items": [], "next_cursor": NSNull()])
         _ = try await history(cursor: "opaque_cursor")
@@ -397,4 +442,86 @@ private final class NexusTransportFixture: URLProtocol {
         } catch { client?.urlProtocol(self, didFailWithError: error) }
     }
     override func stopLoading() { }
+}
+
+extension NexusTransportCoverageTests {
+    private func legacyHistoryRow(_ overrides: [String: Any] = [:], removing: [String] = []) -> [String: Any] {
+        var value = movement()
+        for key in ["block_height", "block_index", "movement_index"] + removing { value.removeValue(forKey: key) }
+        return value.merging(overrides) { _, new in new }
+    }
+    private func legacyHistoryBody(_ rows: [[String: Any]]) -> [String: Any] {
+        ["items": rows, "total": rows.count, "has_more": false, "count_mode": "exact", "query_source": "account_history_fanout"]
+    }
+    private func legacyHistory(_ object: Any) throws -> NexusTransferHistoryPage {
+        let bytes = try JSONSerialization.data(withJSONObject: object, options: [.fragmentsAllowed])
+        let value = try NexusStrictJSONAdmission.decode(NexusJSONValue.self, from: bytes, using: JSONDecoder())
+        return try NexusTransferHistoryParser.page(result: value, configuration: configuration, account: account, assetDefinitionID: asset)
+    }
+    func testHistoryParserAcceptsStructuredContentWithTheSameExactMovement() throws {
+        let result = try legacyHistory(["structuredContent": ["body": legacyHistoryBody([legacyHistoryRow()])]])
+        XCTAssertEqual(result.items.first?.amount.rawValue, "1.500000001"); XCTAssertEqual(result.items.first?.sender, account)
+        XCTAssertEqual(result.items.first?.receiver, receiver); XCTAssertNil(result.indexedHeight)
+    }
+    func testHistoryParserAcceptsTextContentAndIgnoresNonTextContent() throws {
+        let body = legacyHistoryBody([legacyHistoryRow()]), text = String(decoding: try JSONSerialization.data(withJSONObject: body), as: UTF8.self)
+        let result = try legacyHistory(["content": [["type": "image", "data": "ignored"], ["type": "text", "text": text]]])
+        XCTAssertEqual(result.items.first?.transactionHash, txHash); XCTAssertEqual(result.sourceItemCount, 1)
+    }
+    func testHistoryParserRejectsMalformedOrMissingTextEnvelopeContent() {
+        let cases: [Any] = [[], ["content": []], ["content": [["type": "image", "text": "{}"]]], ["content": [["type": "text", "text": "not JSON"]]], ["content": [["type": "text", "text": "[]"]]]]
+        for value in cases { XCTAssertThrowsError(try legacyHistory(value)) }
+    }
+    func testHistoryParserPreservesToolFailureInsteadOfInterpretingItsBody() {
+        XCTAssertThrowsError(try legacyHistory(["isError": true, "body": legacyHistoryBody([])])) { error in
+            guard let typed = error as? NexusToriiError, case .server = typed else {
+                return XCTFail("A tool error must remain a server failure: \(error)")
+            }
+        }
+    }
+    func testIncomingHistoryUsesCounterpartyAsSenderAndBoundAccountAsReceiver() throws {
+        let result = try legacyHistory(legacyHistoryBody([legacyHistoryRow(["direction": "incoming"])]))
+        XCTAssertEqual(result.items.first?.sender, receiver); XCTAssertEqual(result.items.first?.receiver, account)
+    }
+    func testSelfTransfersRequireNoCounterpartyAndPreserveBothSides() throws {
+        let result = try legacyHistory(legacyHistoryBody([legacyHistoryRow(["direction": "self"], removing: ["counterparty_account_id"])]))
+        XCTAssertEqual(result.items.first?.sender, account); XCTAssertEqual(result.items.first?.receiver, account)
+        XCTAssertEqual(result.items.first?.id, "\(txHash):\(account):\(account):1.500000001")
+    }
+    func testIncomingTransferCannotNameTheWalletAsItsOwnCounterparty() {
+        XCTAssertThrowsError(try legacyHistory(legacyHistoryBody([legacyHistoryRow(["direction": "incoming", "counterparty_account_id": account])])))
+        XCTAssertThrowsError(try legacyHistory(legacyHistoryBody([legacyHistoryRow(["direction": "incoming"], removing: ["counterparty_account_id"])])))
+    }
+    func testSelfTransferCannotSmuggleInAnotherCounterparty() {
+        XCTAssertThrowsError(try legacyHistory(legacyHistoryBody([legacyHistoryRow(["direction": "self"])])))
+    }
+    func testAffectedDirectionCannotBecomeAnOrdinaryTransfer() {
+        XCTAssertThrowsError(try legacyHistory(legacyHistoryBody([legacyHistoryRow(["direction": "affected"])])))
+    }
+    func testRawChainRowsRemainPaginationEvidenceWithoutInventedTransfers() throws {
+        let row = legacyHistoryRow(["type": "RAW_ON_CHAIN"], removing: ["counterparty_account_id"])
+        let result = try legacyHistory(legacyHistoryBody([row])); XCTAssertTrue(result.items.isEmpty); XCTAssertEqual(result.sourceItemCount, 1)
+        XCTAssertEqual(result.sourceItemIDs, ["\(txHash):\(account):0"])
+    }
+    func testRawChainRowsCannotCarryTransferCounterpartyOrSelfDirection() {
+        XCTAssertThrowsError(try legacyHistory(legacyHistoryBody([legacyHistoryRow(["type": "RAW_ON_CHAIN"])])))
+        XCTAssertThrowsError(try legacyHistory(legacyHistoryBody([legacyHistoryRow(["type": "RAW_ON_CHAIN", "direction": "self"], removing: ["counterparty_account_id"])])))
+    }
+    func testHistoryParserRejectsMalformedCanonicalIdentityFields() {
+        for change: [String: Any] in [["id": "\(txHash):\(account):01"], ["id": "\(txHash):\(account):18446744073709551616"], ["tx_hash": "0x" + txHash], ["timestamp_ms": 0], ["counterparty_account_id": 7], ["asset_id": "another-asset"]] {
+            XCTAssertThrowsError(try legacyHistory(legacyHistoryBody([legacyHistoryRow(change)])))
+        }
+    }
+    func testFailedHistoryRowsStillRequireACompleteValidProjection() throws {
+        let valid = legacyHistoryRow(["status": "FAILED", "result_ok": false])
+        let result = try legacyHistory(legacyHistoryBody([valid])); XCTAssertTrue(result.items.isEmpty); XCTAssertEqual(result.sourceItemCount, 1)
+        XCTAssertThrowsError(try legacyHistory(legacyHistoryBody([legacyHistoryRow(["status": "FAILED", "result_ok": false, "asset_id": "wrong"])])))
+    }
+    func testDeploymentHealthRecognizesOnlyExactCanonicalRouteUnavailableMarkers() throws {
+        let decoder = JSONDecoder()
+        XCTAssertTrue(try NexusToriiDeploymentHealthContract.isRouteUnavailable(rejectCode: nil, data: Data("route_unavailable".utf8), decoder: decoder))
+        XCTAssertFalse(try NexusToriiDeploymentHealthContract.isRouteUnavailable(rejectCode: nil, data: Data(" route_unavailable".utf8), decoder: decoder))
+        XCTAssertTrue(try NexusToriiDeploymentHealthContract.isRouteUnavailable(rejectCode: nil, data: Data(#"{"code":"unknown","message":"route_unavailable"}"#.utf8), decoder: decoder))
+        XCTAssertThrowsError(try NexusToriiDeploymentHealthContract.isRouteUnavailable(rejectCode: "permission_denied", data: Data(#"{"code":"route_unavailable","message":"route_unavailable"}"#.utf8), decoder: decoder))
+    }
 }

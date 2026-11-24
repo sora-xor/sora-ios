@@ -1,9 +1,7 @@
 import UIKit
 
-/// Card glass (spec §4.3.1): a translucent fill, a top sheen and a gradient
-/// hairline. No runtime blur, so it is safe in lists. Under Reduce
-/// Transparency, Increase Contrast or "Reduce effects" it becomes the opaque
-/// `glassSolid` with a hairline.
+/// A sheet of frosted glass, or a soft raised pad when it is small (`LitPlateLayer`). Baked and stretched, so
+/// it is safe in lists. `blursBackdrop` blurs what passes behind it: for the few sheets something really does.
 ///
 /// Put content in `contentView`.
 public final class GlassView: UIView {
@@ -24,17 +22,23 @@ public final class GlassView: UIView {
     }
 
     public let contentView = UIView()
-    public var shape: NeonShape = .rounded(24) { didSet { setNeedsLayout(); surface.shape = shape } }
+    public var shape: NeonShape = .rounded(24) { didSet { setNeedsLayout() } }
     public var border: Border = .glass { didSet { apply() } }
     public var fill: Fill = .glass { didSet { apply() } }
 
-    private let surface = GradientBorderLayer()
+    /// The sheet behind the content, for its bounce light, sheen and shadow sizes.
+    public let plate = LitPlateLayer()
+    /// Blurs what is behind the sheet. Costs a live pass, so only where something moves behind the glass.
+    public var blursBackdrop = false { didSet { if oldValue != blursBackdrop { applyBackdrop() } } }
+    private var backdrop: UIVisualEffectView?
+    /// How high the plate stands; by default from its shape.
+    public var elevation: CGFloat? { didSet { setNeedsLayout() } }
     private var observers: [NSObjectProtocol] = []
 
     public override init(frame: CGRect) {
         super.init(frame: frame)
         layer.masksToBounds = false
-        layer.insertSublayer(surface, at: 0)
+        layer.insertSublayer(plate, at: 0)
         contentView.backgroundColor = .clear
         contentView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(contentView)
@@ -59,40 +63,56 @@ public final class GlassView: UIView {
         observers.forEach(NotificationCenter.default.removeObserver)
     }
 
+    /// Kept for callers that restyle on a theme change: the sheet's look follows only its shape.
     public func apply() {
-        let tokens = NeonTokens.current
-        let fx = FxPolicy.current
-        let opaque = fill == .solid || fx.opaqueGlass
-        let fillColor: UIColor
-        switch fill {
-        case .glass: fillColor = opaque ? tokens.glassSolid : tokens.glassFill
-        case .strong: fillColor = opaque ? tokens.glassSolid : tokens.glassFillStrong
-        case .solid: fillColor = tokens.glassSolid
+        setNeedsLayout()
+    }
+
+    private func applyBackdrop() {
+        if blursBackdrop, backdrop == nil {
+            let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialLight))
+            blur.isUserInteractionEnabled = false
+            blur.clipsToBounds = true
+            // Under the sheet's milk and edge, over nothing of its own.
+            blur.layer.zPosition = -2
+            plate.zPosition = -1
+            insertSubview(blur, at: 0)
+            backdrop = blur
+        } else if !blursBackdrop {
+            backdrop?.removeFromSuperview()
+            backdrop = nil
+            plate.zPosition = 0
         }
-        let gradient: NeonGradient?
-        switch border {
-        case .glass: gradient = tokens.borderGlass
-        case .spectrum: gradient = tokens.borderSpectrum
-        case .safe: gradient = tokens.borderSafe
-        case .none: gradient = nil
+        plate.isOverBackdrop = blursBackdrop
+        setNeedsLayout()
+    }
+
+    private var plateRadius: CGFloat {
+        switch shape {
+        case let .rounded(radius): return min(min(radius, Lit.sheetRadius), min(bounds.width, bounds.height) / 2)
+        case .capsule: return min(bounds.width, bounds.height) / 2
+        case let .chamfer(radius, _): return min(min(radius, Lit.sheetRadius), min(bounds.width, bounds.height) / 2)
         }
-        let width: CGFloat = fx.highContrast ? 2 : (border == .spectrum ? 1.5 : 1)
-        surface.fill = fillColor
-        surface.apply(border: gradient, lineWidth: width, sheen: opaque ? nil : tokens.glassHighlight)
-        layer.applyNeonShadow(fx.tier == .minimal ? nil : tokens.cardShadow,
-                              path: shape.path(in: bounds).cgPath)
     }
 
     public override func layoutSubviews() {
         super.layoutSubviews()
+        guard bounds.width > 0, bounds.height > 0 else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        surface.frame = bounds
-        surface.contentsScale = traitCollection.displayScale
-        if layer.shadowOpacity > 0 {
-            layer.shadowPath = shape.path(in: bounds).cgPath
+        plate.cornerRadiusValue = plateRadius
+        if let elevation {
+            plate.elevation = elevation
+        } else if case .capsule = shape {
+            plate.elevation = 8
+        } else {
+            plate.elevation = bounds.height < 80 ? 9 : 16
         }
+        plate.frame = bounds
+        backdrop?.frame = bounds
+        backdrop?.layer.cornerRadius = plateRadius
         CATransaction.commit()
+        LitParallax.attach(to: self, depth: bounds.height < 80 ? 2 : 4)
     }
 }
 
@@ -122,30 +142,13 @@ public final class GlowHostView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// The classic design draws no glow at any tier, so the host stays dark;
+    /// the spec is kept for callers that read it back.
     public func configure(_ glow: GlowSpec?, fx: FxPolicy = .current) {
         spec = glow
-        guard let glow, fx.glows else {
-            layer.shadowOpacity = 0
-            ring?.removeFromSuperlayer()
-            ring = nil
-            return
-        }
-        if fx.tier == .minimal {
-            // Ring fallback: no blur, still a clear signal. Drawn outside the
-            // control, which sits on top of this view with the same frame.
-            layer.shadowOpacity = 0
-            let ring = self.ring ?? NeonRingLayer()
-            if self.ring == nil {
-                layer.addSublayer(ring)
-                self.ring = ring
-            }
-            ring.apply(glow)
-            setNeedsLayout()
-            return
-        }
+        layer.shadowOpacity = 0
         ring?.removeFromSuperlayer()
         ring = nil
-        layer.applyNeonGlow(glow, path: shape.path(in: bounds).cgPath)
     }
 
     public override func layoutSubviews() {
@@ -160,20 +163,6 @@ public final class GlowHostView: UIView {
         layer.cornerRadius = radius
         layer.shadowPath = shape.path(in: bounds).cgPath
         ring?.layout(around: bounds, cornerRadius: radius)
-    }
-
-    /// Finite pulse for the whitelisted CTAs only (spec §4.7.2): 3 cycles.
-    public func startPulse() {
-        guard let spec, FxPolicy.current.pulses, layer.shadowOpacity > 0 else { return }
-        let animation = CABasicAnimation(keyPath: "shadowOpacity")
-        animation.fromValue = spec.rest
-        animation.toValue = spec.peak
-        animation.duration = 1.2
-        animation.autoreverses = true
-        animation.repeatCount = 3
-        animation.timingFunction = NeonMotion.sine
-        animation.beginTime = CACurrentMediaTime() + 0.6
-        layer.add(animation, forKey: "neon.pulse")
     }
 
     public func stopPulse() {

@@ -52,13 +52,4 @@ protocol CustomNodeInteractorOutputProtocol: AnyObject {
 
 // MARK: - Wireframe
 
-protocol CustomNodeWireframeProtocol {
-    func showRoot()
-    func showAddCustomNode()
-}
-
 // MARK: - Factory
-
-protocol CustomNodeViewFactoryProtocol: AnyObject {
-    static func createView() -> CustomNodeViewProtocol?
-}

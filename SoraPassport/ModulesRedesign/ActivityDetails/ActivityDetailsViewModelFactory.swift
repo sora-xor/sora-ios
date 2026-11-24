@@ -60,6 +60,7 @@ extension ActivityDetailsViewModelFactory: ActivityDetailsViewModelFactoryProtoc
                                            alignment: .right)
         let statusViewModel = DetailViewModel(title: R.string.localizable.walletTxDetailsStatus(preferredLanguages: .currentLocale),
                                               statusAssetImage: transactionBase.status.image,
+                                              seal: transactionBase.status.seal,
                                               assetAmountText: statusText)
         
         let date = Date(timeIntervalSince1970: TimeInterval(Double(transactionBase.timestamp) ?? 0))

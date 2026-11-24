@@ -1,8 +1,10 @@
 import UIKit
+import SoraUIKit
 
 final class ScrollableContainerView: UIView {
     private(set) var scrollView = UIScrollView()
-    private(set) var stackView = UIStackView()
+    /// The screen's content column: see `LitColumnStackView`.
+    private(set) var stackView = LitColumnStackView()
 
     private var scrollBottom: NSLayoutConstraint!
 
@@ -57,18 +59,18 @@ final class ScrollableContainerView: UIView {
 
     private func configureStackView() {
         stackView.backgroundColor = .clear
-        stackView.axis = .vertical
-        stackView.alignment = .center
-        stackView.distribution = .fill
         stackView.translatesAutoresizingMaskIntoConstraints = false
 
         scrollView.addSubview(stackView)
 
-        stackView.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
-
-        stackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor).isActive = true
-        stackView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor).isActive = true
-        stackView.topAnchor.constraint(equalTo: scrollView.topAnchor).isActive = true
-        stackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor).isActive = true
+        // The stack is as wide as the screen whatever is in it; the column inside it is the stack's own
+        // margins: the page margin on a phone, a readable column in the middle of a wider window.
+        NSLayoutConstraint.activate([
+            scrollView.contentLayoutGuide.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
+            stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor)
+        ])
     }
 }

@@ -38,14 +38,6 @@ extension UIViewController {
         }
     }
     
-    func addBackButton() {
-        let backButton = UIBarButtonItem(image: R.image.wallet.backArrow(),
-                                     style: .plain,
-                                     target: self,
-                                     action: #selector(backward))
-        
-        navigationItem.leftBarButtonItem = backButton
-    }
     
     @objc
     func close() {

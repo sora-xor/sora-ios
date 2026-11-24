@@ -23,6 +23,9 @@ typealias AuthorizationCompletionBlock = (Bool) -> Void
 protocol AuthorizationPresentable: ScreenAuthorizationWireframeProtocol {
     @MainActor var authorizationPresentingController: UIViewController? { get }
     @MainActor func createAuthorizationView(cancellable: Bool) -> UIViewController?
+    /// The PIN pad without Face ID or Touch ID, for revealing or exporting
+    /// the phrase, seed or JSON.
+    @MainActor func createPinOnlyAuthorizationView(cancellable: Bool) -> UIViewController?
     @MainActor func authorize(animated: Bool,
                    cancellable: Bool,
                    inView: UINavigationController?,
@@ -47,7 +50,16 @@ extension AuthorizationPresentable {
     }
 
     @MainActor func createAuthorizationView(cancellable: Bool) -> UIViewController? {
-        let authorizeView = PinViewFactory.createRedesignScreenAuthorizationView(with: self, cancellable: cancellable)
+        makeAuthorizationView(cancellable: cancellable, allowsBiometry: true)
+    }
+
+    @MainActor func createPinOnlyAuthorizationView(cancellable: Bool) -> UIViewController? {
+        makeAuthorizationView(cancellable: cancellable, allowsBiometry: false)
+    }
+
+    @MainActor private func makeAuthorizationView(cancellable: Bool, allowsBiometry: Bool) -> UIViewController? {
+        let authorizeView = PinViewFactory.createRedesignScreenAuthorizationView(
+            with: self, cancellable: cancellable, allowsBiometry: allowsBiometry)
         let view = BlurViewController()
         view.modalPresentationStyle = .overFullScreen
         view.add(authorizeView?.controller)
@@ -122,6 +134,27 @@ extension AuthorizationPresentable {
                    cancellable: Bool,
                    inView: UINavigationController?,
                    with completionBlock: @escaping AuthorizationCompletionBlock) {
+        presentAuthorization(animated: animated, inView: inView, with: completionBlock) {
+            createAuthorizationView(cancellable: cancellable)
+        }
+    }
+
+    /// Asks for the typed app PIN; Face ID and Touch ID are not offered.
+    /// Revealing or exporting wallet secrets uses this, so a face or finger
+    /// alone, even the owner's, cannot open them.
+    @MainActor func authorizeWithPin(animated: Bool,
+                          cancellable: Bool,
+                          inView: UINavigationController?,
+                          with completionBlock: @escaping AuthorizationCompletionBlock) {
+        presentAuthorization(animated: animated, inView: inView, with: completionBlock) {
+            createPinOnlyAuthorizationView(cancellable: cancellable)
+        }
+    }
+
+    @MainActor private func presentAuthorization(animated: Bool,
+                                      inView: UINavigationController?,
+                                      with completionBlock: @escaping AuthorizationCompletionBlock,
+                                      makeView: () -> UIViewController?) {
 
         guard !isAuthorizing else {
             completionBlock(false)
@@ -131,7 +164,7 @@ extension AuthorizationPresentable {
             completionBlock(false)
             return
         }
-        let view = createAuthorizationView(cancellable: cancellable)
+        let view = makeView()
 
         guard let authorizationView = view else {
             completionBlock(false)
@@ -141,6 +174,15 @@ extension AuthorizationPresentable {
         self.completionBlock = completionBlock
         self.authorizationView = view
         self.inView = inView
+
+        // A fast downward flick closes the PIN sheet by itself and reports only
+        // through completionHandler. Count it as a cancelled authorization, or
+        // the stale request makes every later authorization fail until relaunch.
+        // The sheet holds the requester strongly, so the shared request state
+        // clears even when nothing else keeps the requester alive.
+        (authorizationView as? BlurViewController)?.completionHandler = {
+            self.showAuthorizationCompletion(with: false)
+        }
 
         authorizationView.modalTransitionStyle = .crossDissolve
         authorizationView.modalPresentationStyle = .fullScreen

@@ -48,9 +48,10 @@ extension AccountImportedWireframe: AccountImportedWireframeProtocol {
         currentController?.controller.present(containerView, animated: true)
     }
     
-    func showBackepedAccounts(accounts: [OpenBackupAccount]) {
+    func showBackepedAccounts(accounts: [OpenBackupAccount], googleAccount: CloudStorageAccountIdentity) {
         guard let viewController = BackupedAccountsViewFactory.createView(
             with: accounts,
+            googleAccount: googleAccount,
             endAddingBlock: endAddingBlock
         )?.controller else { return }
         currentController?.controller.navigationController?.pushViewController(viewController, animated: true)

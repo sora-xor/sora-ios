@@ -49,6 +49,9 @@ final class PincodeViewController: SoramitsuViewController {
 
     var cancellable: Bool = false
 
+    /// The sensor this device unlocks with, read when the unlock key is shown.
+    var biometryType: () -> AvailableBiometryType = { BiometryAuth().availableBiometryType }
+
     private let formatter: DateComponentsFormatter = {
         var calendar = Calendar.current
         calendar.locale = LocalizationManager.shared.selectedLocale
@@ -91,24 +94,35 @@ final class PincodeViewController: SoramitsuViewController {
         view.sora.axis = .horizontal
         view.sora.distribution = .equalCentering
         view.sora.alignment = .center
-        view.spacing = 16
+        view.spacing = 8
         view.sora.clipsToBounds = false
         view.heightAnchor.constraint(equalToConstant: 24).isActive = true
         return view
     }()
     
-    private var circleViews: [SoramitsuView] = []
+    private var circleViews: [PincodeDotView] = []
     private var enteredDigits = 0
 
-    private var keypadWidth: NSLayoutConstraint!
-    private var keypadHeight: NSLayoutConstraint!
+    /// The planet in its ring, where the launch flight sets it down. The ring is the lock: each digit
+    /// draws one more of its circles. Screens too short for it and the title both go without.
+    let emblemView = SacredEmblemView()
+    private var hasEntered = false
+
+    // One page or two, by the window's size (see `layoutPages`).
+    private var stackedConstraints: [NSLayoutConstraint] = []
+    private var pagedConstraints: [NSLayoutConstraint] = []
+    private(set) var isPaged = false
+    private lazy var pagedContainerTrailing = containerView.trailingAnchor.constraint(equalTo: view.leadingAnchor)
+    private lazy var pagedNumpadCentreX = numpadView.centerXAnchor.constraint(equalTo: view.leadingAnchor)
+    private lazy var pagedTitleCentreY = titleLabel.centerYAnchor.constraint(equalTo: view.topAnchor)
+
     var cooldownTimerFactory: (TimeInterval, @escaping @Sendable (Timer) -> Void) -> Timer = { interval, block in
         Timer.scheduledTimer(withTimeInterval: interval, repeats: true, block: block)
     }
     private var timer: Timer?
     private var cooldownDate: Date = .init()
-    private var errorAnimationDuration: CGFloat = 0.32
-    private var errorAnimationAmplitude: CGFloat = 8.0
+    private var errorAnimationDuration: CGFloat = 0.5
+    private var errorAnimationAmplitude: CGFloat = 20.0
     private var errorAnimationDamping: CGFloat = 0.4
     private var errorAnimationInitialVelocity: CGFloat = 1.0
     private var errorAnimationAnimationOptions: UIView.AnimationOptions = .curveEaseInOut
@@ -126,11 +140,24 @@ final class PincodeViewController: SoramitsuViewController {
         presenter.start()
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        guard !hasEntered else { return }
+        hasEntered = true
+        guard FxPolicy.current.litMotion else { return }
+        LitMotion.rise(titleLabel, by: 8)
+        LitMotion.rise(circlesStackView, by: 8, after: 0.03)
+        LitMotion.rise(numpadView, by: 18, after: 0.05)
+    }
+
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        layoutPages()
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        let large = view.bounds.width >= 400 && view.bounds.height >= 760
-        keypadWidth.constant = large ? 288 : 264
-        keypadHeight.constant = large ? 368 : 336
+        layoutEmblem()
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -146,40 +173,88 @@ private extension PincodeViewController {
 
     func configure() {
 
-        soramitsuView.sora.backgroundColor = .custom(uiColor: UIColor { traits in
-            traits.userInterfaceStyle == .dark ? NeonTokens.dark.neuBg : NeonTokens.light.neuBg
-        })
-        
+        // The PIN stands on the page itself, whatever screen it was put over: nothing shows through.
+        soramitsuView.sora.backgroundColor = .bgPage
+        let page = LitPageView(frame: view.bounds)
+        page.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.insertSubview(page, at: 0)
+
         numpadView.delegate = self
         
+        view.addSubview(emblemView)
         view.addSubview(containerView)
         view.addSubview(numpadView)
         
         containerView.addSubviews(titleLabel, circlesStackView)
 
-        keypadWidth = numpadView.widthAnchor.constraint(equalToConstant: 264)
-        keypadHeight = numpadView.heightAnchor.constraint(equalToConstant: 336)
         NSLayoutConstraint.activate([
             containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            containerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             containerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            containerView.bottomAnchor.constraint(equalTo: numpadView.topAnchor),
-            
-            numpadView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
-            numpadView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            keypadWidth,
-            numpadView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -18),
-            keypadHeight,
+
+            numpadView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 48),
+            numpadView.heightAnchor.constraint(equalToConstant: 368),
             
             titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             titleLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            titleLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             
             circlesStackView.leadingAnchor.constraint(greaterThanOrEqualTo: containerView.leadingAnchor, constant: 10),
             circlesStackView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             circlesStackView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
         ])
-        
+
+        // One page, as on every phone: the title and the dots above the keypad.
+        stackedConstraints = [
+            containerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            containerView.bottomAnchor.constraint(equalTo: numpadView.topAnchor),
+            numpadView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            numpadView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -18),
+            titleLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+        ]
+        // Two pages (an unfolded screen in landscape): the emblem, the title and the dots on the
+        // left page, the keypad in the middle of the right one. Nothing sits on the fold.
+        pagedConstraints = [
+            pagedContainerTrailing,
+            containerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            pagedNumpadCentreX,
+            numpadView.centerYAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerYAnchor),
+            pagedTitleCentreY,
+        ]
+        NSLayoutConstraint.activate(stackedConstraints)
+    }
+
+    /// Chooses one page or two for the window's size. The digits entered so far, the title and a
+    /// cooldown are untouched: only the constraints change when the window does.
+    func layoutPages() {
+        let pages = WalletDisplay.pages(in: view)
+        if (pages != nil) != isPaged {
+            isPaged = pages != nil
+            NSLayoutConstraint.deactivate(isPaged ? stackedConstraints : pagedConstraints)
+            NSLayoutConstraint.activate(isPaged ? pagedConstraints : stackedConstraints)
+        }
+        guard let pages else { return }
+        let place = SacredEmblemLayout.pagedPinPlacement(page: pages.left, safeArea: view.safeAreaInsets)
+        pagedContainerTrailing.constant = pages.left.maxX
+        pagedNumpadCentreX.constant = pages.right.midX
+        pagedTitleCentreY.constant = SacredEmblemLayout.pagedPinTitleCentreY(under: place)
+    }
+
+    func emblemPlacement() -> SacredEmblemLayout.Placement? {
+        if let pages = WalletDisplay.pages(in: view) {
+            return SacredEmblemLayout.pagedPinPlacement(page: pages.left, safeArea: view.safeAreaInsets)
+        }
+        return SacredEmblemLayout.pinPlacement(bounds: view.bounds, safeArea: view.safeAreaInsets)
+    }
+
+    func layoutEmblem() {
+        // Once unlocking has taken it across to the home it is no longer this screen's to place.
+        guard emblemView.superview === view else { return }
+        guard let place = emblemPlacement() else {
+            emblemView.isHidden = true
+            return
+        }
+        emblemView.frame = place.frame
+        // A title that wraps grows upwards into the emblem's room; the words win.
+        emblemView.isHidden = place.frame.maxY > titleLabel.convert(titleLabel.bounds, to: view).minY - 6
     }
 
     func updateTitleLabelState() {
@@ -305,6 +380,8 @@ extension PincodeViewController: PinSetupViewProtocol {
     func didReceiveWrongPincode() {}
 
     func didChangeAccessoryState(enabled: Bool) {
+        // The unlock key shows the sensor this device has: a fingerprint where it is Touch ID.
+        if enabled { numpadView.setBiometry(biometryType()) }
         numpadView.accessoryButton.alpha = enabled ? 1 : 0
     }
     
@@ -312,15 +389,9 @@ extension PincodeViewController: PinSetupViewProtocol {
         circlesStackView.removeArrangedSubviews()
         circleViews = []
         for _ in 0..<count {
-            // SORA Neon (spec §7.9): empty dots are a ring, filled dots cyan.
-            // A dark fill alone was invisible on the dark backdrop.
-            let view = SoramitsuView()
-            view.sora.backgroundColor = .custom(uiColor: .clear)
-            view.sora.borderWidth = 1.5
-            view.sora.borderColor = .fgTertiary
-            view.sora.cornerRadius = .circle
-            view.widthAnchor.constraint(equalToConstant: 14).isActive = true
-            view.heightAnchor.constraint(equalToConstant: 14).isActive = true
+            let view = PincodeDotView()
+            view.widthAnchor.constraint(equalToConstant: 24).isActive = true
+            view.heightAnchor.constraint(equalToConstant: 24).isActive = true
             view.isAccessibilityElement = false
             circlesStackView.addArrangedSubview(view)
             circleViews.append(view)
@@ -352,10 +423,10 @@ extension PincodeViewController: PinSetupViewProtocol {
             UIAccessibility.post(notification: .announcement, argument: circlesStackView.accessibilityValue)
         }
         for (index, view) in circleViews.enumerated() {
-            // `statusInfo` is the Neon cyan in both themes.
-            view.sora.backgroundColor = index < count ? .statusInfo : .custom(uiColor: .clear)
-            view.sora.borderColor = index < count ? .statusInfo : .fgTertiary
+            view.setFilled(index < count)
         }
+        emblemView.setShare(circleViews.isEmpty ? 0 : CGFloat(enteredDigits) / CGFloat(circleViews.count),
+                            animated: true)
     }
     
     func setupDeleteButton(isHidden: Bool) {
@@ -370,10 +441,9 @@ extension PincodeViewController: PinSetupViewProtocol {
     func animateWrongInputError(with completion: @escaping (Bool) -> Void) {
         titleLabel.sora.textColor = .statusError
         titleLabel.sora.text = R.string.localizable.commonWrongPin(preferredLanguages: .currentLocale)
-        (circlesStackView.subviews as? [SoramitsuView])?.forEach {
-            $0.sora.backgroundColor = .statusError
-            $0.sora.borderColor = .statusError
-        }
+        let errorColor = SoramitsuUI.shared.theme.palette.color(.statusError)
+        circleViews.forEach { $0.setFilled(true) }
+        emblemView.showError(color: errorColor)
         if FxPolicy.current.reduceMotion {
             circlesStackView.transform = .identity
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { completion(true) }
@@ -419,5 +489,43 @@ extension PincodeViewController: SoramitsuNumpadDelegate {
 
     func numpadViewDidClearInput(_ view: SoramitsuNumpadView) {
         for _ in 0..<enteredDigits { presenter.deleteButtonTapped() }
+    }
+}
+
+/// One PIN place: a small ruled well in the page; a bead of red glass settles into it when the digit is
+/// entered. The ring shows an empty place and the bead a filled one without any help from the light.
+final class PincodeDotView: SoramitsuView {
+    private let well = LitWellLayer()
+    private let bead = LitBeadView(diameter: 12)
+    private(set) var isFilled = false
+
+    override init(frame: CGRect = .zero) {
+        super.init(frame: frame)
+        sora.useAutoresizingMask = false
+        well.cornerRadiusValue = 12
+        well.depth = 2
+        well.isRuled = true
+        layer.addSublayer(well)
+        bead.isHidden = true
+        bead.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(bead)
+        NSLayoutConstraint.activate([
+            bead.centerXAnchor.constraint(equalTo: centerXAnchor),
+            bead.centerYAnchor.constraint(equalTo: centerYAnchor),
+            bead.widthAnchor.constraint(equalToConstant: 12),
+            bead.heightAnchor.constraint(equalToConstant: 12)
+        ])
+    }
+
+    func setFilled(_ filled: Bool) {
+        let appeared = filled && !isFilled
+        isFilled = filled
+        bead.isHidden = !filled
+        if appeared { bead.drop() }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        well.place(in: bounds)
     }
 }

@@ -253,6 +253,7 @@ import XCTest
   }
 }
 @MainActor private final class SupplyEditorFixture {
+  var initialPool = SupplyEditorFixture.pool()
   let xor = WalletAssetId.xor.rawValue, val = WalletAssetId.val.rawValue,
     pswap = WalletAssetId.pswap.rawValue
   let assets = SupplyEditorAssets(), balances = SupplyEditorBalances(),
@@ -261,7 +262,7 @@ import XCTest
     network = WalletNetworkOperationFactoryProtocolMock()
   lazy var model: SupplyLiquidityViewModel = {
     let m = SupplyLiquidityViewModel(
-      wireframe: routes, poolInfo: Self.pool(), fiatService: fiat, apyService: nil,
+      wireframe: routes, poolInfo: initialPool, fiatService: fiat, apyService: nil,
       poolsService: pools, assetManager: assets,
       detailsFactory: DetailViewModelFactory(assetManager: assets), operationFactory: network,
       assetsProvider: balances, marketCapService: market)
@@ -297,7 +298,9 @@ private final class SupplyEditorBalances: AssetProviderProtocol {
 }
 
 private actor SupplyEditorFiat: FiatServiceProtocol {
-  func getFiat() async -> [PIExactFiatData] { [] }
+  var values = [PIExactFiatData]()
+  func set(_ values: [PIExactFiatData]) { self.values = values }
+  func getFiat() async -> [PIExactFiatData] { values }
 }
 private final class SupplyEditorMarket: MarketCapServiceProtocol {
   func getMarketCap(for assets: [String]) async -> Set<MarketCapInfo> { [] }
@@ -335,6 +338,14 @@ private final class SupplyEditorView: UIViewController, LiquidityViewProtocol {
 }
 
 private final class SupplyEditorRoutes: LiquidityWireframeProtocol {
+  var alerts = [(String?, String?, String?, ControllerBackedProtocol?)]()
+  var slippage: PolkaswapSlippage?, slippageNavigation: UINavigationController?
+  var slippageCompletion: ((PolkaswapSlippage) -> Void)?
+  var feeChanged: (() -> Void)?, submittedType: TransactionType?
+  func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) {
+    alerts.append((message, title, closeAction, view))
+  }
+
   var assetLists = [[String]](), assetCompletion: ((String) -> Void)?,
     reviews = [(String, String, Decimal, Decimal, Decimal)](),
     supplyReviews = [(String, String, Decimal, Decimal, Decimal)]()
@@ -356,7 +367,7 @@ private final class SupplyEditorRoutes: LiquidityWireframeProtocol {
     on controller: UINavigationController?,
     currentLocale: PolkaswapSlippage,
     completion: @escaping (PolkaswapSlippage) -> Void
-  ) {}
+  ) { slippage = currentLocale; slippageNavigation = controller; slippageCompletion = completion }
 
   func showChoiсeMarket(
     on controller: UINavigationController?,
@@ -380,7 +391,7 @@ private final class SupplyEditorRoutes: LiquidityWireframeProtocol {
     fee: Decimal,
     operationFactory: WalletNetworkOperationFactoryProtocol,
     feeChangeHandler: @escaping () -> Void
-  ) { supplyReviews.append((baseAssetId, targetAssetId, firstAssetAmount, secondAssetAmount, fee)) }
+  ) { supplyReviews.append((baseAssetId, targetAssetId, firstAssetAmount, secondAssetAmount, fee)); feeChanged = feeChangeHandler; submittedType = transactionType }
 
   func showRemoveLiquidityConfirmation(
     on controller: UINavigationController?,
@@ -465,4 +476,110 @@ private final class SupplyEditorAssets: AssetManagerProtocol {
   func sortedAssets(_ list: [WalletAsset], onlyVisible: Bool) -> [WalletAsset] { list }
   func visibleCount() -> UInt { UInt(assets.count) }
   func setup(for accountSettings: SelectedWalletSettings) {}
+}
+
+@MainActor final class SupplyLiquidityBoundaryCoverageTests: XCTestCase {
+    private func wait(_ condition: () -> Bool) async {
+        for _ in 0..<200 { if condition() { return }; try? await Task.sleep(nanoseconds: 5_000_000) }
+        XCTAssertTrue(condition())
+    }
+    private func make(base: String = WalletAssetId.xor.rawValue, target: String = WalletAssetId.val.rawValue) -> SupplyEditorFixture {
+        let f = SupplyEditorFixture()
+        f.initialPool = PoolInfo(baseAssetId: base, targetAssetId: target, poolId: "public-pool", accountId: "public-account",
+            baseAssetPooledByAccount: 50, targetAssetPooledByAccount: 100, baseAssetPooledTotal: 100, targetAssetPooledTotal: 200,
+            totalIssuances: 10, baseAssetReserves: 100, targetAssetReserves: 200, accountPoolBalance: 5)
+        f.pools.pool = f.initialPool
+        f.balances.values[WalletAssetId.xstusd.rawValue] = 20
+        return f
+    }
+    private func ready(_ f: SupplyEditorFixture) async {
+        f.model.viewDidLoad(); await wait { f.model.poolInfo != nil }
+        f.model.inputedFirstAmount = 2; f.model.inputedSecondAmount = 4
+        let done = expectation(description: "fee ready")
+        f.model.updateDetails { done.fulfill() }
+        await fulfillment(of: [done], timeout: 2)
+    }
+    func testInformationActionPresentsTheSupplyExplanationFromCurrentView() {
+        let f = make(); f.model.infoButtonTapped()
+        XCTAssertEqual(f.routes.alerts.first?.0, R.string.localizable.addLiquidityAlertText(preferredLanguages: .currentLocale))
+        XCTAssertEqual(f.routes.alerts.first?.1, R.string.localizable.addLiquidityTitle(preferredLanguages: .currentLocale))
+        XCTAssertTrue(f.routes.alerts.first?.3?.controller === f.view)
+    }
+    func testAPYInformationHasItsOwnExplanationAndDismissal() {
+        let f = make(); f.model.apyInfoButtonTapped()
+        XCTAssertEqual(f.routes.alerts.first?.0, R.string.localizable.polkaswapSbApyInfo())
+        XCTAssertEqual(f.routes.alerts.first?.2, R.string.localizable.commonOk())
+    }
+    func testSlippagePickerReceivesCurrentValueAndAppliesSelection() async {
+        let f = make(); await ready(f)
+        let nav = UINavigationController(rootViewController: f.view)
+        f.model.changeSlippageTolerance()
+        XCTAssertTrue(f.routes.slippageNavigation === nav)
+        XCTAssertEqual(f.routes.slippage, .defaultValue)
+        f.routes.slippageCompletion?(PolkaswapSlippage(basisPoints: 150)!)
+        XCTAssertEqual(f.model.slippageTolerance.basisPoints, 150)
+        f.model.reviewButtonTapped(); XCTAssertTrue(f.routes.supplyReviews.isEmpty)
+    }
+    func testNonXORPairUsesSeparateXORFeeBalance() async {
+        let f = make(base: WalletAssetId.xstusd.rawValue); await ready(f)
+        f.balances.values[f.xor] = 1
+        f.model.reviewButtonTapped(); XCTAssertEqual(f.routes.supplyReviews.count, 1)
+    }
+    func testNonXORPairWithMissingFeeAssetCannotReview() async {
+        let f = make(base: WalletAssetId.xstusd.rawValue); await ready(f)
+        f.balances.values.removeValue(forKey: f.xor)
+        f.model.reviewButtonTapped(); XCTAssertTrue(f.routes.supplyReviews.isEmpty)
+    }
+    func testNonXORPairWithInsufficientFeeAssetCannotReview() async {
+        let f = make(base: WalletAssetId.xstusd.rawValue); await ready(f)
+        f.balances.values[f.xor] = Decimal(string: "0.99")!
+        f.model.reviewButtonTapped(); XCTAssertTrue(f.routes.supplyReviews.isEmpty)
+    }
+    func testXORAsTargetMustCoverDepositPlusFee() async {
+        let f = make(base: WalletAssetId.xstusd.rawValue, target: WalletAssetId.xor.rawValue); await ready(f)
+        f.balances.values[f.xor] = 5
+        f.model.reviewButtonTapped(); XCTAssertEqual(f.routes.supplyReviews.count, 1)
+    }
+    func testXORAsTargetCannotSpendTheFeeAsLiquidity() async {
+        let f = make(base: WalletAssetId.xstusd.rawValue, target: WalletAssetId.xor.rawValue); await ready(f)
+        f.balances.values[f.xor] = 4
+        f.model.reviewButtonTapped(); XCTAssertTrue(f.routes.supplyReviews.isEmpty)
+    }
+    func testConfirmationFeeChangeRecalculatesBeforeAnotherReview() async {
+        let f = make(); await ready(f)
+        f.model.reviewButtonTapped(); XCTAssertNotNil(f.routes.feeChanged)
+        f.network.liquidityFeeClosure = { _ in 2 }
+        f.routes.feeChanged?()
+        await wait { f.view.enabled }
+        f.model.reviewButtonTapped()
+        XCTAssertEqual(f.routes.supplyReviews.last?.4, 2)
+    }
+    func testQuotedFiatFormatsBothBalanceAndInputExactly() async throws {
+        let f = make()
+        await f.fiat.set([PIExactFiatData(id: f.xor, priceUsd: try PIQuantity("2.5"))])
+        f.model.viewDidLoad()
+        await wait { !f.model.setupInputedFiatText(from: 3, assetId: f.xor).isEmpty }
+        let value = "$" + (NumberFormatter.fiat.stringFromDecimal(Decimal(string: "7.5")!) ?? "")
+        XCTAssertEqual(f.model.setupInputedFiatText(from: 3, assetId: f.xor), value)
+        var shown = ""
+        f.model.setupFullBalanceText(from: BalanceData(identifier: f.xor, balance: AmountDecimal(value: 3))) { shown = $0 }
+        XCTAssertEqual(shown, "3 (\(value))")
+    }
+    func testAbsentPairUsesRegistrationTransactionAfterAmountsAreEntered() async {
+        let f = make(); f.pools.state = .init(isPresented: false, isEnabled: false)
+        f.model.viewDidLoad(); await wait { !f.pools.pairQueries.isEmpty }
+        f.model.inputedFirstAmount = 2; f.model.inputedSecondAmount = 4
+        let done = expectation(description: "new pool fee")
+        f.model.updateDetails { done.fulfill() }; await fulfillment(of: [done], timeout: 2)
+        f.model.reviewButtonTapped()
+        XCTAssertEqual(f.routes.submittedType, .liquidityAddNewPool)
+        XCTAssertNil(f.model.poolInfo)
+    }
+    func testDisabledExistingPairNeverOpensConfirmation() async {
+        let f = make(); f.pools.state = .init(isPresented: true, isEnabled: false)
+        f.model.viewDidLoad(); await wait { f.model.poolInfo != nil }
+        f.model.inputedFirstAmount = 2; f.model.inputedSecondAmount = 4
+        f.model.reviewButtonTapped()
+        XCTAssertTrue(f.routes.supplyReviews.isEmpty); XCTAssertFalse(f.view.enabled)
+    }
 }

@@ -100,7 +100,6 @@ private extension RewardSeparatorCell {
             $0.topAnchor == containerView.topAnchor + 8
             $0.leadingAnchor == containerView.leadingAnchor
             $0.centerXAnchor == containerView.centerXAnchor
-            $0.widthAnchor == UIScreen.main.bounds.width
             $0.heightAnchor == 1.0
         }
 
@@ -108,7 +107,6 @@ private extension RewardSeparatorCell {
             $0.topAnchor == graySeparatorView.bottomAnchor
             $0.leadingAnchor == containerView.leadingAnchor
             $0.centerXAnchor == containerView.centerXAnchor
-            $0.widthAnchor == UIScreen.main.bounds.width
             $0.heightAnchor == 1.0
         }
     }

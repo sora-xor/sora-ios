@@ -96,6 +96,7 @@ final class ChainRegistryFactory {
             repository: AnyDataProviderRepository(chainRepository),
             eventCenter: EventCenter.shared,
             operationQueue: OperationManagerFacade.runtimeBuildingQueue,
+            blacklistUrl: ApplicationConfig.shared.assetBlacklistURL,
             storeRepair: ChainStoreRepair(databaseService: repositoryFacade.databaseService),
             logger: Logger.shared
         )

@@ -128,7 +128,11 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen
-        containerView.add(assetDetailsController)
+        // In a navigation bar of its own, as the wallet opens it: the screen's Close lives in that bar, and
+        // without one there was no way out of the page but to quit the app.
+        let navigationController = SoraNavigationController(rootViewController: assetDetailsController)
+        navigationController.navigationBar.backgroundColor = .clear
+        containerView.add(navigationController)
         
         viewController?.present(containerView, animated: true)
     }

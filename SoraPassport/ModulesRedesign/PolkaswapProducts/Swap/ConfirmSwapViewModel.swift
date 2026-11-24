@@ -45,6 +45,8 @@ final class ConfirmSwapViewModel {
     var swapVariant: SwapVariant
     var minMaxValue: Decimal
     private var dexId: UInt32
+    /// The route of the quote on screen; empty until the review's first quote.
+    private var quoteRoute: [String] = []
     private let interactor: PolkaswapMainInteractorInputProtocol
     private var quoteParams: PolkaswapMainInteractorQuoteParams
     private weak var assetsProvider: AssetProviderProtocol?
@@ -216,15 +218,44 @@ final class ConfirmSwapViewModel {
               amounts.toAmount > 0 else {
             return false
         }
-        let expectedLimit = swapVariant == .desiredInput
-            ? slippageTolerance.minimumAmount(for: amounts.toAmount)
-            : slippageTolerance.maximumAmount(for: amounts.toAmount)
+        let expectedLimit = slippageLimit(for: amounts)
         let amountsMatch = swapVariant == .desiredInput
             ? firstAssetAmount == amounts.fromAmount
                 && secondAssetAmount == amounts.toAmount
             : firstAssetAmount == amounts.toAmount
                 && secondAssetAmount == amounts.fromAmount
-        return amountsMatch && minMaxValue == expectedLimit
+        // The signer needs the decimals the quote was decoded with, and a
+        // limit of less than one unit of its asset cannot be signed.
+        return amountsMatch
+            && amounts.sourcePrecision != nil && amounts.destinationPrecision != nil
+            && minMaxValue > 0 && minMaxValue == expectedLimit
+    }
+
+    /// The slippage limit of a quote as it is signed: the least received in
+    /// whole units of the destination asset, or the most sold in whole units
+    /// of the source asset. The review shows, checks balances against and
+    /// submits this value.
+    private func slippageLimit(for amounts: SwapQuoteAmounts) -> Decimal {
+        amounts.slippageLimit(slippageTolerance,
+                              direction: swapVariant,
+                              fromAsset: assetManager.assetInfo(for: firstAssetId),
+                              toAsset: assetManager.assetInfo(for: secondAssetId))
+    }
+
+    /// What a Confirm button was drawn with. A newer quote changes the model
+    /// before the screen is redrawn; the button still on screen belongs to
+    /// the quote it shows and does not submit another.
+    private struct ShownQuote: Equatable {
+        let firstAssetAmount: Decimal
+        let secondAssetAmount: Decimal
+        let limit: Decimal
+        let dexId: UInt32
+        let route: [String]
+    }
+
+    private var shownQuote: ShownQuote {
+        ShownQuote(firstAssetAmount: firstAssetAmount, secondAssetAmount: secondAssetAmount, limit: minMaxValue,
+                   dexId: dexId, route: quoteRoute)
     }
 }
  
@@ -263,17 +294,23 @@ extension ConfirmSwapViewModel {
 
     func setupContent() {
         guard let firstAsset = assetManager.assetInfo(for: firstAssetId) else { return }
-        let firstAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: firstAsset.precision)
-        
+        // Each amount is written with all the decimals the quote was decoded
+        // with, the decimals it is signed with, so it is shown exactly.
+        let firstAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(
+            with: amounts.sourcePrecision.flatMap { UInt32(exactly: $0) } ?? firstAsset.precision)
+
         let secondAsset = assetManager.assetInfo(for: secondAssetId)
-        let secondAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: secondAsset?.precision ?? 18)
+        let secondAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(
+            with: amounts.destinationPrecision.flatMap { UInt32(exactly: $0) } ?? secondAsset?.precision ?? 18)
         
+        // The amount sold is never written as less than it is, the amount
+        // received never as more.
         let firstAssetImageModel = ConfirmAssetViewModel(imageViewModel: WalletSvgImageViewModel(svgString: firstAsset.icon ?? ""),
-                                                         amountText: firstAssetFormatter.stringFromDecimal(firstAssetAmount) ?? "",
+                                                         amountText: SwapAmountText.string(firstAssetAmount, formatter: firstAssetFormatter, roundingUp: true),
                                                          symbol: firstAsset.symbol)
         
         let secondAssetImageModel = ConfirmAssetViewModel(imageViewModel: WalletSvgImageViewModel(svgString: secondAsset?.icon ?? ""),
-                                                          amountText: secondAssetFormatter.stringFromDecimal(secondAssetAmount) ?? "",
+                                                          amountText: SwapAmountText.string(secondAssetAmount, formatter: secondAssetFormatter, roundingUp: false),
                                                           symbol: secondAsset?.symbol ?? "")
         
         let confirmAssetsItem = ConfirmAssetsItem(firstAssetImageModel: firstAssetImageModel,
@@ -281,11 +318,12 @@ extension ConfirmSwapViewModel {
                                                   operationImageName: "Wallet/swapArrow")
         
         let symbol = swapVariant == .desiredInput ? "\(secondAsset?.symbol ?? "")" : "\(firstAsset.symbol)"
-        let amount = swapVariant == .desiredInput
-            ? slippageTolerance.minimumAmount(for: amounts.toAmount)
-            : slippageTolerance.maximumAmount(for: amounts.toAmount)
+        let amount = slippageLimit(for: amounts)
         
-        let amountText = NumberFormatter.cryptoAssets.stringFromDecimal(amount) ?? ""
+        // Eight decimals are shown: the most sold rounded up to what is
+        // shown, the least received down, never better than what is signed.
+        let amountText = SwapAmountText.string(amount, formatter: NumberFormatter.cryptoAssets,
+                                               roundingUp: swapVariant == .desiredOutput)
         let minMaxAmountText =  "\(amountText) \(symbol)"
         
         let minReward = R.string.localizable.polkaswapOutputEstimated(minMaxAmountText,
@@ -309,10 +347,12 @@ extension ConfirmSwapViewModel {
                                            fontData: FontType.buttonM,
                                            textColor: .bgSurface,
                                            alignment: .center)
+        let shown = shownQuote
         let buttonItem = SoramitsuButtonItem(title: buttonText,
                                              buttonBackgroudColor: .additionalPolkaswap,
                                              isEnable: isEnoughtBalance) { [weak self] in
-            self?.submit()
+            guard let self, self.shownQuote == shown else { return }
+            self.submit()
         }
         items = [confirmAssetsItem,
                  SoramitsuTableViewSpacerItem(space: 24, color: .custom(uiColor: .clear)),
@@ -347,32 +387,41 @@ extension ConfirmSwapViewModel {
         let estimatedAmount = AmountDecimal(value: secondAssetAmount)
         let destinationAsset = secondAssetId
         
+        var context = [TransactionContextKeys.transactionType: TransactionType.swap.rawValue,
+                       TransactionContextKeys.estimatedAmount: estimatedAmount.stringValue,
+                       TransactionContextKeys.marketType: market.rawValue,
+                       TransactionContextKeys.slippage: slippageTolerance.contextValue,
+                       TransactionContextKeys.desire: swapVariant.rawValue,
+                       TransactionContextKeys.minMaxValue: AmountDecimal(value: minMaxValue).stringValue,
+                       TransactionContextKeys.dex: "\(dexId)"]
+        // The decimals the reviewed amounts were scaled by. The signer scales
+        // by its own and refuses when they differ.
+        if let sourcePrecision = amounts.sourcePrecision, let destinationPrecision = amounts.destinationPrecision {
+            context[TransactionContextKeys.sourcePrecision] = String(sourcePrecision)
+            context[TransactionContextKeys.destinationPrecision] = String(destinationPrecision)
+        }
         let transferInfo = TransferInfo(source: "",
                                         destination: destinationAsset,
                                         amount: amount,
                                         asset: sourceAsset,
                                         details: "",
                                         fees: [networkFee],
-                                        context: [TransactionContextKeys.transactionType: TransactionType.swap.rawValue,
-                                                  TransactionContextKeys.estimatedAmount: estimatedAmount.stringValue,
-                                                  TransactionContextKeys.marketType: market.rawValue,
-                                                  TransactionContextKeys.slippage: slippageTolerance.contextValue,
-                                                  TransactionContextKeys.desire: swapVariant.rawValue,
-                                                  TransactionContextKeys.minMaxValue: AmountDecimal(value: minMaxValue).stringValue,
-                                                  TransactionContextKeys.dex: "\(dexId)"
-                                        ])
-        
+                                        context: context)
+
+        // A newer quote can arrive while the swap is being sent. The activity
+        // record is made from the amounts that were submitted.
+        let submitted = (first: firstAssetAmount, second: secondAssetAmount)
         wireframe?.showActivityIndicator()
         walletService.transfer(info: transferInfo, runCompletionIn: .main) { [weak self] (optionalResult) in
             self?.wireframe?.hideActivityIndicator()
 
             if let result = optionalResult {
-                self?.handleTransfer(result: result)
+                self?.handleTransfer(result: result, firstAssetAmount: submitted.first, secondAssetAmount: submitted.second)
             }
         }
     }
     
-    private func handleTransfer(result: Result<Data, Swift.Error>) {
+    private func handleTransfer(result: Result<Data, Swift.Error>, firstAssetAmount: Decimal, secondAssetAmount: Decimal) {
         var status: TransactionBase.Status = .pending
         var txHash = ""
         if case let .failure = result {
@@ -422,12 +471,11 @@ extension ConfirmSwapViewModel {
         isQuoteAvailable = true
         self.amounts = amounts
         self.dexId = dexId
+        self.quoteRoute = quote.route
         
         let route = quote.route.compactMap({ self.assetManager.assetInfo(for: $0)?.symbol }).joined(separator: " → ")
         
-        minMaxValue = swapVariant == .desiredInput
-            ? slippageTolerance.minimumAmount(for: amounts.toAmount)
-            : slippageTolerance.maximumAmount(for: amounts.toAmount)
+        minMaxValue = slippageLimit(for: amounts)
         details = detailsFactory.createSwapViewModels(fromAsset: fromAsset,
                                                       toAsset: toAsset,
                                                       slippage: slippageTolerance,

@@ -211,7 +211,7 @@ private extension ActivityViewModelFactory {
         return ActivityContentViewModel(txHash: swap.base.txHash,
                                         title: R.string.localizable.polkaswapSwapped(preferredLanguages: .currentLocale),
                                         subtitle: subtitle,
-                                        typeTransactionImage: R.image.wallet.swap(),
+                                        typeTransactionImage: PortfolioGlyphs.polkaswapMark,
                                         firstAssetImageViewModel: RemoteSerializer.shared.image(with: fromAssetInfo?.icon ?? ""),
                                         secondAssetImageViewModel: RemoteSerializer.shared.image(with: toAssetInfo?.icon ?? ""),
                                         firstBalanceText: balanceText,
@@ -314,7 +314,7 @@ private extension ActivityViewModelFactory {
                                             fontData: FontType.textM,
                                             textColor: .fgPrimary,
                                             alignment: isRTL ? .left : .right)
-        let title = setReferrer.isMyReferrer ? R.string.localizable.referrerSet(preferredLanguages: .currentLocale) : "Referral joined"
+        let title = setReferrer.isMyReferrer ? R.string.localizable.referrerSet(preferredLanguages: .currentLocale) : WalletUX.text("Referral joined")
         let subtitle = setReferrer.isMyReferrer ? SelectedWalletSettings.shared.currentAccount?.address ?? "" : setReferrer.who 
         return ActivityContentViewModel(txHash: setReferrer.base.txHash,
                                         title: title,

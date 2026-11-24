@@ -20,7 +20,6 @@ import RobinHood
 
 typealias BalanceCompletionBlock = (Result<[BalanceData]?, Error>?) -> Void
 typealias TransactionHistoryBlock = (Result<AssetTransactionPageData?, Error>?) -> Void
-typealias EmptyResultCompletionBlock = (Result<Void, Error>?) -> Void
 typealias DataResultCompletionBlock = (Result<Data, Error>?) -> Void
 typealias SearchCompletionBlock = (Result<[SearchData]?, Error>?) -> Void
 typealias WithdrawalMetadataCompletionBlock = (Result<WithdrawMetaData?, Error>?) -> Void

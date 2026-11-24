@@ -53,6 +53,16 @@ struct TransactionBase {
             case .success: return nil
             }
         }
+
+        /// The same status as a seal: open and turning in flight, closed and stamped once settled,
+        /// open and still if it failed.
+        var seal: SacredSealView.State {
+            switch self {
+            case .failed: return .broken
+            case .pending: return .working
+            case .success: return .settled
+            }
+        }
     }
     
     let txHash: String

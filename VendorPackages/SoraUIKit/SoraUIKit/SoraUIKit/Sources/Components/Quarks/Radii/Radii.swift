@@ -2,15 +2,15 @@ import CoreGraphics
 
 public enum Radius {
 	case zero
-    /// 12
+    /// 10
 	case small
-    /// 16
+    /// 12
 	case medium
-    /// 20
+    /// 14
 	case large
-    /// 24
+    /// 16
 	case extraLarge
-    /// 24 (cards)
+    /// 18
     case max
 	case circle
     case custom(CGFloat)

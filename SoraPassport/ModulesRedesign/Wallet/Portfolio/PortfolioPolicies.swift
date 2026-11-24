@@ -51,10 +51,20 @@ enum PortfolioFreshnessPolicy {
         }
     }
 
+    /// The first retry after a failed SORA2 read; each further failure doubles it, up to
+    /// `refreshInterval`. A read lost to a node that was still connecting is not a minute lost.
+    static let retryAfterFailure: TimeInterval = 5
+
+    /// How long after an attempt a wallet is read again.
+    static func retryInterval(failedReads: Int) -> TimeInterval {
+        guard failedReads > 0 else { return refreshInterval }
+        return min(refreshInterval, retryAfterFailure * pow(2, Double(min(failedReads, 8) - 1)))
+    }
+
     /// Whether a non-selected wallet is due for another read.
-    static func isDue(lastAttempt: Date?, now: Date) -> Bool {
+    static func isDue(lastAttempt: Date?, failedReads: Int = 0, now: Date) -> Bool {
         guard let lastAttempt else { return true }
-        return now.timeIntervalSince(lastAttempt) >= refreshInterval
+        return now.timeIntervalSince(lastAttempt) >= retryInterval(failedReads: failedReads)
     }
 }
 

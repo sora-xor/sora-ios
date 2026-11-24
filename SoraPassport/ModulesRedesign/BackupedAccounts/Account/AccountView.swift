@@ -20,8 +20,6 @@ import Anchorage
 
 final class AccountView: SoramitsuView {
     
-    public var onTap: (() -> Void)?
-    
     public var topConstraint: NSLayoutConstraint?
     public var bottomConstraint: NSLayoutConstraint?
     
@@ -37,19 +35,19 @@ final class AccountView: SoramitsuView {
     public let accountTitle: SoramitsuLabel = {
         var label = SoramitsuLabel()
         label.sora.textColor = .fgPrimary
-        label.sora.font = FontType.textS
-        label.sora.numberOfLines = 2
+        label.sora.font = FontType.textBoldS
+        label.sora.dynamicTextStyle = .body
+        label.sora.numberOfLines = 0
         label.sora.isHidden = true
-        label.sora.text = R.string.localizable.selectRecipient(preferredLanguages: .currentLocale)
         return label
     }()
     
     public let accountAddress: SoramitsuLabel = {
         var label = SoramitsuLabel()
-        label.sora.textColor = .accentTertiary
-        label.sora.font = FontType.textBoldS
-        label.sora.numberOfLines = 2
-        label.sora.text = R.string.localizable.selectRecipient(preferredLanguages: .currentLocale)
+        label.sora.textColor = .fgSecondary
+        label.sora.font = FontType.mono
+        label.sora.dynamicTextStyle = .caption1
+        label.sora.numberOfLines = 0
         return label
     }()
     
@@ -61,16 +59,6 @@ final class AccountView: SoramitsuView {
         mainStackView.sora.clipsToBounds = false
         mainStackView.spacing = 4
         return mainStackView
-    }()
-    
-    public lazy var button: SoramitsuButton = {
-        let view = SoramitsuButton()
-        view.sora.backgroundColor = .custom(uiColor: .clear)
-        view.sora.isHidden = true
-        view.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.onTap?()
-        }
-        return view
     }()
     
     override init(frame: CGRect = .zero) {
@@ -85,13 +73,14 @@ final class AccountView: SoramitsuView {
         mainStackView.addArrangedSubviews(accountTitle, accountAddress)
         addSubview(accountImageView)
         addSubview(mainStackView)
-        addSubview(button)
     }
 
     private func setupConstrains() {
         topConstraint = accountImageView.topAnchor.constraint(equalTo: topAnchor, constant: 18)
         bottomConstraint = accountImageView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18)
         
+        // The icon sets the minimum natural row height. Wrapped text can make the row taller.
+        bottomConstraint?.priority = .defaultLow
         NSLayoutConstraint.activate([
             accountImageView.heightAnchor.constraint(equalToConstant: 40),
             accountImageView.widthAnchor.constraint(equalToConstant: 40),
@@ -99,14 +88,11 @@ final class AccountView: SoramitsuView {
             accountImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
             bottomConstraint,
             
+            mainStackView.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: 8),
+            mainStackView.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -8),
             mainStackView.leadingAnchor.constraint(equalTo: accountImageView.trailingAnchor, constant: 8),
-            mainStackView.centerYAnchor.constraint(equalTo: accountImageView.centerYAnchor),
+            mainStackView.centerYAnchor.constraint(equalTo: centerYAnchor),
             mainStackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            
-            button.topAnchor.constraint(equalTo: topAnchor),
-            button.leadingAnchor.constraint(equalTo: leadingAnchor),
-            button.centerYAnchor.constraint(equalTo: centerYAnchor),
-            button.centerXAnchor.constraint(equalTo: centerXAnchor),
         ])
     }
 }

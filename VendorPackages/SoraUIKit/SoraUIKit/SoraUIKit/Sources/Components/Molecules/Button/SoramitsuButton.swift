@@ -15,7 +15,22 @@ public final class SoramitsuButton: UIControl, Molecule {
     // MARK: - UI
 
     var type: SoramitsuButtonType = .filled(.primary)
-    
+
+    /// How firmly a button with a side inset keeps to the width of its title and glyphs, and to the
+    /// height of its size: the way a view keeps to its own size. It holds wherever nothing else sets the
+    /// button's width or height, and gives way to the screen that does, so a button pinned to both sides
+    /// of its column fills it. These were required once: the button then insisted on being exactly as wide
+    /// as its title, and a column that ran from one side of that button to the other came out as wide as
+    /// the word on it (the swap and send screens' Review), or Auto Layout had to break a constraint on
+    /// every layout to get out of it.
+    public static let fittedSizePriority = UILayoutPriority(990)
+    /// Just below the fitted width: a button given more width than it needs keeps its insets and lets its
+    /// title's label fill the rest, so the title stands where its own alignment puts it (a "Show more"
+    /// link is left-aligned in its row), as it did when UIKit settled the old conflict that way.
+    static let titleHuggingPriority = UILayoutPriority(989)
+    /// Below that: with too little room the title gets smaller before it leaves its button.
+    static let titleCompressionPriority = UILayoutPriority(980)
+
     var horizontalConstaint: NSLayoutConstraint?
     var leftImageSizeConstaint: NSLayoutConstraint?
     var rightImageSizeConstaint: NSLayoutConstraint?
@@ -32,8 +47,12 @@ public final class SoramitsuButton: UIControl, Molecule {
         label.sora.isHidden = true
         label.sora.alignment = .center
         label.sora.backgroundColor = .custom(uiColor: .clear)
-        label.setContentCompressionResistancePriority(.required, for: .horizontal)
-        label.setContentHuggingPriority(.required, for: .horizontal)
+        label.setContentCompressionResistancePriority(SoramitsuButton.titleCompressionPriority, for: .horizontal)
+        label.setContentHuggingPriority(SoramitsuButton.titleHuggingPriority, for: .horizontal)
+        // A long title in a narrow button (Japanese on a small phone) gets smaller, down to seven tenths,
+        // before it is cut.
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.7
         return label
     }()
 
@@ -61,6 +80,10 @@ public final class SoramitsuButton: UIControl, Molecule {
         return view
     }()
 
+    private var shapePath: UIBezierPath {
+        return UIBezierPath(rect: self.bounds)
+    }
+
     private var size: SoramitsuButtonSize = .large
 
     init(style: SoramitsuStyle, size: SoramitsuButtonSize, type: SoramitsuButtonType = .filled(.primary)) {
@@ -76,33 +99,116 @@ public final class SoramitsuButton: UIControl, Molecule {
         fatalError("init(coder:) has not been implemented")
     }
 
-    /// Neon CTA fill (spec §8.4): only for primary and swap CTAs.
-    private var gradientLayer: CAGradientLayer?
-    /// Neon glow: a sublayer, so resetting the button's own shadow never removes it.
-    private var glowLayer: CALayer?
-    /// MINIMAL-tier stand-in for the glow (spec §4.0, §4.5).
-    private var ringLayer: NeonRingLayer?
-    private(set) var neonVariant: NeonVariant?
-    /// The label colour chosen by `updateView`, also applied to a caller's
-    /// attributed title on neon and disabled buttons.
-    private var titleColor: UIColor?
-
-    enum NeonVariant {
-        case primary
-        case swap
-    }
+    /// The cut glass of a filled button, made when the button is one: pads, links and disabled buttons
+    /// carry no glass and nothing of theirs follows the light.
+    private var glass: LitCutGlass?
+    private var plate: LitPlateLayer?
 
     override public func layoutSubviews() {
         super.layoutSubviews()
-        layoutNeonLayers()
+        applyMaterial()
+        // Shrinking is for a title too wide for its button. UIKit also shrinks a title to the height of its
+        // label, and a short button (a 24-point token chooser) gives its title less than a line: that title
+        // keeps its size, as it always has.
+        let hasItsLine = titleLabel.bounds.height + 0.5 >= titleLabel.intrinsicContentSize.height
+        if titleLabel.adjustsFontSizeToFitWidth != hasItsLine { titleLabel.adjustsFontSizeToFitWidth = hasItsLine }
     }
 
-    /// A glow is never drawn in a table or collection cell; that is only
-    /// known once the button is in a window.
-    public override func didMoveToWindow() {
-        super.didMoveToWindow()
-        guard window != nil, sora.glows, neonVariant != nil else { return }
-        applyNeonLayers(tokens: sora.supportsPaletteMode ? .current : .light)
+    public override var isHighlighted: Bool {
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            switch type {
+            case .text: break
+            case .filled:
+                // Cut glass is set down on the surface: it moves a point and its light tightens under it.
+                LitMotion.press(self, pressed: isHighlighted, scale: 1)
+                setNeedsLayout()
+            default: LitMotion.press(self, pressed: isHighlighted)
+            }
+        }
+    }
+
+    /// Filled buttons are cut glass of their own colour; surface-coloured ones are soft raised pads.
+    private func applyMaterial() {
+        let palette = sora.supportsPaletteMode ? sora.style.palette : LightPalette()
+        var isFilled = false
+        if case .filled = type { isFilled = true }
+        var isPlate = false
+        if case .bleached = type { isPlate = true }
+        if case .bgSurface? = sora.explicitBackgroundColor { isPlate = true }
+        var glassColor = palette.color(sora.explicitBackgroundColor ?? type.enabledBackgroundColor)
+        if isFilled, !isPlate {
+            let onLightPage = Self.luminance(of: palette.color(.bgPage)) > 0.5
+            switch Self.material(of: glassColor) {
+            // A clear filled button is a bare label with a glyph (a token chooser, a link): glass over
+            // nothing renders as smoked glass, so it gets no material at all.
+            case .bare: isFilled = false
+            // A white or page-coloured one is a pad, not white glass.
+            case .pad where onLightPage: isFilled = false; isPlate = true
+            // Ink-dark glass on a white page is a black control; the screen's action is red glass.
+            case .ink where onLightPage: glassColor = palette.color(.accentPrimary)
+            default: break
+            }
+        }
+        let requested = sora.style.radii.radius(sora.cornerRadius, size: bounds.size)
+        // Cut glass is a slab with small corners, whatever was asked for; a pad keeps the shape it was given
+        // (a PIN key is round).
+        let radius = isFilled && !isPlate ? Lit.controlRadius : requested
+        if isFilled, !isPlate {
+            layer.cornerRadius = min(radius, bounds.height / 2)
+            pressingView.layer.cornerRadius = layer.cornerRadius
+        }
+        if isFilled, !isPlate, isEnabled {
+            let face = glass ?? LitCutGlass()
+            glass = face
+            if face.layer.superlayer == nil { layer.insertSublayer(face.layer, at: 0) }
+            face.layout(in: self, radius: radius, color: glassColor, pressed: isHighlighted)
+            // The glass is the face; the flat fill under it would show round its cut edge.
+            backgroundColor = .clear
+            layer.masksToBounds = false
+        } else {
+            glass?.layer.removeFromSuperlayer()
+            glass = nil
+            if !isPlate { layer.shadowOpacity = 0 }
+        }
+        if isPlate, isEnabled, bounds.height > 0 {
+            let target = plate ?? LitPlateLayer()
+            if plate == nil {
+                plate = target
+                layer.insertSublayer(target, at: 0)
+            }
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            target.cornerRadiusValue = min(radius, bounds.height / 2)
+            target.elevation = 8
+            target.frame = bounds
+            CATransaction.commit()
+            layer.masksToBounds = false
+            layer.shadowOpacity = 0
+        } else {
+            plate?.removeFromSuperlayer()
+            plate = nil
+        }
+    }
+
+    enum Material: Equatable { case bare, pad, ink, glass }
+
+    /// What a filled button of this colour is made of.
+    static func material(of color: UIColor) -> Material {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard color.getRed(&r, green: &g, blue: &b, alpha: &a) else { return .glass }
+        if a < 0.2 { return .bare }
+        let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        let chroma = max(r, g, b) - min(r, g, b)
+        if chroma < 0.12, luminance > 0.82 { return .pad }
+        if chroma < 0.12, luminance < 0.3 { return .ink }
+        return .glass
+    }
+
+    static func luminance(of color: UIColor) -> CGFloat {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard color.getRed(&r, green: &g, blue: &b, alpha: &a) else { return 1 }
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
     }
 
     public override var isEnabled: Bool {
@@ -110,36 +216,6 @@ public final class SoramitsuButton: UIControl, Molecule {
             updateView()
         }
     }
-
-    public override var isHighlighted: Bool {
-        didSet {
-            guard isHighlighted != oldValue else { return }
-            let pressed = isHighlighted && isEnabled && neonVariant != nil
-            if let variant = neonVariant {
-                let tokens: NeonTokens = sora.supportsPaletteMode ? .current : .light
-                let spec = variant == .swap ? tokens.glowSwap : tokens.glowPrimary
-                glowLayer?.shadowOpacity = pressed ? spec.pressed : spec.rest
-            }
-            // Only the press scale this button applied itself is animated and
-            // always released, even if the tap disabled the button. A
-            // transform set by the caller is left alone.
-            if pressed, !UIAccessibility.isReduceMotionEnabled {
-                appliesPressScale = true
-                UIView.animate(withDuration: NeonMotion.press, delay: 0,
-                               options: [.allowUserInteraction, .beginFromCurrentState]) {
-                    self.transform = CGAffineTransform(scaleX: 0.98, y: 0.98)
-                }
-            } else if appliesPressScale {
-                appliesPressScale = false
-                UIView.animate(withDuration: NeonMotion.fast, delay: 0,
-                               options: [.allowUserInteraction, .beginFromCurrentState]) {
-                    self.transform = .identity
-                }
-            }
-        }
-    }
-
-    private var appliesPressScale = false
 
     func pressedAnimation() {
         UIView.animate(withDuration: 0.3,
@@ -158,216 +234,40 @@ public final class SoramitsuButton: UIControl, Molecule {
     }
 
     func updateView() {
-        let palette = sora.supportsPaletteMode ? sora.style.palette : LightPalette()
-        let tokens: NeonTokens = sora.supportsPaletteMode ? .current : .light
-
         if case .outlined = type {
             layer.borderWidth = 1
         }
 
-        if case .bleached = type {
-            sora.shadow = .default
-        }
+        let palette = sora.supportsPaletteMode ? sora.style.palette : LightPalette()
 
-        // A border the caller set wins over the type's border.
-        if let custom = sora.borderColor {
-            layer.borderColor = palette.color(custom).cgColor
-        } else {
-            let borderColor = isEnabled ? palette.color(type.tintColor)
-                : (type.disabledBorderColor.map { _ in tokens.hairline } ?? palette.color(type.tintColor))
-            layer.borderColor = borderColor.cgColor
-        }
+        let borderColor = palette.color((isEnabled ? type.tintColor : type.disabledBorderColor) ?? .fgPrimary).cgColor
+        layer.borderColor = borderColor
 
-        let explicit = sora.explicitBackgroundColor
-        neonVariant = isEnabled ? Self.neonVariant(for: type, explicitBackground: explicit) : nil
+        let soraBackgroundColor = isEnabled ? (sora.explicitBackgroundColor ?? type.enabledBackgroundColor)
+            : type.disabledBackgroundColor
+        let backgroundColor = isEnabled ? palette.color(soraBackgroundColor) : palette.color(soraBackgroundColor).withAlphaComponent(0.04)
+        sora.applyTypeBackground(.custom(uiColor: backgroundColor))
 
-        let backgroundColor: UIColor
-        let textColor: UIColor
-        if !isEnabled {
-            switch type {
-            case .filled, .bleached, .tonal: backgroundColor = tokens.ctaDisabled
-            case .outlined, .text: backgroundColor = .clear
-            }
-            textColor = tokens.textDisabled
-        } else if neonVariant != nil {
-            backgroundColor = .clear
-            textColor = tokens.onAccent
-        } else {
-            // Keep a background the caller chose (it used to be reset to
-            // the type's colour on every theme change or enable toggle).
-            let fill = explicit ?? type.enabledBackgroundColor
-            backgroundColor = palette.color(fill)
-            if case .filled = type, Self.isSurface(fill, palette: palette) {
-                // A filled button drawn on a surface or container colour:
-                // the ink/white "on accent" label would vanish there.
-                textColor = palette.color(sora.explicitTintColor ?? .fgPrimary)
-            } else {
-                textColor = palette.color(type.tintColor)
-            }
-        }
-        self.backgroundColor = backgroundColor
+        let soraColor = isEnabled ? type.tintColor : type.disabledTintColor
+        let textColor = isEnabled ? palette.color(soraColor) : palette.color(soraColor).withAlphaComponent(0.12)
+        let mainColor = isEnabled ? palette.color(soraColor) : palette.color(soraColor).withAlphaComponent(0.12)
 
-        // Images keep a tint the caller chose (they used to take the label
-        // colour after every theme change).
-        let imageTint: UIColor
-        if isEnabled, neonVariant == nil, let explicitTint = sora.explicitTintColor {
-            imageTint = palette.color(explicitTint)
-        } else {
-            imageTint = textColor
-        }
-        leftImageView.tintColor = imageTint
+        leftImageView.tintColor = mainColor
         titleLabel.sora.textColor = .custom(uiColor: textColor)
-        rightImageView.tintColor = imageTint
-        titleColor = textColor
-        refreshAttributedTitle()
+        rightImageView.tintColor = mainColor
 
         titleLabel.sora.font = size.font
 
-        let pressedColor: UIColor = neonVariant != nil
-            ? UIColor.black.withAlphaComponent(tokens.isDark ? 0.08 : 0.10)
-            : palette.color(type.pressedSublayerColor).withAlphaComponent(0.12)
-        pressingView.sora.backgroundColor = .custom(uiColor: pressedColor)
-
-        applyNeonLayers(tokens: tokens)
-    }
-
-    /// Shows the caller's attributed title. On a neon fill or a disabled
-    /// button its colours are replaced by the label colour: ink on neon in
-    /// dark, white in light, `text.disabled` when disabled (spec §2.6-1,
-    /// §7.1). Elsewhere the caller's colours are kept.
-    func refreshAttributedTitle() {
-        guard let source = sora.attributedText else { return }
-        guard let titleColor, neonVariant != nil || !isEnabled else {
-            titleLabel.sora.attributedText = source
-            return
-        }
-        let recoloured = NSMutableAttributedString(attributedString: source.attributedString)
-        recoloured.addAttribute(.foregroundColor, value: titleColor,
-                                range: NSRange(location: 0, length: recoloured.length))
-        titleLabel.sora.attributedText = recoloured
-    }
-
-    /// Page, surface, container or transparent fills (not an accent fill).
-    static func isSurface(_ color: SoramitsuColor, palette: Palette) -> Bool {
-        switch color {
-        case .bgPage, .bgSurface, .bgSurfaceVariant,
-             .accentPrimaryContainer, .accentSecondaryContainer, .accentTertiaryContainer,
-             .statusSuccessContainer, .statusWarningContainer, .statusErrorContainer, .statusInfoContainer,
-             .additionalPolkaswapContainer:
-            return true
-        case let .custom(uiColor):
-            return uiColor.cgColor.alpha < 0.5
-        default:
-            return false
-        }
-    }
-
-    static func neonVariant(for type: SoramitsuButtonType, explicitBackground: SoramitsuColor?) -> NeonVariant? {
-        guard case let .filled(style) = type else { return nil }
-        switch explicitBackground {
-        case nil:
-            return style == .primary ? .primary : nil
-        case .accentPrimary?:
-            return .primary
-        case .additionalPolkaswap?:
-            return .swap
-        default:
-            return nil
-        }
-    }
-
-    private func applyNeonLayers(tokens: NeonTokens) {
-        guard let variant = neonVariant else {
-            gradientLayer?.removeFromSuperlayer()
-            gradientLayer = nil
-            removeGlow()
-            return
-        }
-        let gradient = variant == .swap ? tokens.ctaSwap : tokens.ctaPrimary
-        let glow = variant == .swap ? tokens.glowSwap : tokens.glowPrimary
-        let fx = FxPolicy.current
-
-        let fill = gradientLayer ?? CAGradientLayer()
-        if gradientLayer == nil {
-            layer.insertSublayer(fill, at: 0)
-            gradientLayer = fill
-        }
-        fill.colors = gradient.cgColors
-        fill.locations = gradient.nsLocations
-        fill.startPoint = CGPoint(x: 0, y: 0.5)
-        fill.endPoint = CGPoint(x: 1, y: 0.5)
-
-        // Opt-in, one screen CTA per screen, never in a list (spec §4.5).
-        let showsGlow = sora.glows && fx.glows && !neonIsInsideListCell
-        if showsGlow, fx.tier != .minimal {
-            ringLayer?.removeFromSuperlayer()
-            ringLayer = nil
-            let halo = glowLayer ?? CALayer()
-            if glowLayer == nil {
-                layer.insertSublayer(halo, at: 0)
-                glowLayer = halo
-            }
-            halo.shadowColor = glow.color.cgColor
-            halo.shadowOpacity = isHighlighted ? glow.pressed : glow.rest
-            halo.shadowRadius = glow.blur / 2
-            halo.shadowOffset = CGSize(width: 0, height: glow.offsetY)
-        } else if showsGlow {
-            // MINIMAL tier: a ring in the glow colour instead of the blur.
-            glowLayer?.removeFromSuperlayer()
-            glowLayer = nil
-            let ring = ringLayer ?? NeonRingLayer()
-            if ringLayer == nil {
-                layer.addSublayer(ring)
-                ringLayer = ring
-            }
-            ring.apply(glow)
-        } else {
-            removeGlow()
-        }
-        applyClipping()
-        layoutNeonLayers()
-    }
-
-    private func removeGlow() {
-        glowLayer?.removeFromSuperlayer()
-        glowLayer = nil
-        ringLayer?.removeFromSuperlayer()
-        ringLayer = nil
-    }
-
-    /// The glow and the ring are drawn outside the button, so it must not clip.
-    func applyClipping() {
-        if glowLayer != nil || ringLayer != nil {
-            clipsToBounds = false
-        }
-    }
-
-    private func layoutNeonLayers() {
-        guard gradientLayer != nil || glowLayer != nil || ringLayer != nil else { return }
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        let radius = layer.cornerRadius
-        if let fill = gradientLayer {
-            fill.frame = bounds
-            fill.cornerRadius = radius
-            fill.cornerCurve = .continuous
-            fill.masksToBounds = true
-        }
-        if let halo = glowLayer {
-            halo.frame = bounds
-            halo.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: radius).cgPath
-        }
-        ringLayer?.layout(around: bounds, cornerRadius: radius)
-        CATransaction.commit()
+        pressingView.sora.backgroundColor = .custom(uiColor: palette.color(type.pressedSublayerColor).withAlphaComponent(0.12))
+        setNeedsLayout()
     }
 }
 
 private extension SoramitsuButton {
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        layer.cornerRadius = size.height / 2
-        layer.cornerCurve = .continuous
-        pressingView.layer.cornerRadius = size.height / 2
+        layer.cornerRadius = min(Lit.controlRadius, size.height / 2)
+        pressingView.layer.cornerRadius = layer.cornerRadius
         
         addSubview(pressingView)
         addSubview(stackView)
@@ -376,8 +276,10 @@ private extension SoramitsuButton {
         stackView.addArrangedSubview(titleLabel)
         stackView.addArrangedSubview(rightImageView)
         
-        horizontalConstaint = stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16)
-        
+        let side = stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16)
+        side.priority = Self.fittedSizePriority
+        horizontalConstaint = side
+
         leftImageSizeConstaint = leftImageView.heightAnchor.constraint(equalToConstant: 24)
         leftImageSizeConstaint?.isActive = true
         
@@ -390,15 +292,21 @@ private extension SoramitsuButton {
             pressingView.centerXAnchor.constraint(equalTo: centerXAnchor),
             pressingView.centerYAnchor.constraint(equalTo: centerYAnchor),
 
-            stackView.topAnchor.constraint(equalTo: topAnchor, constant: 4),
             stackView.centerXAnchor.constraint(equalTo: centerXAnchor),
             stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
             
             rightImageView.widthAnchor.constraint(equalTo: rightImageView.heightAnchor),
-            leftImageView.widthAnchor.constraint(equalTo: leftImageView.heightAnchor),
-
-            heightAnchor.constraint(equalToConstant: size.height)
+            leftImageView.widthAnchor.constraint(equalTo: leftImageView.heightAnchor)
         ])
+        // The content keeps four points from the top, unless the button has no height at all: a button hidden
+        // in a stack is collapsed to zero, and a required inset then asked its content for a height of minus eight.
+        let inset = stackView.topAnchor.constraint(equalTo: topAnchor, constant: 4)
+        inset.priority = UILayoutPriority(999)
+        inset.isActive = true
+        // The size's own height, unless the screen gives the button another one (a PIN key, a token chooser).
+        let height = heightAnchor.constraint(equalToConstant: size.height)
+        height.priority = Self.fittedSizePriority
+        height.isActive = true
     }
 }
 

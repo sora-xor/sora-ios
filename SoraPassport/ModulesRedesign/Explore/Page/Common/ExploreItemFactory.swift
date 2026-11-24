@@ -25,6 +25,8 @@ import IrohaCrypto
 final class ExploreItemFactory {
     let assetManager: AssetManagerProtocol
     let localizationManager = LocalizationManager.shared
+    /// Explore does not list tokens on the Polkaswap token blacklist.
+    var assetBlacklist: AssetBlacklistStoring = AssetBlacklistStore.shared
 
     init(assetManager: AssetManagerProtocol) {
         self.assetManager = assetManager
@@ -39,7 +41,8 @@ extension ExploreItemFactory {
         deltaPrice: LoadingState<SoramitsuAttributedText?>,
         marketCap: LoadingState<String>
     ) -> ExploreAssetViewModel? {
-        guard let assetInfo = assetManager.assetInfo(for: assetId) else { return nil }
+        guard let assetInfo = assetManager.assetInfo(for: assetId),
+              !assetBlacklist.current().hides(assetId: assetId) else { return nil }
         
         let fiatText = price.priceText()
         
@@ -52,6 +55,14 @@ extension ExploreItemFactory {
             icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
             deltaPrice: deltaPrice
         )
+    }
+
+    /// Whether Explore lists a pool: not when either token is on the Polkaswap token blacklist.
+    /// Liquidity the wallet already holds in such a pool stays in the wallet's own pool list,
+    /// where it can be managed and withdrawn.
+    func listsPool(baseAssetId: String, targetAssetId: String) -> Bool {
+        let blacklist = assetBlacklist.current()
+        return !blacklist.hides(assetId: baseAssetId) && !blacklist.hides(assetId: targetAssetId)
     }
 
     /// - Parameter apyLoaded: The APY read has finished. Without a rate to

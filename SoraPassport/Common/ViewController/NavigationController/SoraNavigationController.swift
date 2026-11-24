@@ -30,6 +30,14 @@ final class SoraNavigationController: UINavigationController, UINavigationContro
         return self.topViewController
     }
 
+    // The classic bars stay along the top and the bottom on every screen, an unfolded one included:
+    // the notched tab bar with its Polkaswap disc and the classic navigation bar have no vertical form.
+    @available(iOS 27.1, *)
+    override var preferredVerticalBarBehavior: UIVerticalBarBehavior { .disabled }
+
+    @available(iOS 27.1, *)
+    override var childForPreferredVerticalBarBehavior: UIViewController? { nil }
+
     private func setup() {
         delegate = self
     }
@@ -48,9 +56,9 @@ final class SoraNavigationController: UINavigationController, UINavigationContro
     }
 
     private func setupBackButtonItem(for viewController: UIViewController) {
-        let backButtonItem = viewController.navigationItem.backBarButtonItem ?? UIBarButtonItem()
-        backButtonItem.title = " "
-        viewController.navigationItem.backBarButtonItem = backButtonItem
+        // The chevron alone. A blank title would still widen the button's capsule on iOS 26 and later.
+        viewController.navigationItem.backBarButtonItem = nil
+        viewController.navigationItem.backButtonDisplayMode = .minimal
     }
 }
 

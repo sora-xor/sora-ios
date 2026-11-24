@@ -46,25 +46,9 @@ final class ExplorePoolsPageViewModel {
     private func createSnapshot(poolViewModels: [ExplorePoolViewModel] = []) -> ExplorePageSnapshot {
         var snapshot = ExplorePageSnapshot()
 
-        let title = R.string.localizable.discoveryPolkaswapPools(preferredLanguages: .currentLocale)
-        let subTitleText = R.string.localizable.exploreProvideAndEarn(preferredLanguages: .currentLocale)
-        let headerItem = HeaderItem(titleText: title, subTitleText: subTitleText)
-        
-        var sections = [ ExplorePageSection(items: [ .header(headerItem) ]) ]
-        
-        if poolViewModels.isEmpty {
-            let serialNumbers = Array(1...20)
-            let shimmersPoolItems = serialNumbers.map {
-                ExplorePoolItem(serialNumber: String($0), poolViewModel: ExplorePoolViewModel(serialNumber: String($0)))
-            }
-            
-            let shimmerSection = ExplorePageSection(items: shimmersPoolItems.map { .pool($0) })
-            sections.append(shimmerSection)
-        } else {
-            let poolItems = poolViewModels.map { ExplorePoolItem(serialNumber: $0.serialNumber, poolViewModel: $0) }
-            let poolSection = ExplorePageSection(items: poolItems.map { .pool($0) })
-            sections.append(poolSection)
-        }
+        let items = poolViewModels.map { ExplorePoolItem(serialNumber: $0.serialNumber, poolViewModel: $0) }
+        guard !items.isEmpty else { return snapshot }
+        let sections = [ExplorePageSection(items: items.map { .pool($0) })]
 
         snapshot.appendSections(sections)
         sections.forEach { snapshot.appendItems($0.items, toSection: $0) }
@@ -90,7 +74,7 @@ extension ExplorePoolsPageViewModel: ExplorePageViewModelProtocol {
     
     func setup() {
         setupSubscription()
-        snapshot = createSnapshot()
+        snapshot = createSnapshot(poolViewModels: poolViewModelsService.viewModels)
         poolViewModelsService.setup()
     }
     

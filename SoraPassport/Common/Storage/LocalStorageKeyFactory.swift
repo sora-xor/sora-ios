@@ -18,10 +18,6 @@
 import Foundation
 import SSFUtils
 
-enum LocalStorageKeyFactoryError: Error {
-    case invalidParams
-}
-
 protocol LocalStorageKeyFactoryProtocol {
     func createKey(from remoteKey: Data, key: String) throws -> String
 }

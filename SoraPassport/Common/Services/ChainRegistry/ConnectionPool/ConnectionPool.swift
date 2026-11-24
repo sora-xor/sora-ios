@@ -89,7 +89,7 @@ extension ConnectionPool: ConnectionPoolProtocol {
         preferredURLs[chain.chainId] = url
         let connection = connectionFactory.createConnection(for: url, delegate: self)
         let wrapper = WeakWrapper(target: connection)
-        Logger.shared.info("Connected node: \(url)")
+        Logger.shared.info("Connected node: \(Logger.redacted(url))")
         connectionsByChainIds[chain.chainId] = wrapper
 
         return connection

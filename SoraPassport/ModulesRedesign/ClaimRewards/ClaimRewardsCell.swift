@@ -34,14 +34,6 @@ final class ClaimRewardsCell: SoramitsuTableViewCell {
         return view
     }()
     
-    private let headerLabel: SoramitsuLabel = {
-        let label = SoramitsuLabel()
-        label.sora.font = FontType.headline2
-        label.sora.textColor = .fgPrimary
-        label.sora.text = R.string.localizable.claimRewards(preferredLanguages: .currentLocale)
-        return label
-    }()
-    
     private let rewardView: SoramitsuStackView = {
         let stackView = SoramitsuStackView()
         stackView.sora.backgroundColor = .custom(uiColor: .clear)
@@ -74,7 +66,6 @@ final class ClaimRewardsCell: SoramitsuTableViewCell {
         label.sora.textColor = .fgSecondary
         label.sora.alignment = .center
         label.sora.font = FontType.textBoldXS
-        label.sora.loadingPlaceholder.type = .shimmer
         label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
         return label
     }()
@@ -114,7 +105,6 @@ final class ClaimRewardsCell: SoramitsuTableViewCell {
         contentView.addSubview(containerView)
         
         containerView.addArrangedSubviews([
-            headerLabel,
             rewardView,
             stackView,
             claimButton
@@ -152,11 +142,9 @@ extension ClaimRewardsCell: CellProtocol {
         tokenImageView.image = item.image
         rewardLabel.sora.text = item.rewardText
         amountLabel.sora.text = item.amountText
-        amountLabel.sora.loadingPlaceholder.type = item.amountText.isEmpty ? .shimmer : .none
+        amountLabel.sora.isHidden = item.amountText.isEmpty
         claimButton.sora.isEnabled = item.claimPossible
-        if item.claimPossible {
-            claimButton.sora.backgroundColor = .additionalPolkaswap
-        }
+        claimButton.sora.backgroundColor = item.claimPossible ? .additionalPolkaswap : .bgSurfaceVariant
         
         
         stackView.arrangedSubviews.forEach { subview in
@@ -174,10 +162,10 @@ extension ClaimRewardsCell: CellProtocol {
             }
             
             view.titleLabel.sora.text = detailModel.title
-            view.titleLabel.sora.loadingPlaceholder.type = detailModel.title.isEmpty ? .shimmer : .none
+            view.titleLabel.sora.loadingPlaceholder.type = .none
             
             view.valueLabel.sora.attributedText = detailModel.assetAmountText
-            view.valueLabel.sora.loadingPlaceholder.type = detailModel.assetAmountText.text.isEmpty ? .shimmer : .none
+            view.valueLabel.sora.loadingPlaceholder.type = .none
             
             view.fiatValueLabel.sora.attributedText = detailModel.fiatAmountText
             view.fiatValueLabel.sora.isHidden = detailModel.fiatAmountText == nil
@@ -195,15 +183,11 @@ extension ClaimRewardsCell: CellProtocol {
                 view.progressView.isHidden = false
                 view.progressView.set(progressPercentage: float)
             }
-            view.isShimmerHidden = detailModel.infoHandler == nil
+            view.isShimmerHidden = true
             
             return view
         }
 
-        if let detailsView = detailsViews.first {
-            stackView.setCustomSpacing(14, after: detailsView)
-        }
-        
         detailsViews.enumerated().forEach { index, view in
             stackView.addArrangedSubview(view)
             

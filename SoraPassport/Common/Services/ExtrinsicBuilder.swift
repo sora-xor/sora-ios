@@ -176,12 +176,14 @@ extension ExtrinsicBuilder: ExtrinsicBuilderProtocol {
 
     public func with(shouldUseAtomicBatch: Bool) -> Self {
         self.shouldUseAtomicBatch = shouldUseAtomicBatch
+        self.signature = nil
         return self
     }
 
     public func adding<T: RuntimeCallable>(call: T) throws -> Self {
         let json: JSON = try call.toScaleCompatibleJSON()
         calls.append(json)
+        self.signature = nil
 
         return self
     }
@@ -189,6 +191,7 @@ extension ExtrinsicBuilder: ExtrinsicBuilderProtocol {
     public func adding(rawCall: Data) throws -> Self {
         let json = JSON.stringValue(rawCall.toHex())
         calls.append(json)
+        self.signature = nil
 
         return self
     }

@@ -43,6 +43,24 @@ final class LocalHistoryProjectionTests: XCTestCase {
     func testUnparseablePeerAddressIsPreservedForDisplay() throws { let value = try project(item(.transfer, call: Data(), receiver: "unrecognized-receiver")); XCTAssertEqual(value.peerId, "unrecognized-receiver"); XCTAssertEqual(value.peerName, "unrecognized-receiver") }
     func testDesiredInputSwapShowsInputAndMinimumOutputWithoutReversingTokens() throws { let value = try swap(); XCTAssertEqual(value.peerId, xor); XCTAssertEqual(value.assetId, val); XCTAssertEqual(Decimal(string: value.details), 2); XCTAssertEqual(value.amount.decimalValue, 7) }
     func testDesiredOutputSwapShowsMaximumInputAndDesiredOutput() throws { let value = try swap(.desiredOutput); XCTAssertEqual(Decimal(string: value.details), 7); XCTAssertEqual(value.amount.decimalValue, 2) }
+    /// A saved swap holds each amount in the units of its own asset (here 2 decimals for the input and 4 for the output).
+    func testSwapIsReadBackWithTheDecimalsOfEachOfItsAssets() throws {
+        let input = "0x" + String(repeating: "0a", count: 32), output = "0x" + String(repeating: "0b", count: 32)
+        func listed(_ id: String, _ precision: Int16) -> WalletAsset { WalletAsset(identifier: id, name: LocalizableResource { _ in id }, symbol: id, precision: precision) }
+        let assets = [asset, listed(input, 2), listed(output, 4)]
+        func read(_ variant: SwapVariant, desired: BigUInt, slip: BigUInt, assets: [WalletAsset]) throws -> AssetTransactionData {
+            let args = SwapCall(dexId: "0", inputAssetId: AssetId(wrappedValue: input), outputAssetId: AssetId(wrappedValue: output), amount: [variant: SwapAmount(type: variant, desired: desired, slip: slip)], liquiditySourceType: LiquiditySourceType.xyk.code, filterMode: FilterModeType(wrappedName: "AllowSelected", wrappedValue: 2))
+            return AssetTransactionData.createTransaction(from: try item(.swap, call: call(.swap, args)), address: try selfAddress, networkType: SNAddressType(chain: .sora), asset: asset, addressFactory: addressFactory, assets: assets)
+        }
+        let fixedInput = try read(.desiredInput, desired: 1001, slip: 24875, assets: assets)
+        XCTAssertEqual(fixedInput.peerId, input); XCTAssertEqual(fixedInput.assetId, output)
+        XCTAssertEqual(Decimal(string: fixedInput.details), Decimal(string: "10.01")); XCTAssertEqual(fixedInput.amount.decimalValue, Decimal(string: "2.4875"))
+        let fixedOutput = try read(.desiredOutput, desired: 25000, slip: 1007, assets: assets)
+        XCTAssertEqual(Decimal(string: fixedOutput.details), Decimal(string: "10.07")); XCTAssertEqual(fixedOutput.amount.decimalValue, Decimal(string: "2.5"))
+        // An asset the account does not list keeps the fee asset's decimals, as before.
+        let unlisted = try read(.desiredOutput, desired: one * 2, slip: one * 7, assets: [])
+        XCTAssertEqual(Decimal(string: unlisted.details), 7); XCTAssertEqual(unlisted.amount.decimalValue, 2)
+    }
     func testSwapRetainsItsSelectedXykMarket() throws { XCTAssertEqual(try swap(market: .xyk).peerName, LiquiditySourceType.xyk.rawValue) }
     func testSwapRetainsItsSelectedTbcMarket() throws { XCTAssertEqual(try swap(market: .tbc).peerName, LiquiditySourceType.tbc.rawValue) }
     func testSmartSwapRemainsUnrestricted() throws { XCTAssertEqual(try swap(market: .smart).peerName, LiquiditySourceType.smart.rawValue) }

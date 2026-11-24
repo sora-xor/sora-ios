@@ -10,6 +10,11 @@ public protocol EncryptionServiceProtocol {
 }
 
 public class EncryptionService: NSObject, EncryptionServiceProtocol {
+    // As in the app's Google Drive recovery path
+    // (`WalletCloudBackupRecoveryService.maximumBackupBytes`), a backup file
+    // has the same 1 MiB limit as each encrypted field.
+    static let maximumBackupBytes = ScryptParameters.maximumEncryptedLength
+
     public func getDecrypted(from message: String?, password: String) throws -> String? {
         guard let message = message else {
             return nil
@@ -18,9 +23,14 @@ public class EncryptionService: NSObject, EncryptionServiceProtocol {
             throw CloudStorageServiceError.incorectPassword
         }
 
-        let data = try Data(hexStringSSF: message)
-
-        let scryptParameters = try ScryptParameters(data: data)
+        // Two hex characters per byte, plus an optional "0x" prefix. The
+        // payload is checked before the key derivation and before slicing.
+        guard message.utf8.count <= 2 * ScryptParameters.maximumEncryptedLength + 2,
+              let data = try? Data(hexStringSSF: message),
+              let scryptParameters = ScryptParameters(boundedEncryptedData: data) else
+        {
+            throw CloudStorageServiceError.incorectJson
+        }
 
         let encryptionKey = try IRScryptKeyDeriviation()
             .deriveKey(

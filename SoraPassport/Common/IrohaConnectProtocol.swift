@@ -350,10 +350,22 @@ enum IrohaConnectSigningRequest: Equatable {
 struct IrohaConnectSigningReview {
     let request: IrohaConnectSigningRequest
     static let maximumMessageBytes = 4096
+    /// Iroha signs every transaction and query over its 32-byte `HashOf`
+    /// digest. A raw message of exactly that length could be such a digest
+    /// that happens to read as text, and its signature would approve the
+    /// transaction. Raw messages are signed with the account key until the
+    /// network supports a separate signing key, so that length is refused.
+    static let transactionDigestBytes = 32
+
+    var isTransactionDigestLength: Bool {
+        guard case let .raw(_, bytes) = request else { return false }
+        return bytes.count == Self.transactionDigestBytes
+    }
 
     var readableMessage: String? {
         guard case let .raw(_, bytes) = request,
               !bytes.isEmpty, bytes.count <= Self.maximumMessageBytes,
+              !isTransactionDigestLength,
               let text = String(data: bytes, encoding: .utf8),
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !text.unicodeScalars.contains(where: { scalar in
@@ -368,6 +380,8 @@ struct IrohaConnectSigningReview {
         switch request {
         case .transaction:
             return "This wallet cannot yet explain this transaction's actions, recipients, amounts, or permissions. It cannot be signed here. Return to the app and use a supported transfer flow."
+        case .raw where isTransactionDigestLength:
+            return "This message is exactly as long as a transaction fingerprint, so it cannot be signed here. Ask the app for a longer message."
         case .raw:
             return "This message cannot be shown completely as readable text. It cannot be signed here. Ask the app for a readable message."
         }

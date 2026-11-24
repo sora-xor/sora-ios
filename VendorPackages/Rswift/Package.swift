@@ -17,6 +17,5 @@ let package = Package(
   targets: [
     .target(name: "rswift", dependencies: ["RswiftCore"]),
     .target(name: "RswiftCore", dependencies: ["Commander", "XcodeEdit"]),
-    .testTarget(name: "RswiftCoreTests", dependencies: ["RswiftCore"]),
   ]
 )

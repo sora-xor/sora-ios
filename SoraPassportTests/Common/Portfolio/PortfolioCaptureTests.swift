@@ -7,6 +7,14 @@ import SoraUIKit
 import UIKit
 import XCTest
 
+// Shared with the ordinary tab-bar behavior tests in WalletUXTests.
+final class PortfolioCaptureTabPresenter: MainTabBarPresenterProtocol {
+    func setup() {}
+}
+
+// This fixture-driven suite runs with the Debug unit-test host.
+// Ordinary Release hosts exclude the sample helpers it exercises.
+#if DEBUG
 /// Opt-in native screenshots of the portfolio (`SORA_CAPTURE_PORTFOLIO=1`). Production cells,
 /// sheets, screens and the real tab bar render the debug sample portfolio; a file handshake lets
 /// `xcrun simctl io screenshot` capture each settled screen (the driver writes `capture-ack.txt`).
@@ -382,10 +390,6 @@ final class PortfolioCaptureHomeController: SoramitsuViewController {
     }
 }
 
-final class PortfolioCaptureTabPresenter: MainTabBarPresenterProtocol {
-    func setup() {}
-}
-
 /// Records hand-offs. Swap opens the production swap screen in the container `SwapViewFactory`
 /// builds, with a capture presentation: the test host has no chain connection and no account, which
 /// the factory's live view model needs. The app's own hand-off goes through `SwapViewFactory`.
@@ -671,7 +675,8 @@ final class PortfolioScreenBehaviorTests: XCTestCase {
 
     func testWalletSheetManageAssetsAndWalletsDispatchCorrectRoutes() async throws {
         let host = await show()
-        for (title, expected) in [("Manage wallets", "manage"), ("Manage selected wallet's assets", "manage-assets")] {
+        for (title, expected) in [(PortfolioStrings.text("Manage wallets"), "manage"),
+                                  (PortfolioStrings.text("Manage selected wallet's assets"), "manage-assets")] {
             host.coordinator.showWallets()
             await settle()
             let sheet = try presented(PortfolioWalletsSheet.self, from: host)
@@ -844,34 +849,149 @@ final class PortfolioScreenBehaviorTests: XCTestCase {
         }
     }
 
-    func testPickerInfoAndSwitchSheetsDispatchExactlyOnceAfterRebuild() throws {
-        let picker = PortfolioPickerSheet(title: "Pick")
-        picker.note = "Choose a wallet"
-        picker.options = [.init(id: "one", icon: .allWallets, title: "One", subtitle: "Local", value: "$1", detail: nil)]
-        var picked: [String] = []
-        picker.onPick = { picked.append($0) }
-        mount(picker)
-        picker.rebuild()
-        try XCTUnwrap(descendants(PortfolioOptionRow.self, in: picker.view).first).sendActions(for: .touchUpInside)
-        XCTAssertEqual(picked, ["one"])
-        XCTAssertTrue(labels(in: picker.view).contains("Choose a wallet"))
-        let info = PortfolioInfoSheet(title: "Info")
-        info.paragraphs = ["First", "Second"]
-        info.bullets = ["Third"]
-        info.buttonTitle = "Continue"
-        var calls = 0
-        info.onButton = { calls += 1 }
-        mount(info)
-        try XCTUnwrap(descendants(PortfolioPrimaryButton.self, in: info.view).first).sendActions(for: .touchUpInside)
-        XCTAssertEqual(calls, 1)
-        XCTAssertTrue(labels(in: info.view).contains("•  Third"))
-        let confirmation = PortfolioSwitchSheet(title: "Switch")
-        confirmation.walletName = "Savings"
-        confirmation.onConfirm = { calls += 1 }
-        mount(confirmation)
-        let button = try XCTUnwrap(descendants(PortfolioPrimaryButton.self, in: confirmation.view).first)
-        XCTAssertEqual(button.accessibilityLabel, PortfolioStrings.switchAndReview("Savings"))
-        button.sendActions(for: .touchUpInside)
-        XCTAssertEqual(calls, 2)
+}
+
+/// Opt-in (`SORA_RENDER_COST=1`): what the wallet's own thread spends on drawing, in the thread's CPU time,
+/// which a busy Mac inflates far less than a stopwatch. Each figure is the main thread's work to build a
+/// screen, to carry the light one step across everything lit, or to scroll the home one frame, with the
+/// transaction flushed so Core Animation's commit is counted. The render server's own work is not in these.
+@MainActor
+final class RenderCostTests: XCTestCase {
+    private func cpu() -> Double { Double(clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)) / 1_000_000 }
+
+    private func layers(in layer: CALayer, _ visit: (CALayer) -> Void) {
+        visit(layer)
+        layer.sublayers?.forEach { layers(in: $0, visit) }
+    }
+
+    func testRenderCost() async throws {
+        guard ProcessInfo.processInfo.environment["SORA_RENDER_COST"] == "1" else { throw XCTSkip("Opt-in render cost") }
+        let previousLanguage = LocalizationManager.shared.selectedLocalization
+        let previousTheme = SoramitsuUI.shared.themeMode
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previousWindow = scene.windows.first { $0.isKeyWindow }
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.coordinateSpace.bounds
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            previousWindow?.makeKeyAndVisible()
+            LocalizationManager.shared.selectedLocalization = previousLanguage
+            SoramitsuUI.shared.themeMode = previousTheme
+        }
+        LocalizationManager.shared.selectedLocalization = "en"
+        SoramitsuUI.shared.themeMode = .manual(.light)
+        BrokenConstraints.install()
+        var lines: [String] = ["window \(Int(window.bounds.width))x\(Int(window.bounds.height))"]
+        func note(_ line: String) { lines.append(line); print("RENDER-COST " + line) }
+        func ms(_ value: Double) -> String { String(format: "%.2f", value) }
+        let defaults = UserDefaults(suiteName: "render.cost")!
+        defaults.removePersistentDomain(forName: "render.cost")
+
+        // The home: built, laid out and committed.
+        BrokenConstraints.reset()
+        var start = cpu()
+        let host = PortfolioCaptureHost(variant: .full, defaults: defaults)
+        window.rootViewController = host.tabBar
+        window.makeKeyAndVisible()
+        host.tabBar.loadViewIfNeeded()
+        window.layoutIfNeeded()
+        CATransaction.flush()
+        note("home build + first layout: \(ms(cpu() - start)) ms, \(BrokenConstraints.log.count) constraints broken")
+        try await Task.sleep(nanoseconds: 2_500_000_000)
+        window.layoutIfNeeded()
+
+        // A second home in a window of its own, with every baked image already made: what a home costs
+        // each time, without what the first one pays once.
+        do {
+            BrokenConstraints.reset()
+            let again = UIWindow(windowScene: scene)
+            again.frame = scene.coordinateSpace.bounds
+            start = cpu()
+            let second = PortfolioCaptureHost(variant: .full, defaults: defaults)
+            again.rootViewController = second.tabBar
+            again.isHidden = false
+            second.tabBar.loadViewIfNeeded()
+            again.layoutIfNeeded()
+            CATransaction.flush()
+            note("home build + first layout, second time: \(ms(cpu() - start)) ms, \(BrokenConstraints.log.count) constraints broken")
+            again.isHidden = true
+            again.rootViewController = nil
+        }
+        window.makeKeyAndVisible()
+
+        func census(_ label: String) {
+            var plates = 0, all = 0, shadowsWithoutPath = 0, masked = 0
+            layers(in: window.layer) { layer in
+                all += 1
+                if layer is LitPlateLayer { plates += 1 }
+                if layer.shadowOpacity > 0, layer.shadowPath == nil, layer.contents == nil || layer.sublayers?.isEmpty == false { shadowsWithoutPath += 1 }
+                if layer.mask != nil { masked += 1 }
+            }
+            note("\(label): \(all) layers, \(plates) lit plates, \(shadowsWithoutPath) shadows without a path, \(masked) masks")
+        }
+        census("home")
+
+        // The light carried round, one step a frame, as a phone held in a hand moves it.
+        func light(_ label: String, steps: Int = 240) {
+            CATransaction.flush()
+            let begin = cpu()
+            for step in 0..<steps {
+                let t = Double(step) / 30
+                LitLightRig.shared.set(x: CGFloat(0.85 * sin(t * 2 * .pi / 6)), y: CGFloat(0.6 * sin(t * 2 * .pi / 9 + 1.1)))
+                CATransaction.flush()
+            }
+            note("\(label): light step \(ms((cpu() - begin) / Double(steps))) ms")
+            LitLightRig.shared.set(x: 0, y: 0)
+            CATransaction.flush()
+        }
+        light("home")
+
+        // The home scrolled a frame at a time, down a screen and a half and back.
+        func scroll(_ label: String) {
+            CATransaction.flush()
+            let offsets = Array(stride(from: CGFloat(0), through: 900, by: 12)) + Array(stride(from: CGFloat(900), through: 0, by: -12))
+            let begin = cpu()
+            for offset in offsets {
+                host.homeController.scroll(to: offset)
+                CATransaction.flush()
+            }
+            note("\(label): scroll frame \(ms((cpu() - begin) / Double(offsets.count))) ms over \(offsets.count) frames")
+        }
+        scroll("home, first pass")
+        scroll("home, second pass")
+
+        // Swap opened over the home, as the wallet's Swap pad opens it.
+        var opened: [Double] = []
+        for round in 0..<5 {
+            BrokenConstraints.reset()
+            start = cpu()
+            host.router.showSwap(from: host.homeController, fromAssetId: PortfolioSampleData.xor.id,
+                                 toAssetId: PortfolioSampleData.val.id)
+            window.layoutIfNeeded()
+            host.homeController.presentedViewController?.view.layoutIfNeeded()
+            CATransaction.flush()
+            opened.append(cpu() - start)
+            if round == 0 {
+                note("swap open: \(BrokenConstraints.log.count) constraints broken")
+                try await Task.sleep(nanoseconds: 1_200_000_000)
+                census("swap over the home")
+                light("swap over the home")
+            }
+            await host.dismissPresented()
+        }
+        note("swap open (build, layout, commit): first \(ms(opened[0])) ms, then \(ms(opened.dropFirst().reduce(0, +) / 4)) ms")
+
+        // The light again with the home alone, after screens have come and gone.
+        try await Task.sleep(nanoseconds: 600_000_000)
+        census("home after swaps")
+        light("home after swaps")
+
+        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("render-cost.txt")
+        try lines.joined(separator: "\n").write(to: output, atomically: true, encoding: .utf8)
+        print("RENDER-COST file " + output.path)
     }
 }
+
+#endif

@@ -1,3 +1,6 @@
+// This fixture-driven suite runs with the Debug unit-test host.
+// Ordinary Release hosts exclude the sample or evidence helpers it exercises.
+#if DEBUG
 // SPDX-License-Identifier: Apache-2.0
 import Darwin
 import Foundation
@@ -165,3 +168,5 @@ final class RetainedEvidenceFileBoundaryTests: XCTestCase {
         XCTAssertTrue(controller.view.subviews.allSatisfy { !($0 is UIControl) })
     }
 }
+
+#endif

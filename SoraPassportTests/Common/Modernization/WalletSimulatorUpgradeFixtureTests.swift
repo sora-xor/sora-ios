@@ -173,6 +173,8 @@ final class WalletSimulatorUpgradeFixtureTests: XCTestCase {
             // Verbatim released 1.x application tags and raw bytes from original Iroha.
             try keys.saveKey(Data(hex: XCTUnwrap(old["entropyHex"] as? String)), with: "seedEntropy")
             if caseName == "one-x" { try keys.saveKey(Data(hex: XCTUnwrap(old["secretKeyHex"] as? String)), with: "privateKey") }
+            // A released 1.x installation predates the selected-account preference.
+            SettingsManager.shared.removeValue(for: SettingsKey.selectedAccount.rawValue)
             SettingsManager.shared.set(value: "Public legacy fixture", for: "userName")
             expectedRoute = "legacy"
             let substrate = try XCTUnwrap(vectors("ios-386-long-phrases").first)
@@ -261,7 +263,7 @@ final class WalletSimulatorUpgradeFixtureTests: XCTestCase {
         if caseName == "unreachable-node" {
             SettingsManager.shared.lastSuccessfulUrl = URL(string: "wss://127.0.0.1:1")
         }
-        if ["reinstall", "bound-reinstall", "missing-db", "new-phone"].contains(caseName) {
+        if ["reinstall", "bound-reinstall", "new-phone"].contains(caseName) {
             try FileManager.default.removeItem(at: UserStorageParams.storageDirectoryURL)
             expectedRows = caseName == "bound-reinstall"
             expectedSigning = caseName == "bound-reinstall"
@@ -272,14 +274,28 @@ final class WalletSimulatorUpgradeFixtureTests: XCTestCase {
                 expectedRoute = "onboarding"
             }
         }
-        if caseName == "pinless" { expectedRoute = "recovery" }
+        // An update asks nothing: each of these opens the same wallet behind
+        // its PIN (a wallet that never saved a PIN gets PIN setup, as in 3.8.6).
+        if caseName == "missing-db" {
+            try FileManager.default.removeItem(at: UserStorageParams.storageDirectoryURL)
+        }
         if caseName == "corrupt-db" {
             try FileManager.default.removeItem(at: UserStorageParams.storageDirectoryURL)
             try FileManager.default.createDirectory(at: UserStorageParams.storageDirectoryURL, withIntermediateDirectories: true)
             try Data("public corrupt database fixture".utf8).write(to: UserStorageParams.storageURL)
-            expectedRows = false
-            expectedSigning = false
-            expectedRoute = "recovery"
+        }
+        if caseName == "empty-db" || caseName == "stuck-on-screen" {
+            try FileManager.default.removeItem(at: UserStorageParams.storageDirectoryURL)
+            try FileManager.default.createDirectory(at: UserStorageParams.storageDirectoryURL, withIntermediateDirectories: true)
+            try writeRows([], version: .version2)
+            if caseName == "stuck-on-screen" {
+                // What an earlier version left when it showed "We paused to
+                // keep your wallet safe" for this state.
+                let cause = UserStorageMigrationError.missingWalletStore
+                SettingsManager.shared.setWalletMigrationRecovery(
+                    reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: cause))
+                WalletStartupDiagnostic.record(cause, phase: .databaseMigration, settings: SettingsManager.shared)
+            }
         }
         // For two real uninstalls, the original app PIN is expected to change;
         // the complete original wallet A material and its owner binding are not.
@@ -301,10 +317,9 @@ final class WalletSimulatorUpgradeFixtureTests: XCTestCase {
         var receipt: [String: Any] = ["case": caseName, "scope": "simulator-source-qualification", "releaseAuthorized": false,
             "expectedRoute": expectedRoute, "expectedSigning": expectedSigning, "expectedRows": expectedRows,
             "originalKeySHA256": hashes, "accounts": accountsJSON, "plantedHelpers": plantedHelpers,
-            "historicalWriter": "354f176c", "publicFixturePIN": pin]
+            "historicalWriter": "354f176c"]
         if caseName == "two-reinstalls" {
             receipt["originalAccounts"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(accounts))
-            receipt["newPublicFixturePIN"] = replacementPIN
         }
         if caseName == "erase-restore" {
             receipt["restoreScope"] = "simulator filesystem app-data restore; not physical iCloud or device-only Keychain migration"
@@ -386,7 +401,6 @@ final class WalletSimulatorUpgradeFixtureTests: XCTestCase {
             XCTAssertFalse(try keys.allKeyIdentifiers().contains { $0.hasPrefix("wallet.preservedReturn.") })
             XCTAssertTrue(WalletPreservedGeneration.available(paths: paths, settings: SettingsManager.shared).isEmpty)
             receipt["returnedGeneration"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(manifest))
-            receipt["newPublicFixturePIN"] = replacementPIN
             try JSONSerialization.data(withJSONObject: receipt, options: [.prettyPrinted, .sortedKeys])
                 .write(to: receiptURL, options: .atomic)
         }
@@ -406,15 +420,9 @@ final class WalletSimulatorUpgradeFixtureTests: XCTestCase {
                     XCTAssertEqual(account.publicKeyData, expected.first { $0.address == account.address }?.publicKeyData)
                 }
                 if caseName == "pinless" {
-                    XCTAssertTrue(SettingsManager.shared.walletMigrationRecoveryRequired)
-                    XCTAssertFalse(try keys.checkKey(for: KeystoreTag.pincode.rawValue))
-                    XCTAssertFalse(try keys.checkKey(for: account.address + WalletOwnerPIN.bindingSuffix))
-                    XCTAssertThrowsError(try WalletRecoveryCapabilityGate.shared.requireMutableWalletAccess())
-                    let secret = try XCTUnwrap(keys.fetchSecretKeyForAddress(account.address))
-                    XCTAssertThrowsError(try LegacySoraIdentityValidator.validateSigningSecret(address: account.address,
-                        publicKey: account.publicKeyData, cryptoType: account.cryptoType,
-                        networkType: account.networkType, secret: secret, recoveryGate: .shared))
-                    continue
+                    // PIN setup ran, as in App Store 3.8.6, and the typed PIN owns the wallet.
+                    XCTAssertEqual(try keys.fetchKey(for: KeystoreTag.pincode.rawValue), Data(pin.utf8))
+                    XCTAssertTrue(try keys.checkKey(for: account.address + WalletOwnerPIN.bindingSuffix))
                 }
                 if receipt["expectedSigning"] as? Bool == true {
                     var secret = try XCTUnwrap(keys.fetchSecretKeyForAddress(account.address))
@@ -439,7 +447,7 @@ final class WalletSimulatorUpgradeFixtureTests: XCTestCase {
             }
             try SimulatorReleased386Startup.verify(accounts: oldRows, keys: keys,
                 canSign: receipt["expectedSigning"] as? Bool == true)
-            XCTAssertEqual(SettingsManager.shared.walletMigrationRecoveryRequired, caseName == "pinless")
+            XCTAssertFalse(SettingsManager.shared.walletMigrationRecoveryRequired)
         }
         print("SIMULATOR_FIXTURE_VERIFIED \(caseName): original key bytes, public identity, phrase/signing capability where applicable")
     }

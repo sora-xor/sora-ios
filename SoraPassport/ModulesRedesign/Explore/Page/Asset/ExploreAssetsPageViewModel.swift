@@ -69,11 +69,15 @@ final class ExploreAssetsPageViewModel {
     var assetViewModelsService: ExploreAssetViewModelService
     private var loading: Task<Void, Never>?
     private var pricesObserver: NSObjectProtocol?
+    private var blacklistObserver: NSObjectProtocol?
 
     deinit {
         loading?.cancel()
         if let pricesObserver {
             NotificationCenter.default.removeObserver(pricesObserver)
+        }
+        if let blacklistObserver {
+            NotificationCenter.default.removeObserver(blacklistObserver)
         }
     }
 
@@ -86,25 +90,9 @@ final class ExploreAssetsPageViewModel {
     private func createSnapshot(assetViewModels: [ExploreAssetViewModel] = []) -> ExplorePageSnapshot {
         var snapshot = ExplorePageSnapshot()
 
-        let title = R.string.localizable .commonCurrencies(preferredLanguages: .currentLocale)
-        let subTitleText = R.string.localizable.exploreSwapTokensOnSora(preferredLanguages: .currentLocale)
-        let headerItem = HeaderItem(titleText: title, subTitleText: subTitleText)
-        
-        var sections = [ ExplorePageSection(items: [ .header(headerItem) ]) ]
-        
-        if assetViewModels.isEmpty {
-            let serialNumbers = Array(1...20)
-            let shimmersAssetItems = serialNumbers.map {
-                ExploreAssetItem(serialNumber: String($0), assetViewModel: ExploreAssetViewModel(serialNumber: String($0)))
-            }
-            
-            let shimmerSection = ExplorePageSection(items: shimmersAssetItems.map { .asset($0) })
-            sections.append(shimmerSection)
-        } else {
-            let assetItems = assetViewModels.map { ExploreAssetItem(serialNumber: $0.serialNumber, assetViewModel: $0) }
-            let assetSection = ExplorePageSection(items: assetItems.map { .asset($0) })
-            sections.append(assetSection)
-        }
+        let items = assetViewModels.map { ExploreAssetItem(serialNumber: $0.serialNumber, assetViewModel: $0) }
+        guard !items.isEmpty else { return snapshot }
+        let sections = [ExplorePageSection(items: items.map { .asset($0) })]
 
         snapshot.appendSections(sections)
         sections.forEach { snapshot.appendItems($0.items, toSection: $0) }
@@ -119,12 +107,22 @@ extension ExploreAssetsPageViewModel: ExplorePageViewModelProtocol {
     }
     
     func setup() {
-        snapshot = createSnapshot()
+        snapshot = createSnapshot(assetViewModels: assetViewModelsService.viewModels)
         loadAssets()
         if pricesObserver == nil {
             // Prices arrived or were refreshed: list the assets again.
             pricesObserver = NotificationCenter.default.addObserver(
                 forName: PICatalogs.pricesDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadAssets()
+            }
+        }
+        if blacklistObserver == nil {
+            // A new Polkaswap token blacklist: list the assets again, here and in search.
+            blacklistObserver = NotificationCenter.default.addObserver(
+                forName: AssetBlacklistStore.didChange,
                 object: nil,
                 queue: .main
             ) { [weak self] _ in

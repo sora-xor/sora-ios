@@ -76,8 +76,8 @@ final class PortfolioLensCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
 final class PortfolioSegmentedControl: UIView {
     var onSelect: ((Int) -> Void)?
 
-    private let background = GlassView()
-    private let pill = UIView()
+    private let background = PortfolioPressedWell()
+    private let pill = GlassView()
     private let stack = UIStackView()
     private var buttons: [UIButton] = []
     private var selectedIndex = 0
@@ -86,9 +86,9 @@ final class PortfolioSegmentedControl: UIView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        background.shape = .capsule
         background.isUserInteractionEnabled = false
-        pill.layer.cornerCurve = .continuous
+        pill.shape = .capsule
+        pill.elevation = 6
         pill.isUserInteractionEnabled = false
         stack.axis = .horizontal
         stack.distribution = .fillEqually
@@ -119,7 +119,11 @@ final class PortfolioSegmentedControl: UIView {
 
     func configure(titles: [String], selected: Int, animated: Bool) {
         if buttons.map({ $0.title(for: .normal) ?? "" }) != titles {
-            buttons.forEach { $0.removeFromSuperview() }
+            // A replaced choice is disconnected as well as removed, so it can never act for the new list.
+            buttons.forEach {
+                $0.removeTarget(self, action: nil, for: .allEvents)
+                $0.removeFromSuperview()
+            }
             buttons = titles.enumerated().map { index, title in
                 let button = UIButton(type: .custom)
                 button.setTitle(title, for: .normal)
@@ -128,6 +132,7 @@ final class PortfolioSegmentedControl: UIView {
                 button.titleLabel?.adjustsFontSizeToFitWidth = true
                 button.titleLabel?.minimumScaleFactor = 0.7
                 button.tag = index
+                button.accessibilityLabel = title
                 button.accessibilityTraits = .button
                 button.addTarget(self, action: #selector(tapped(_:)), for: .touchUpInside)
                 stack.addArrangedSubview(button)
@@ -154,24 +159,11 @@ final class PortfolioSegmentedControl: UIView {
 
     private func applyColors() {
         let tokens = PortfolioTheme.tokens
-        background.apply()
-        pill.backgroundColor = PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.12) : tokens.surface
-        pill.layer.borderWidth = 1
-        pill.layer.borderColor = (PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.16) : tokens.hairline).cgColor
-        pill.layer.shadowColor = UIColor.black.cgColor
-        pill.layer.shadowOpacity = PortfolioTheme.isDark ? 0 : 0.08
-        pill.layer.shadowRadius = 6
-        pill.layer.shadowOffset = CGSize(width: 0, height: 2)
         for (index, button) in buttons.enumerated() {
             let selected = index == selectedIndex
             button.setTitleColor(selected ? tokens.textPrimary : tokens.textSecondary, for: .normal)
             button.accessibilityTraits = selected ? [.button, .selected] : .button
         }
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        pill.layer.cornerRadius = pill.bounds.height / 2
     }
 
     @objc private func tapped(_ sender: UIButton) {
@@ -220,24 +212,54 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
     private let stack = UIStackView()
     private let emptyLabel = UILabel.portfolio(FontType.paragraphS, .subheadline, color: PortfolioTheme.textSecondary,
                                                lines: 0)
+    /// "Assets", the card's title, styled like "XOR on other networks" below it.
+    private let titleLabel = UILabel.portfolio(FontType.headline2, .title3, maximum: 32)
+    private var hasEntered = false
+    private let header = UIView()
+    private let emptyView = UIView()
+    /// While balances are read: rows drawn as they will stand, with light passing over them, not a sentence.
+    private let shimmer = PortfolioShimmerRowsView()
+    private var rowViews: [String: PortfolioRowView] = [:]
+    private var wellViews: [String: PortfolioWellView] = [:]
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         backgroundColor = .clear
         contentView.backgroundColor = .clear
         selectionStyle = .none
-        card.shape = .rounded(24)
+        card.shape = .rounded(26)
         card.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(card)
         stack.axis = .vertical
         stack.translatesAutoresizingMaskIntoConstraints = false
         card.contentView.addSubview(stack)
         emptyLabel.textAlignment = .center
+        titleLabel.adjustsFontSizeToFitWidth = true
+        titleLabel.minimumScaleFactor = 0.8
+        titleLabel.accessibilityTraits = .header
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        header.addSubview(titleLabel)
+        emptyLabel.translatesAutoresizingMaskIntoConstraints = false
+        emptyView.addSubview(emptyLabel)
+        // Rows come and go inside the cell (balances read, a lens changed) and are laid out at once, while the
+        // cell still has the height the table gave it for the old rows; the table measures it again right after
+        // (`onHeightChange`). Just under required, the card's bottom gives way for that moment, instead of Auto
+        // Layout breaking rows' own constraints (116 of them on every home build, at every size).
+        let cardBottom = card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12)
+        cardBottom.priority = UILayoutPriority(999)
         NSLayoutConstraint.activate([
+            titleLabel.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 16),
+            titleLabel.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -16),
+            titleLabel.topAnchor.constraint(equalTo: header.topAnchor, constant: 12),
+            titleLabel.bottomAnchor.constraint(equalTo: header.bottomAnchor, constant: -2),
+            emptyLabel.leadingAnchor.constraint(equalTo: emptyView.leadingAnchor, constant: 20),
+            emptyLabel.trailingAnchor.constraint(equalTo: emptyView.trailingAnchor, constant: -20),
+            emptyLabel.topAnchor.constraint(equalTo: emptyView.topAnchor, constant: 22),
+            emptyLabel.bottomAnchor.constraint(equalTo: emptyView.bottomAnchor, constant: -22),
             card.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
             card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             card.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
+            cardBottom,
             stack.topAnchor.constraint(equalTo: card.contentView.topAnchor, constant: 6),
             stack.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor),
@@ -276,37 +298,62 @@ final class PortfolioListCell: SoramitsuTableViewCell, SoramitsuTableViewCellPro
         item.onHeightChange?()
     }
 
+    /// Rows stay the same views across updates and are named in `accessibilityElements`:
+    /// `PortfolioOtherNetworksCell.reload()` says why.
     private func rebuild(_ model: PortfolioListModel) {
-        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         card.apply()
-        if let empty = model.emptyText {
+        titleLabel.attributedText = NSAttributedString(string: PortfolioStrings.assets, attributes: [
+            .font: titleLabel.font as Any, .foregroundColor: PortfolioTheme.textPrimary
+        ])
+        var availableRows = rowViews
+        var availableWells = wellViews
+        rowViews = [:]
+        wellViews = [:]
+        var views: [UIView] = [header]
+        var elements: [UIView] = [titleLabel]
+        if let empty = model.emptyText, empty == PortfolioStrings.readingBalances {
+            shimmer.accessibilityLabel = empty
+            views.append(shimmer)
+            elements.append(shimmer)
+        } else if let empty = model.emptyText {
             emptyLabel.text = empty
             emptyLabel.textColor = PortfolioTheme.textSecondary
-            let wrapper = UIView()
-            emptyLabel.translatesAutoresizingMaskIntoConstraints = false
-            wrapper.addSubview(emptyLabel)
-            NSLayoutConstraint.activate([
-                emptyLabel.leadingAnchor.constraint(equalTo: wrapper.leadingAnchor, constant: 20),
-                emptyLabel.trailingAnchor.constraint(equalTo: wrapper.trailingAnchor, constant: -20),
-                emptyLabel.topAnchor.constraint(equalTo: wrapper.topAnchor, constant: 22),
-                emptyLabel.bottomAnchor.constraint(equalTo: wrapper.bottomAnchor, constant: -22)
-            ])
-            stack.addArrangedSubview(wrapper)
-            return
-        }
-        for (index, row) in model.rows.enumerated() {
-            let rowView = PortfolioRowView()
-            rowView.configure(row, showsSeparator: index > 0)
-            rowView.onTap = { [weak self] in self?.item?.onRow?(row) }
-            rowView.onCustomAction = { [weak self] action in self?.item?.onRowAction?(row, action) }
-            stack.addArrangedSubview(rowView)
-            if row.isExpanded {
-                let well = PortfolioWellView()
-                well.configure(row.children, link: row.link)
-                well.onChild = { [weak self] child in self?.item?.onChild?(child) }
-                well.onLink = { [weak self] in self?.item?.onLink?(row) }
-                stack.addArrangedSubview(well)
+            views.append(emptyView)
+            elements.append(emptyLabel)
+        } else {
+            let entering = !hasEntered && !model.rows.isEmpty && window != nil && FxPolicy.current.litMotion
+            if entering { hasEntered = true }
+            for (index, row) in model.rows.enumerated() {
+                let rowView = availableRows.removeValue(forKey: row.key) ?? PortfolioRowView()
+                rowView.configure(row, showsSeparator: index > 0)
+                rowView.onTap = { [weak self] in self?.item?.onRow?(row) }
+                rowView.onCustomAction = { [weak self] action in self?.item?.onRowAction?(row, action) }
+                rowViews[row.key] = rowView
+                views.append(rowView)
+                elements.append(rowView)
+                if entering, index < 8 { LitMotion.rise(rowView, by: 10, after: 0.04 * Double(index)) }
+                if row.isExpanded {
+                    let well = availableWells.removeValue(forKey: row.key) ?? PortfolioWellView()
+                    well.configure(row.children, link: row.link)
+                    well.onChild = { [weak self] child in self?.item?.onChild?(child) }
+                    well.onLink = { [weak self] in self?.item?.onLink?(row) }
+                    wellViews[row.key] = well
+                    views.append(well)
+                    elements.append(contentsOf: well.elements)
+                }
             }
+        }
+        stack.portfolioArrange(views)
+        accessibilityElements = elements
+    }
+}
+
+extension UIStackView {
+    /// Makes `views` the arranged subviews, in this order, and leaves alone those already in place.
+    func portfolioArrange(_ views: [UIView]) {
+        arrangedSubviews.filter { !views.contains($0) }.forEach { $0.removeFromSuperview() }
+        for (index, view) in views.enumerated() where index >= arrangedSubviews.count || arrangedSubviews[index] !== view {
+            insertArrangedSubview(view, at: index)
         }
     }
 }
@@ -323,7 +370,7 @@ final class PortfolioRowView: UIControl {
     var onTap: (() -> Void)?
     var onCustomAction: ((PortfolioQuickAction?) -> Void)?
 
-    private let separator = UIView()
+    private let separator = LitEngravedLine()
     private let icon = PortfolioTokenIconView(size: 40)
     private let title = UILabel.portfolio(FontType.textBoldM, .body, maximum: 30)
     private let change = UILabel.portfolio(FontType.textBoldXS, .caption1, maximum: 20)
@@ -371,6 +418,9 @@ final class PortfolioRowView: UIControl {
         subtitle.setContentCompressionResistancePriority(.defaultHigh + 1, for: .horizontal)
         subtitle.adjustsFontSizeToFitWidth = true
         subtitle.minimumScaleFactor = 0.85
+        // A long token name beside a long value takes a second line on a narrow phone instead of being
+        // cut ("SORA Validator To…" on an iPhone SE and on 393-point phones).
+        subtitle.numberOfLines = 2
         detail.setContentCompressionResistancePriority(.defaultHigh - 1, for: .horizontal)
         detail.adjustsFontSizeToFitWidth = true
         detail.minimumScaleFactor = 0.75
@@ -387,8 +437,8 @@ final class PortfolioRowView: UIControl {
         NSLayoutConstraint.activate([
             separator.topAnchor.constraint(equalTo: topAnchor),
             separator.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 70),
-            separator.trailingAnchor.constraint(equalTo: trailingAnchor),
-            separator.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
+            separator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            separator.heightAnchor.constraint(equalToConstant: 2),
             main.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             main.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
             main.topAnchor.constraint(equalTo: topAnchor, constant: 14),
@@ -406,9 +456,8 @@ final class PortfolioRowView: UIControl {
     }
 
     func configure(_ row: PortfolioRow, showsSeparator: Bool) {
-        self.row = row
         let tokens = PortfolioTheme.tokens
-        separator.backgroundColor = tokens.hairline
+        defer { self.row = row }
         separator.isHidden = !showsSeparator
         icon.configure(row.icon)
         title.text = row.title
@@ -431,7 +480,15 @@ final class PortfolioRowView: UIControl {
         detail.textColor = tokens.textSecondary
         chevron.isHidden = !row.isExpandable
         chevron.image = PortfolioGlyphs.symbol("chevron.down", pointSize: 13, color: tokens.textSecondary)
-        chevron.transform = row.isExpanded ? CGAffineTransform(rotationAngle: .pi) : .identity
+        // The chevron turns over as the row opens.
+        let turned: CGAffineTransform = row.isExpanded ? CGAffineTransform(rotationAngle: .pi) : .identity
+        if self.row?.key == row.key, window != nil, LitMotion.allowed {
+            UIView.animate(withDuration: 0.34, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0) {
+                self.chevron.transform = turned
+            }
+        } else {
+            chevron.transform = turned
+        }
 
         let large = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
         main.axis = large ? .vertical : .horizontal
@@ -462,7 +519,13 @@ final class PortfolioRowView: UIControl {
     }
 
     override var isHighlighted: Bool {
-        didSet { backgroundColor = isHighlighted ? PortfolioTheme.tokens.glassFillPressed : .clear }
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            LitMotion.press(icon, pressed: isHighlighted, scale: 0.9)
+            UIView.animate(withDuration: isHighlighted ? 0.08 : 0.28, delay: 0, options: [.allowUserInteraction, .beginFromCurrentState]) {
+                self.backgroundColor = self.isHighlighted ? PortfolioTheme.tokens.glassFillPressed.withAlphaComponent(0.55) : .clear
+            }
+        }
     }
 
     @objc private func tapped() { onTap?() }
@@ -472,19 +535,35 @@ final class PortfolioRowView: UIControl {
 final class PortfolioWellView: UIView {
     var onChild: ((PortfolioChildRow) -> Void)?
     var onLink: (() -> Void)?
+    /// The well's rows and link, in reading order, for the cell's `accessibilityElements`.
+    private(set) var elements: [UIView] = []
 
     private let stack = UIStackView()
+    private let well = PortfolioPressedWell()
+    private let inner = UIStackView()
+    private let linkButton = UIButton(type: .system)
+    private var childViews: [String: PortfolioChildRowView] = [:]
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         stack.axis = .vertical
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
+        inner.axis = .vertical
+        inner.translatesAutoresizingMaskIntoConstraints = false
+        well.addSubview(inner)
+        stack.addArrangedSubview(well)
+        linkButton.contentHorizontalAlignment = .leading
+        linkButton.addTarget(self, action: #selector(linkTapped), for: .touchUpInside)
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             stack.topAnchor.constraint(equalTo: topAnchor, constant: 2),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10)
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+            inner.leadingAnchor.constraint(equalTo: well.leadingAnchor),
+            inner.trailingAnchor.constraint(equalTo: well.trailingAnchor),
+            inner.topAnchor.constraint(equalTo: well.topAnchor, constant: 4),
+            inner.bottomAnchor.constraint(equalTo: well.bottomAnchor, constant: -4)
         ])
         layer.cornerCurve = .continuous
     }
@@ -494,30 +573,17 @@ final class PortfolioWellView: UIView {
     }
 
     func configure(_ children: [PortfolioChildRow], link: String?) {
-        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let tokens = PortfolioTheme.tokens
-        let well = UIView()
-        well.backgroundColor = PortfolioTheme.isDark ? UIColor.white.withAlphaComponent(0.035) : tokens.layer1
-        well.layer.cornerRadius = 18
-        well.layer.cornerCurve = .continuous
-        let inner = UIStackView()
-        inner.axis = .vertical
-        inner.translatesAutoresizingMaskIntoConstraints = false
-        well.addSubview(inner)
-        NSLayoutConstraint.activate([
-            inner.leadingAnchor.constraint(equalTo: well.leadingAnchor),
-            inner.trailingAnchor.constraint(equalTo: well.trailingAnchor),
-            inner.topAnchor.constraint(equalTo: well.topAnchor, constant: 4),
-            inner.bottomAnchor.constraint(equalTo: well.bottomAnchor, constant: -4)
-        ])
-        for (index, child) in children.enumerated() {
-            let view = PortfolioChildRowView()
+        var available = childViews
+        childViews = [:]
+        var views: [UIView] = children.enumerated().map { index, child in
+            let view = available.removeValue(forKey: child.key) ?? PortfolioChildRowView()
             view.configure(child, showsSeparator: index > 0)
             view.onTap = { [weak self] in self?.onChild?(child) }
-            inner.addArrangedSubview(view)
+            childViews[child.key] = view
+            return view
         }
         if let link {
-            let button = UIButton(type: .system)
             var configuration = UIButton.Configuration.plain()
             configuration.attributedTitle = AttributedString(link, attributes: AttributeContainer([
                 .font: PortfolioTheme.font(FontType.textBoldS, .subheadline, maximum: 24),
@@ -527,22 +593,48 @@ final class PortfolioWellView: UIView {
             configuration.imagePlacement = .trailing
             configuration.imagePadding = 6
             configuration.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
-            button.configuration = configuration
-            button.contentHorizontalAlignment = .leading
-            button.addTarget(self, action: #selector(linkTapped), for: .touchUpInside)
-            inner.addArrangedSubview(button)
+            linkButton.configuration = configuration
+            views.append(linkButton)
         }
-        stack.addArrangedSubview(well)
+        inner.portfolioArrange(views)
+        elements = views
     }
 
     @objc private func linkTapped() { onLink?() }
+}
+
+/// A recess pressed into the plate, holding what a row opens to.
+final class PortfolioPressedWell: UIView {
+    private let well = LitWellLayer()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        well.cornerRadiusValue = 18
+        well.depth = 3
+        layer.addSublayer(well)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func setFloor(_ floor: UIColor?, depth: CGFloat = 3, radius: CGFloat = 18) {
+        well.floorColor = floor
+        well.depth = depth
+        well.cornerRadiusValue = radius
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        well.place(in: bounds)
+    }
 }
 
 /// A holding (network, wallet) or a token inside an expanded row.
 final class PortfolioChildRowView: UIControl {
     var onTap: (() -> Void)?
 
-    private let separator = UIView()
+    private let separator = LitEngravedLine()
     private let icon = PortfolioTokenIconView(size: 30)
     private let title = UILabel.portfolio(FontType.textBoldS, .subheadline, maximum: 26)
     private let walletDot = UIView()
@@ -592,8 +684,8 @@ final class PortfolioChildRowView: UIControl {
         NSLayoutConstraint.activate([
             separator.topAnchor.constraint(equalTo: topAnchor),
             separator.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 54),
-            separator.trailingAnchor.constraint(equalTo: trailingAnchor),
-            separator.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
+            separator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            separator.heightAnchor.constraint(equalToConstant: 2),
             walletDot.widthAnchor.constraint(equalToConstant: 7),
             walletDot.heightAnchor.constraint(equalToConstant: 7),
             main.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
@@ -613,7 +705,6 @@ final class PortfolioChildRowView: UIControl {
 
     func configure(_ child: PortfolioChildRow, showsSeparator: Bool) {
         let tokens = PortfolioTheme.tokens
-        separator.backgroundColor = tokens.hairline
         separator.isHidden = !showsSeparator
         icon.configure(child.icon)
         title.text = child.title
@@ -637,8 +728,92 @@ final class PortfolioChildRowView: UIControl {
     }
 
     override var isHighlighted: Bool {
-        didSet { backgroundColor = isHighlighted ? PortfolioTheme.tokens.glassFillPressed : .clear }
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            LitMotion.press(icon, pressed: isHighlighted, scale: 0.9)
+        }
     }
 
     @objc private func tapped() { onTap?() }
+}
+
+
+/// Three asset rows drawn as they will stand (coin, name, amount) with a band of light passing over them.
+final class PortfolioShimmerRowsView: UIView {
+    private static let rowHeight: CGFloat = 64
+    private let shapes = CAShapeLayer()
+    private let sweep = CAGradientLayer()
+    private let sweepMask = CAShapeLayer()
+    private var builtWidth: CGFloat = 0
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isAccessibilityElement = true
+        accessibilityTraits = .updatesFrequently
+        layer.addSublayer(shapes)
+        sweep.colors = [UIColor.white.withAlphaComponent(0).cgColor, UIColor.white.withAlphaComponent(0.75).cgColor,
+                        UIColor.white.withAlphaComponent(0).cgColor]
+        sweep.locations = [0.38, 0.5, 0.62]
+        sweep.startPoint = CGPoint(x: 0, y: 0.4)
+        sweep.endPoint = CGPoint(x: 1, y: 0.6)
+        sweep.mask = sweepMask
+        layer.addSublayer(sweep)
+        let height = heightAnchor.constraint(equalToConstant: 3 * Self.rowHeight + 8)
+        height.priority = UILayoutPriority(999)
+        height.isActive = true
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let width = bounds.width
+        guard width > 0, width != builtWidth else { return }
+        builtWidth = width
+        let path = UIBezierPath()
+        for row in 0..<3 {
+            let y = CGFloat(row) * Self.rowHeight + 12
+            path.append(UIBezierPath(ovalIn: CGRect(x: 0, y: y, width: 40, height: 40)))
+            path.append(UIBezierPath(roundedRect: CGRect(x: 52, y: y + 5, width: width * 0.36, height: 13), cornerRadius: 6.5))
+            path.append(UIBezierPath(roundedRect: CGRect(x: 52, y: y + 25, width: width * 0.2, height: 10), cornerRadius: 5))
+            path.append(UIBezierPath(roundedRect: CGRect(x: width - 76, y: y + 5, width: 76, height: 13), cornerRadius: 6.5))
+            path.append(UIBezierPath(roundedRect: CGRect(x: width - 48, y: y + 25, width: 48, height: 10), cornerRadius: 5))
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        shapes.path = path.cgPath
+        shapes.fillColor = PortfolioTheme.textSecondary.withAlphaComponent(0.13).cgColor
+        sweep.frame = CGRect(x: -width, y: 0, width: width * 3, height: bounds.height)
+        sweepMask.path = path.cgPath
+        sweepMask.frame = CGRect(x: width, y: 0, width: width, height: bounds.height)
+        CATransaction.commit()
+        startSweep()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil { startSweep() }
+    }
+
+    private func startSweep() {
+        sweep.removeAnimation(forKey: "sweep")
+        sweepMask.removeAnimation(forKey: "sweep")
+        guard builtWidth > 0, window != nil, !UIAccessibility.isReduceMotionEnabled else { return }
+        // The band moves right while its mask stays on the rows.
+        func slide(from start: CGFloat, to end: CGFloat) -> CABasicAnimation {
+            let animation = CABasicAnimation(keyPath: "transform.translation.x")
+            animation.fromValue = start
+            animation.toValue = end
+            animation.duration = 1.5
+            animation.repeatCount = .infinity
+            animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            return animation
+        }
+        let band = slide(from: -builtWidth, to: builtWidth)
+        let hold = slide(from: builtWidth, to: -builtWidth)
+        sweep.add(band, forKey: "sweep")
+        sweepMask.add(hold, forKey: "sweep")
+    }
 }

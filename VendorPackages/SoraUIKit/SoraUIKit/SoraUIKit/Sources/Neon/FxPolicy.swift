@@ -40,12 +40,9 @@ public struct FxPolicy {
 
     public var reduceMotion: Bool { UIAccessibility.isReduceMotionEnabled }
     public var highContrast: Bool { UIAccessibility.isDarkerSystemColorsEnabled }
-    /// Translucent glass becomes `glassSolid`, no sheen, no live blur.
-    public var opaqueGlass: Bool { tier == .minimal || highContrast }
-    public var glows: Bool { !highContrast }
-    public var pulses: Bool { tier == .full && !reduceMotion }
-    /// Grid texture (aurora is always drawn).
-    public var ambientDetail: Bool { tier != .minimal }
+    /// Decorative motion the lit materials may run: the hero's comet, entrances. Off under Reduce
+    /// Motion, in Low Power Mode, on a hot device and under Reduce Transparency.
+    public var litMotion: Bool { tier == .full && !reduceMotion }
 }
 
 public extension Notification.Name {

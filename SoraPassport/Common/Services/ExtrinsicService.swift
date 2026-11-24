@@ -24,13 +24,9 @@ import IrohaCrypto
 import BigInt
 import SSFModels
 
-typealias FeeExtrinsicResult = Result<RuntimeDispatchInfo, Error>
 typealias ExtrinsicBuilderClosure = (ExtrinsicBuilderProtocol) throws -> (ExtrinsicBuilderProtocol)
 typealias EstimateFeeClosure = (Result<String, Error>) -> Void
 typealias ExtrinsicSubmitClosure = (Result<String, Error>, _ extrinsicHash: String?, _ extrinsic: Extrinsic?) -> Void
-typealias SubmitAndWatchExtrinsicResult = (result: Result<String, Error>, extrinsicHash: String?)
-typealias SubmitExtrinsicResult = Result<String, Error>
-
 struct ExtrinsicInfo {
     let data: Data
     let object: Extrinsic
@@ -71,6 +67,8 @@ enum ExtrinsicServiceError: Error {
     /// be rejected by every node, so nothing is signed until the app is
     /// updated.
     case unsupportedSignedExtension(identifier: String)
+    /// The node changed a reviewed call index or the effective argument encoding.
+    case unsupportedCallLayout(identifier: String)
     /// The connection moved to another node while the runtime was being
     /// checked. Nothing was signed; the next attempt checks the new node.
     case connectionChanged
@@ -95,7 +93,7 @@ extension ExtrinsicServiceError: LocalizedError {
             return nil
         }
         switch error {
-        case .unsupportedSignedExtension:
+        case .unsupportedSignedExtension, .unsupportedCallLayout:
             return WalletUX.text(
                 "The SORA network was upgraded and this version of the app can't send transactions on it yet. Nothing was signed and your funds are safe. Please update the app."
             )
@@ -407,9 +405,9 @@ final class Sora2LiveRuntimeIdentityCache {
 
 /// Validates the runtime a SORA2 extrinsic is about to be encoded with
 /// against the live chain. This replaces the former pin to runtime 130: any
-/// mainnet runtime at or above the reviewed floor is accepted, provided the
-/// local metadata is exactly the one the connected node runs now. Chain
-/// identity (genesis) is checked separately against the same live engine.
+/// mainnet runtime at or above the reviewed floor is accepted when its live
+/// metadata preserves the locally reviewed call encodings and signed-extension
+/// order. Chain identity (genesis) is checked against the same live engine.
 enum Sora2LiveRuntimeValidator {
     static func validate(
         factory: RuntimeCoderFactoryProtocol,
@@ -451,6 +449,13 @@ enum Sora2LiveRuntimeValidator {
             ) == live.metadataSHA256
         else {
             throw ExtrinsicServiceError.unsupportedRuntimeMetadata
+        }
+        do {
+            try Sora2CallTable.validate(factory: factory)
+        } catch let error as Sora2CallTable.Mismatch {
+            throw ExtrinsicServiceError.unsupportedCallLayout(identifier: error.identifier)
+        } catch {
+            throw ExtrinsicServiceError.unsupportedCallLayout(identifier: "metadata")
         }
         // The metadata is the live one. The encoder still writes a fixed
         // set of signed extensions: refuse to sign when this runtime wants
@@ -704,9 +709,11 @@ enum Sora2SigningNotice {
         if let transport = error as? PreparedExtrinsicTransportError {
             error = transport.underlyingError
         }
-        if let serviceError = error as? ExtrinsicServiceError,
-           case .unsupportedSignedExtension = serviceError {
-            return .appUpdateRequired
+        if let serviceError = error as? ExtrinsicServiceError {
+            switch serviceError {
+            case .unsupportedSignedExtension, .unsupportedCallLayout: return .appUpdateRequired
+            default: break
+            }
         }
         guard let nodeError = error as? Sora2BoundedHTTPJSONRPCError else {
             return nil
@@ -1793,60 +1800,75 @@ struct Sora2SubmissionRecoveryContext: Codable, Equatable {
     let eraPhase: Int
     let eraBirthBlockHash: String
 
+    /// The wallet and SORA2 account that signed the extrinsic.
+    struct Signer {
+        let walletId: String
+        let accountId: Data
+        let publicKey: Data
+    }
+
+    /// The chain and runtime the extrinsic was signed for.
+    struct SigningRuntime {
+        let genesisHash: String
+        let specVersion: UInt32
+        let transactionVersion: UInt32
+        let metadataSHA256: String
+    }
+
+    /// The extrinsic's mortal era and the block it was born in.
+    struct Mortality {
+        let era: Era
+        let eraBirthBlock: Int
+        let eraBirthBlockHash: String
+    }
+
     static func make(
-        walletId: String,
-        accountId: Data,
-        publicKey: Data,
+        signer: Signer,
         transactionHash: String,
-        genesisHash: String,
-        specVersion: UInt32,
-        transactionVersion: UInt32,
-        metadataSHA256: String,
-        era: Era,
-        eraBirthBlock: Int,
-        eraBirthBlockHash: String
+        runtime: SigningRuntime,
+        mortality: Mortality
     ) throws -> Sora2SubmissionRecoveryContext {
-        let deathResult = eraBirthBlock.addingReportingOverflow(
+        let deathResult = mortality.eraBirthBlock.addingReportingOverflow(
             reviewedEraPeriod
         )
         guard
-            case let .mortal(period, phase) = era,
-            eraBirthBlock >= 0,
+            case let .mortal(period, phase) = mortality.era,
+            mortality.eraBirthBlock >= 0,
             period == UInt64(reviewedEraPeriod),
-            phase == UInt64(eraBirthBlock % reviewedEraPeriod),
+            phase == UInt64(mortality.eraBirthBlock % reviewedEraPeriod),
             !deathResult.overflow,
             let canonicalTransactionHash =
                 Sora2PendingSubmissionStore.normalizedHash(transactionHash),
             let canonicalGenesisHash =
-                Sora2PendingSubmissionStore.normalizedHash(genesisHash),
+                Sora2PendingSubmissionStore.normalizedHash(runtime.genesisHash),
             let reviewedGenesisHash =
                 Sora2PendingSubmissionStore.normalizedHash(
                     PIIndexerClient.soraMainnetGenesis
                 ),
             canonicalGenesisHash == reviewedGenesisHash,
             let canonicalEraHash =
-                Sora2PendingSubmissionStore.normalizedHash(eraBirthBlockHash)
+                Sora2PendingSubmissionStore.normalizedHash(mortality.eraBirthBlockHash)
         else {
             throw ExtrinsicServiceError.invalidPendingSubmissionTransition
         }
         let context = Sora2SubmissionRecoveryContext(
             schemaVersion: currentSchemaVersion,
-            walletId: walletId,
-            accountId: accountId.toHex(includePrefix: false).lowercased(),
-            publicKey: publicKey.toHex(includePrefix: false).lowercased(),
+            walletId: signer.walletId,
+            accountId: signer.accountId.toHex(includePrefix: false).lowercased(),
+            publicKey: signer.publicKey.toHex(includePrefix: false).lowercased(),
             transactionHash: canonicalTransactionHash,
             genesisHash: canonicalGenesisHash,
-            specVersion: specVersion,
-            transactionVersion: transactionVersion,
-            metadataSHA256: metadataSHA256,
-            eraBirthBlock: eraBirthBlock,
+            specVersion: runtime.specVersion,
+            transactionVersion: runtime.transactionVersion,
+            metadataSHA256: runtime.metadataSHA256,
+            eraBirthBlock: mortality.eraBirthBlock,
             eraDeathBlockExclusive: deathResult.partialValue,
             eraPeriod: reviewedEraPeriod,
             eraPhase: Int(phase),
             eraBirthBlockHash: canonicalEraHash
         )
         guard context.isValid(
-            account: walletId,
+            account: signer.walletId,
             hash: canonicalTransactionHash
         ) else {
             throw ExtrinsicServiceError.invalidPendingSubmissionTransition
@@ -3011,6 +3033,14 @@ final class Sora2PendingSubmissionReconciler {
         account: String,
         transactionHash: String
     ) async throws -> Sora2IndexedExecution? {
+        try await indexedExecutionFromPI(account: account, transactionHash: transactionHash, client: PIIndexerClient())
+    }
+
+    static func indexedExecutionFromPI(
+        account: String,
+        transactionHash: String,
+        client: PIIndexerClient
+    ) async throws -> Sora2IndexedExecution? {
         guard
             let normalized = Sora2PendingSubmissionStore.normalizedHash(
                 transactionHash
@@ -3018,7 +3048,7 @@ final class Sora2PendingSubmissionReconciler {
         else {
             return nil
         }
-        let read = try await PIIndexerClient()
+        let read = try await client
             .qualifiedHistoryByTransactionHashes(
                 address: account,
                 transactionHashes: ["0x\(normalized)"]
@@ -4262,11 +4292,13 @@ final class ExtrinsicService {
             }
             let (extrinsicData, extrinsic) = try Self.assembleSignedExtrinsic(
                 codingFactory: codingFactory,
-                genesisHash: signingGenesisHash,
-                accountId: accountId,
-                nonce: nonce,
-                era: hashAndEra.era,
-                eraBlockHash: hashAndEra.hash,
+                parameters: SigningParameters(
+                    genesisHash: signingGenesisHash,
+                    accountId: accountId,
+                    nonce: nonce,
+                    era: hashAndEra.era,
+                    eraBlockHash: hashAndEra.hash
+                ),
                 cryptoType: currentCryptoType,
                 customClosure: customClosure,
                 signingClosure: guardedSigningClosure
@@ -4274,18 +4306,24 @@ final class ExtrinsicService {
             let transactionHash = try extrinsicData.blake2b32()
                 .toHex(includePrefix: true)
             let recoveryContext = try Sora2SubmissionRecoveryContext.make(
-                walletId: currentAddress,
-                accountId: accountId,
-                publicKey: matchingNetworkAccounts[0].publicKey,
+                signer: .init(
+                    walletId: currentAddress,
+                    accountId: accountId,
+                    publicKey: matchingNetworkAccounts[0].publicKey
+                ),
                 transactionHash: transactionHash,
-                genesisHash: signingGenesisHash,
-                specVersion: codingFactory.specVersion,
-                transactionVersion: codingFactory.txVersion,
-                metadataSHA256: try PolkamarktRuntimeContract
-                    .signingMetadataSHA256(for: codingFactory),
-                era: hashAndEra.era,
-                eraBirthBlock: hashAndEra.blockNumber,
-                eraBirthBlockHash: hashAndEra.hash
+                runtime: .init(
+                    genesisHash: signingGenesisHash,
+                    specVersion: codingFactory.specVersion,
+                    transactionVersion: codingFactory.txVersion,
+                    metadataSHA256: try PolkamarktRuntimeContract
+                        .signingMetadataSHA256(for: codingFactory)
+                ),
+                mortality: .init(
+                    era: hashAndEra.era,
+                    eraBirthBlock: hashAndEra.blockNumber,
+                    eraBirthBlockHash: hashAndEra.hash
+                )
             )
             return ExtrinsicInfo(
                 data: extrinsicData,
@@ -4312,24 +4350,20 @@ final class ExtrinsicService {
     /// so both produce bytes with exactly the same code.
     static func assembleSignedExtrinsic(
         codingFactory: RuntimeCoderFactoryProtocol,
-        genesisHash: String,
-        accountId: Data,
-        nonce: UInt32,
-        era: Era,
-        eraBlockHash: String,
+        parameters: SigningParameters,
         cryptoType: CryptoType,
         customClosure: ExtrinsicBuilderClosure,
         signingClosure: @escaping (Data) throws -> Data
     ) throws -> (data: Data, extrinsic: Extrinsic) {
-        let account = MultiAddress.accoundId(accountId)
+        let account = MultiAddress.accoundId(parameters.accountId)
 
         var builder: ExtrinsicBuilderProtocol =
             try ExtrinsicBuilder(specVersion: codingFactory.specVersion,
                                  transactionVersion: codingFactory.txVersion,
-                                 genesisHash: genesisHash)
+                                 genesisHash: parameters.genesisHash)
                 .with(address: account)
-                .with(nonce: nonce)
-                .with(era: era, blockHash: eraBlockHash)
+                .with(nonce: parameters.nonce)
+                .with(era: parameters.era, blockHash: parameters.eraBlockHash)
 
         builder = try customClosure(builder)
         builder = try builder.signing(by: signingClosure,
@@ -4505,6 +4539,18 @@ final class ExtrinsicService {
             return
         }
         (try? operation.extractNoCancellableResultData())?.release()
+    }
+}
+
+extension ExtrinsicService {
+    /// The chain, account, nonce and mortal era one SORA2 extrinsic is
+    /// signed with; see assembleSignedExtrinsic.
+    struct SigningParameters {
+        let genesisHash: String
+        let accountId: Data
+        let nonce: UInt32
+        let era: Era
+        let eraBlockHash: String
     }
 }
 

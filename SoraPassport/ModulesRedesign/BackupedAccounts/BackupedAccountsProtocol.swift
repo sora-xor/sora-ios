@@ -35,6 +35,7 @@ protocol BackupedAccountsViewModelProtocol: AnyObject {
 }
 
 protocol BackupedAccountsWireframeProtocol {
-    func openInputPassword(selectedAddress: String, backedUpAccounts: [OpenBackupAccount])
+    func openInputPassword(selectedAddress: String, backedUpAccounts: [OpenBackupAccount],
+                           googleAccount: CloudStorageAccountIdentity)
     func showCreateAccount()
 }

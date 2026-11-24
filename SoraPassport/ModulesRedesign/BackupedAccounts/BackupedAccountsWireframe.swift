@@ -37,10 +37,12 @@ final class BackupedAccountsWireframe: CustomPresentable {
 }
 
 extension BackupedAccountsWireframe: BackupedAccountsWireframeProtocol {
-    func openInputPassword(selectedAddress: String, backedUpAccounts: [OpenBackupAccount]) {
+    func openInputPassword(selectedAddress: String, backedUpAccounts: [OpenBackupAccount],
+                           googleAccount: CloudStorageAccountIdentity) {
         guard let view = EnterPasswordViewFactory.createView(
             with: selectedAddress,
             backedUpAccounts: backedUpAccounts,
+            googleAccount: googleAccount,
             endAddingBlock: endAddingBlock)?.controller else { return }
         currentController?.controller.navigationController?.pushViewController(view, animated: true)
     }

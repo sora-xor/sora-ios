@@ -24,9 +24,6 @@ protocol ExplorePoolsServiceInputProtocol: AnyObject {
     func getPools(with fiatData: [PIExactFiatData]) async throws -> [ExplorePool]
 }
 
-protocol ExplorePoolsServiceOutput: AnyObject {
-}
-
 struct ExplorePool {
     let id: String
     let baseAssetId: String

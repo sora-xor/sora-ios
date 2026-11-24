@@ -11,7 +11,7 @@ import XCTest
 @testable import SoraPassport
 
 final class WalletCredentialRepairTests: XCTestCase {
-    private final class Fixture {
+    fileprivate final class Fixture {
         let keys = RepairFaultKeychain()
         let settings = InMemorySettingsManager()
         lazy var gate = WalletRecoveryCapabilityGate(settings: settings,
@@ -20,7 +20,11 @@ final class WalletCredentialRepairTests: XCTestCase {
         lazy var coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
         lazy var service = WalletCredentialRepair(keystore: keys, settings: settings,
             recoveryGate: gate, lifecycleCoordinator: coordinator, activeSnapshot: { nil })
-        let phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+        let phrase: String
+
+        init(phrase: String = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about") {
+            self.phrase = phrase
+        }
 
         func prepared(_ type: CryptoType = .sr25519, path: String = "//repair") throws -> PreparedAccount {
             let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromList: phrase)
@@ -368,7 +372,7 @@ final class WalletCredentialRepairTests: XCTestCase {
     private func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
 }
 
-private final class RepairFaultKeychain: KeystoreProtocol {
+fileprivate final class RepairFaultKeychain: KeystoreProtocol {
     let base = InMemoryKeychain()
     var mutations = 0
     var failMutation: Int?
@@ -404,5 +408,98 @@ private final class RepairFaultKeychain: KeystoreProtocol {
     func allKeyIdentifiers() throws -> [String] { try base.allKeyIdentifiers() }
     func snapshot() throws -> [String: Data] {
         try Dictionary(uniqueKeysWithValues: allKeyIdentifiers().map { ($0, try fetchKey(for: $0)) })
+    }
+}
+
+@MainActor
+final class CredentialRepairScreenCoverageTests: RootActionFixtureTests {
+    private func open(_ f: WalletCredentialRepairTests.Fixture, success: @escaping (AccountItem) -> Void = { _ in }) throws -> WalletCredentialRepairViewController {
+        let (account, _) = try f.broken()
+        let c = WalletCredentialRepairViewController(account: account, service: f.service, currentAccounts: { [account] }, onSuccess: success)
+        mount(c); return c
+    }
+    private func field(_ id: String, _ c: UIViewController) throws -> UITextField { try XCTUnwrap(all(UITextField.self, c.view).first { $0.accessibilityIdentifier == id }) }
+    private func material(_ c: UIViewController) throws -> UITextView { try XCTUnwrap(all(UITextView.self, c.view).first { $0.accessibilityIdentifier == "wallet-repair-material" }) }
+    private func status(_ c: UIViewController) throws -> UILabel { try XCTUnwrap(all(UILabel.self, c.view).first { $0.accessibilityIdentifier == "wallet-repair-status" }) }
+    func testReviewNamesTheExactWalletBeforeAnyCredentialMutation() async throws {
+        let f = WalletCredentialRepairTests.Fixture(); let c = try open(f), before = try f.keys.snapshot()
+        try tap("wallet-repair-review", c); await settle()
+        XCTAssertEqual(try alert(c).title, "Confirm wallet repair"); XCTAssertTrue(try alert(c).message?.contains(try f.prepared().account.address) == true)
+        XCTAssertEqual(try f.keys.snapshot(), before)
+    }
+    func testCancellingReviewDoesNotStartRepair() async throws {
+        let f = WalletCredentialRepairTests.Fixture(); let c = try open(f), before = try f.keys.snapshot()
+        try tap("wallet-repair-review", c); await settle(); try await choose("Cancel", c)
+        XCTAssertEqual(try f.keys.snapshot(), before); XCTAssertTrue(try button("wallet-repair-review", c).isEnabled)
+    }
+    func testConfirmedPhraseRepairsTheSameAccountAndClearsEverySensitiveField() async throws {
+        let f = WalletCredentialRepairTests.Fixture(); var restored = [AccountItem]()
+        let completed = expectation(description: "Confirmed repair completes")
+        let c = try open(f) { restored.append($0); completed.fulfill() }
+        c.setSuppliedMaterial(source: .phrase, text: f.phrase, derivationPath: "//repair", backupPassword: "unused")
+        try field("wallet-repair-pin", c).text = "246810"; c.confirmRepair()
+        await fulfillment(of: [completed], timeout: 5)
+        XCTAssertEqual(restored.map(\.address), [try f.prepared().account.address]); try f.assertWorking(XCTUnwrap(restored.first))
+        XCTAssertEqual(try material(c).text, ""); XCTAssertTrue(all(UITextField.self, c.view).allSatisfy { ($0.text ?? "").isEmpty })
+        XCTAssertEqual(try status(c).text, "Wallet credentials repaired."); XCTAssertTrue(try button("wallet-repair-retry", c).isHidden)
+    }
+    func testShortPhraseRepairWarnsBeforeItContinues() async throws {
+        let warned = ApplicationConfig.shared.shortPhraseWarnedAddresses; defer { ApplicationConfig.shared.shortPhraseWarnedAddresses = warned }
+        ApplicationConfig.shared.shortPhraseWarnedAddresses = []
+        let f = WalletCredentialRepairTests.Fixture(phrase: "abandon abandon ability"); var restored = [AccountItem]()
+        let c = try open(f) { restored.append($0) }
+        let address = try f.prepared().account.address
+        c.setSuppliedMaterial(source: .phrase, text: f.phrase, derivationPath: "//repair", backupPassword: "unused")
+        try field("wallet-repair-pin", c).text = "246810"; c.confirmRepair()
+        await wait { c.presentedViewController is UIAlertController }
+        XCTAssertEqual(try alert(c).title, WalletShortPhraseWarning.title)
+        XCTAssertEqual(try alert(c).message, WalletShortPhraseWarning.message + "\n\nPublic repair fixture\n" + address)
+        XCTAssertTrue(restored.isEmpty); XCTAssertEqual(try status(c).text, "Wallet credentials repaired.")
+        try await choose("OK", c)
+        XCTAssertEqual(restored.map(\.address), [address]); try f.assertWorking(XCTUnwrap(restored.first))
+        XCTAssertEqual(WalletShortPhraseWarning.warnedAddresses, [address])
+    }
+    func testChangingSourceClearsPriorMaterialAndShowsOnlyRelevantFields() throws {
+        let f = WalletCredentialRepairTests.Fixture(); let c = try open(f)
+        c.setSuppliedMaterial(source: .phrase, text: f.phrase, derivationPath: "//repair", backupPassword: "old")
+        try tap("wallet-repair-source-2", c)
+        XCTAssertEqual(try material(c).text, ""); XCTAssertEqual(try field("wallet-repair-backup-password", c).text, "")
+        XCTAssertFalse(try field("wallet-repair-backup-password", c).isHidden); XCTAssertTrue(try field("wallet-repair-path", c).isHidden)
+        try tap("wallet-repair-source-1", c)
+        XCTAssertTrue(try field("wallet-repair-backup-password", c).isHidden); XCTAssertFalse(try field("wallet-repair-path", c).isHidden)
+    }
+    func testSelectingDriveDoesNotStartExternalAuthentication() throws {
+        let f = WalletCredentialRepairTests.Fixture(); let c = try open(f)
+        try tap("wallet-repair-source-3", c)
+        XCTAssertTrue(try material(c).isHidden); XCTAssertTrue(try field("wallet-repair-pin", c).isHidden)
+        XCTAssertNil(c.presentedViewController); XCTAssertTrue(try button("wallet-repair-review", c).isEnabled)
+    }
+    func testDriveInitialRouteOnlySelectsTheSourceAndKeepsPinHidden() throws {
+        let f = WalletCredentialRepairTests.Fixture(); let (account, _) = try f.broken()
+        let c = WalletCredentialRepairViewController(account: account, service: f.service, currentAccounts: { [account] }, onSuccess: { _ in XCTFail("No confirmation") }, startWithDrive: true)
+        mount(c); XCTAssertTrue(try material(c).isHidden); XCTAssertTrue(try field("wallet-repair-pin", c).isHidden)
+        XCTAssertTrue(try button("wallet-repair-source-3", c).accessibilityTraits.contains(.selected))
+    }
+    func testInvalidJsonReportsGenericFailureWithoutReplacingCredentials() async throws {
+        let f = WalletCredentialRepairTests.Fixture(); let c = try open(f), before = try f.keys.snapshot()
+        c.setSuppliedMaterial(source: .json, text: "invalid-json", derivationPath: "", backupPassword: "wrong")
+        try field("wallet-repair-pin", c).text = "246810"; c.confirmRepair()
+        let label = try status(c); await wait { label.text != "Verifying and preserving wallet credentials…" }
+        XCTAssertTrue(label.text?.contains("backup could not be verified") == true)
+        XCTAssertEqual(try f.keys.snapshot(), before); XCTAssertEqual(try field("wallet-repair-pin", c).text, "")
+    }
+    func testBackgroundingClearsSuppliedMaterialAndDismissesReview() async throws {
+        let f = WalletCredentialRepairTests.Fixture(); let c = try open(f)
+        c.setSuppliedMaterial(source: .json, text: "public fixture", derivationPath: "//repair", backupPassword: "fixture password")
+        try field("wallet-repair-pin", c).text = "246810"; try tap("wallet-repair-review", c); await settle()
+        NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil); await settle()
+        XCTAssertEqual(try material(c).text, ""); XCTAssertTrue(all(UITextField.self, c.view).allSatisfy { ($0.text ?? "").isEmpty })
+        XCTAssertNil(c.presentedViewController)
+    }
+    func testCaptureNotificationClearsSuppliedBackupImmediately() throws {
+        let f = WalletCredentialRepairTests.Fixture(); let c = try open(f)
+        c.setSuppliedMaterial(source: .phrase, text: f.phrase, derivationPath: "//repair", backupPassword: "fixture")
+        NotificationCenter.default.post(name: UIScreen.capturedDidChangeNotification, object: nil)
+        XCTAssertEqual(try material(c).text, ""); XCTAssertTrue(all(UITextField.self, c.view).allSatisfy { ($0.text ?? "").isEmpty })
     }
 }

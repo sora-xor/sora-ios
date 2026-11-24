@@ -16,12 +16,16 @@
 // limitations under the License.
 
 import Foundation
+import RobinHood
 
 import SoraUIKit
 import SoraFoundation
+import IrohaCrypto
 
 protocol WalletItemFactoryProtocol: AnyObject {
+    
 
+    
     func createPoolsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                          poolsService: PoolsServiceInputProtocol,
                          networkFacade: WalletNetworkOperationFactoryProtocol,
@@ -42,7 +46,8 @@ protocol WalletItemFactoryProtocol: AnyObject {
 }
 
 final class WalletItemFactory: WalletItemFactoryProtocol {
-
+    
+    
     func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                                  assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol {
 
@@ -62,6 +67,7 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         return friendsItem
     }
 
+    
     func createPoolsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                          poolsService: PoolsServiceInputProtocol,
                          networkFacade: WalletNetworkOperationFactoryProtocol,

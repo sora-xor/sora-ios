@@ -26,4 +26,4 @@ ERussel, emkil.russel@gmail.com
 
 ## License
 
-SoraUI is available under the GPL 3.0 license. See the LICENSE file for more info.
+SoraUI is available under the Apache 2.0 license. See the LICENSE file for more info.

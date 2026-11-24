@@ -199,3 +199,79 @@ private final class NamingSettings: SelectedWalletSettingsProtocol {
     func performSetup(completionClosure: @escaping (Result<AccountItem?,Error>) -> Void) { completionClosure(.success(currentAccount)) }
     func save(value: AccountItem) { XCTFail("Unexpected wallet mutation") }
 }
+
+@MainActor final class CreatedAccountNamingBoundaryTests: XCTestCase {
+    private func make(account: AccountItem? = NamingFixture.account("created-wallet")) -> (SetupNameCreateAccountPresenter, NamingSettings, NamingView, NamingRoutes, CreatedNamingEvents) {
+        let settings = NamingSettings(), view = NamingView(), routes = NamingRoutes(), events = CreatedNamingEvents()
+        settings.currentAccount = account
+        let p = SetupNameCreateAccountPresenter(accountRepository: AnyDataProviderRepository(InMemoryDataProviderRepository<AccountItem>()), eventCenter: events, operationManager: OperationManager(), selectedSettings: settings)
+        p.view = view; p.wireframe = routes
+        return (p, settings, view, routes, events)
+    }
+    private func settle() async { await withCheckedContinuation { c in DispatchQueue.main.async { c.resume() } } }
+    func testCreatingModeStartsWithAnEmptyNameEvenWhenAnOldNameWasProvided() {
+        let (p, _, view, _, _) = make(); p.mode = .creating; p.userName = "An older wallet"; p.setup()
+        XCTAssertEqual(view.model?.inputHandler.value, "")
+    }
+    func testOnboardingModeDisplaysTheProvidedWalletName() {
+        let (p, _, view, _, _) = make(); p.mode = .onboarding; p.userName = "My wallet"; p.setup()
+        XCTAssertEqual(view.model?.inputHandler.value, "My wallet")
+    }
+    func testMissingNameBuildsAnEmptyOptionalInput() {
+        let (p, _, view, _, _) = make(); p.userName = nil; p.setup()
+        XCTAssertEqual(view.model?.inputHandler.value, ""); XCTAssertFalse(p.viewModel.inputHandler.required)
+    }
+    func testContinueUpdatesOnlyTheCurrentlySelectedAccountName() {
+        let (p, settings, _, _, _) = make(); p.userName = "Renamed wallet"; p.proceed()
+        XCTAssertEqual(settings.renames.map { $0.0.address }, ["created-wallet"])
+        XCTAssertEqual(settings.renames.map { $0.1 }, ["Renamed wallet"])
+    }
+    func testMissingNamePersistsTheEmptyNameInsteadOfAnotherWalletName() {
+        let (p, settings, _, _, _) = make(); p.userName = nil; p.proceed()
+        XCTAssertEqual(settings.renames.map { $0.1 }, [""])
+    }
+    func testMissingSelectedAccountLeavesTheScreenAndStoreUnchanged() {
+        let (p, settings, view, _, events) = make(account: nil); var completed = 0; p.completion = { completed += 1 }; p.proceed()
+        XCTAssertTrue(settings.renames.isEmpty); XCTAssertEqual(view.recording.dismissCount, 0); XCTAssertEqual(completed, 0); XCTAssertTrue(events.events.isEmpty)
+    }
+    func testSuccessfulNamePersistenceNotifiesObserversOnMain() async {
+        let (p, settings, _, _, events) = make(); let done = expectation(description: "name event"); events.didNotify = { done.fulfill() }
+        p.proceed(); let result = NamingFixture.account("created-wallet")
+        DispatchQueue.global().async { settings.finishName(.success(result)) }
+        await fulfillment(of: [done], timeout: 2)
+        XCTAssertEqual(events.events.count, 1); XCTAssertTrue(events.events.first is SelectedUsernameChanged); XCTAssertEqual(events.mainThreads, [true])
+    }
+    func testFailedNamePersistenceDoesNotAnnounceAChangedUsername() async {
+        let (p, settings, _, _, events) = make(); p.proceed(); settings.finishName(.failure(NamingFailure.unavailable)); await settle()
+        XCTAssertTrue(events.events.isEmpty)
+    }
+    func testNamePersistenceCompletionDoesNotRetainADismissedPresenter() async {
+        let settings = NamingSettings(), events = CreatedNamingEvents()
+        settings.currentAccount = NamingFixture.account("created-wallet")
+        var pending: SetupNameCreateAccountPresenter? = SetupNameCreateAccountPresenter(accountRepository: AnyDataProviderRepository(InMemoryDataProviderRepository<AccountItem>()), eventCenter: events, operationManager: OperationManager(), selectedSettings: settings)
+        pending?.proceed(); weak var released = pending; pending = nil
+        XCTAssertNil(released); settings.finishName(.success(NamingFixture.account("created-wallet"))); await settle()
+        XCTAssertTrue(events.events.isEmpty)
+    }
+    func testDismissalRunsTheProvidedCompletionExactlyOnce() {
+        let (p, settings, view, _, _) = make(); var completed = 0; p.completion = { completed += 1 }; p.proceed()
+        XCTAssertEqual(view.recording.dismissCount, 1); XCTAssertEqual(completed, 1)
+        XCTAssertEqual(settings.renames.count, 1)
+    }
+    func testHelpRoutesTheExactURLFromTheNameScreen() {
+        let (p, _, view, routes, _) = make(); let url = URL(string: "https://sora.org/terms#name")!
+        withExtendedLifetime(view) { p.activateURL(url) }
+        XCTAssertEqual(routes.urls, [url])
+    }
+    func testHelpWithoutAViewDoesNotOpenAnExternalRoute() {
+        let (p, _, _, routes, _) = make(); p.view = nil; p.activateURL(URL(string: "https://sora.org/terms")!)
+        XCTAssertTrue(routes.urls.isEmpty)
+    }
+}
+private final class CreatedNamingEvents: EventCenterProtocol {
+    var events = [EventProtocol](), mainThreads = [Bool](); var didNotify: (() -> Void)?
+    func notify(with event: EventProtocol) { events.append(event); mainThreads.append(Thread.isMainThread); didNotify?() }
+    func notify(with event: EventProtocol, completionOnMain: @escaping () -> Void) { notify(with: event); DispatchQueue.main.async(execute: completionOnMain) }
+    func add(observer: EventVisitorProtocol, dispatchIn: DispatchQueue?) {}
+    func remove(observer: EventVisitorProtocol) {}
+}

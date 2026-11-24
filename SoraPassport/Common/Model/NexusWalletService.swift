@@ -549,7 +549,7 @@ enum NexusStrictJSONAdmission {
     }
 }
 
-private extension NexusJSONValue {
+extension NexusJSONValue {
     var objectValue: [String: NexusJSONValue]? {
         guard case let .object(value) = self else {
             return nil
@@ -571,7 +571,7 @@ private extension NexusJSONValue {
         return value
     }
 
-    var boolValue: Bool? {
+    fileprivate var boolValue: Bool? {
         guard case let .bool(value) = self else {
             return nil
         }
@@ -1353,17 +1353,26 @@ enum NexusTairaMCPToolContract {
         ])
     }
 
+    /// `committedBlockHeight` narrows a signed-hash lookup to the block the
+    /// pipeline status reported. Taira scans account history newest first in
+    /// block ranges and returns empty pages with a cursor, so an unnarrowed
+    /// hash lookup walked the whole chain (28 pages on 2026-11-08) before a
+    /// send could be reconciled. The narrowed query can only drop rows: a
+    /// wrong height finds nothing and leaves the send pending.
     static func accountHistoryRequest(
         id: String, account: String, assetDefinitionID: String,
-        cursor: String?, transactionHash: String? = nil
+        cursor: String?, transactionHash: String? = nil,
+        committedBlockHeight: Int64? = nil
     ) throws -> NexusMCPRequest {
         guard NexusAssetDefinitionIdentity.hasCanonicalWireShape(assetDefinitionID),
               cursor.map(validCollectionCursor) ?? true,
-              transactionHash.map({ NexusTransactionHash.normalized($0) == $0 }) ?? true else {
+              transactionHash.map({ NexusTransactionHash.normalized($0) == $0 }) ?? true,
+              committedBlockHeight.map({ $0 > 0 && transactionHash != nil }) ?? true else {
             throw NexusToriiError.invalidRoute
         }
         var filter = "asset_definition_id = \"\(assetDefinitionID)\" and type = \"TRANSFER\" and status = \"SUCCESS\""
         if let hash = transactionHash { filter += " and tx_hash = \"\(hash)\"" }
+        if let height = committedBlockHeight { filter += " and block_height = \(height)" }
         var arguments: [String: NexusJSONValue] = [
             "path": .object(["account_id": .string(account)]),
             "filter": .string(filter), "limit": .number("100"),
@@ -1415,6 +1424,20 @@ enum NexusTairaMCPToolContract {
             throw NexusToriiError.mcpContractMismatch
         }
         return version
+    }
+
+    /// The lifetime `server/discover` grants its answer (`ttlMs`), in seconds.
+    /// Missing, malformed or zero means no reuse.
+    static func discoveryLifetime(initialize result: NexusJSONValue) -> TimeInterval {
+        guard
+            case let .number(text)? = result.objectValue?["ttlMs"],
+            text.utf8.count <= 9,
+            text.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }),
+            let milliseconds = UInt64(text)
+        else {
+            return 0
+        }
+        return TimeInterval(milliseconds) / 1_000
     }
 
     static func validateToolPage(
@@ -1950,49 +1973,6 @@ struct NexusTransferHistoryPage {
     let indexedBlockHash: String?
 }
 
-struct NexusTairaTransferHistoryPage {
-    let items: [NexusTransferHistoryItem]
-    let sourceItemCount: Int
-    let sourceItemIDs: [String]
-    let page: UInt64
-    let perPage: UInt64
-    let totalPages: UInt64
-    let totalItems: UInt64
-
-
-
-    func validate(expectedPage: Int, maximumPageSize: Int) throws {
-        guard
-            expectedPage > 0,
-            maximumPageSize > 0,
-            page == UInt64(expectedPage),
-            perPage == UInt64(maximumPageSize),
-            sourceItemIDs.count == sourceItemCount,
-            Set(sourceItemIDs).count == sourceItemIDs.count,
-            (totalPages == 0) == (totalItems == 0),
-            page <= max(totalPages, 1),
-            totalPages == totalItems.dividedRoundingUp(by: perPage)
-        else {
-            throw NexusToriiError.invalidResponse
-        }
-        let (precedingItemCount, overflow) = (page - 1)
-            .multipliedReportingOverflow(by: perPage)
-        guard !overflow, precedingItemCount <= totalItems else {
-            throw NexusToriiError.invalidResponse
-        }
-        let expectedItemCount = min(
-            perPage,
-            totalItems - precedingItemCount
-        )
-        guard
-            let canonicalSourceItemCount = UInt64(exactly: sourceItemCount),
-            canonicalSourceItemCount == expectedItemCount
-        else {
-            throw NexusToriiError.invalidResponse
-        }
-    }
-}
-
 struct NexusCursorHistoryPage {
     let items: [NexusTransferHistoryItem]
     let sourceItemIDs: [String]
@@ -2020,408 +2000,6 @@ struct NexusHistoryCursor {
         if let cursor = page.nextCursor { seenCursors.insert(cursor) }
         nextCursor = page.nextCursor
         hasMore = nextCursor != nil
-    }
-}
-
-private extension UInt64 {
-    func dividedRoundingUp(by divisor: UInt64) -> UInt64 {
-        guard self > 0 else { return 0 }
-        return 1 + (self - 1) / divisor
-    }
-}
-
-/// Parser for the current `iroha.instructions.list` explorer projection.
-enum NexusTairaTransferHistoryParser {
-    static func page(
-        result: NexusJSONValue,
-        configuration: NexusNetworkConfiguration,
-        account: String,
-        assetDefinitionID: String
-    ) throws -> NexusTairaTransferHistoryPage {
-        let canonicalAccount = try IrohaAddressCodec.parse(
-            account,
-            expectedDiscriminant: configuration.i105Discriminant
-        ).i105
-        guard
-            let structured = result.objectValue,
-            let body = structured["body"]?.objectValue,
-            let sourceItems = body["items"]?.arrayValue,
-            let pagination = body["pagination"]?.objectValue,
-            let page = canonicalUInt64(pagination["page"]),
-            let perPage = canonicalUInt64(pagination["per_page"]),
-            perPage > 0,
-            let totalPages = canonicalUInt64(pagination["total_pages"]),
-            let totalItems = canonicalUInt64(pagination["total_items"]),
-            UInt64(sourceItems.count) <= totalItems
-        else {
-            throw NexusToriiError.invalidResponse
-        }
-
-        var items: [NexusTransferHistoryItem] = []
-        var sourceItemIDs: [String] = []
-        for value in sourceItems {
-            guard let instruction = value.objectValue else {
-                throw NexusToriiError.invalidResponse
-            }
-            let parsed = try parseInstruction(
-                instruction,
-                configuration: configuration,
-                account: canonicalAccount,
-                assetDefinitionID: assetDefinitionID
-            )
-            guard
-                let rawHash = instruction["transaction_hash"]?
-                    .exactWireStringValue,
-                let hash = NexusTransactionHash.normalized(rawHash),
-                hash == rawHash,
-                let index = canonicalUInt64(instruction["index"]),
-                index <= UInt64(UInt32.max)
-            else {
-                throw NexusToriiError.invalidResponse
-            }
-            sourceItemIDs.append("\(hash):\(index)")
-            items.append(contentsOf: parsed)
-        }
-        guard Set(sourceItemIDs).count == sourceItemIDs.count else {
-            throw NexusToriiError.invalidResponse
-        }
-        return NexusTairaTransferHistoryPage(
-            items: items,
-            sourceItemCount: sourceItems.count,
-            sourceItemIDs: sourceItemIDs,
-            page: page,
-            perPage: perPage,
-            totalPages: totalPages,
-            totalItems: totalItems
-        )
-    }
-
-    private static func parseInstruction(
-        _ instruction: [String: NexusJSONValue],
-        configuration: NexusNetworkConfiguration,
-        account: String,
-        assetDefinitionID: String
-    ) throws -> [NexusTransferHistoryItem] {
-        guard
-            let status = exactString(
-                instruction["transaction_status"],
-                maximumBytes: 32
-            ),
-            status.lowercased() == "committed",
-            let kind = exactString(instruction["kind"], maximumBytes: 64),
-            let rawHash = exactString(
-                instruction["transaction_hash"],
-                maximumBytes: 64
-            ),
-            let hash = NexusTransactionHash.normalized(rawHash),
-            hash == rawHash,
-            let timestamp = parseTimestamp(
-                instruction["created_at"]?.exactWireStringValue
-            ),
-            timestamp > 0,
-            let block = canonicalUInt64(instruction["block"]),
-            block > 0,
-            let authority = instruction["authority"]?.exactWireStringValue,
-            (try? IrohaAddressCodec.parse(
-                authority,
-                expectedDiscriminant: configuration.i105Discriminant
-            )) != nil
-        else {
-            throw NexusToriiError.invalidResponse
-        }
-        guard kind == "Transfer" else {
-            throw NexusToriiError.invalidResponse
-        }
-        guard
-            let box = instruction["box"]?.objectValue,
-            let json = box["json"]?.objectValue,
-            json["kind"]?.exactWireStringValue == "Transfer",
-            let payload = json["payload"]?.objectValue,
-            let variant = payload["variant"]?.exactWireStringValue
-        else {
-            throw NexusToriiError.invalidResponse
-        }
-
-        let transfers: [ParsedTransfer]
-        switch variant {
-        case "Asset":
-            guard let value = payload["value"]?.objectValue else {
-                throw NexusToriiError.invalidResponse
-            }
-            transfers = try parseTransfer(
-                value,
-                configuration: configuration,
-                account: account,
-                assetDefinitionID: assetDefinitionID
-            ).map { [$0] } ?? []
-        case "AssetBatch":
-            guard let value = payload["value"]?.objectValue else {
-                throw NexusToriiError.invalidResponse
-            }
-            let entries = ["entries", "transfers", "items"].lazy
-                .compactMap { value[$0]?.arrayValue }
-                .first
-            guard let entries else {
-                throw NexusToriiError.invalidResponse
-            }
-            transfers = try entries.compactMap { entry in
-                guard let object = entry.objectValue else {
-                    throw NexusToriiError.invalidResponse
-                }
-                guard
-                    firstExactString(
-                        in: object,
-                        keys: [
-                            "asset_definition", "assetDefinition",
-                            "asset_definition_id",
-                        ]
-                    ) == assetDefinitionID
-                else {
-                    return nil
-                }
-                return try parseTransfer(
-                    object,
-                    configuration: configuration,
-                    account: account,
-                    assetDefinitionID: assetDefinitionID
-                )
-            }
-        default:
-            throw NexusToriiError.invalidResponse
-        }
-        guard !transfers.isEmpty else {
-            throw NexusToriiError.invalidResponse
-        }
-        return transfers.map {
-            NexusTransferHistoryItem(
-                transactionHash: hash,
-                timestampMilliseconds: timestamp,
-                amount: $0.amount,
-                sender: $0.sender,
-                receiver: $0.receiver
-            )
-        }
-    }
-
-    private struct ParsedTransfer {
-        let amount: PIQuantity
-        let sender: String
-        let receiver: String
-    }
-
-    private static func parseTransfer(
-        _ value: [String: NexusJSONValue],
-        configuration: NexusNetworkConfiguration,
-        account: String,
-        assetDefinitionID: String
-    ) throws -> ParsedTransfer? {
-        let source = firstExactString(
-            in: value,
-            keys: [
-                "source", "source_id", "asset", "asset_id",
-                "asset_definition", "assetDefinition",
-                "asset_definition_id",
-            ]
-        )
-        let embeddedSourceAccount: String?
-        if source == nil || source == assetDefinitionID {
-            embeddedSourceAccount = nil
-        } else if let source,
-                  source.hasPrefix("\(assetDefinitionID)#")
-        {
-            let suffix = String(source.dropFirst(assetDefinitionID.count + 1))
-            guard !suffix.isEmpty, !suffix.contains("#") else {
-                throw NexusToriiError.invalidResponse
-            }
-            embeddedSourceAccount = suffix
-        } else {
-            return nil
-        }
-        guard
-            let destination = firstExactString(
-                in: value,
-                keys: [
-                    "destination", "destination_id", "to", "account_id",
-                ]
-            ),
-            let rawAmount = ["object", "amount", "quantity", "value"].lazy
-                .compactMap({ value[$0] }).first
-        else {
-            throw NexusToriiError.invalidResponse
-        }
-        let explicitSource = firstExactString(
-            in: value,
-            keys: ["source_account", "from", "account"]
-        )
-        let canonicalDestination = try IrohaAddressCodec.parse(
-            destination,
-            expectedDiscriminant: configuration.i105Discriminant
-        ).i105
-        let canonicalExplicitSource = try explicitSource.map {
-            try IrohaAddressCodec.parse(
-                $0,
-                expectedDiscriminant: configuration.i105Discriminant
-            ).i105
-        }
-        let canonicalEmbeddedSource = try embeddedSourceAccount.map {
-            try IrohaAddressCodec.parse(
-                $0,
-                expectedDiscriminant: configuration.i105Discriminant
-            ).i105
-        }
-        if let canonicalExplicitSource, let canonicalEmbeddedSource,
-           canonicalExplicitSource != canonicalEmbeddedSource
-        {
-            throw NexusToriiError.invalidResponse
-        }
-        let canonicalSource = canonicalExplicitSource ?? canonicalEmbeddedSource
-        let incoming = canonicalDestination == account
-        let outgoing = canonicalSource == account
-        guard incoming || outgoing else {
-            return nil
-        }
-        let amount = try parseAmount(
-            rawAmount,
-            maximumScale: NexusAmountPolicy.maximumScale(
-                for: configuration.networkId
-            )
-        )
-        guard let sender = outgoing ? account : canonicalSource else {
-            throw NexusToriiError.invalidResponse
-        }
-        return ParsedTransfer(
-            amount: amount,
-            sender: sender,
-            receiver: incoming ? account : canonicalDestination
-        )
-    }
-
-    private static func parseAmount(
-        _ value: NexusJSONValue,
-        maximumScale: Int
-    ) throws -> PIQuantity {
-        let raw: String?
-        if let string = value.exactWireStringValue {
-            raw = string
-        } else if let object = value.objectValue {
-            let scaleText = object["scale"]?.exactWireStringValue ??
-                canonicalUInt64(object["scale"]).map(String.init)
-            let mantissa = ["value", "amount", "mantissa"].lazy
-                .compactMap { object[$0]?.exactWireStringValue }.first
-            if
-                let scaleText,
-                let scale = Int(scaleText),
-                (0 ... maximumScale).contains(scale),
-                let mantissa,
-                mantissa.range(
-                    of: #"^[0-9]+$"#,
-                    options: .regularExpression
-                ) != nil
-            {
-                raw = decimalString(mantissa: mantissa, scale: scale)
-            } else {
-                raw = nil
-            }
-        } else {
-            raw = nil
-        }
-        guard
-            let raw,
-            raw.utf8.count <= PIQuantity.maximumWireBytes,
-            let exact = NexusExactDecimal(raw),
-            exact.unscaled > 0,
-            exact.scale <= maximumScale
-        else {
-            throw NexusToriiError.invalidResponse
-        }
-        return try PIQuantity(raw)
-    }
-
-    private static func decimalString(
-        mantissa: String,
-        scale: Int
-    ) -> String {
-        guard scale > 0 else { return mantissa }
-        if mantissa.count <= scale {
-            return "0." + String(repeating: "0", count: scale - mantissa.count) +
-                mantissa
-        }
-        let split = mantissa.index(mantissa.endIndex, offsetBy: -scale)
-        return "\(mantissa[..<split]).\(mantissa[split...])"
-    }
-
-    private static func parseTimestamp(_ value: String?) -> Int64? {
-        guard let value, !value.isEmpty, value.utf8.count <= 64 else {
-            return nil
-        }
-        if value.unicodeScalars.allSatisfy({ (48 ... 57).contains($0.value) }),
-           let integer = Int64(value)
-        {
-            guard integer < 10_000_000_000 else {
-                return integer
-            }
-            let multiplied = integer.multipliedReportingOverflow(by: 1_000)
-            return multiplied.overflow ? nil : multiplied.partialValue
-        }
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [
-            .withInternetDateTime, .withFractionalSeconds,
-        ]
-        let plain = ISO8601DateFormatter()
-        plain.formatOptions = [.withInternetDateTime]
-        guard let date = fractional.date(from: value) ?? plain.date(from: value)
-        else {
-            return nil
-        }
-        let milliseconds = date.timeIntervalSince1970 * 1_000
-        guard milliseconds.isFinite,
-              milliseconds > 0,
-              milliseconds <= Double(Int64.max)
-        else {
-            return nil
-        }
-        return Int64(milliseconds.rounded())
-    }
-
-    private static func firstExactString(
-        in object: [String: NexusJSONValue],
-        keys: [String]
-    ) -> String? {
-        keys.lazy.compactMap {
-            exactString(object[$0], maximumBytes: 8_192)
-        }.first
-    }
-
-    private static func exactString(
-        _ value: NexusJSONValue?,
-        maximumBytes: Int
-    ) -> String? {
-        guard
-            let string = value?.exactWireStringValue,
-            !string.isEmpty,
-            string == string.trimmingCharacters(in: .whitespacesAndNewlines),
-            string.utf8.count <= maximumBytes
-        else {
-            return nil
-        }
-        return string
-    }
-
-    private static func canonicalUInt64(
-        _ value: NexusJSONValue?
-    ) -> UInt64? {
-        guard let value, case let .number(raw) = value else {
-            return nil
-        }
-        guard
-            raw == "0" || raw.range(
-                of: #"^[1-9][0-9]{0,19}$"#,
-                options: .regularExpression
-            ) != nil
-        else {
-            return nil
-        }
-        return UInt64(raw)
     }
 }
 
@@ -3203,8 +2781,53 @@ private final class NexusRedirectRejectingDelegate: NSObject,
     }
 }
 
+/// Taira's `server/discover` lets a client reuse a discovery for its `ttlMs`
+/// (30 s on 2026-11-08, cache scope private). Before this cache every Taira
+/// read repeated `server/discover` and the full tool listing (160 tools, about
+/// 2 s) ahead of its own call, so each read cost three round trips. A tool is
+/// reused only after a complete validation of its advertised schema, and only
+/// within the lifetime the server granted, never longer than 30 s.
+final class NexusTairaToolDiscoveryCache: @unchecked Sendable {
+    static let shared = NexusTairaToolDiscoveryCache()
+    static let maximumLifetime: TimeInterval = 30
+
+    private let lock = NSLock()
+    private var validUntil: [NexusTairaMCPToolContract.Tool: Date] = [:]
+    private let now: () -> Date
+
+    init(now: @escaping () -> Date = Date.init) {
+        self.now = now
+    }
+
+    func isValidated(_ tool: NexusTairaMCPToolContract.Tool) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let expiry = validUntil[tool] else { return false }
+        return now() < expiry
+    }
+
+    func recordValidated(
+        _ tool: NexusTairaMCPToolContract.Tool,
+        lifetime: TimeInterval
+    ) {
+        guard lifetime > 0 else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        validUntil[tool] = now().addingTimeInterval(
+            min(lifetime, Self.maximumLifetime)
+        )
+    }
+
+    func removeAll() {
+        lock.lock()
+        defer { lock.unlock() }
+        validUntil.removeAll()
+    }
+}
+
 final class NexusToriiClient {
     private let session: URLSession
+    private let discoveryCache: NexusTairaToolDiscoveryCache?
     private let decoder = JSONDecoder()
     private let encoder = JSONEncoder()
     private let responseLimit = 2 * 1024 * 1024
@@ -3450,7 +3073,15 @@ final class NexusToriiClient {
         return parsed <= maximum
     }
 
-    init(session: URLSession? = nil) {
+    /// Production clients share one discovery cache. A client built on an
+    /// injected session (tests) discovers on every read unless it is given a
+    /// cache of its own.
+    init(
+        session: URLSession? = nil,
+        discoveryCache: NexusTairaToolDiscoveryCache? = nil
+    ) {
+        self.discoveryCache = discoveryCache ??
+            (session == nil ? NexusTairaToolDiscoveryCache.shared : nil)
         if let session {
             self.session = session
         } else {
@@ -3737,7 +3368,8 @@ final class NexusToriiClient {
         account: String,
         configuration: NexusNetworkConfiguration,
         assetDefinitionID: String,
-        transactionHash: String
+        transactionHash: String,
+        committedBlockHeight: Int64? = nil
     ) async throws -> Bool {
         let canonicalAccount = try IrohaAddressCodec.parse(
             account,
@@ -3758,7 +3390,8 @@ final class NexusToriiClient {
         if configuration.networkId == .taira {
             let transfers = try await committedXorTransfers(
                 account: canonicalAccount, configuration: configuration,
-                assetDefinitionID: assetDefinitionID, transactionHash: expectedHash
+                assetDefinitionID: assetDefinitionID, transactionHash: expectedHash,
+                committedBlockHeight: committedBlockHeight
             )
             return !transfers.isEmpty
         }
@@ -3793,7 +3426,8 @@ final class NexusToriiClient {
         configuration: NexusNetworkConfiguration,
         assetDefinitionID: String,
         cursor: String?,
-        transactionHash: String? = nil
+        transactionHash: String? = nil,
+        committedBlockHeight: Int64? = nil
     ) async throws -> NexusCursorHistoryPage {
         guard configuration.isLive,
               NexusAssetDefinitionIdentity.isQualifiedXorDefinitionID(
@@ -3811,7 +3445,8 @@ final class NexusToriiClient {
                 account: canonicalAccount,
                 assetDefinitionID: assetDefinitionID,
                 cursor: cursor,
-                transactionHash: transactionHash
+                transactionHash: transactionHash,
+                committedBlockHeight: committedBlockHeight
             ),
             configuration: configuration
         )
@@ -3830,11 +3465,14 @@ final class NexusToriiClient {
 
     /// Recovery requests only the signed transaction. Never scan account history
     /// or let the presentation page size determine whether a send can finalize.
+    /// With the committed block height from the pipeline status the server
+    /// answers from that block alone; without it Taira walks every block range.
     func committedXorTransfers(
         account: String,
         configuration: NexusNetworkConfiguration,
         assetDefinitionID: String,
-        transactionHash: String
+        transactionHash: String,
+        committedBlockHeight: Int64? = nil
     ) async throws -> [NexusTransferHistoryItem] {
         guard let hash = NexusTransactionHash.normalized(transactionHash) else {
             throw NexusToriiError.invalidRoute
@@ -3846,7 +3484,8 @@ final class NexusToriiClient {
             let page = try await transferHistoryPage(
                 account: account, configuration: configuration,
                 assetDefinitionID: assetDefinitionID,
-                cursor: cursor.nextCursor, transactionHash: hash
+                cursor: cursor.nextCursor, transactionHash: hash,
+                committedBlockHeight: committedBlockHeight
             )
             guard page.items.allSatisfy({ $0.transactionHash == hash }) else {
                 throw NexusToriiError.invalidResponse
@@ -3867,6 +3506,9 @@ final class NexusToriiClient {
         else {
             throw NexusToriiError.invalidRoute
         }
+        if discoveryCache?.isValidated(tool) == true {
+            return
+        }
         let initialize = try await mcp(
             NexusTairaMCPToolContract.initializeRequest(
                 id: "taira-tools-initialize"
@@ -3877,6 +3519,9 @@ final class NexusToriiClient {
             throw NexusToriiError.mcpContractMismatch
         }
         let version = try NexusTairaMCPToolContract.toolsetVersion(
+            initialize: initializeResult
+        )
+        let discoveryLifetime = NexusTairaMCPToolContract.discoveryLifetime(
             initialize: initializeResult
         )
         var cursor: String?
@@ -3905,6 +3550,7 @@ final class NexusToriiClient {
             }
             advertisedNames.formUnion(page.advertisedNames)
             if page.matched.contains(tool) {
+                discoveryCache?.recordValidated(tool, lifetime: discoveryLifetime)
                 return
             }
             guard let nextCursor = page.nextCursor else {
@@ -4287,6 +3933,56 @@ protocol NexusToriiReading {
         assetDefinitionID: String,
         transactionHash: String
     ) async throws -> [NexusTransferHistoryItem]
+
+    /// The same proofs narrowed to the block the pipeline status reported.
+    func hasAuthoritativeCommittedTransaction(
+        account: String,
+        configuration: NexusNetworkConfiguration,
+        assetDefinitionID: String,
+        transactionHash: String,
+        committedBlockHeight: Int64
+    ) async throws -> Bool
+
+    func committedXorTransfers(
+        account: String,
+        configuration: NexusNetworkConfiguration,
+        assetDefinitionID: String,
+        transactionHash: String,
+        committedBlockHeight: Int64
+    ) async throws -> [NexusTransferHistoryItem]
+}
+
+extension NexusToriiReading {
+    /// Readers without a narrowed lookup answer from the full proof.
+    func hasAuthoritativeCommittedTransaction(
+        account: String,
+        configuration: NexusNetworkConfiguration,
+        assetDefinitionID: String,
+        transactionHash: String,
+        committedBlockHeight: Int64
+    ) async throws -> Bool {
+        try await hasAuthoritativeCommittedTransaction(
+            account: account,
+            configuration: configuration,
+            assetDefinitionID: assetDefinitionID,
+            transactionHash: transactionHash
+        )
+    }
+
+    func committedXorTransfers(
+        account: String,
+        configuration: NexusNetworkConfiguration,
+        assetDefinitionID: String,
+        transactionHash: String,
+        committedBlockHeight: Int64
+    ) async throws -> [NexusTransferHistoryItem] {
+        try await committedXorTransfers(
+            account: account,
+            configuration: configuration,
+            assetDefinitionID: assetDefinitionID,
+            transactionHash: transactionHash
+        )
+    }
 }
 
 protocol NexusToriiSubmitting {
@@ -4374,6 +4070,38 @@ final class NexusToriiReadClient: NexusToriiReading {
             configuration: configuration,
             assetDefinitionID: assetDefinitionID,
             transactionHash: transactionHash
+        )
+    }
+
+    func hasAuthoritativeCommittedTransaction(
+        account: String,
+        configuration: NexusNetworkConfiguration,
+        assetDefinitionID: String,
+        transactionHash: String,
+        committedBlockHeight: Int64
+    ) async throws -> Bool {
+        try await transport.hasAuthoritativeCommittedTransaction(
+            account: account,
+            configuration: configuration,
+            assetDefinitionID: assetDefinitionID,
+            transactionHash: transactionHash,
+            committedBlockHeight: committedBlockHeight
+        )
+    }
+
+    func committedXorTransfers(
+        account: String,
+        configuration: NexusNetworkConfiguration,
+        assetDefinitionID: String,
+        transactionHash: String,
+        committedBlockHeight: Int64
+    ) async throws -> [NexusTransferHistoryItem] {
+        try await transport.committedXorTransfers(
+            account: account,
+            configuration: configuration,
+            assetDefinitionID: assetDefinitionID,
+            transactionHash: transactionHash,
+            committedBlockHeight: committedBlockHeight
         )
     }
 }
@@ -5319,6 +5047,15 @@ actor NexusPendingTransactionStore {
             expectedDiscriminant: addressDiscriminant
         )
 
+        try validateHashAndHeight(transaction)
+        try validateStateInvariants(transaction)
+    }
+
+    /// A hash, when present, is canonical; without one the transaction never
+    /// left the device. A block height is never negative.
+    private static func validateHashAndHeight(
+        _ transaction: NexusPendingTransaction
+    ) throws {
         if let hash = transaction.hash {
             guard NexusTransactionHash.normalized(hash) != nil else {
                 throw NexusToriiError.invalidResponse
@@ -5336,6 +5073,13 @@ actor NexusPendingTransactionStore {
                 throw NexusToriiError.invalidResponse
             }
         }
+    }
+
+    /// What each state requires of the block height, asset and
+    /// reconciliation proof.
+    private static func validateStateInvariants(
+        _ transaction: NexusPendingTransaction
+    ) throws {
         switch transaction.state {
         case .signing, .failedBeforeSubmission:
             guard transaction.terminalBlockHeight == nil else {
@@ -5593,19 +5337,10 @@ actor NexusTransactionCoordinator {
         else {
             throw NexusToriiError.wrongWalletOrNetwork
         }
-        guard signer.isQualified(for: configuration) else {
-            throw NexusToriiError.nativeBridgeUnavailable
-        }
-        guard finalityReader.isQualified(for: configuration) else {
-            throw NexusToriiError.finalizedHeadUnavailable
-        }
-        try await pendingStore.requireCurrentChainMutationAdmission()
-        try await validateLiveFeatureFlags(for: request.networkId)
-        try configuration.validate(address: request.sender)
-        try configuration.validate(address: prepared.canonicalReceiver)
-        guard prepared.canonicalReceiver == request.receiver else {
-            throw NexusToriiError.wrongWalletOrNetwork
-        }
+        try await revalidateSendAdmission(
+            prepared,
+            configuration: configuration
+        )
 
         let freshDefinition = try await readClient.xorAssetDefinition(
             configuration: configuration
@@ -5695,23 +5430,10 @@ actor NexusTransactionCoordinator {
                 selectedAccount: selectedAccount
             )
         } catch {
-            do {
-                if var persisted = (try await pendingStore.all()).first(
-                    where: { $0.id == pending.id }
-                ) {
-                    persisted.state = .failedBeforeSubmission
-                    persisted.updatedAt = Date()
-                    persisted.errorClass = String(
-                        describing: type(of: error)
-                    )
-                    _ = try await pendingStore.put(persisted)
-                }
-            } catch {
-                // A journal that became unreadable after signing preparation
-                // is itself recovery-required evidence. Never manufacture a
-                // replacement row or continue toward transport.
-                throw NexusToriiError.invalidResponse
-            }
+            try await recordSigningFailure(
+                pendingId: pending.id,
+                error: error
+            )
             throw error
         }
         var signed = signingResult.signed
@@ -5833,13 +5555,67 @@ actor NexusTransactionCoordinator {
             if pending.state.isTerminal {
                 return pending
             }
-            if let classified = error as? NexusToriiError {
-                throw classified
-            }
-            throw NexusToriiError.ambiguousSubmission
+            throw Self.unconfirmedSubmissionError(error)
         }
 
         return await reconcileUntilTerminal(pending)
+    }
+
+    /// The checks a send repeats once the selected account and network are
+    /// confirmed: signer and finality qualification, the journal, live
+    /// feature flags, and both addresses.
+    private func revalidateSendAdmission(
+        _ prepared: NexusPreparedTransfer,
+        configuration: NexusNetworkConfiguration
+    ) async throws {
+        let request = prepared.request
+        guard signer.isQualified(for: configuration) else {
+            throw NexusToriiError.nativeBridgeUnavailable
+        }
+        guard finalityReader.isQualified(for: configuration) else {
+            throw NexusToriiError.finalizedHeadUnavailable
+        }
+        try await pendingStore.requireCurrentChainMutationAdmission()
+        try await validateLiveFeatureFlags(for: request.networkId)
+        try configuration.validate(address: request.sender)
+        try configuration.validate(address: prepared.canonicalReceiver)
+        guard prepared.canonicalReceiver == request.receiver else {
+            throw NexusToriiError.wrongWalletOrNetwork
+        }
+    }
+
+    /// Marks the journaled row of a send whose signing failed as failed
+    /// before submission.
+    private func recordSigningFailure(
+        pendingId: UUID,
+        error: Error
+    ) async throws {
+        do {
+            if var persisted = (try await pendingStore.all()).first(
+                where: { $0.id == pendingId }
+            ) {
+                persisted.state = .failedBeforeSubmission
+                persisted.updatedAt = Date()
+                persisted.errorClass = String(
+                    describing: type(of: error)
+                )
+                _ = try await pendingStore.put(persisted)
+            }
+        } catch {
+            // A journal that became unreadable after signing preparation
+            // is itself recovery-required evidence. Never manufacture a
+            // replacement row or continue toward transport.
+            throw NexusToriiError.invalidResponse
+        }
+    }
+
+    /// What a submission without a confirmed result reports: a classified
+    /// Torii error as it is, anything else as an ambiguous submission.
+    private static func unconfirmedSubmissionError(_ error: Error) -> Error {
+        if let classified = error as? NexusToriiError {
+            return classified
+        }
+        return NexusToriiError.ambiguousSubmission
     }
 
     /// Holds the same process-wide lifecycle lease as account import,
@@ -6130,6 +5906,15 @@ actor NexusTransactionCoordinator {
         }
     }
 
+    /// The journal exactly as written, with no Torii call: what a wallet
+    /// screen needs to decide whether Send may open (journal readable, no
+    /// record from another chain or asset). `resumePending()` brings the same
+    /// records up to date from the network and can take much longer.
+    func journalSnapshot() async throws -> [NexusPendingTransaction] {
+        try Task.checkCancellation()
+        return try await pendingStore.all()
+    }
+
     func resumePending() async throws -> [NexusPendingTransaction] {
         try Task.checkCancellation()
         let transactions = try await pendingStore.all()
@@ -6293,12 +6078,16 @@ actor NexusTransactionCoordinator {
                 guard finalizedBlockHeight >= committedBlockHeight else {
                     return transaction
                 }
+                // Both proofs ask for the committed block alone: Taira's
+                // unnarrowed hash lookup walks every block range of the
+                // account's history, which kept sends pending for minutes.
                 guard try await readClient
                     .hasAuthoritativeCommittedTransaction(
                         account: account.address,
                         configuration: configuration,
                         assetDefinitionID: assetDefinitionID,
-                        transactionHash: expectedHash
+                        transactionHash: expectedHash,
+                        committedBlockHeight: committedBlockHeight
                     ) else {
                     return transaction
                 }
@@ -6312,7 +6101,8 @@ actor NexusTransactionCoordinator {
                     account: account.address,
                     configuration: configuration,
                     assetDefinitionID: assetDefinitionID,
-                    transactionHash: expectedHash
+                    transactionHash: expectedHash,
+                    committedBlockHeight: committedBlockHeight
                 )
                 guard NexusCommittedHistoryReconciliation.matchesExactlyOne(
                     history: history,

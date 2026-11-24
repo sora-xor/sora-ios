@@ -471,7 +471,8 @@ class MigrationService: MigrationServiceProtocol {
                                 self.decideMigration()
                             } else {
                                 self.migrationSuccess(
-                                    accountAddress: account.address
+                                    accountAddress: account.address,
+                                    announce: .unlessRecorded
                                 )
                             }
                         }
@@ -499,8 +500,24 @@ class MigrationService: MigrationServiceProtocol {
         eventCenter.notify(with: MigrationEvent(service: self))
     }
 
-    private func migrationSuccess(accountAddress: String) {
+    /// Whether a success is announced (`MigrationSuccsessEvent`, which takes down a claim and
+    /// builds the Wallet tab again).
+    private enum SuccessAnnouncement {
+        /// A migration that just finished, or one the user asked about.
+        case always
+        /// The launch-time check: an account that needs no migration is told so at every launch,
+        /// and a finished journal entry is found again at every launch. Announced only the first
+        /// time this device records the account; announcing it at every launch rebuilt the Wallet
+        /// tab right after it opened and threw away its balance reads.
+        case unlessRecorded
+    }
+
+    private func migrationSuccess(accountAddress: String, announce: SuccessAnnouncement = .always) {
         eligibilityGate.invalidate()
+        let wasRecorded = (try? MigrationAccountCompletionStore.contains(
+            accountAddress: accountAddress,
+            settings: settings
+        )) ?? false
         do {
             try MigrationAccountCompletionStore.record(
                 accountAddress: accountAddress,
@@ -513,6 +530,9 @@ class MigrationService: MigrationServiceProtocol {
             logger.error("Per-account migration completion was not recorded")
         }
         settings.hasMigrated = true
+        if announce == .unlessRecorded, wasRecorded {
+            return
+        }
         eventCenter.notify(with: MigrationSuccsessEvent(service: self))
     }
 
@@ -803,7 +823,7 @@ class MigrationService: MigrationServiceProtocol {
         if migrationValues.contains(where: {
             $0.terminalResolution?.kind == .finalizedSuccess
         }) {
-            migrationSuccess(accountAddress: account.address)
+            migrationSuccess(accountAddress: account.address, announce: completion == nil ? .unlessRecorded : .always)
             completion?(.success(""))
             return true
         }
@@ -863,23 +883,7 @@ class MigrationService: MigrationServiceProtocol {
                 transactionHash: canonicalHash
             )
             finalityLock.unlock()
-            if matches, let completion {
-                if !current.attach(completion) {
-                    DispatchQueue.main.async {
-                        completion(
-                            .failure(
-                                MigrationServiceError.startMigrationFail
-                            )
-                        )
-                    }
-                }
-            } else if !matches, let completion {
-                DispatchQueue.main.async {
-                    completion(
-                        .failure(MigrationServiceError.startMigrationFail)
-                    )
-                }
-            }
+            joinRunningFinalityRecovery(current, matches: matches, completion: completion)
             return
         }
         let recovery = MigrationFinalityRecoveryHandle(
@@ -897,102 +901,155 @@ class MigrationService: MigrationServiceProtocol {
                 self?.clearFinalityRecovery(recovery)
                 if let self, let outcome {
                     DispatchQueue.main.async {
-                        guard
-                            SelectedWalletSettings.shared.currentAccount?
-                                .address == accountAddress
-                        else {
-                            return
-                        }
-                        switch outcome {
-                        case .finalizedSuccess:
-                            self.migrationSuccess(
-                                accountAddress: accountAddress
-                            )
-                            attachedCompletion?(.success(""))
-                        case .retrySafeFailure:
-                            if let attachedCompletion {
-                                attachedCompletion(
-                                    .failure(
-                                        MigrationServiceError
-                                            .confirmMigrationFail
-                                    )
-                                )
-                            } else {
-                                self.decideMigration()
-                            }
-                        case .recoveryUnavailable:
-                            attachedCompletion?(
-                                .failure(
-                                    MigrationServiceError.startMigrationFail
-                                )
-                            )
-                        }
+                        self.deliverFinalityOutcome(
+                            outcome,
+                            accountAddress: accountAddress,
+                            attachedCompletion: attachedCompletion
+                        )
                     }
                 }
             }
             guard let self else { return }
-            let store: Sora2PendingSubmissionStore
-            do {
-                store = try self.pendingStore()
-            } catch {
-                self.logger.error("Migration recovery journal unavailable")
-                outcome = .recoveryUnavailable
-                return
-            }
-            let reconciler = Sora2PendingSubmissionReconciler(
-                store: store,
+            outcome = await self.migrationFinalityOutcome(
+                accountAddress: accountAddress,
+                canonicalHash: canonicalHash,
                 engine: engine,
-                runtimeService: runtimeRegistry
+                runtimeRegistry: runtimeRegistry
             )
-            while !Task.isCancelled {
-                do {
-                    try await reconciler.reconcileStatusOnly()
-                } catch is CancellationError {
-                    return
-                } catch {
-                    // Every status request has its own finite transport bound.
-                    // Offline/unready state remains pending for the next pass.
-                    self.logger.error("Migration finality check deferred")
-                }
-
-                let matches: [Sora2PendingSubmission]
-                do {
-                    matches = try store.all().filter {
-                        $0.account == accountAddress &&
-                            $0.extrinsicHash == canonicalHash &&
-                            $0.purpose == .legacyMigration
-                    }
-                } catch {
-                    self.logger.error("Migration recovery journal unreadable")
-                    outcome = .recoveryUnavailable
-                    return
-                }
-                guard matches.count == 1 else {
-                    // Missing/duplicate durable evidence is not permission to
-                    // ask the user to retry.
-                    self.logger.error("Migration recovery witness mismatch")
-                    outcome = .recoveryUnavailable
-                    return
-                }
-                if let terminal = matches[0].terminalResolution {
-                    switch terminal.kind {
-                    case .finalizedSuccess:
-                        outcome = .finalizedSuccess
-                    case .finalizedFailure, .expiredNotIncluded:
-                        outcome = .retrySafeFailure
-                    }
-                    return
-                }
-                do {
-                    try await Task.sleep(
-                        nanoseconds: Self.finalityRetryNanoseconds
-                    )
-                } catch {
-                    return
-                }
-            }
         }
         recovery.install(task)
+    }
+
+    /// A request for the recovery already running: a matching one attaches
+    /// its completion, any other one fails. Called outside `finalityLock`.
+    private func joinRunningFinalityRecovery(
+        _ current: MigrationFinalityRecoveryHandle,
+        matches: Bool,
+        completion: MigrationResultClosure?
+    ) {
+        if matches, let completion {
+            if !current.attach(completion) {
+                DispatchQueue.main.async {
+                    completion(
+                        .failure(
+                            MigrationServiceError.startMigrationFail
+                        )
+                    )
+                }
+            }
+        } else if !matches, let completion {
+            DispatchQueue.main.async {
+                completion(
+                    .failure(MigrationServiceError.startMigrationFail)
+                )
+            }
+        }
+    }
+
+    /// On main: reports a finished finality recovery, unless another
+    /// account was selected meanwhile.
+    private func deliverFinalityOutcome(
+        _ outcome: MigrationFinalityOutcome,
+        accountAddress: String,
+        attachedCompletion: MigrationResultClosure?
+    ) {
+        guard
+            SelectedWalletSettings.shared.currentAccount?
+                .address == accountAddress
+        else {
+            return
+        }
+        switch outcome {
+        case .finalizedSuccess:
+            self.migrationSuccess(
+                accountAddress: accountAddress
+            )
+            attachedCompletion?(.success(""))
+        case .retrySafeFailure:
+            if let attachedCompletion {
+                attachedCompletion(
+                    .failure(
+                        MigrationServiceError
+                            .confirmMigrationFail
+                    )
+                )
+            } else {
+                self.decideMigration()
+            }
+        case .recoveryUnavailable:
+            attachedCompletion?(
+                .failure(
+                    MigrationServiceError.startMigrationFail
+                )
+            )
+        }
+    }
+
+    /// Reconciles the exact migration hash until its journal row is final.
+    /// Nil when the task is cancelled first.
+    private func migrationFinalityOutcome(
+        accountAddress: String,
+        canonicalHash: String,
+        engine: JSONRPCEngine,
+        runtimeRegistry: RuntimeCodingServiceProtocol
+    ) async -> MigrationFinalityOutcome? {
+        let store: Sora2PendingSubmissionStore
+        do {
+            store = try self.pendingStore()
+        } catch {
+            self.logger.error("Migration recovery journal unavailable")
+            return .recoveryUnavailable
+        }
+        let reconciler = Sora2PendingSubmissionReconciler(
+            store: store,
+            engine: engine,
+            runtimeService: runtimeRegistry
+        )
+        while !Task.isCancelled {
+            do {
+                try await reconciler.reconcileStatusOnly()
+            } catch is CancellationError {
+                return nil
+            } catch {
+                // Every status request has its own finite transport bound.
+                // Offline/unready state remains pending for the next pass.
+                self.logger.error("Migration finality check deferred")
+            }
+
+            let matches: [Sora2PendingSubmission]
+            do {
+                matches = try store.all().filter {
+                    $0.account == accountAddress &&
+                        $0.extrinsicHash == canonicalHash &&
+                        $0.purpose == .legacyMigration
+                }
+            } catch {
+                self.logger.error("Migration recovery journal unreadable")
+                return .recoveryUnavailable
+            }
+            guard matches.count == 1 else {
+                // Missing/duplicate durable evidence is not permission to
+                // ask the user to retry.
+                self.logger.error("Migration recovery witness mismatch")
+                return .recoveryUnavailable
+            }
+            if let terminal = matches[0].terminalResolution {
+                switch terminal.kind {
+                case .finalizedSuccess:
+                    return .finalizedSuccess
+                case .finalizedFailure, .expiredNotIncluded:
+                    return .retrySafeFailure
+                }
+            }
+            do {
+                try await Task.sleep(
+                    nanoseconds: Self.finalityRetryNanoseconds
+                )
+            } catch {
+                return nil
+            }
+        }
+        return nil
     }
 
     private func failAttachedMigrationRequest(

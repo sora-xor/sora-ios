@@ -383,3 +383,106 @@ private final class ServiceFlowEvents: EventCenterProtocol {
     func add(observer: EventVisitorProtocol, dispatchIn: DispatchQueue?) {}
     func remove(observer: EventVisitorProtocol) {}
 }
+
+extension ExtrinsicServiceFlowTests {
+    func testExactFeeQualificationRejectsUnscopedSignerOnRequestedQueueWithoutRPC() async throws {
+        let f = try make(), done = expectation(description: "rejected signer callback")
+        let queue = DispatchQueue(label: "fee-rejection-callback"), key = DispatchSpecificKey<String>()
+        queue.setSpecific(key: key, value: "callback")
+        let handle = f.service.prepareAndEstimateFee(f.call, signer: try DummySigner(cryptoType: .sr25519), preSigningValidation: { XCTFail("Unscoped signer validated") }, runningIn: queue) { result in
+            XCTAssertEqual(DispatchQueue.getSpecific(key: key), "callback")
+            guard case .failure(let error) = result else { done.fulfill(); return XCTFail("Unscoped signer qualified") }
+            guard case ExtrinsicServiceError.lifecycleSignerRequired = error else { done.fulfill(); return XCTFail("Unexpected error: \(error)") }
+            done.fulfill()
+        }
+        handle.cancel(); await fulfillment(of: [done], timeout: 3)
+        XCTAssertTrue(f.server.requests(SoraPassport.RPCMethod.getExtrinsicNonce).isEmpty)
+    }
+    func testExactFeeQualificationUsesSuppliedLeaseAndLeavesItsOwnershipWithCaller() async throws {
+        let f = try make(), lease = try XCTUnwrap(f.lifecycle.tryAcquireForMutableWalletAccess())
+        defer { lease.release() }
+        let qualified: PreparedExtrinsicFeeQualification = try await withCheckedThrowingContinuation { continuation in
+            _ = f.service.prepareAndEstimateFee(f.call, signer: f.signer, lifecycleLease: lease, runtimeValidation: nil,
+                finalizedHeadValidation: nil, preSigningValidation: {}, runningIn: .main) { continuation.resume(with: $0) }
+        }
+        defer { qualified.prepared.discard() }
+        equal(qualified.rawFee, "7"); equal(f.signer.calls, 1)
+        XCTAssertNil(try f.lifecycle.tryAcquireForMutableWalletAccess(), "Caller still owns its exclusive lease")
+        lease.release(); let next = try XCTUnwrap(f.lifecycle.tryAcquireForMutableWalletAccess()); next.release()
+    }
+    func testPreparationWithSuppliedLeaseDoesNotReleaseCallerLeaseOnFailure() async throws {
+        let f = try make(), lease = try XCTUnwrap(f.lifecycle.tryAcquireForMutableWalletAccess())
+        defer { lease.release() }
+        f.signer.failure = ServiceFlowFailure.offline
+        await rejected {
+            let _: PreparedExtrinsicSubmission = try await withCheckedThrowingContinuation { continuation in
+                f.service.prepare(f.call, signer: f.signer, lifecycleLease: lease, runtimeValidation: nil,
+                    preSigningValidation: {}, runningIn: .main) { continuation.resume(with: $0) }
+            }
+        }
+        equal(f.signer.calls, 1); XCTAssertNil(try f.lifecycle.tryAcquireForMutableWalletAccess())
+        XCTAssertTrue(f.server.requests(SoraPassport.RPCMethod.submitExtrinsic).isEmpty)
+    }
+    func testPreparationWithSuppliedLeaseReturnsPayloadWithoutTransport() async throws {
+        let f = try make(), lease = try XCTUnwrap(f.lifecycle.tryAcquireForMutableWalletAccess())
+        defer { lease.release() }
+        let prepared: PreparedExtrinsicSubmission = try await withCheckedThrowingContinuation { continuation in
+            f.service.prepare(f.call, signer: f.signer, lifecycleLease: lease, runtimeValidation: nil,
+                preSigningValidation: {}, runningIn: .main) { continuation.resume(with: $0) }
+        }
+        defer { prepared.discard() }
+        XCTAssertNotNil(prepared.recoveryContext); equal(f.signer.calls, 1)
+        XCTAssertTrue(f.server.requests(SoraPassport.RPCMethod.submitExtrinsic).isEmpty)
+        XCTAssertNil(try f.lifecycle.tryAcquireForMutableWalletAccess())
+    }
+    func testLegacyDefaultSubmitWrapperPreservesHashAndTransaction() async throws {
+        let f = try make()
+        let result: (String, String?, Extrinsic?) = try await withCheckedThrowingContinuation { continuation in
+            f.service.submit(f.call, signer: f.signer, runningIn: .main) { result, hash, tx in continuation.resume(with: result.map { ($0, hash, tx) }) }
+        }
+        equal(result.0.replacingOccurrences(of: "0x", with: ""), result.1)
+        XCTAssertNotNil(result.2); equal(f.signer.calls, 1); equal(f.server.requests(SoraPassport.RPCMethod.submitExtrinsic).count, 1)
+        equal(try f.store.all().first?.state, .submitted)
+    }
+    func testLegacyLeaseSubmitWrapperPreservesCallerLeaseAndDurableWitness() async throws {
+        let f = try make(), lease = try XCTUnwrap(f.lifecycle.tryAcquireForMutableWalletAccess())
+        defer { lease.release() }
+        let hash: String = try await withCheckedThrowingContinuation { continuation in
+            f.service.submit(f.call, signer: f.signer, lifecycleLease: lease, runningIn: .main) { result, _, _ in continuation.resume(with: result) }
+        }
+        equal(hash.replacingOccurrences(of: "0x", with: ""), try f.store.all().first?.extrinsicHash)
+        equal(f.events.submitted, 1); XCTAssertNil(try f.lifecycle.tryAcquireForMutableWalletAccess())
+    }
+    func testFeeEstimatePropagatesNonceFailureWithoutUsingKeysOrRequestingFee() async throws {
+        let f = try make(); f.server.failedMethod = SoraPassport.RPCMethod.getExtrinsicNonce
+        await rejected { _ = try await f.fee() }; equal(f.signer.calls, 0)
+        XCTAssertTrue(f.server.requests(SoraPassport.RPCMethod.feeDetails).isEmpty)
+        equal(try f.store.all().count, 0)
+    }
+    func testFeeEstimatePropagatesFeeReadFailureWithoutSubmission() async throws {
+        let f = try make(); f.server.failedMethod = SoraPassport.RPCMethod.feeDetails
+        await rejected { _ = try await f.fee() }; equal(f.signer.calls, 0)
+        equal(f.server.requests(SoraPassport.RPCMethod.feeDetails).count, 1)
+        XCTAssertTrue(f.server.requests(SoraPassport.RPCMethod.submitExtrinsic).isEmpty)
+    }
+    func testExactFeeRuntimeValidationFailureStopsBeforeSigningAndFeeRead() async throws {
+        let f = try make(); var checked = false
+        await rejected {
+            let _: PreparedExtrinsicFeeQualification = try await withCheckedThrowingContinuation { continuation in
+                _ = f.service.prepareAndEstimateFee(f.call, signer: f.signer, lifecycleLease: nil, runtimeValidation: { _ in checked = true; throw ServiceFlowFailure.offline },
+                    finalizedHeadValidation: nil, preSigningValidation: {}, runningIn: .main) { continuation.resume(with: $0) }
+            }
+        }
+        XCTAssertTrue(checked); equal(f.signer.calls, 0); XCTAssertTrue(f.server.requests(SoraPassport.RPCMethod.feeDetails).isEmpty)
+    }
+    func testExactFeeFinalizedHeadValidationFailureStopsBeforeSigning() async throws {
+        let f = try make(); var checked: String?
+        await rejected {
+            let _: PreparedExtrinsicFeeQualification = try await withCheckedThrowingContinuation { continuation in
+                _ = f.service.prepareAndEstimateFee(f.call, signer: f.signer, lifecycleLease: nil, runtimeValidation: nil,
+                    finalizedHeadValidation: { checked = $0; throw ServiceFlowFailure.offline }, preSigningValidation: {}, runningIn: .main) { continuation.resume(with: $0) }
+            }
+        }
+        equal(checked, f.server.block); equal(f.signer.calls, 0); equal(try f.store.all().count, 0)
+    }
+}
